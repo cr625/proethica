@@ -368,6 +368,19 @@ class OntServeCommitService:
                 safe_label = self._category_safe_class_local(safe_label, self._get_concept_category(entity))
                 class_uri = PROETHICA[safe_label]
 
+                # Normalized D15 rule: do NOT copy a class that already lives in the curated
+                # base (core / intermediate) into the extended store. A discovered class
+                # matched to such a class (matchesExisting) belongs in the base, not here;
+                # re-declaring it produced a subClassOf-self loop (the resolver pointed the
+                # parent at the matched class, which is this IRI itself -- e.g.
+                # SafetyObligation subClassOf SafetyObligation). The case references the
+                # existing IRI through its import. Only genuinely-new classes reach extended.
+                if self._base_core_category(safe_label) is not None:
+                    logger.info(
+                        "Class %s already in the curated base (core/intermediate); "
+                        "not copying to the extended store.", safe_label)
+                    continue
+
                 # Check if class already exists
                 if (class_uri, RDF.type, OWL.Class) in g:
                     # Accumulate: add new case's discoveredInCase and context
@@ -656,56 +669,55 @@ class OntServeCommitService:
                         safe_class = self._category_safe_class_local(safe_class, concept_cat)
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
-                        # Emit the subClassOf chain to the core category so the
-                        # persisted TTL is reasoner-ready (proeth-core disjointness
-                        # is checkable without the pellet_validate in-memory patch).
-                        # The commit matcher's category guard ensures a class IRI
-                        # does not span categories, so this is single-valued.
+                        # Normalized D15 form: declare the type class IN THE CASE TTL only
+                        # when it is genuinely new (not already in core/intermediate/extended).
+                        # A class in the shared store is referenced by the rdf:type above and
+                        # resolves through the case import plus the per-case validation patch;
+                        # re-declaring it here is the ~4,800 redundant copies D15 removes
+                        # (they were bare stubs anyway -- no subClassOf -- so dropping them
+                        # loses no self-containment the case did not already lack).
+                        # established != None => the class lives in the shared store.
+                        established = self._established_core_category(safe_class)
                         if concept_cat:
-                            g.add((class_uri, RDF.type, OWL.Class))
-                            established = self._established_core_category(safe_class)
                             if established is not None:
-                                # The class already chains to a core category in the
-                                # intermediate ontology. Trust that over the instance's
-                                # conceptCategory literal; emitting a second disjoint
-                                # parent here is what makes the case inconsistent. Do
-                                # NOT add a subClassOf (the ontology already has one).
+                                # Shared class: do NOT re-declare it in the case. Trust the
+                                # established chain over the instance's conceptCategory literal
+                                # (emitting a second disjoint parent is what makes a case
+                                # inconsistent). Record the chain-authoritative category.
                                 if established != concept_cat:
                                     logger.warning(
                                         "Class %s is established as %s in the ontology but an "
                                         "instance carries conceptCategory %s; keeping the "
-                                        "ontology parent, skipping conceptCategory subClassOf. "
-                                        "Flagged for canonicalization.",
+                                        "ontology parent. Flagged for canonicalization.",
                                         safe_class, established, concept_cat,
                                     )
                                 class_core_category[safe_class] = established
-                                # Chain is authoritative: the individual's category
-                                # is the established class's category, not the
-                                # extraction-pass literal.
                                 resolved_cat = established
                             else:
+                                # Genuinely-new (case-only) class: declare it locally with its
+                                # subClassOf-core so the case stays self-validating.
+                                g.add((class_uri, RDF.type, OWL.Class))
                                 prior = class_core_category.get(safe_class)
                                 if prior is None:
                                     class_core_category[safe_class] = concept_cat
                                     g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE[concept_cat]))
                                 elif prior != concept_cat:
-                                    # Same fresh class IRI proposed under a second,
-                                    # disjoint category in this commit (LLM naming
-                                    # collision the matcher guard cannot catch).
-                                    # Keep the first; flag for canonicalization.
+                                    # Same fresh class IRI proposed under a second, disjoint
+                                    # category in this commit (LLM naming collision the matcher
+                                    # guard cannot catch). Keep the first; flag.
                                     logger.warning(
                                         "Class %s proposed under categories %s and %s in one "
                                         "commit; keeping %s, skipping conflicting subClassOf.",
                                         safe_class, prior, concept_cat, prior,
                                     )
 
-                        # Layer-1 convergence: attach both archetype axes
-                        # (occupational + relational) to the class the individual is
-                        # actually typed under (it can diverge from the role_class
-                        # entity, which already carries them). The axes are orthogonal
-                        # (relational archetypes sit under RelationalRole), so the
-                        # additive subClassOf carries no disjointness risk.
-                        if self._is_role_individual(entity):
+                        # Layer-1 convergence: attach both archetype axes (occupational +
+                        # relational) to a GENUINELY-NEW role class the individual is typed
+                        # under. For an established role class the archetypes already live in
+                        # intermediate, so skip (the normalized case does not re-declare shared
+                        # classes). The axes are orthogonal (relational archetypes sit under
+                        # RelationalRole), so the additive subClassOf carries no disjointness risk.
+                        if established is None and self._is_role_individual(entity):
                             for arch_uri in self._role_individual_archetype_parents(rdf_data, class_name):
                                 g.add((class_uri, RDF.type, OWL.Class))
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
