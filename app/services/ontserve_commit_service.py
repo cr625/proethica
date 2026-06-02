@@ -234,6 +234,19 @@ class OntServeCommitService:
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
 
+                # C3 pre-commit conformance gate: SHACL + OWL-RL check + deterministic Tier-0
+                # repair (via the OntServe repair_conformance_ttl MCP tool) over the just-
+                # materialised case TTL, BEFORE the disk->DB sync so the persisted version is the
+                # conforming one. Best-effort (never raises); the LLM repair tiers are deferred to
+                # the Section-C pilot, so a Tier-0-unfixable residual is flagged, not refused.
+                try:
+                    from app.services.extraction.conformance_gate import gate_case_ttl
+                    case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+                    results['conformance'] = gate_case_ttl(case_id, case_file)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("conformance gate skipped for case %s: %s", case_id, e)
+                    results['conformance'] = {"status": "gate_error", "error": str(e)}
+
             # Mark entities as published and record content hashes
             now = datetime.now(timezone.utc)
             for entity in entities:
