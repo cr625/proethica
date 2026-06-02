@@ -159,6 +159,41 @@
                                 </p>
                             </div>
 
+                            <h6 class="mt-3">Relational Role Categories (the <code>role_category</code> shown in extraction)</h6>
+                            <div class="border-start border-3 border-secondary ps-3 mb-3">
+                                <p class="small mb-2">Each extracted role can carry a <strong>relational</strong>
+                                    category naming the duty-relationship it establishes (orthogonal to the
+                                    occupational kind of agent). The four categories are literature-grounded and map to
+                                    <code>proethica-intermediate</code> archetype classes under <code>RelationalRole</code>:</p>
+                                <ul class="small mb-2">
+                                    <li><code>provider_client</code> &rarr; <strong>ProviderClientRole</strong>:
+                                        service-delivery relationship with duties of competent service, confidentiality,
+                                        and client welfare.
+                                        <strong>Kong et al. (2020)</strong>
+                                        <a href="https://doi.org/10.1007/s10676-020-09524-4" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                    <li><code>professional_peer</code> &rarr; <strong>ProfessionalPeerRole</strong>:
+                                        collegial relationship with peer review, mentoring, and standard-maintenance
+                                        obligations.
+                                        <strong>Kong et al. (2020)</strong>
+                                        <a href="https://doi.org/10.1007/s10676-020-09524-4" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                    <li><code>employer_relationship</code> &rarr; <strong>EmployerRelationshipRole</strong>:
+                                        organizational relationship balancing loyalty with professional independence.
+                                        <strong>Wendel (2024)</strong>
+                                        <a href="https://doi.org/10.1093/oso/9780198863335.001.0001" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                    <li><code>public_responsibility</code> &rarr; <strong>PublicResponsibilityRole</strong>:
+                                        societal obligation that can override client or employer interests.
+                                        <strong>Thornton et al. (2017)</strong>
+                                        <a href="https://doi.org/10.1080/10508422.2017.1318069" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                </ul>
+                                <p class="small mb-0 text-muted">The <code>participant</code> and
+                                    <code>stakeholder</code> categories are generic fallbacks (mapped to the neutral
+                                    <code>RelationalRole</code>), not part of the Kong identity-role framework.</p>
+                            </div>
+
                             <h6 class="mt-3">Additional References</h6>
                             <ul class="mb-0">
                                 <li><strong>Kong et al. (2020)</strong>. Identity roles and virtues across engineering,
