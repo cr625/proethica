@@ -42,6 +42,64 @@ def split_agent_role(agent: str) -> Tuple[str, Optional[str]]:
     return name, role
 
 
+# Top-level conjunctions joining multiple actors. Matched only at paren depth 0
+# (parenthetical role groups are masked first) so a comma or "and" inside a role
+# string ("superintendent and chief engineer") does not split the actors.
+_AGENT_CONJ_RE = re.compile(r'\s+(and/or|and|or|&|with|in conjunction with)\s+', re.I)
+
+
+def decompose_agents(agent: str):
+    """Decompose a composite multi-actor agent string into structured agents.
+
+    Handles the common conjunction forms, e.g.
+      "Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)"
+      "ZZZ (project owner) and Firm C (design firm)"
+      "Engineer A and Engineer B"   (bare names, no roles)
+    Returns ``(agents, relation)`` where ``agents`` is a list of
+    ``{"name", "role"}`` (role may be None) and ``relation`` is the joining
+    keyword (``and`` / ``or`` / ``and/or`` / ``with`` / ``in_conjunction_with``),
+    or ``None`` when the string is single-actor / not a conjunction (the caller
+    then keeps the existing single-actor ``split_agent_role`` behaviour).
+
+    Generalises the one-off `decompose_composite_agents.py` hand table so a
+    re-extraction (Section C) decomposes new multi-actor strings without it.
+    Precedent cross-references and free-text Discussion notes are NOT extracted
+    here (the precedent filter handles the former; the latter were hand-specific).
+    """
+    if not agent or not agent.strip():
+        return None
+    s = agent.strip()
+    # Mask parenthetical groups so conjunctions inside a role do not split actors.
+    groups: list = []
+
+    def _mask(m):
+        groups.append(m.group(0))
+        return f"\x00{len(groups) - 1}\x00"
+
+    masked = re.sub(r'\([^()]*\)', _mask, s)
+    parts = _AGENT_CONJ_RE.split(masked)
+    if len(parts) < 3:  # no top-level conjunction -> single actor
+        return None
+    segments = parts[0::2]
+    separators = parts[1::2]
+    relation = separators[0].lower().replace(' ', '_') if separators else None
+
+    def _unmask(x: str) -> str:
+        return re.sub(r'\x00(\d+)\x00', lambda mm: groups[int(mm.group(1))], x).strip()
+
+    agents = []
+    for seg in segments:
+        seg = _unmask(seg)
+        if not seg:
+            continue
+        name, role = split_agent_role(seg)
+        if name:
+            agents.append({"name": name, "role": role})
+    if len(agents) < 2:
+        return None
+    return agents, relation
+
+
 def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     """
     Convert action dictionary to RDF JSON-LD format.
@@ -78,6 +136,17 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     if _role_ctx is not None:
         rdf_entity['proeth:hasAgent'] = _agent_name
         rdf_entity['proeth:eventRoleContext'] = _role_ctx
+    else:
+        # Composite multi-actor string: capture the structured decomposition
+        # (study-corrections Phase 4 made this generic, replacing the hand table
+        # so Section C decomposes new multi-actor strings). hasAgent is kept as
+        # the original string for provenance; consumers prefer proeth:agents.
+        _decomp = decompose_agents(rdf_entity['proeth:hasAgent'])
+        if _decomp:
+            _agents, _relation = _decomp
+            rdf_entity['proeth:agents'] = _agents
+            if _relation:
+                rdf_entity['proeth:agentRelation'] = _relation
 
     # Add intention if present
     intention = action.get('intention', {})
