@@ -175,6 +175,79 @@ class OntServeCommitService:
             return disambiguated
         return class_local_name
 
+    def _record_edge_provenance(self, case_id, edge_result):
+        """Record the commit-time edge materialization (per family) + the unified guard as
+        provenance PASSES, so the record shows the post-extraction graph construction, not only
+        the LLM stages. Best-effort: provenance must never fail a commit."""
+        try:
+            if not isinstance(edge_result, dict):
+                return
+            from app.services.provenance_service import get_provenance_service
+            prov = get_provenance_service()
+
+            def _count(r):
+                for k in ('total', 'edges', 'edges_emitted', 'edges_added', 'triples_added'):
+                    if isinstance(r.get(k), int):
+                        return r[k]
+                return None
+
+            by_family, total = {}, 0
+            for fam, r in edge_result.items():
+                if fam == 'unified_guard' or not isinstance(r, dict):
+                    continue
+                n = _count(r)
+                by_family[fam] = {'edges': n, 'unresolved': r.get('unresolved')}
+                if isinstance(n, int):
+                    total += n
+            prov.track_pass(
+                activity_type='materialization', activity_name='edge_materialization',
+                case_id=case_id, agent_type='extraction_service', agent_name='edge_materialization',
+                execution_plan={'families': list(by_family.keys()),
+                                'resolver': 'embedding shortlist + LLM select'},
+                result={'total_edges': total, 'by_family': by_family},
+            )
+            guard = edge_result.get('unified_guard')
+            if isinstance(guard, dict):
+                prov.track_pass(
+                    activity_type='guard', activity_name='unified_guard',
+                    case_id=case_id, agent_type='extraction_service', agent_name='unified_guard',
+                    execution_plan={'rule': 'drop any edge whose endpoint reaches a disjoint core '
+                                            'category other than the one the property requires'},
+                    result={'triples_dropped': guard.get('triples_dropped', 0)},
+                )
+        except Exception:
+            logger.warning("edge provenance recording failed for case %s (best-effort)",
+                           case_id, exc_info=True)
+
+    def _record_conformance_provenance(self, case_id, conf):
+        """Record the C3 conformance gate (SHACL+OWL-RL check) + any deterministic Tier-0 repairs
+        as provenance passes. Best-effort."""
+        try:
+            if not isinstance(conf, dict):
+                return
+            from app.services.provenance_service import get_provenance_service
+            prov = get_provenance_service()
+            prov.track_pass(
+                activity_type='validation', activity_name='conformance_check',
+                case_id=case_id, agent_type='shacl_engine', agent_name='pyshacl+owl-rl',
+                execution_plan={'shapes': 'validation/shapes/core-shapes.ttl',
+                                'engine': 'SHACL + OWL-RL', 'via': 'OntServe repair_conformance_ttl MCP'},
+                result={'conforms': conf.get('conforms'), 'remaining': conf.get('remaining'),
+                        'reason': conf.get('reason'), 'status': conf.get('status')},
+            )
+            repairs = conf.get('repairs_applied')
+            if repairs:
+                prov.track_pass(
+                    activity_type='repair', activity_name='tier0_conformance_repair',
+                    case_id=case_id, agent_type='extraction_service', agent_name='tier0_repair',
+                    execution_plan={'tier': 0, 'strategy': 'deterministic re-typing to the '
+                                    'property-required category (no LLM)'},
+                    result={'repairs_applied': repairs},
+                )
+        except Exception:
+            logger.warning("conformance provenance recording failed for case %s (best-effort)",
+                           case_id, exc_info=True)
+
     def commit_selected_entities(self, case_id: int, entity_ids: List[int]) -> Dict[str, Any]:
         """
         Commit selected entities from temporary storage to permanent OntServe storage.
@@ -246,6 +319,7 @@ class OntServeCommitService:
                 except Exception as e:  # noqa: BLE001
                     logger.warning("conformance gate skipped for case %s: %s", case_id, e)
                     results['conformance'] = {"status": "gate_error", "error": str(e)}
+                self._record_conformance_provenance(case_id, results.get('conformance'))
 
             # Mark entities as published and record content hashes
             now = datetime.now(timezone.utc)
@@ -790,6 +864,7 @@ class OntServeCommitService:
                 from app.services.extraction.edge_materialization import materialize_edges_on_ttl
                 edge_result = materialize_edges_on_ttl(case_id, case_file)
                 logger.info(f"Edge materialization for case {case_id}: {edge_result}")
+                self._record_edge_provenance(case_id, edge_result)
             except Exception as e:
                 logger.exception(f"Edge materialization failed for case {case_id}: {e}")
 
@@ -1418,6 +1493,7 @@ class OntServeCommitService:
                         from app.services.extraction.edge_materialization import materialize_edges_on_ttl
                         edge_result = materialize_edges_on_ttl(case_id, ttl_result['file'])
                         logger.info(f"Edge materialization for case {case_id}: {edge_result}")
+                        self._record_edge_provenance(case_id, edge_result)
                     except Exception as e:
                         logger.exception(f"Edge materialization failed for case {case_id}: {e}")
 
