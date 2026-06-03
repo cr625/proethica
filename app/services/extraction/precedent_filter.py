@@ -38,12 +38,24 @@ PRECEDENT_REF_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Generic precedent PLACEHOLDER label: the WHOLE label is just the precedent phrase with no
+# present-case content (e.g. "BER Case Precedent", "Precedent Reference"). The case-15 run-54
+# baseline minted "BER Case Precedent" as a Resource -- a meta-reference to the citation
+# mechanism, not a resource in the case. This is anchored to the full label so it does NOT
+# touch legitimate present-case entities that merely mention precedent (e.g. "Engineer L BER
+# Precedent Synthesis"), which the bare-"BER" exclusion above deliberately preserves.
+GENERIC_PRECEDENT_RE = re.compile(
+    r"^\s*(?:BER\s+)?(?:Case\s+)?Precedent(?:\s+(?:Reference|Case))?\s*$",
+    re.IGNORECASE,
+)
+
 T = TypeVar("T")
 
 
 def is_precedent_reference(label: str | None) -> bool:
-    """True if the label names/derives from a cited precedent case."""
-    return bool(label and PRECEDENT_REF_RE.search(label))
+    """True if the label names/derives from a cited precedent case, OR is a generic
+    precedent-placeholder label with no present-case content."""
+    return bool(label and (PRECEDENT_REF_RE.search(label) or GENERIC_PRECEDENT_RE.match(label)))
 
 
 def drop_precedent_entities(
