@@ -683,6 +683,19 @@ class UnifiedDualExtractor:
                 f"Precedent filter ({self.concept_type}): dropped "
                 f"{len(dropped_c)} class(es) + {len(dropped_i)} individual(s): "
                 f"{dropped_c + dropped_i}")
+            try:  # provenance: record the filter PASS (what was rejected + why). Best-effort.
+                from app.services.provenance_service import get_provenance_service
+                get_provenance_service().track_pass(
+                    activity_type='filter', activity_name='precedent_filter',
+                    case_id=case_id, agent_type='extraction_service', agent_name='precedent_filter',
+                    execution_plan={'concept_type': self.concept_type, 'section': section_type,
+                                    'rule': 'drop entities derived from a cited precedent case '
+                                            '(BER NN-N / generic precedent placeholder)'},
+                    result={'dropped': dropped_c + dropped_i,
+                            'dropped_classes': len(dropped_c),
+                            'dropped_individuals': len(dropped_i)})
+            except Exception:
+                logger.debug("precedent_filter provenance skipped", exc_info=True)
 
         # 4. Match against existing ontology classes
         self._check_existing_matches(classes)
@@ -730,6 +743,20 @@ class UnifiedDualExtractor:
                         f"{len(_fres['dropped'])} type-as-individual "
                         f"(resolver={_fres['resolver']}, llm_items={_fres['llm_items']}): "
                         f"{[it.get('label') for it, _why in _fres['dropped']]}")
+                    try:  # provenance: record the filter PASS. Best-effort.
+                        from app.services.provenance_service import get_provenance_service
+                        get_provenance_service().track_pass(
+                            activity_type='filter', activity_name='individual_type_filter',
+                            case_id=case_id, agent_type='extraction_service',
+                            agent_name='individual_type_filter',
+                            execution_plan={'concept_type': self.concept_type, 'section': section_type,
+                                            'resolver': _fres['resolver'], 'llm_items': _fres['llm_items'],
+                                            'rule': 'drop a class minted as an individual '
+                                                    '(self-instance / wrong component)'},
+                            result={'dropped': [it.get('label') for it, _why in _fres['dropped']],
+                                    'count': len(_fres['dropped'])})
+                    except Exception:
+                        logger.debug("individual_type_filter provenance skipped", exc_info=True)
         except Exception as e:
             logger.warning(f"individual/type filter skipped for {self.concept_type}: {e}")
 
