@@ -186,11 +186,17 @@ class ProvenanceService:
                 duration_ms=duration_ms or 0,
                 status=status,
             )
-            self.session.add(activity)
-            self.session.flush()
+            # SAVEPOINT: a bad provenance insert (e.g. a non-JSON-serializable field) must roll back
+            # ONLY this record, never poison the caller's transaction. Without the nested
+            # transaction a failed flush here leaves the session in PendingRollbackError and breaks
+            # the surrounding commit. This is what makes "best-effort provenance" actually safe.
+            with self.session.begin_nested():
+                self.session.add(activity)
+                self.session.flush()
             return activity
         except Exception:
-            logger.warning("track_pass failed for %s/%s (provenance is best-effort)",
+            logger.warning("track_pass failed for %s/%s (provenance is best-effort; savepoint "
+                           "rolled back, caller transaction intact)",
                            activity_type, activity_name, exc_info=True)
             return None
 

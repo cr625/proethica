@@ -597,7 +597,8 @@ def run_reconcile_task(self, run_id: int):
             'errors': result.errors
         }
         _record_pass(run, 'reconciliation', 'entity_reconcile', results,
-                     plan={'merges duplicate individuals across passes/sections (auto + manual-queue)'})
+                     plan={'rule': 'merge duplicate individuals across passes/sections '
+                           '(auto + manual-queue)'})
 
         run.mark_step_complete(step_name, results)
         mode = (run.config or {}).get('mode')
