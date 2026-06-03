@@ -102,22 +102,34 @@ def app(setup_test_database):
     
     # Start a fresh database session
     with app.app_context():
-        # Truncate all tables to start with a clean slate for each test
-        # but keep the schema intact
-        db.session.execute(db.text('BEGIN'))
-        for table in reversed(db.metadata.sorted_tables):
+        # Reset all tables to a clean slate for each test, keeping the schema.
+        #
+        # ANTI-HANG (this fixture has hung the suite for >1h before): the old code did a
+        # manual BEGIN + per-table TRUNCATE loop + COMMIT, which (a) acquired ACCESS EXCLUSIVE
+        # locks incrementally (deadlock-prone) and (b) on any error left the connection
+        # idle-in-transaction holding those locks, so the NEXT test's TRUNCATE waited forever.
+        # Fixes: set lock_timeout/statement_timeout so a blocked statement ABORTS (never hangs),
+        # truncate ALL tables in ONE atomic statement (single lock acquisition, no incremental
+        # deadlock), and commit via the ORM (releases the connection -- no idle-in-tx leak).
+        db.session.execute(db.text("SET lock_timeout = '15s'"))
+        db.session.execute(db.text("SET statement_timeout = '120s'"))
+        tables = [f'"{t.name}"' for t in db.metadata.sorted_tables]
+        if tables:
             try:
-                db.session.execute(db.text(f'TRUNCATE TABLE "{table.name}" CASCADE'))
+                db.session.execute(db.text(f'TRUNCATE TABLE {", ".join(tables)} CASCADE'))
+                db.session.commit()
             except Exception as e:
-                print(f"Warning: Could not truncate table {table.name}: {e}")
-                # Continue anyway - the table might not exist yet
-                pass
-        db.session.execute(db.text('COMMIT'))
-    
+                # A lock_timeout/abort here means a leftover connection holds a lock; roll back
+                # so we do not poison the session, and surface it instead of hanging.
+                db.session.rollback()
+                print(f"Warning: table reset failed (no hang): {e}")
+
     yield app
-    
-    # Clean up after the test
+
+    # Clean up after the test: roll back any open transaction and return the connection
+    # to the pool (prevents an idle-in-transaction connection from blocking the next test).
     with app.app_context():
+        db.session.rollback()
         db.session.remove()
 
 
