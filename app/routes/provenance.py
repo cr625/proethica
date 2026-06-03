@@ -279,6 +279,13 @@ def get_case_provenance(case_id):
             'started_at': activity.started_at.isoformat() if activity.started_at else None,
             'ended_at': activity.ended_at.isoformat() if activity.ended_at else None,
             'duration_ms': activity.duration_ms,
+            'session_id': activity.session_id,
+            # execution_plan (the strategy/config -- the "how") and activity_metadata (the outcome
+            # the committed ontology does not show: filter drops, reconciliation/merge counts,
+            # per-family edge counts, guard drops, SHACL violations, Tier-0 repairs, consistency).
+            # Surfaces the non-LLM verification/materialization passes (Tier A/B) via the API.
+            'execution_plan': activity.execution_plan or {},
+            'result': activity.activity_metadata or {},
             'agent': {
                 'name': activity.agent.agent_name,
                 'type': activity.agent.agent_type
