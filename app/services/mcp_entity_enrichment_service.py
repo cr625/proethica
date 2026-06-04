@@ -135,22 +135,39 @@ class MCPEntityEnrichmentService:
 
             for i in range(0, len(uncached), 20):
                 batch = uncached[i:i+20]
+                # MCP-down signal captured here and raised AFTER the try so the
+                # fail-loud is not swallowed by this block's own except. A transport
+                # failure surfaces as {"error": ...} (not an "entity not in MCP" miss,
+                # which is a normal response and legitimately falls through to local).
+                mcp_error = None
                 try:
                     result = self._call_mcp_tool("get_entities_by_uris", {"uris": batch})
-
-                    for entity in result.get("entities", []):
-                        uri = entity.get("uri")
-                        if uri:
-                            entity["source"] = "mcp"  # Mark source
-                            self._cache[uri] = entity
-
-                    # Track URIs not found in MCP for local fallback
-                    not_found_in_mcp.extend(result.get("not_found", []))
+                    if isinstance(result, dict) and result.get("error"):
+                        mcp_error = result["error"]
+                        not_found_in_mcp.extend(batch)
+                    else:
+                        for entity in result.get("entities", []):
+                            uri = entity.get("uri")
+                            if uri:
+                                entity["source"] = "mcp"  # Mark source
+                                self._cache[uri] = entity
+                        # Track URIs not found in MCP for local fallback
+                        not_found_in_mcp.extend(result.get("not_found", []))
 
                 except Exception as e:
                     logger.warning(f"MCP lookup failed for batch: {e}")
+                    mcp_error = str(e)
                     # All URIs in failed batch need local fallback
                     not_found_in_mcp.extend(batch)
+
+                if mcp_error is not None:
+                    # Outside the try: in dev this raises (loud); in prod it logs and
+                    # the local fallback above stands.
+                    from app.utils.dev_guard import fail_loud_in_dev
+                    fail_loud_in_dev(
+                        RuntimeError(mcp_error),
+                        "MCP server unreachable during entity enrichment -- enrichment "
+                        "would silently degrade to local/empty definitions (the case-71 incident)")
 
             # Step 2: Local fallback for case URIs not found in MCP
             if not_found_in_mcp:
