@@ -767,10 +767,17 @@ class OntServeCommitService:
                         established = self._established_core_category(safe_class)
                         if concept_cat:
                             if established is not None:
-                                # Shared class: do NOT re-declare it in the case. Trust the
-                                # established chain over the instance's conceptCategory literal
-                                # (emitting a second disjoint parent is what makes a case
-                                # inconsistent). Record the chain-authoritative category.
+                                # Shared class. R1 self-contained-TTL (2026-06-04): declare its
+                                # subClassOf-core IN THE CASE using the chain-authoritative
+                                # `established` category (NOT the instance conceptCategory
+                                # literal), so the persisted case validates standalone under
+                                # Pellet/SHACL without the in-memory pellet_validate patch.
+                                # Using `established` (the ontology's own parent) makes the
+                                # triple identical to the one in the shared store: no second
+                                # disjoint parent, and no self-loop (parent is a core class,
+                                # never the class itself). This is what D15 deferred; emitting
+                                # from `established` rather than the lie-prone literal is what
+                                # makes it safe.
                                 if established != concept_cat:
                                     logger.warning(
                                         "Class %s is established as %s in the ontology but an "
@@ -780,6 +787,8 @@ class OntServeCommitService:
                                     )
                                 class_core_category[safe_class] = established
                                 resolved_cat = established
+                                g.add((class_uri, RDF.type, OWL.Class))
+                                g.add((class_uri, RDFS.subClassOf, PROETHICA_CORE[established]))
                             else:
                                 # Genuinely-new (case-only) class: declare it locally with its
                                 # subClassOf-core so the case stays self-validating.
