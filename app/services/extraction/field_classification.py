@@ -54,6 +54,9 @@ _RELATION = {
     "hasRole", "actor",
     "obligatedParty", "constrainedEntity", "possessedBy", "invokedBy", "hasCapability",
     "affects", "affectedParties", "availableTo", "usedBy",
+    # generic per-individual relationship list (a temp_rdf field the serializer resolves into
+    # peer / symmetric-property edges); structural, not a kept synthesis literal.
+    "relationships", "relatedTo",
     # R -> P -> O dependency chain
     "hasObligation", "adheresToPrinciple", "derivedFromPrinciple",
     # defeasibility

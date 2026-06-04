@@ -197,9 +197,10 @@ class TestHO006ConformedModels:
         a = ActionIndividual.model_validate(emitted)
         assert a.has_agent == "Professional Engineer"
         assert a.event_role_context == "City Engineer"
-        assert a.is_decision_point is True
         assert a.temporal_sequence == 8
-        assert a.has_competing_priorities["proeth:priorityConflict"] == "a vs b"
+        # is_decision_point + has_competing_priorities were dropped from the Step-3 Action schema
+        # (HO-006 unify / D22): the decision-point concept now lives in the separate
+        # canonical_decision_point extraction, and competing priorities are not a Step-3 field.
         # round-trips back to the exact emitted keys
         dumped = a.model_dump(by_alias=True, exclude_none=True)
         assert dumped["proeth:hasAgent"] == "Professional Engineer"
@@ -221,8 +222,10 @@ class TestHO006ConformedModels:
         }
         e = EventIndividual.model_validate(emitted)
         assert e.event_type == "outcome"
-        assert e.creates_obligation == ["Maintain vigilance"]
-        assert e.crisis_identification is False
+        # creates_obligation and crisis_identification were dropped from the Event schema (D22 /
+        # HO-006 unify): an event does not create an obligation directly (the Event-Calculus path
+        # -- event initiates a State, the State activates the obligation -- carries that now), and
+        # crisis_identification is no longer a Step-3 Event field.
         assert e.temporal_sequence == 10
 
     def test_obsolete_snakecase_fields_removed(self):
