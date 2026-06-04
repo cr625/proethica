@@ -1153,25 +1153,14 @@ class OntServeCommitService:
     def _camelCase(self, text: str) -> str:
         """Convert a snake_case / spaced key to camelCase for a property local name.
 
-        Idempotent on an already-camelCase single token: the generic `properties`
-        keys arrive already camelCase (roleClass, obligationStatement, activePeriod)
-        and must be preserved, not lowercased -- lowercasing them is the predicate-
-        mangling bug (`activePeriod` -> `activeperiod`). Only snake_case keys (the
-        `attributes` dict, e.g. `decision_authority`) need conversion. So a token
-        with no separator is returned unchanged; only multi-word input is folded.
+        Delegates to the single shared converter (R3, app/utils/predicate_naming)
+        so commit and storage cannot drift apart from the edge readers that hardcode
+        these predicate names. Idempotent on an already-camelCase single token (the
+        generic `properties` keys arrive already camelCase and must be preserved, not
+        lowercased -- that was the `activePeriod` -> `activeperiod` mangling bug).
         """
-        if '_' not in text and ' ' not in text:
-            return text
-        words = text.replace('_', ' ').split()
-        if not words:
-            return text
-
-        # First word lowercase, rest title case
-        result = words[0].lower()
-        for word in words[1:]:
-            result += word.capitalize()
-
-        return result
+        from app.utils.predicate_naming import to_camel_case
+        return to_camel_case(text)
 
     # Synthesis / temporal individuals carry their text in dedicated predicates
     # (proeth:focus / questionText / conclusionText / description), so they are
