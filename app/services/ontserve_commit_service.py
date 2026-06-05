@@ -695,9 +695,10 @@ class OntServeCommitService:
                     full_description = None
 
                 # Sanitize label for valid URI: remove quotes, parens, and other special
-                # chars. TemporalRelation individuals instead take the opaque
-                # case#TemporalRelation_<n> URI from their @id (rdfs:label stays readable).
-                safe_label = self._temporal_relation_uri_local(rdf_data) or self._safe_label(label)
+                # chars. Reified TemporalRelation / CausalChain individuals instead take
+                # the opaque case#TemporalRelation_<n> / CausalChain_<n> URI from their @id
+                # (rdfs:label stays readable).
+                safe_label = self._opaque_reified_uri_local(rdf_data) or self._safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Check if individual already exists
@@ -1778,10 +1779,10 @@ class OntServeCommitService:
                 else:
                     label = entity.entity_label or 'UnknownIndividual'
 
-                # TemporalRelation individuals get the opaque case#TemporalRelation_<n>
-                # URI (rdfs:label keeps the readable "X relation Y" text); every other
-                # individual mints from its label.
-                safe_label = self._temporal_relation_uri_local(rdf_data) or self._safe_label(label)
+                # Reified TemporalRelation / CausalChain individuals get the opaque
+                # case#TemporalRelation_<n> / CausalChain_<n> URI (rdfs:label keeps the
+                # readable text); every other individual mints from its label.
+                safe_label = self._opaque_reified_uri_local(rdf_data) or self._safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Add individual
@@ -1846,20 +1847,37 @@ class OntServeCommitService:
         s = s.replace("<", "").replace(">", "").replace("&", "")
         return s
 
-    @staticmethod
-    def _temporal_relation_uri_local(rdf_data) -> str | None:
-        """Opaque local name (TemporalRelation_<n>) for a reified Allen relation,
-        read from its extraction-time @id (minted by rdf_converter in extraction
-        order). Returns None for any other individual, so the caller mints the URI
-        from the label as usual; also None for legacy rows whose @id still carries
-        the old AllenRelation_<clause> form, which then fall back to _safe_label.
-        rdfs:label is unaffected -- it keeps the readable "X relation Y" text. This
-        is the N-ary-relations convention: identity is opaque, participants are
-        properties resolved post-commit by temporal_relation_edges."""
-        if not rdf_data or rdf_data.get('@type') != 'proeth:TemporalRelation':
+    # Reified nodes whose identity should be OPAQUE (the W3C n-ary-relations
+    # convention -- "Purchase_1", not the participant prose), keyed to the local-name
+    # prefix their extraction-time @id carries. A TemporalRelation reifies an Allen
+    # interval relation; a CausalChain reifies a cause/effect link. Both formerly took
+    # their committed URI from a concatenated entity_label
+    # (AllenRelation_<from>_<rel>_<to>, or "cause -> effect" with a raw arrow), which
+    # produced 90-140 char IRIs; the opaque @id was minted by rdf_converter but ignored
+    # at commit.
+    _OPAQUE_REIFIED_PREFIXES = {
+        'proeth:TemporalRelation': 'TemporalRelation_',
+        'proeth:CausalChain': 'CausalChain_',
+    }
+
+    @classmethod
+    def _opaque_reified_uri_local(cls, rdf_data) -> str | None:
+        """Opaque local name (e.g. TemporalRelation_<n> / CausalChain_<n>) for a
+        reified relation/causal node, read from its extraction-time @id (minted by
+        rdf_converter in extraction order). Returns None for any other individual, so
+        the caller mints the URI from the label as usual; also None for legacy rows
+        whose @id still carries the old concatenated-prose form, which then fall back
+        to _safe_label. rdfs:label is unaffected -- it keeps the readable text (the
+        "X relation Y" / "cause -> effect" phrasing). The reified node's participants
+        live as properties resolved post-commit (temporal_relation_edges / causal_edges),
+        not in the IRI."""
+        if not rdf_data:
+            return None
+        prefix = cls._OPAQUE_REIFIED_PREFIXES.get(rdf_data.get('@type'))
+        if not prefix:
             return None
         frag = str(rdf_data.get('@id', '')).split('#')[-1]
-        return frag if frag.startswith('TemporalRelation_') else None
+        return frag if frag.startswith(prefix) else None
 
     @staticmethod
     def _norm_label(label: str) -> str:

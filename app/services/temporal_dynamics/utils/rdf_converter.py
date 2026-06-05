@@ -286,18 +286,29 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     return rdf_entity
 
 
-def convert_causal_chain_to_rdf(chain: Dict, case_id: int) -> Dict:
+def convert_causal_chain_to_rdf(chain: Dict, case_id: int,
+                                chain_index: Optional[int] = None) -> Dict:
     """
     Convert causal chain dictionary to RDF JSON-LD format.
+
+    The CausalChain is reified (it carries the irreducible NESS analysis, the
+    causal-language evidence span, and the responsibility attribution), so it gets an
+    OPAQUE identifier (case#CausalChain_<n>, the W3C n-ary-relations convention), NOT
+    one built from "cause -> effect" prose. The former entity_label-derived committed
+    URI concatenated both endpoint labels (and kept a raw -> arrow), producing 90-140
+    char IRIs; the cause/effect are properties resolved post-commit by causal_edges.
+    The readable "cause -> effect" text stays in entity_label/rdfs:label for display.
 
     Args:
         chain: Causal chain data from Stage 5
         case_id: Case ID for URI generation
+        chain_index: 1-based position in the case's causal-chain list, used for the
+            opaque IRI. ``None`` -> a uuid suffix (still short and opaque).
 
     Returns:
         RDF JSON-LD dictionary
     """
-    chain_id = str(uuid.uuid4())[:8]
+    chain_id = str(chain_index) if chain_index is not None else str(uuid.uuid4())[:8]
     chain_uri = f"{_case_ns(case_id)}CausalChain_{chain_id}"
 
     rdf_entity = {

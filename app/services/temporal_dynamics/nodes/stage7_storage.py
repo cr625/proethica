@@ -125,8 +125,10 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
             logger.info(f"[Stage 7] Stored {events_stored} events")
 
             # Store causal chains
-            for chain in state['causal_chains']:
-                rdf_entity = convert_causal_chain_to_rdf(chain, case_id)
+            for chain_idx, chain in enumerate(state['causal_chains'], start=1):
+                # 1-based index -> opaque case#CausalChain_<n> IRI (the readable
+                # "cause -> effect" stays in entity_label/rdfs:label).
+                rdf_entity = convert_causal_chain_to_rdf(chain, case_id, chain_index=chain_idx)
                 _store_entity(
                     case_id=case_id,
                     session_id=session_id,
