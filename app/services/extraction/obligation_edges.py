@@ -53,7 +53,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib import Graph, Namespace, URIRef
 
 from app.services.extraction.state_edges import (
     _candidate_pool,
@@ -61,8 +61,8 @@ from app.services.extraction.state_edges import (
     _individuals_in_category,
     _label,
     _norm,
-    _safe_frag,
     _shortlist,
+    emit_edge_prov,
 )
 from app.services.extraction.resource_edges import _llm_select_multi
 
@@ -176,20 +176,11 @@ def _build_normative_prompt(prop: str):
 
 
 def _emit_prov(g: Graph, case_id: int, prop: str, subj, obj, desc: str) -> None:
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns["normative_edge_provenance_" + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
-    if (prov_iri, RDF.type, PROV.Derivation) in g:
-        return
-    g.add((prov_iri, RDF.type, PROV.Derivation))
-    g.add((prov_iri, PROV.wasDerivedFrom, subj))
-    g.add((prov_iri, PROV.wasDerivedFrom, obj))
-    g.add((prov_iri, RDFS.label, Literal(f"Normative edge ({prop})")))
-    if desc:
-        g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(
-        f"property={prop}; action's {prop} text resolved to the case "
-        "Obligation/Principle individual(s) by embedding shortlist + LLM multi-select "
-        "(obligation-engagement grounding)")))
+    emit_edge_prov(g, case_id, "normative_edge_provenance_", prop, subj, obj, desc,
+                   f"Normative edge ({prop})",
+                   f"property={prop}; action's {prop} text resolved to the case "
+                   "Obligation/Principle individual(s) by embedding shortlist + LLM multi-select "
+                   "(obligation-engagement grounding)")
 
 
 def apply_obligation_edges(case_id: int, ttl_path, write_back: bool = True,

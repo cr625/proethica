@@ -25,20 +25,19 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
-from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib import Graph, Namespace, URIRef
 
 # Reuse the embedding/graph primitives from state_edges and the Agent pool +
 # multi-select LLM driver from resource_edges (the established multi-select
 # Agent-resolution template). Only the affectedParties-specific read and the
 # request wording live here.
 from app.services.extraction.state_edges import (
-    _embed,
     _embedding_service,
     _individuals_in_category,
     _label,
     _norm,
-    _safe_frag,
     _shortlist,
+    emit_edge_prov,
 )
 from app.services.extraction.resource_edges import _agent_pool, _llm_select_multi
 
@@ -113,19 +112,10 @@ def _build_affects_prompt(items: List[Dict[str, Any]]) -> str:
 
 
 def _emit_prov(g: Graph, case_id: int, subj, obj, desc: str) -> None:
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns["state_affects_provenance_" + _safe_frag(subj) + "_" + AFFECTS + "_" + _safe_frag(obj)]
-    if (prov_iri, RDF.type, PROV.Derivation) in g:
-        return
-    g.add((prov_iri, RDF.type, PROV.Derivation))
-    g.add((prov_iri, PROV.wasDerivedFrom, subj))
-    g.add((prov_iri, PROV.wasDerivedFrom, obj))
-    g.add((prov_iri, RDFS.label, Literal(f"State edge ({AFFECTS})")))
-    if desc:
-        g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(
-        "property=affects; state affectedParties text resolved to the case Agent(s) "
-        "by embedding shortlist + LLM multi-select")))
+    emit_edge_prov(g, case_id, "state_affects_provenance_", AFFECTS, subj, obj, desc,
+                   f"State edge ({AFFECTS})",
+                   "property=affects; state affectedParties text resolved to the case Agent(s) "
+                   "by embedding shortlist + LLM multi-select")
 
 
 def apply_state_affects_edges(case_id: int, ttl_path, write_back: bool = True,

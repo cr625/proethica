@@ -42,9 +42,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
-from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib import Graph, Namespace, URIRef
 
 # Reuse the established embedding/graph primitives + the Agent pool and the batched
 # multi-select LLM driver from the sibling appliers. Only the participant-specific
@@ -54,8 +54,8 @@ from app.services.extraction.state_edges import (
     _individuals_in_category,
     _label,
     _norm,
-    _safe_frag,
     _shortlist,
+    emit_edge_prov,
 )
 from app.services.extraction.resource_edges import _agent_pool, _llm_select_multi
 
@@ -175,19 +175,10 @@ def _build_participant_prompt(spec: _ParticipantSpec):
 
 
 def _emit_prov(g: Graph, case_id: int, prop: str, subj, obj, desc: str) -> None:
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns["participant_edge_provenance_" + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
-    if (prov_iri, RDF.type, PROV.Derivation) in g:
-        return
-    g.add((prov_iri, RDF.type, PROV.Derivation))
-    g.add((prov_iri, PROV.wasDerivedFrom, subj))
-    g.add((prov_iri, PROV.wasDerivedFrom, obj))
-    g.add((prov_iri, RDFS.label, Literal(f"Participant edge ({prop})")))
-    if desc:
-        g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(
-        f"property={prop}; component party text resolved to the case Agent(s) "
-        "by embedding shortlist + LLM select")))
+    emit_edge_prov(g, case_id, "participant_edge_provenance_", prop, subj, obj, desc,
+                   f"Participant edge ({prop})",
+                   f"property={prop}; component party text resolved to the case Agent(s) "
+                   "by embedding shortlist + LLM select")
 
 
 def _apply_one_spec(g: Graph, svc, pool, case_id: int, spec: _ParticipantSpec,

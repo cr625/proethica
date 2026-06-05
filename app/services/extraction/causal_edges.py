@@ -39,7 +39,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
-from rdflib import Graph, Literal, Namespace, OWL, RDF, RDFS, URIRef
+from rdflib import Graph, Namespace, OWL, RDF, URIRef
 
 from app.services.extraction.state_edges import (
     _candidate_pool,
@@ -47,8 +47,9 @@ from app.services.extraction.state_edges import (
     _individuals_in_category,
     _label,
     _norm,
-    _safe_frag,
     _shortlist,
+    emit_edge_prov,
+    remove_edge_prov,
 )
 from app.services.extraction.resource_edges import _agent_pool, _llm_select_multi
 
@@ -143,26 +144,14 @@ def _split_conjuncts(desc: str) -> List[str]:
 def _remove_prov(g: Graph, case_id: int, prop: str, subj, obj) -> None:
     """Remove the deterministic PROV-O node emitted for a (subj, prop, obj) causal edge, so a
     dropped edge does not leave an orphaned derivation node behind."""
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns["causal_edge_provenance_" + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
-    for t in list(g.triples((prov_iri, None, None))):
-        g.remove(t)
+    remove_edge_prov(g, case_id, "causal_edge_provenance_", prop, subj, obj)
 
 
 def _emit_prov(g: Graph, case_id: int, prop: str, subj, obj, desc: str) -> None:
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns["causal_edge_provenance_" + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
-    if (prov_iri, RDF.type, PROV.Derivation) in g:
-        return
-    g.add((prov_iri, RDF.type, PROV.Derivation))
-    g.add((prov_iri, PROV.wasDerivedFrom, subj))
-    g.add((prov_iri, PROV.wasDerivedFrom, obj))
-    g.add((prov_iri, RDFS.label, Literal(f"Causal edge ({prop})")))
-    if desc:
-        g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(
-        f"property={prop}; causal chain's {prop} text resolved to the case "
-        "individual(s) by embedding shortlist + LLM select")))
+    emit_edge_prov(g, case_id, "causal_edge_provenance_", prop, subj, obj, desc,
+                   f"Causal edge ({prop})",
+                   f"property={prop}; causal chain's {prop} text resolved to the case "
+                   "individual(s) by embedding shortlist + LLM select")
 
 
 def apply_causal_edges(case_id: int, ttl_path, write_back: bool = True,

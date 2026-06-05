@@ -37,7 +37,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
-from rdflib.namespace import XSD
 
 logger = logging.getLogger(__name__)
 
@@ -301,18 +300,44 @@ def _safe_frag(iri) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", str(iri).split("#")[-1])
 
 
-def _emit_prov(g: Graph, case_id: int, subj, prop: str, obj, desc: str) -> None:
+def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
+                   desc: str, label: str, comment: str):
+    """Shared PROV-O Derivation emitter for a materialised (subj, prop, obj) edge --
+    the single home for the provenance-node shape the edge-applier family used to
+    copy-paste eight times (rule of three). ``prefix`` is the LITERAL provenance-IRI
+    prefix the family uses (e.g. ``"state_edge_provenance_"``); the node IRI is
+    ``case#<prefix><safe_frag(subj)>_<prop>_<safe_frag(obj)>`` -- byte-identical to the
+    pre-consolidation scheme, and idempotent. The per-family ``label``/``comment`` stay
+    local config and are passed through; only the node-shape logic is centralised.
+    Returns the node IRI."""
     case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns["state_edge_provenance_" + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
+    prov_iri = case_ns[prefix + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
     if (prov_iri, RDF.type, PROV.Derivation) in g:
-        return
+        return prov_iri
     g.add((prov_iri, RDF.type, PROV.Derivation))
     g.add((prov_iri, PROV.wasDerivedFrom, subj))
     g.add((prov_iri, PROV.wasDerivedFrom, obj))
-    g.add((prov_iri, RDFS.label, Literal(f"State edge ({prop})")))
+    g.add((prov_iri, RDFS.label, Literal(label)))
     if desc:
         g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(f"property={prop}; description resolved to the endpoint by embedding shortlist + LLM select")))
+    g.add((prov_iri, RDFS.comment, Literal(comment)))
+    return prov_iri
+
+
+def remove_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj) -> None:
+    """Remove the PROV-O node ``emit_edge_prov`` minted for (subj, prop, obj), so a
+    dropped edge leaves no orphan derivation node. Same IRI scheme as emit_edge_prov."""
+    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
+    prov_iri = case_ns[prefix + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
+    for t in list(g.triples((prov_iri, None, None))):
+        g.remove(t)
+
+
+def _emit_prov(g: Graph, case_id: int, subj, prop: str, obj, desc: str) -> None:
+    emit_edge_prov(g, case_id, "state_edge_provenance_", prop, subj, obj, desc,
+                   f"State edge ({prop})",
+                   f"property={prop}; description resolved to the endpoint by "
+                   "embedding shortlist + LLM select")
 
 
 # --- main applier ----------------------------------------------------------

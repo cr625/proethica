@@ -36,9 +36,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib import Graph, Namespace, RDF, URIRef
 
 # Reuse the stable embedding/graph primitives from the state-edge applier (the
 # established template for embedding-resolved appliers) instead of duplicating
@@ -50,8 +50,8 @@ from app.services.extraction.state_edges import (
     _individuals_in_category,
     _label,
     _norm,
-    _safe_frag,
     _shortlist,
+    emit_edge_prov,
 )
 
 logger = logging.getLogger(__name__)
@@ -233,19 +233,10 @@ def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None,
 # --- provenance (idempotent, mirrors state/defeasibility prov) --------------
 
 def _emit_prov(g: Graph, case_id: int, subj, obj, desc: str) -> None:
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns["resource_edge_provenance_" + _safe_frag(subj) + "_" + AVAILABLE_TO + "_" + _safe_frag(obj)]
-    if (prov_iri, RDF.type, PROV.Derivation) in g:
-        return
-    g.add((prov_iri, RDF.type, PROV.Derivation))
-    g.add((prov_iri, PROV.wasDerivedFrom, subj))
-    g.add((prov_iri, PROV.wasDerivedFrom, obj))
-    g.add((prov_iri, RDFS.label, Literal(f"Resource edge ({AVAILABLE_TO})")))
-    if desc:
-        g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(
-        "property=availableTo; resource used_by text resolved to the case Agent(s) "
-        "by embedding shortlist + LLM multi-select")))
+    emit_edge_prov(g, case_id, "resource_edge_provenance_", AVAILABLE_TO, subj, obj, desc,
+                   f"Resource edge ({AVAILABLE_TO})",
+                   "property=availableTo; resource used_by text resolved to the case Agent(s) "
+                   "by embedding shortlist + LLM multi-select")
 
 
 # --- main applier ----------------------------------------------------------
