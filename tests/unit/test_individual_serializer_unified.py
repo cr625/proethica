@@ -55,8 +55,11 @@ def test_attributes_become_per_key_triples():
         'attributes': ["{'license': 'PE in State X', 'experience': '20 years'}"],
     }}
     svc._add_individual_properties(g, uri, _entity('roles'), rdf_data, CASE)
-    assert (uri, PROETHICA['license'], Literal('PE in State X')) in g
-    assert (uri, PROETHICA['experience'], Literal('20 years')) in g
+    # Recurring professional keys map to the controlled vocabulary (hasLicense,
+    # experienceLevel) so cross-case queries work and the datatype-predicate space
+    # stays closed.
+    assert (uri, PROETHICA['hasLicense'], Literal('PE in State X')) in g
+    assert (uri, PROETHICA['experienceLevel'], Literal('20 years')) in g
     # The opaque dead-text literal must NOT survive.
     assert (uri, PROETHICA['attributes'],
             Literal("{'license': 'PE in State X', 'experience': '20 years'}")) not in g

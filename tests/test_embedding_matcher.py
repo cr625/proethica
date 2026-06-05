@@ -162,10 +162,29 @@ class TestCheckEmbeddingDuplicate:
         result, _ = _run_embedding("Some Duty", "obligation", "", None)
         assert result is None
 
-    def test_embedding_service_raises_returns_none(self):
+    def test_embedding_service_raises_fails_loud_in_dev(self, monkeypatch):
+        """R4: an embedding-service crash must NOT be swallowed in dev. A swallowed
+        error reads as 'no match' and mints a (possibly duplicate) class, so it is
+        re-raised loud instead."""
+        monkeypatch.setenv("PROETHICA_DEV_FAIL_LOUD", "1")
         from contextlib import ExitStack
-        captured: Dict[str, Any] = {}
+        service = _make_service()
+        with ExitStack() as stack:
+            es_patch = stack.enter_context(
+                patch("app.services.embedding_service.EmbeddingService")
+            )
+            mock_es = MagicMock()
+            mock_es._get_local_embedding.side_effect = RuntimeError("boom")
+            es_patch.get_instance.return_value = mock_es
 
+            with pytest.raises(RuntimeError, match="Embedding duplicate check failed"):
+                service._check_embedding_duplicate("X", "", "obligation")
+
+    def test_embedding_service_raises_swallowed_in_production(self, monkeypatch):
+        """With fail-loud disabled (the production fallback), the same crash degrades
+        to None so a transient blip does not break a long batch."""
+        monkeypatch.setenv("PROETHICA_DEV_FAIL_LOUD", "0")
+        from contextlib import ExitStack
         service = _make_service()
         with ExitStack() as stack:
             es_patch = stack.enter_context(
