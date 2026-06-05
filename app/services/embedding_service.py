@@ -10,6 +10,41 @@ import logging
 # Set up logging
 logger = logging.getLogger(__name__)
 
+
+def resolve_embedding_device() -> str:
+    """Resolve the device for the local SentenceTransformer model.
+
+    Controlled by the EMBEDDINGS_DEVICE environment variable:
+      - "cpu" (default): always use the CPU. The model is small (all-MiniLM-L6-v2),
+        CPU is fast enough, and it never fails.
+      - "cuda": force the GPU (operator opt-in; trusted as-is).
+      - "auto": use the GPU only after verifying a CUDA kernel actually runs.
+
+    The default is CPU on purpose. torch.cuda.is_available() can return True for a GPU
+    whose compute capability this torch build has no kernels for; the device then raises
+    cudaErrorNoKernelImageForDevice at encode time, which previously left embeddings
+    silently ungenerated. Set EMBEDDINGS_DEVICE=cuda or =auto to opt in to the GPU.
+    """
+    requested = os.environ.get("EMBEDDINGS_DEVICE", "cpu").lower()
+    if requested == "cpu":
+        return "cpu"
+    try:
+        import torch
+    except Exception:
+        return "cpu"
+    if requested == "cuda":
+        return "cuda"
+    # "auto": probe that the GPU can run a real kernel, not just that a device exists.
+    if not torch.cuda.is_available():
+        return "cpu"
+    try:
+        torch.zeros(1).to("cuda").add_(1)
+        return "cuda"
+    except Exception as e:
+        logger.warning("EMBEDDINGS_DEVICE=auto: CUDA present but unusable (%s); using CPU", e)
+        return "cpu"
+
+
 class EmbeddingService:
     """
     Service for generating and managing embeddings for RDF triples.
@@ -291,8 +326,7 @@ class EmbeddingService:
                 os.environ["HF_HUB_OFFLINE"] = "1"
                 os.environ["TRANSFORMERS_OFFLINE"] = "1"
                 # Device selection with CPU fallback option
-                requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
-                device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
+                device = resolve_embedding_device()
 
                 self.providers["local"] = {
                     "model": SentenceTransformer(self.model_name, local_files_only=True, device=device),
@@ -314,8 +348,7 @@ class EmbeddingService:
                         os.environ["HF_HUB_OFFLINE"] = "0"
                         os.environ["TRANSFORMERS_OFFLINE"] = "0"
                         import torch
-                        requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
-                        device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
+                        device = resolve_embedding_device()
                         # Silent download attempt
                         model = SentenceTransformer(self.model_name, local_files_only=False, device=device)
                         self.providers["local"] = {
