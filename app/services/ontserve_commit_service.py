@@ -1860,6 +1860,25 @@ class OntServeCommitService:
         'proeth:CausalChain': 'CausalChain_',
     }
 
+    # Controlled professional-attribute vocabulary (Part B). The LLM places free-form
+    # keys in a role's `attributes` dict; map the recurring ones (lowercased) to the
+    # declared proeth: datatype properties so cross-case queries (e.g. all licensed PEs)
+    # work. Unmapped keys are kept verbatim (camelCased) and logged, so the uncontrolled
+    # tail is visible and the vocabulary can grow deliberately rather than silently.
+    _ATTRIBUTE_VOCAB = {
+        'license': 'hasLicense', 'licensure': 'hasLicense', 'licensestatus': 'hasLicense',
+        'licensed': 'hasLicense', 'professionallicense': 'hasLicense', 'licensing': 'hasLicense',
+        'specialty': 'hasSpecialty', 'specialization': 'hasSpecialty',
+        'specialisation': 'hasSpecialty', 'specialties': 'hasSpecialty',
+        'experience': 'experienceLevel', 'yearsofexperience': 'experienceLevel',
+        'experiencelevel': 'experienceLevel', 'yearsexperience': 'experienceLevel',
+        'employer': 'hasEmployer', 'employedby': 'hasEmployer', 'employment': 'hasEmployer',
+        'jurisdiction': 'hasJurisdiction',
+        'registration': 'registrationStatus', 'registrationstatus': 'registrationStatus',
+        'position': 'roleInOrganization', 'roleinorganization': 'roleInOrganization',
+        'technicalbackground': 'technicalBackground',
+    }
+
     @classmethod
     def _opaque_reified_uri_local(cls, rdf_data) -> str | None:
         """Opaque local name (e.g. TemporalRelation_<n> / CausalChain_<n>) for a
@@ -2253,7 +2272,19 @@ class OntServeCommitService:
                         for attr_key, attr_val in attr_dict.items():
                             if attr_val in (None, '', [], {}):
                                 continue
-                            attr_uri = PROETHICA[self._camelCase(attr_key)]
+                            # Map recurring professional attributes to the controlled
+                            # vocabulary (proeth:hasLicense, ...) so cross-case queries
+                            # work; keep + log genuinely novel keys so the uncontrolled
+                            # tail is visible for deliberate vocabulary growth.
+                            controlled = self._ATTRIBUTE_VOCAB.get(str(attr_key).strip().lower())
+                            if controlled:
+                                local = controlled
+                            else:
+                                local = self._camelCase(attr_key)
+                                logger.info("attributes: uncontrolled key %r on %s -> proeth:%s "
+                                            "(not in the controlled attribute vocabulary)",
+                                            attr_key, str(uri).split('#')[-1], local)
+                            attr_uri = PROETHICA[local]
                             for v in (attr_val if isinstance(attr_val, list) else [attr_val]):
                                 if v not in (None, ''):
                                     lit = v if isinstance(v, (str, int, float, bool)) else str(v)
