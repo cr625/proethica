@@ -2,8 +2,21 @@
 
 {% block title %}Obligation-Conflict Resolution - {{ case.title }}{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="container my-4">
+{% set L = view.entity_lookup or {} %}
+{%- macro onto(text, lookup, cls='') -%}
+{%- set e = lookup.get(text|lower) -%}
+{%- if e -%}
+<span class="{{ ('badge ' ~ cls ~ ' ') if cls else '' }}onto-label" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-html="true" data-bs-placement="top" data-bs-container="body" data-entity-type="{{ e.entityType }}" data-entity-source="{{ e.source }}" data-entity-definition="{{ e.definition|replace('\n', ' ')|replace('\r', '') }}" data-entity-uri="{{ e.uri }}" data-ontology-target="{{ e.ontologyTarget }}" title="{{ text }}">{{ text }}</span>
+{%- elif cls -%}
+<span class="badge {{ cls }}">{{ text }}</span>
+{%- else -%}{{ text }}{%- endif -%}
+{%- endmacro -%}
+<div class="container my-4" id="defeasibility-content">
 
   <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap">
     <div>
@@ -31,6 +44,7 @@
       <strong>prevailsOver</strong> (the obligation the board allowed to win <em>in this case</em>), and
       <strong>defeasibleUnder</strong> (the situation under which the yielding obligation gives way).
       The same tension is then traced across comparable cases, where its resolution shifts with context.
+      Hover any obligation or state to see its definition; click to open it in OntServe.
     </div>
   </div>
 
@@ -44,18 +58,18 @@
         <div class="card-body">
           {% if c.featured %}<span class="badge bg-primary float-end">Featured</span>{% endif %}
           <div class="mb-2">
-            <span class="badge bg-success">{{ c.winner }}</span>
+            {{ onto(c.winner, L, 'bg-success') }}
             <span class="text-muted small mx-1"><i class="bi bi-arrow-right"></i> prevails over <i class="bi bi-arrow-right"></i></span>
-            <span class="badge bg-secondary">{{ c.loser }}</span>
+            {{ onto(c.loser, L, 'bg-secondary') }}
           </div>
           {% if c.competes %}
           <div class="small text-muted mb-2"><i class="bi bi-arrow-left-right"></i> the two obligations are in tension (competesWith)</div>
           {% endif %}
           {% if c.contexts %}
           <div class="small">
-            <span class="text-muted">{{ c.loser }} yields only under (defeasibleUnder):</span>
+            <span class="text-muted">the yielding obligation gives way only under (defeasibleUnder):</span>
             <ul class="mb-0 mt-1">
-              {% for ctx in c.contexts %}<li>{{ ctx }}</li>{% endfor %}
+              {% for ctx in c.contexts %}<li>{{ onto(ctx, L) }}</li>{% endfor %}
             </ul>
           </div>
           {% else %}
@@ -74,7 +88,7 @@
   <div class="mt-3 small">
     <span class="text-muted me-1">Open tensions recorded without a resolution:</span>
     {% for pair in view.case_conflicts.unresolved %}
-    <span class="badge bg-light text-dark border me-1">{{ pair[0] }} vs {{ pair[1] }}</span>
+    <span class="badge bg-light text-dark border me-1">{{ onto(pair[0], L) }} vs {{ onto(pair[1], L) }}</span>
     {% endfor %}
   </div>
   {% endif %}
@@ -122,9 +136,13 @@
             <div class="small text-muted">{{ row.title|truncate(46) }}</div>
             {% endif %}
           </td>
-          <td><span class="badge bg-success">{{ m.winner }}</span></td>
-          <td><span class="badge bg-secondary">{{ m.loser }}</span></td>
-          <td class="small">{{ m.contexts | join('; ') if m.contexts else '--' }}</td>
+          <td>{{ onto(m.winner, L, 'bg-success') }}</td>
+          <td>{{ onto(m.loser, L, 'bg-secondary') }}</td>
+          <td class="small">
+            {%- if m.contexts -%}
+              {%- for ctx in m.contexts -%}{{ onto(ctx, L) }}{% if not loop.last %}; {% endif %}{%- endfor -%}
+            {%- else -%}--{%- endif -%}
+          </td>
         </tr>
         {% endfor %}
         {% endfor %}
@@ -138,4 +156,15 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof bootstrap === 'undefined' || typeof initializePopovers !== 'function') return;
+    var container = document.getElementById('defeasibility-content');
+    if (container) initializePopovers(container, '{{ ontserve_web_url }}');
+  });
+</script>
 {% endblock %}

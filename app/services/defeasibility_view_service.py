@@ -56,14 +56,23 @@ def case_has_committed_ontology(case_id: int) -> bool:
     return case_ttl_path(case_id).exists()
 
 
+_GRAPH_CACHE = {}
+
+
 def _load_graph(case_id: int) -> rdflib.Graph:
     path = case_ttl_path(case_id)
     if not path.exists():
         # A missing committed TTL is a genuine state (not every case is extracted),
         # surfaced to the caller rather than silently substituted.
         raise FileNotFoundError(f"No committed ontology for case {case_id}: {path}")
-    g = rdflib.Graph()
-    g.parse(str(path), format="turtle")
+    # Cache the parsed graph per (path, mtime) so a single view render that reads the
+    # same case TTL more than once does not re-parse it. Read-only use only.
+    key = (str(path), path.stat().st_mtime_ns)
+    g = _GRAPH_CACHE.get(key)
+    if g is None:
+        g = rdflib.Graph()
+        g.parse(str(path), format="turtle")
+        _GRAPH_CACHE[key] = g
     return g
 
 
@@ -98,6 +107,50 @@ def _trio_edges(g):
         elif ln == "defeasibleUnder":
             defeasible.setdefault(_label(g, s), []).append(_label(g, o))
     return competes, prevails, defeasible
+
+
+def _entity_index(g, case_id):
+    """Build label(lowercased) -> hover entry from a committed case graph, for attaching
+    OntServe definition popovers to the entity labels the view renders. Definition prefers
+    skos:definition, falls back to rdfs:comment; type is proeth:conceptCategory; the
+    OntServe target is the case ontology. Predicates matched by local name (namespace-robust)."""
+    target = f"proethica-case-{case_id}"
+    labels = {}
+    for s, p, o in g:
+        if _local(p) == "label":
+            labels.setdefault(s, str(o))
+    out = {}
+    for s, lbl in labels.items():
+        defn_skos = defn_comment = cat = ""
+        for _s, p, o in g.triples((s, None, None)):
+            ln = _local(p)
+            if ln == "definition" and not defn_skos:
+                defn_skos = str(o)
+            elif ln == "comment" and not defn_comment:
+                defn_comment = str(o)
+            elif ln == "conceptCategory" and not cat:
+                cat = str(o)
+        frag = str(s).rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+        exact = frag.replace("_", " ").lower() == lbl.lower()
+        key = lbl.lower()
+        prev = out.get(key)
+        # When two entities share a display label (e.g. an Obligation and a like-named
+        # Capability), keep the one whose URI fragment matches the label exactly -- that is
+        # the primary entity the defeasibility edges reference, not the typed variant.
+        if prev is not None and prev["_exact"] and not exact:
+            continue
+        out[key] = {
+            "label": lbl,
+            "definition": defn_skos or defn_comment,
+            "entityType": cat,
+            "source": "case",
+            "uri": str(s),
+            "ontologyTarget": target,
+            "_exact": exact,
+        }
+    for entry in out.values():
+        entry.pop("_exact", None)
+    return out
 
 
 def _conclusions(g):
@@ -233,8 +286,23 @@ def build_defeasibility_view(case_id: int) -> dict:
     case_data = get_case_conflicts(case_id)
     theme = _theme_for_case(case_data["conflicts"])
     cross_case = get_cross_case_band(theme, case_id) if theme else None
+
+    # Hover lookup over the entities the view renders: the anchor case plus the comparison
+    # cases. Each entry links to its own committed OntServe ontology. The anchor case wins
+    # on a label collision (cross-case labels are engineer-prefixed, so collisions are rare).
+    lookup = {}
+    cids = [case_id] + ([r["case_id"] for r in cross_case["rows"]] if cross_case else [])
+    for cid in cids:
+        try:
+            g = _load_graph(cid)
+        except FileNotFoundError:
+            continue
+        for key, entry in _entity_index(g, cid).items():
+            lookup.setdefault(key, entry)
+
     return {
         "case_conflicts": case_data,
         "theme": theme,
         "cross_case": cross_case,
+        "entity_lookup": lookup,
     }
