@@ -65,7 +65,7 @@
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('precedents.similarity_network_view') }}" class="btn btn-outline-primary">
+            <a href="{{ url_for('precedents.similarity_network_view', case_id=source_case.id) if source_case else url_for('precedents.similarity_network_view') }}" class="btn btn-outline-primary">
                 <i class="bi bi-diagram-3"></i> View Similarity Network
             </a>
         </div>
