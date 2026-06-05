@@ -22,7 +22,7 @@ expected n=42 completers x 3.5 cases/completer = 147 rating slots,
 19 cases yield 7.7 raters/case avg vs the chapter's 5-rater floor.
 
 Publication years in the pool: 2021, 2022, 2023, 2025
-(case-number years 21-9 through 24-05).
+(case-number years 21-9 through 24-5).
 
 IRB Protocol §2 describes this pool as "23 NSPE Board of Ethical Review
 cases, recent opinions 2017-2024." The chapter's §4.4.4 "Case Selection
@@ -36,11 +36,11 @@ Do not expand this list without an IRB amendment.
 from __future__ import annotations
 
 STUDY_CASE_POOL_IDS: list[int] = [
-    4,    # 24-05 (2025) Sustainable Development and Resilient Infrastructure
-    5,    # 24-04 (2025) Community Engagement for Infrastructure Projects
-    6,    # 24-03 (2025) Public Contracting Practices
-    7,    # 24-02 (2025) Use of Artificial Intelligence in Engineering Practice
-    8,    # 24-01 (2025) Balancing Client Directives and Public Welfare
+    4,    # 24-5 (2025) Sustainable Development and Resilient Infrastructure
+    5,    # 24-4 (2025) Community Engagement for Infrastructure Projects
+    6,    # 24-3 (2025) Public Contracting Practices
+    7,    # 24-2 (2025) Use of Artificial Intelligence in Engineering Practice
+    8,    # 24-1 (2025) Balancing Client Directives and Public Welfare
     9,    # 23-4  (2023) Acknowledging Errors in Design
     10,   # 23-3  (2023) Post-Public Employment - City Engineer Transitioning
     11,   # 23-2  (2023) Excess Stormwater Runoff

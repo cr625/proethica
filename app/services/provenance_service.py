@@ -153,7 +153,53 @@ class ProvenanceService:
             raise
         finally:
             self.session.flush()
-    
+
+    def track_pass(self, activity_type: str, activity_name: str,
+                   case_id: Optional[int] = None, session_id: Optional[str] = None,
+                   agent_type: str = 'extraction_service', agent_name: str = 'proethica',
+                   execution_plan: Optional[Dict] = None, result: Optional[Dict] = None,
+                   status: str = 'completed', duration_ms: int = 0):
+        """Record a COMPLETED non-LLM pipeline pass in one call.
+
+        Unlike track_activity (a context manager around in-progress work), this logs a pass that
+        has already run: a filter / reconciliation / materialization / guard / validation / repair
+        step. `execution_plan` holds the strategy/config (the "how": pattern, resolver, shapes,
+        rule set, reasoner) and `result` (-> activity_metadata) holds the OUTCOME that the committed
+        ontology does not show (drops + reasons, merges, per-family edge counts, guard drops,
+        SHACL violations + Tier-0 repairs, consistency). NON-LLM passes attribute to a non-llm agent
+        (extraction_service / reasoner / shacl_engine), which is the point: they are deterministic
+        verification steps, not prompts. Returns the activity (or None on failure; callers treat
+        provenance as best-effort and never let it fail a commit)."""
+        try:
+            agent = self.get_or_create_agent(agent_type, agent_name)
+            now = datetime.utcnow()
+            activity = ProvenanceActivity(
+                activity_type=activity_type,
+                activity_name=activity_name,
+                case_id=case_id,
+                session_id=session_id,
+                agent_id=agent.id,
+                execution_plan=execution_plan or {},
+                activity_metadata=result or {},
+                started_at=now,
+                ended_at=now,
+                duration_ms=duration_ms or 0,
+                status=status,
+            )
+            # SAVEPOINT: a bad provenance insert (e.g. a non-JSON-serializable field) must roll back
+            # ONLY this record, never poison the caller's transaction. Without the nested
+            # transaction a failed flush here leaves the session in PendingRollbackError and breaks
+            # the surrounding commit. This is what makes "best-effort provenance" actually safe.
+            with self.session.begin_nested():
+                self.session.add(activity)
+                self.session.flush()
+            return activity
+        except Exception:
+            logger.warning("track_pass failed for %s/%s (provenance is best-effort; savepoint "
+                           "rolled back, caller transaction intact)",
+                           activity_type, activity_name, exc_info=True)
+            return None
+
     def record_prompt(self, prompt_text: str, activity: ProvenanceActivity,
                      entity_name: Optional[str] = None,
                      metadata: Optional[Dict] = None) -> ProvenanceEntity:

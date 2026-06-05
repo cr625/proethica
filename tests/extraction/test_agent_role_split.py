@@ -8,6 +8,7 @@ import pytest
 
 from app.services.temporal_dynamics.utils.rdf_converter import (
     split_agent_role,
+    decompose_agents,
     convert_action_to_rdf,
 )
 
@@ -61,7 +62,10 @@ def test_converter_applies_split():
     assert rdf["proeth:eventRoleContext"] == "Professional Engineer"
 
 
-def test_converter_leaves_composite_agent_unsplit():
+def test_converter_decomposes_composite_agent():
+    """A composite agent keeps its original hasAgent (provenance) and no single
+    eventRoleContext, but is decomposed into the structured proeth:agents list
+    (study-corrections Phase 4 made this generic, replacing the hand table)."""
     rdf = convert_action_to_rdf(
         {"label": "Joint review",
          "agent": "Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)"},
@@ -70,3 +74,43 @@ def test_converter_leaves_composite_agent_unsplit():
     assert rdf["proeth:hasAgent"] == \
         "Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)"
     assert "proeth:eventRoleContext" not in rdf
+    assert rdf["proeth:agents"] == [
+        {"name": "Engineer A", "role": "Original Engineer"},
+        {"name": "Engineer B", "role": "Reviewing Engineer"},
+    ]
+    assert rdf["proeth:agentRelation"] == "and"
+
+
+@pytest.mark.parametrize("agent,expected_agents,relation", [
+    ("Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)",
+     [{"name": "Engineer A", "role": "Original Engineer"},
+      {"name": "Engineer B", "role": "Reviewing Engineer"}], "and"),
+    ("ZZZ (project owner) and Firm C (design firm)",
+     [{"name": "ZZZ", "role": "project owner"},
+      {"name": "Firm C", "role": "design firm"}], "and"),
+    # Bare names, no roles.
+    ("Engineer A and Engineer B",
+     [{"name": "Engineer A", "role": None},
+      {"name": "Engineer B", "role": None}], "and"),
+    # CRITICAL: 'and' + comma INSIDE a role must not split the actors.
+    ("Engineer A (superintendent and chief engineer, MWC) and Engineer B (Town Engineer)",
+     [{"name": "Engineer A", "role": "superintendent and chief engineer, MWC"},
+      {"name": "Engineer B", "role": "Town Engineer"}], "and"),
+    ("Owner and/or Contractor",
+     [{"name": "Owner", "role": None},
+      {"name": "Contractor", "role": None}], "and/or"),
+])
+def test_decompose_agents_multi(agent, expected_agents, relation):
+    agents, rel = decompose_agents(agent)
+    assert agents == expected_agents
+    assert rel == relation
+
+
+@pytest.mark.parametrize("agent", [
+    "Engineer A (Professional Engineer, Structural)",  # single actor, comma in role
+    "Engineer A",                                       # bare single name
+    "",
+    "County A Engineering Staff",
+])
+def test_decompose_agents_single_returns_none(agent):
+    assert decompose_agents(agent) is None

@@ -65,6 +65,11 @@ Extract all temporal information:
    - Example: "March 15, 2023", "9:00 AM", "Q3 2022"
    - Include context (surrounding sentence)
    - Type: absolute, relative, or approximate
+   - DO NOT treat a citation to a prior NSPE Board of Ethical Review case as a date. Forms
+     like "Case 18-10", "BER Case 96-8", "Case 93-3", or "BER 07-6" are precedent references,
+     NOT dates or times, even when introduced by "in" (e.g. "In BER Case 18-10, ..."). The
+     "NN-NN" in a case number is a docket identifier, not a month-day or year. Exclude all
+     such case citations from explicit_dates.
 
 2. **Temporal Phrases**: Relative time expressions
    - Example: "three weeks later", "before the meeting", "during construction"
@@ -143,6 +148,12 @@ JSON Response:"""
             llm_trace.append(trace_entry)
             raise ValueError("LLM did not return valid JSON for temporal markers")
 
+        # Deterministic backstop: drop any "explicit date" that is actually a BER/board case
+        # citation ("Case 18-10", "BER Case 96-8"). The "NN-NN" docket shape reads like a date
+        # to the model despite the prompt guard, and dateutil then chokes on it. Reuses the
+        # same precedent pattern the rest of the pipeline uses to drop phantom precedents.
+        markers = _drop_precedent_dates(markers)
+
         trace_entry['parsed_output'] = {
             'explicit_dates': len(markers.get('explicit_dates', [])),
             'temporal_phrases': len(markers.get('temporal_phrases', [])),
@@ -165,6 +176,27 @@ JSON Response:"""
             'durations': [],
             'allen_relations': []
         }
+
+
+def _drop_precedent_dates(markers: Dict) -> Dict:
+    """Remove explicit_dates whose value is a BER/board case citation (e.g. "Case 18-10",
+    "BER Case 96-8"). These are precedent docket numbers, not dates. Logs each drop (no
+    silent removal). Returns the same markers dict with explicit_dates filtered."""
+    from app.services.extraction.precedent_filter import is_precedent_reference
+
+    dates = markers.get('explicit_dates') or []
+    kept, dropped = [], []
+    for item in dates:
+        date_val = (item or {}).get('date', '') if isinstance(item, dict) else ''
+        if is_precedent_reference(date_val):
+            dropped.append(date_val)
+        else:
+            kept.append(item)
+    if dropped:
+        markers['explicit_dates'] = kept
+        logger.info("[Temporal Extractor] Dropped %d case-citation 'date(s)' (precedent refs, "
+                    "not dates): %s", len(dropped), ", ".join(dropped))
+    return markers
 
 
 def validate_dates(temporal_markers: Dict) -> List[str]:

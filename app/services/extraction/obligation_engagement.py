@@ -8,17 +8,27 @@ fulfills (directly satisfied), violates (directly breached), and raises
 `proeth:violatesObligation` so the same obligation never appears with
 contradictory polarity on adjacent steps in the chain.
 
-Driver: `docs-internal/scripts/backfill_obligation_engagement.py`.
+Literature grounding. The fulfills / violates pair is the causal-normative
+mapping of an action to the obligations it satisfies or breaches (Sarmiento et
+al. 2023, NESS causal responsibility; Berreby et al. 2017, obligations as
+fulfilled/violated fluents). The third bucket, `raises`, is the temporal
+refinement: rather than statically satisfying or breaching a duty, an action can
+PUT AN OBLIGATION IN FORCE (at stake) that a later action resolves. This is the
+Event Calculus view of an obligation as a fluent INITIATED by one happening and
+fulfilled or violated by a subsequent one (Berreby et al. 2017), under the
+defeasible/contextual account of obligations that come into force under
+conditions (Dennis et al. 2016; Dennis & del Olmo 2021). It is the action-side
+analog of the core State linkage proeth-core:activatesObligation /
+defeasibleUnder: a happening raises an obligation just as a State activates one.
 
-Reference: proethica/.claude/plans/current-application-roadmap.md
-"Action Obligation Classification: Choice vs. Execution".
+Driver: `docs-internal/scripts/backfill_obligation_engagement.py`.
 """
 from __future__ import annotations
 
 import json
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
 from .schemas import ObligationEngagementResult, PerActionEngagement
@@ -40,13 +50,15 @@ SYSTEM_PROMPT = (
     "  - violates: this specific Action directly breaches the obligation. "
     "    Use when the action does the opposite of what the obligation "
     "    requires.\n"
-    "  - raises: this Action puts the obligation in play but does not "
-    "    itself resolve it. The fulfillment or violation happens at a "
-    "    downstream Action in the same chain (e.g., a choice to use a "
-    "    tool raises a competence concern that the later review either "
-    "    satisfies or breaches). Use this whenever the case opinion "
-    "    treats the obligation as 'at risk' from the choice but actually "
-    "    resolved by a subsequent step.\n\n"
+    "  - raises: this Action puts the obligation IN FORCE (at stake) but does "
+    "    not itself resolve it (the Event Calculus view of an obligation as a "
+    "    fluent the action initiates, fulfilled or violated by a later action; "
+    "    Berreby et al. 2017; Dennis et al. 2016). The fulfillment or violation "
+    "    happens at a downstream Action in the same chain (e.g., a choice to use "
+    "    a tool raises a competence concern that the later review either "
+    "    satisfies or breaches). Use this whenever the case opinion treats the "
+    "    obligation as 'at risk' from the choice but actually resolved by a "
+    "    subsequent step.\n\n"
     "Critical rules:\n"
     "- The union of fulfills + violates + raises for an Action must "
     "  EQUAL the input pool exactly. Do not invent new obligations. Do "
@@ -84,6 +96,10 @@ class ActionEngagementContext:
     sequence: Optional[int]
     fulfills: List[str]
     violates: List[str]
+    # Obligations already at stake on this Action from a prior engagement pass.
+    # Included in the validation pool so a re-run is idempotent (does not flag a
+    # previously-raised obligation as an extra).
+    raises: List[str] = field(default_factory=list)
 
 
 def build_user_prompt(
@@ -116,6 +132,10 @@ def build_user_prompt(
         lines.append("Violates (input):")
         for o in a.violates:
             lines.append(f"  - {o}")
+        if a.raises:
+            lines.append("Raises (input, already at stake):")
+            for o in a.raises:
+                lines.append(f"  - {o}")
         lines.append("")
     lines.append(
         "Reclassify each Action's pool into fulfills / violates / raises. "
@@ -151,7 +171,16 @@ class ObligationEngagementExtractor:
         case_title: str,
         actions: List[ActionEngagementContext],
         discussion_excerpt: str = "",
+        strict: bool = True,
     ) -> ObligationEngagementResult:
+        """Re-partition each Action's obligations into fulfills/violates/raises.
+
+        strict=True (default, used by the backfill driver): raise ValueError on
+        any validation issue. strict=False (the live apply hook): log the issues
+        and return the parsed result anyway, so the caller can reconcile each
+        Action deterministically to its input pool instead of dropping the whole
+        case's raises buckets.
+        """
         if not actions:
             return ObligationEngagementResult(actions=[], rationale=None)
 
@@ -166,7 +195,12 @@ class ObligationEngagementExtractor:
             )
 
         result = self._parse(raw)
-        self._validate(result, actions, case_id)
+        issues = self._validate(result, actions, case_id)
+        if issues:
+            msg = f"case {case_id}: obligation-engagement validation: {issues[:3]}"
+            if strict:
+                raise ValueError(msg)
+            logger.warning("%s (lenient; caller will reconcile to the input pool)", msg)
         return result
 
     # ------------------------------------------------------------------
@@ -253,24 +287,36 @@ class ObligationEngagementExtractor:
         result: ObligationEngagementResult,
         actions: List[ActionEngagementContext],
         case_id: int,
-    ) -> None:
+    ) -> List[str]:
+        """Return human-readable validation issues (empty list == valid).
+
+        Returns issues rather than raising so each caller chooses how to handle
+        them: the backfill driver fails hard via extract(strict=True); the live
+        apply hook reconciles deterministically. The per-action input pool
+        INCLUDES each Action's existing ``raises`` so a re-run does not flag a
+        previously-raised obligation as an extra.
+        """
+        issues: List[str] = []
         input_iris = {a.iri for a in actions}
         output_iris = {pa.action_iri for pa in result.actions}
         if input_iris != output_iris:
             missing = input_iris - output_iris
             extra = output_iris - input_iris
-            raise ValueError(
-                f"case {case_id}: action_iris in result do not match input "
-                f"(missing={sorted(missing)}, extra={sorted(extra)})"
+            issues.append(
+                f"action_iris do not match input (missing={sorted(missing)}, "
+                f"extra={sorted(extra)})"
             )
 
         # Per-action: union must equal input pool, no duplicates within action.
         action_by_iri = {a.iri: a for a in actions}
         for pa in result.actions:
-            ctx = action_by_iri[pa.action_iri]
+            ctx = action_by_iri.get(pa.action_iri)
+            if ctx is None:
+                continue
             input_pool: Set[str] = set()
             input_pool.update(cls._normalize(o) for o in ctx.fulfills)
             input_pool.update(cls._normalize(o) for o in ctx.violates)
+            input_pool.update(cls._normalize(o) for o in (ctx.raises or []))
 
             output_norms = (
                 [cls._normalize(o) for o in pa.fulfills]
@@ -286,16 +332,16 @@ class ObligationEngagementExtractor:
                     seen[s] = seen.get(s, 0) + 1
                     if seen[s] == 2:
                         dups.append(s)
-                raise ValueError(
-                    f"case {case_id} action {pa.action_iri}: an obligation appears in "
-                    f"more than one bucket: {dups[:3]}"
+                issues.append(
+                    f"action {pa.action_iri}: an obligation appears in more than "
+                    f"one bucket: {dups[:3]}"
                 )
 
             missing = input_pool - output_set
             extra = output_set - input_pool
             if missing or extra:
-                raise ValueError(
-                    f"case {case_id} action {pa.action_iri}: bucket union does not "
-                    f"equal input pool (missing={sorted(missing)[:3]}, "
-                    f"extra={sorted(extra)[:3]})"
+                issues.append(
+                    f"action {pa.action_iri}: bucket union does not equal input "
+                    f"pool (missing={sorted(missing)[:3]}, extra={sorted(extra)[:3]})"
                 )
+        return issues

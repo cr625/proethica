@@ -26,6 +26,22 @@ from app.utils.llm_utils import extract_json_from_response
 logger = logging.getLogger(__name__)
 
 
+# Maps the extractor's concept_type to the core D-tuple category a candidate of
+# that type belongs to. Mirrors the category_map in _load_existing_classes; the
+# cross-category matcher gate uses it as the candidate's category.
+CONCEPT_TYPE_TO_CORE_CATEGORY: Dict[str, str] = {
+    'roles': 'Role',
+    'states': 'State',
+    'resources': 'Resource',
+    'principles': 'Principle',
+    'obligations': 'Obligation',
+    'constraints': 'Constraint',
+    'capabilities': 'Capability',
+    'actions': 'Action',
+    'events': 'Event',
+}
+
+
 # ---------------------------------------------------------------------------
 # Per-concept configuration
 # ---------------------------------------------------------------------------
@@ -667,6 +683,19 @@ class UnifiedDualExtractor:
                 f"Precedent filter ({self.concept_type}): dropped "
                 f"{len(dropped_c)} class(es) + {len(dropped_i)} individual(s): "
                 f"{dropped_c + dropped_i}")
+            try:  # provenance: record the filter PASS (what was rejected + why). Best-effort.
+                from app.services.provenance_service import get_provenance_service
+                get_provenance_service().track_pass(
+                    activity_type='filter', activity_name='precedent_filter',
+                    case_id=case_id, agent_type='extraction_service', agent_name='precedent_filter',
+                    execution_plan={'concept_type': self.concept_type, 'section': section_type,
+                                    'rule': 'drop entities derived from a cited precedent case '
+                                            '(BER NN-N / generic precedent placeholder)'},
+                    result={'dropped': dropped_c + dropped_i,
+                            'dropped_classes': len(dropped_c),
+                            'dropped_individuals': len(dropped_i)})
+            except Exception:
+                logger.debug("precedent_filter provenance skipped", exc_info=True)
 
         # 4. Match against existing ontology classes
         self._check_existing_matches(classes)
@@ -676,6 +705,60 @@ class UnifiedDualExtractor:
 
         # 6. Link individuals to classes
         self._link_individuals_to_classes(individuals, classes)
+
+        # 6b. Drop TYPES emitted as individuals: an individual that is a relabeling of
+        # its own class (a self-instance), or content that belongs to another
+        # component. The multi-purpose individual/type filter is generic across
+        # concept types via a CRITERIA row (it only runs for a type that has one),
+        # deterministic-first with one batched LLM call over the ambiguous remainder
+        # only. Runs here at extraction time so the dropped types never reach
+        # temporary_rdf_storage and the review UI shows the filtered set. Best-effort,
+        # like the precedent filter above: a failure never breaks extraction.
+        try:
+            from app.services.extraction.individual_type_filter import filter_individuals, CRITERIA
+            if self.concept_type in CRITERIA and individuals:
+                def _fdict(ind):
+                    cls = ''
+                    for k in ('resource_class', 'instance_of', 'state_class', 'role_class',
+                              'principle_class', 'obligation_class', 'constraint_class',
+                              'capability_class'):
+                        v = getattr(ind, k, None)
+                        if v:
+                            cls = str(v)
+                            break
+                    return {
+                        'label': (getattr(ind, 'identifier', None) or getattr(ind, 'name', None)
+                                  or getattr(ind, 'label', '') or ''),
+                        'instance_of': cls,
+                        'definition': (getattr(ind, 'used_in_context', None)
+                                       or getattr(ind, 'description', None) or ''),
+                    }
+                _dicts = [_fdict(ind) for ind in individuals]
+                _fres = filter_individuals(_dicts, self.concept_type)
+                if _fres['dropped']:
+                    _kept_ids = {id(d) for d in _fres['kept']}
+                    individuals = [ind for ind, d in zip(individuals, _dicts) if id(d) in _kept_ids]
+                    logger.info(
+                        f"Individual/type filter ({self.concept_type}): dropped "
+                        f"{len(_fres['dropped'])} type-as-individual "
+                        f"(resolver={_fres['resolver']}, llm_items={_fres['llm_items']}): "
+                        f"{[it.get('label') for it, _why in _fres['dropped']]}")
+                    try:  # provenance: record the filter PASS. Best-effort.
+                        from app.services.provenance_service import get_provenance_service
+                        get_provenance_service().track_pass(
+                            activity_type='filter', activity_name='individual_type_filter',
+                            case_id=case_id, agent_type='extraction_service',
+                            agent_name='individual_type_filter',
+                            execution_plan={'concept_type': self.concept_type, 'section': section_type,
+                                            'resolver': _fres['resolver'], 'llm_items': _fres['llm_items'],
+                                            'rule': 'drop a class minted as an individual '
+                                                    '(self-instance / wrong component)'},
+                            result={'dropped': [it.get('label') for it, _why in _fres['dropped']],
+                                    'count': len(_fres['dropped'])})
+                    except Exception:
+                        logger.debug("individual_type_filter provenance skipped", exc_info=True)
+        except Exception as e:
+            logger.warning(f"individual/type filter skipped for {self.concept_type}: {e}")
 
         elapsed = time.time() - start
         logger.info(
@@ -745,6 +828,11 @@ class UnifiedDualExtractor:
             prior_text = self._format_prior_section_classes(case_id, section_type)
             if prior_text:
                 existing_text += prior_text
+            # Roles: also carry forward prior-section ACTORS so the discussion
+            # pass reuses an actor identity instead of fragmenting it (Option C).
+            prior_actors = self._format_prior_section_individuals(case_id, section_type)
+            if prior_actors:
+                existing_text += prior_actors
 
         # Load cross-concept context (e.g., roles for principles, etc.)
         cross_context = ''
@@ -865,46 +953,130 @@ class UnifiedDualExtractor:
             logger.warning(f"Could not load prior-section classes: {e}")
             return ''
 
+    def _format_prior_section_individuals(
+        self, case_id: int, current_section: str,
+    ) -> str:
+        """Format role ACTORS already extracted as individuals in earlier
+        sections, so the discussion pass reuses the same actor identity rather
+        than minting a parallel, unlinked individual for the same person.
+
+        Roles only (the Agent layer is role-scoped). An actor (e.g. "Engineer A")
+        is stable across sections; each section may surface a different role facet
+        of that actor. The block lists the actor, the facet seen, the section, and
+        a one-line involvement so the LLM can tie a new facet to the existing
+        actor via the role individual's ``actor`` field.
+        """
+        if (self.concept_type or '').lower() != 'roles':
+            return ''
+        try:
+            from app.models.temporary_rdf_storage import TemporaryRDFStorage
+            from app.models.extraction_prompt import ExtractionPrompt
+
+            section_order = ['facts', 'discussion', 'questions', 'conclusions']
+            current_idx = section_order.index(current_section) if current_section in section_order else 0
+            prior_sections = section_order[:current_idx]
+            if not prior_sections:
+                return ''
+
+            prior_sessions = [
+                p.extraction_session_id
+                for p in ExtractionPrompt.query.filter_by(
+                    case_id=case_id, concept_type=self.concept_type, is_active=True,
+                ).all()
+                if p.extraction_session_id and p.section_type in prior_sections
+            ]
+            if not prior_sessions:
+                return ''
+
+            prior_individuals = TemporaryRDFStorage.query.filter(
+                TemporaryRDFStorage.case_id == case_id,
+                TemporaryRDFStorage.extraction_type == self.concept_type,
+                TemporaryRDFStorage.storage_type == 'individual',
+                TemporaryRDFStorage.extraction_session_id.in_(prior_sessions),
+            ).all()
+            if not prior_individuals:
+                return ''
+
+            lines = [
+                '\n\n--- ACTORS ALREADY IDENTIFIED IN PRIOR SECTIONS ---',
+                'These actors (people / organizations filling roles) were identified',
+                'in earlier sections. If a role here is the SAME actor, set the role',
+                'individual\'s "actor" field to the SAME actor identity shown below,',
+                'and create a new role facet only if the role genuinely differs. Do',
+                'NOT invent a parallel actor for someone already listed.\n',
+            ]
+            for ind in prior_individuals:
+                json_ld = ind.rdf_json_ld or {}
+                props = json_ld.get('properties', {}) or {}
+                actor_vals = props.get('actor')
+                actor = (actor_vals[0] if isinstance(actor_vals, list) and actor_vals
+                         else actor_vals) or ind.entity_label
+                sections = json_ld.get('section_sources') or []
+                section_tag = ', '.join(sections) if sections else 'prior'
+                involvement = (ind.entity_definition or '').strip()
+                if len(involvement) > 160:
+                    involvement = involvement[:157] + '...'
+                line = f'- actor "{actor}" | role facet: {ind.entity_label} | section: {section_tag}'
+                if involvement:
+                    line += f' | {involvement}'
+                lines.append(line)
+
+            logger.info(
+                f"Added {len(prior_individuals)} prior-section role actors "
+                f"to prompt for case {case_id}"
+            )
+            return '\n'.join(lines)
+
+        except Exception as e:
+            logger.warning(f"Could not load prior-section individuals: {e}")
+            return ''
+
     # ------------------------------------------------------------------
     # MCP entity loading
     # ------------------------------------------------------------------
 
     def _load_existing_classes(self) -> List[Dict[str, Any]]:
-        """Load existing classes from MCP for ontology awareness."""
+        """Load the CURATED existing classes from MCP for ontology awareness.
+
+        Restricted to the curated vocabulary (core + intermediate + intermediate-
+        extended + external references) and de-duplicated by URI; per-case
+        self-containment copies are excluded. self.existing_classes feeds THREE
+        paths -- the prompt injection (format_existing_entities), the class matcher
+        (_check_existing_matches), and the definition collection
+        (_collect_ontology_definitions, which feeds the case-tagged scopeNote) --
+        so filtering here is what keeps matches and definitions consolidating onto a
+        curated class with its real definition, instead of a case copy's "Ontology
+        class for Role" fallback. Mirrors the prompt-side filter."""
         if not self.mcp_client:
             return []
 
         try:
             # The PromptVariableResolver has the concept->MCP method mapping.
             # For simplicity, use get_entities_by_category which works for all.
-            category_map = {
-                'roles': 'Role',
-                'states': 'State',
-                'resources': 'Resource',
-                'principles': 'Principle',
-                'obligations': 'Obligation',
-                'constraints': 'Constraint',
-                'capabilities': 'Capability',
-                'actions': 'Action',
-                'events': 'Event',
-            }
-            category = category_map[self.concept_type]
+            category = CONCEPT_TYPE_TO_CORE_CATEGORY[self.concept_type]
 
             # Some concepts have dedicated methods on the MCP client
             method_name = f'get_all_{self.concept_type[:-1] if self.concept_type.endswith("s") else self.concept_type}_entities'
             # e.g. get_all_obligation_entities, get_all_role_entities
 
+            entities: List[Dict[str, Any]] = []
             if hasattr(self.mcp_client, method_name):
-                entities = getattr(self.mcp_client, method_name)()
-                if isinstance(entities, list):
-                    return entities
+                got = getattr(self.mcp_client, method_name)()
+                if isinstance(got, list):
+                    entities = got
+            if not entities:
+                # Fallback: generic category query
+                result = self.mcp_client.get_entities_by_category(category)
+                if result.get('success') and result.get('result'):
+                    entities = result['result'].get('entities', [])
 
-            # Fallback: generic category query
-            result = self.mcp_client.get_entities_by_category(category)
-            if result.get('success') and result.get('result'):
-                return result['result'].get('entities', [])
-
-            return []
+            # Restrict to the curated vocabulary (drop per-case copies) and collapse
+            # duplicate URIs to the highest-authority source, so the matcher and the
+            # definition lookup never resolve to a case copy.
+            from app.services.prompt_variable_resolver import (
+                _curated_only, _dedup_entities_by_uri,
+            )
+            return _dedup_entities_by_uri(_curated_only(entities))
 
         except Exception as e:
             logger.error(
@@ -1601,6 +1773,72 @@ class UnifiedDualExtractor:
                 candidate.match_decision.matched_label = None
                 candidate.match_decision.reasoning = None
 
+        # Cross-category gate (Layer 1). Both branches above can establish a
+        # match the LLM or a label match proposed; deterministically reject any
+        # match whose matched class chains (via the curated subClassOf* chain) to
+        # a core category disjoint from this candidate's category. This stops a
+        # genuine Obligation being merged into a class an earlier extraction
+        # mis-established as a Principle, which otherwise forces a Pellet
+        # disjointness clash. Runs LAST so its rejection reasoning survives the
+        # orphan-cleanup pass above. See
+        # docs-internal/reextraction/matcher-category-authority-design.md.
+        for candidate in classes:
+            self._reject_cross_category_match(candidate)
+
+    def _candidate_core_category(self) -> Optional[str]:
+        """The core category a candidate of this extractor's concept_type is."""
+        return CONCEPT_TYPE_TO_CORE_CATEGORY.get(self.concept_type)
+
+    def _reject_cross_category_match(self, candidate: BaseModel) -> None:
+        """Reject a prefer-existing match that crosses a disjoint core category.
+
+        Resolves the matched class's curated subClassOf* CHAIN core category
+        (anchored in proethica-core+intermediate[-extended], NOT the stored
+        OntServe entity-table category or conceptCategory literal, which are
+        extraction-derived and can lie) and compares it to the candidate's core
+        category. Two distinct core categories are mutually disjoint under the
+        nine-way AllDisjointClasses, so the match would force an OWL-DL clash;
+        drop it and let the candidate be treated as a new class. A same-category
+        match, or a match whose chain category cannot be resolved, is left
+        unchanged.
+        """
+        md = candidate.match_decision
+        if not md.matches_existing:
+            return
+
+        matched_ref = md.matched_uri or md.matched_label
+        if not matched_ref:
+            return
+
+        candidate_cat = self._candidate_core_category()
+        if not candidate_cat:
+            return
+
+        from app.services.extraction.category_resolver import resolve_core_category
+        chain_cat = resolve_core_category(matched_ref)
+        if not chain_cat:
+            # Chain category unknown (class not in the curated tiers); cannot
+            # prove a conflict, so leave the match in place.
+            return
+
+        if chain_cat == candidate_cat:
+            return
+
+        logger.warning(
+            "Matcher rejected cross-category match for '%s': existing class %s "
+            "chains to %s but candidate is %s",
+            getattr(candidate, 'label', None) or getattr(candidate, 'identifier', '?'),
+            matched_ref, chain_cat, candidate_cat,
+        )
+        md.matches_existing = False
+        md.matched_uri = None
+        md.matched_label = None
+        md.confidence = 0.0
+        md.reasoning = (
+            f"rejected cross-category match: existing class chains to "
+            f"{chain_cat} but candidate is {candidate_cat}"
+        )
+
     def _collect_ontology_definitions(
         self, classes: List[BaseModel],
     ) -> Dict[str, Dict[str, str]]:
@@ -1750,6 +1988,12 @@ class UnifiedDualExtractor:
                     f"Individual '{individual.identifier}' directly references "
                     f"existing class '{matched_existing.get('label')}'"
                 )
+                # Apply the same chain-category gate as _check_existing_matches:
+                # existing_by_label is keyed off get_entities_by_category (the
+                # STORED category), which can disagree with the curated subClassOf
+                # CHAIN (the F2 root cause), so a direct individual->existing-class
+                # link can still cross a disjoint category. Reject if so.
+                self._reject_cross_category_match(individual)
 
     # ------------------------------------------------------------------
     # JSON repair

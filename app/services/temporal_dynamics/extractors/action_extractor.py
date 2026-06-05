@@ -1,11 +1,16 @@
 """
 Action Extractor for Enhanced Temporal Dynamics Pass
 
-Two-phase extraction for reliability:
-- Phase 1: Core action data (intentions, ethics, priorities, professional context)
-- Phase 2: Scenario metadata enrichment (motivations, tensions, stakes, alternatives)
+Single-pass extraction of core action data: intentions (DCEC double-effect), ethical
+context (obligations fulfilled/violated, principles, constraints), competing priorities,
+professional context, and the Event-Calculus fluent transitions (initiates/terminates).
 
-This split reduces timeout risk by making each LLM call smaller and faster.
+The former Phase 2 scenario-metadata enrichment (character motivation, dramatic tension,
+stakes, alternatives, learning moments) was removed 2026-05-31: that content is narrative
+gloss derivable on demand from the committed entities at scenario/lesson-generation time
+(competing obligations -> ethical tension, intention + role -> motivation, decision points
++ options -> alternatives), so pre-extracting it was redundant. See
+docs-internal/reextraction/pass3-fluents-owltime-revision.md.
 """
 
 from typing import Dict, List, Optional
@@ -28,11 +33,8 @@ def extract_actions_with_metadata(
     discussion_text: str = ''
 ) -> List[Dict]:
     """
-    Extract actions (volitional professional decisions) with rich metadata.
-
-    Uses two-phase extraction:
-    1. Phase 1: Core action data (faster, critical)
-    2. Phase 2: Scenario metadata enrichment (optional enhancement)
+    Extract actions (volitional professional decisions) with their core metadata
+    (intentions, ethics, competing priorities, professional context, fluent transitions).
 
     Args:
         narrative: Unified narrative from Stage 1
@@ -60,26 +62,12 @@ def extract_actions_with_metadata(
         logger.error(f"[Stage 3] Failed to initialize LLM client: {e}")
         raise RuntimeError(f"No LLM client available: {e}")
 
-    # Phase 1: Extract core actions
     actions = _extract_core_actions(
         narrative, temporal_markers, case_id, llm_client, model_name, llm_trace,
         facts_text=facts_text, discussion_text=discussion_text
     )
-
-    if not actions:
-        logger.warning(f"[Stage 3] Phase 1 returned 0 actions, skipping Phase 2")
-        return []
-
-    logger.info(f"[Stage 3] Phase 1 complete: {len(actions)} core actions")
-
-    # Phase 2: Enrich with scenario metadata
-    enriched_actions = _enrich_with_scenario_metadata(
-        actions, narrative, case_id, llm_client, model_name, llm_trace
-    )
-
-    logger.info(f"[Stage 3] Phase 2 complete: {len(enriched_actions)} enriched actions")
-
-    return enriched_actions
+    logger.info(f"[Stage 3] Extracted {len(actions)} actions")
+    return actions
 
 
 def _call_llm_with_streaming(
@@ -173,71 +161,6 @@ def _extract_core_actions(
         llm_trace.append(trace_entry)
 
 
-def _enrich_with_scenario_metadata(
-    actions: List[Dict],
-    narrative: Dict,
-    case_id: int,
-    llm_client,
-    model_name: str,
-    llm_trace: List[Dict]
-) -> List[Dict]:
-    """
-    Phase 2: Enrich actions with scenario metadata.
-
-    This is optional enhancement - if it fails, we still have core actions.
-    """
-    prompt = _build_phase2_prompt(actions, narrative)
-
-    trace_entry = {
-        'stage': 'action_extraction',
-        'phase': 'phase2_scenario',
-        'timestamp': datetime.utcnow().isoformat(),
-        'prompt': prompt,
-        'model': model_name,
-    }
-
-    try:
-        response_text, response = _call_llm_with_streaming(
-            llm_client, model_name, prompt, "Phase 2", case_id
-        )
-
-        trace_entry['response'] = response_text
-
-        # Parse enrichment
-        enrichments = _parse_enrichment_response(response_text)
-        trace_entry['parsed_output'] = {'enrichment_count': len(enrichments)}
-
-        # Token usage
-        if hasattr(response, 'usage'):
-            trace_entry['tokens'] = {
-                'input_tokens': response.usage.input_tokens,
-                'output_tokens': response.usage.output_tokens,
-                'total_tokens': response.usage.input_tokens + response.usage.output_tokens
-            }
-
-        # Merge enrichments into actions
-        enriched = _merge_enrichments(actions, enrichments)
-        logger.info(f"[Stage 3] Phase 2: Enriched {len(enriched)} actions with scenario metadata")
-
-        return enriched
-
-    except Exception as e:
-        logger.warning(f"[Stage 3] Phase 2 failed: {e} - returning core actions without enrichment")
-        trace_entry['error'] = str(e)
-        trace_entry['warning'] = 'Enrichment failed - using core actions only'
-
-        # Add empty scenario_metadata to each action
-        for action in actions:
-            if 'scenario_metadata' not in action:
-                action['scenario_metadata'] = {}
-
-        return actions
-
-    finally:
-        trace_entry['end_timestamp'] = datetime.utcnow().isoformat()
-        llm_trace.append(trace_entry)
-
-
 def _build_phase1_prompt(narrative: Dict, temporal_markers: Dict,
                          facts_text: str = '', discussion_text: str = '') -> str:
     """Build Phase 1 prompt - core action extraction with source text grounding."""
@@ -292,9 +215,24 @@ For each ACTION, extract:
 4. temporal_marker: When it occurred
 5. source_section: "facts" or "discussion"
 6. intention: {{mental_state, intended_outcome, foreseen_unintended_effects, agent_knowledge}}
-7. ethical_context: {{obligations_fulfilled, obligations_violated, guiding_principles, active_constraints, competing_obligations}}
-8. competing_priorities: {{has_tradeoffs, priority_conflict, conflicting_factors, resolution_reasoning}}
-9. professional_context: {{within_competence, required_capabilities, required_resources}}
+7. ethical_context: {{obligations_fulfilled, obligations_violated, guiding_principles}}. Name
+   the obligations and principles using the SAME names they carry elsewhere in the case
+   (the obligation/principle individuals already extracted), not fresh paraphrases: these
+   are resolved downstream to those actual individuals (Action fulfillsObligation /
+   violatesObligation / guidedByPrinciple edges). Do NOT list constraints or competing
+   obligation pairs here; constraint activation is carried by the State an action
+   initiates, and obligation competition by the case's defeasibility edges.
+8. professional_context: {{within_competence, required_capabilities}}
+9. initiates: list of STATES (fluents) this action brings into holding. In the Event
+   Calculus (Kowalski & Sergot 1986; Berreby et al. 2017) a happening initiates a fluent
+   that then holds until terminated. Name the conditions/states that become true because
+   of this action (for example "Conflict of Interest", "Public Safety Risk Disclosed"),
+   using the same state names used elsewhere in the case. Empty list if it changes no state.
+10. terminates: list of STATES (fluents) this action ends (conditions that stop holding).
+    Empty list if none.
+11. temporal_extent: "instant" if the action is a point occurrence, "interval" if it
+    extends over a period. This anchors the action in OWL-Time; temporal_marker stays the
+    textual when.
 
 Return JSON:
 ```json
@@ -314,21 +252,15 @@ Return JSON:
     "ethical_context": {{
       "obligations_fulfilled": [],
       "obligations_violated": ["Competence", "Supervision"],
-      "guiding_principles": ["Efficiency"],
-      "active_constraints": ["Registration"],
-      "competing_obligations": [{{"obligation_1": "Deadline", "obligation_2": "Quality", "resolution": "Chose deadline"}}]
-    }},
-    "competing_priorities": {{
-      "has_tradeoffs": true,
-      "priority_conflict": "Urgency vs Competence",
-      "conflicting_factors": ["Time", "Quality"],
-      "resolution_reasoning": "Deadline prioritized"
+      "guiding_principles": ["Efficiency"]
     }},
     "professional_context": {{
       "within_competence": true,
-      "required_capabilities": ["Engineering judgment"],
-      "required_resources": ["Specifications"]
-    }}
+      "required_capabilities": ["Engineering judgment"]
+    }},
+    "initiates": ["Quality Risk State"],
+    "terminates": [],
+    "temporal_extent": "instant"
   }}
 ]}}
 ```
@@ -338,76 +270,6 @@ Only extract volitional decisions, not occurrences/events. Be specific with obli
 {STYLE_FORMATTING_LINE}
 
 JSON:"""
-
-
-def _build_phase2_prompt(actions: List[Dict], narrative: Dict) -> str:
-    """Build Phase 2 prompt - scenario metadata enrichment."""
-
-    # Summarize actions for context
-    action_summaries = []
-    for i, action in enumerate(actions):
-        action_summaries.append(f"{i+1}. {action.get('label', 'Unknown')}: {action.get('description', '')}")
-
-    return f"""Enrich these extracted actions with scenario metadata for teaching scenarios.
-
-CASE NARRATIVE:
-{narrative.get('unified_timeline_summary', '')}
-
-EXTRACTED ACTIONS:
-{chr(10).join(action_summaries)}
-
-For each action (by number), provide scenario_metadata:
-- character_motivation: Why did the agent take this action?
-- ethical_tension: What competing values created tension?
-- decision_significance: Key learning point for ethics education
-- narrative_role: "inciting_incident", "rising_action", "climax", "falling_action", or "resolution"
-- stakes: What's at risk? What could go wrong?
-- is_decision_point: true/false - Could the story branch here?
-- alternative_actions: 2-3 other realistic choices
-- consequences_if_alternative: What would have happened for each alternative
-
-{STYLE_FORMATTING_LINE}
-
-Return JSON:
-```json
-{{"enrichments": [
-  {{
-    "action_index": 1,
-    "scenario_metadata": {{
-      "character_motivation": "Felt deadline pressure",
-      "ethical_tension": "Professional duty vs organizational pressure",
-      "decision_significance": "Teaching moment about delegation limits",
-      "narrative_role": "inciting_incident",
-      "stakes": "Design quality, public safety",
-      "is_decision_point": true,
-      "alternative_actions": ["Decline assignment", "Request extension"],
-      "consequences_if_alternative": ["Management pushback", "Timeline impact"]
-    }}
-  }}
-]}}
-```
-
-JSON:"""
-
-
-def _merge_enrichments(actions: List[Dict], enrichments: List[Dict]) -> List[Dict]:
-    """Merge scenario metadata enrichments into actions."""
-
-    # Build index map
-    enrichment_map = {}
-    for e in enrichments:
-        idx = e.get('action_index', 0)
-        if idx > 0:
-            enrichment_map[idx - 1] = e.get('scenario_metadata', {})
-
-    # Merge
-    for i, action in enumerate(actions):
-        if i in enrichment_map:
-            action['scenario_metadata'] = enrichment_map[i]
-        else:
-            action['scenario_metadata'] = {}
-
-    return actions
 
 
 def _parse_action_response(response_text: str) -> List[Dict]:
@@ -426,18 +288,3 @@ def _parse_action_response(response_text: str) -> List[Dict]:
     actions = result.get('actions', [])
     logger.info(f"[Stage 3] Parsed {len(actions)} actions")
     return actions
-
-
-def _parse_enrichment_response(response_text: str) -> List[Dict]:
-    """Parse Phase 2 enrichment response using shared JSON parser."""
-    from app.utils.llm_json_utils import parse_json_object
-
-    if not response_text or not response_text.strip():
-        return []
-
-    result = parse_json_object(response_text, context="action_enrichment")
-    if result is None:
-        logger.warning("[Stage 3] Enrichment parsing failed")
-        return []
-
-    return result.get('enrichments', [])

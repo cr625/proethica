@@ -36,10 +36,10 @@ def extract_events(state: TemporalDynamicsState) -> Dict:
             llm_trace=state.get('llm_trace', [])
         )
 
-        # Count emergency events
+        # Count high-severity events
         emergency_count = sum(
             1 for e in events
-            if e.get('classification', {}).get('emergency_status', '').lower() in ['critical', 'high']
+            if e.get('classification', {}).get('severity', '').lower() in ['critical', 'high']
         )
 
         logger.info(f"[Stage 4] Extracted {len(events)} events ({emergency_count} emergency)")

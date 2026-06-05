@@ -505,6 +505,9 @@ class AutoCommitService:
             return row.uri, cosine
 
         except Exception as e:
+            from app.utils.dev_guard import fail_loud_in_dev
+            fail_loud_in_dev(e, "Embedding duplicate check failed -- a swallowed error reads as "
+                                "'no match' and mints a new (possibly duplicate) class")
             logger.warning("Embedding duplicate check failed: %s", e)
             return None
 
@@ -543,6 +546,9 @@ class AutoCommitService:
                 logger.info(f"Loaded {len(self._ontserve_classes_cache)} OntServe classes")
 
         except Exception as e:
+            from app.utils.dev_guard import fail_loud_in_dev
+            fail_loud_in_dev(e, "OntServe class cache failed to load -- an empty cache reads as "
+                                "'no existing classes' and mints EVERY entity as new (no dedup)")
             logger.warning(f"Could not load OntServe classes: {e}")
             self._ontserve_classes_cache = {}
 

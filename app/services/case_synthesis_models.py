@@ -27,6 +27,10 @@ class EntitySummary:
 @dataclass
 class EntityFoundation:
     """All entities from Passes 1-3 organized for synthesis."""
+    # Case id (set by _build_entity_foundation) -- lets grounded synthesis fetch the
+    # committed Step-1-4 edges for the case instead of re-deriving relations.
+    case_id: Optional[int] = None
+
     # Pass 1: Contextual Framework
     roles: List[EntitySummary] = field(default_factory=list)
     states: List[EntitySummary] = field(default_factory=list)

@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rdflib import Graph, Literal, RDF, RDFS, URIRef, Namespace
 
+from model_config import ModelConfig
+
 logger = logging.getLogger(__name__)
 
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
@@ -110,10 +112,10 @@ def gather(g: Graph) -> Tuple[List[Indiv], List[Indiv], List[Indiv]]:
     def mk(ind, names):
         lbl = g.value(ind, RDFS.label)
         return Indiv(str(ind), str(lbl) if lbl else str(ind).split("#")[-1], _fields(g, ind, names))
-    roles = [mk(r, ["roleclass", "casecontext", "relationships"]) for r in _individuals_in_category(g, "Role")]
-    principles = [mk(p, ["principleclass", "invokedby", "appliedto", "concreteexpression"])
+    roles = [mk(r, ["roleClass", "caseContext", "relationships"]) for r in _individuals_in_category(g, "Role")]
+    principles = [mk(p, ["principleClass", "invokedBy", "appliedTo", "concreteExpression"])
                   for p in _individuals_in_category(g, "Principle")]
-    obligations = [mk(o, ["obligationclass", "obligatedparty", "obligationstatement"])
+    obligations = [mk(o, ["obligationClass", "obligatedParty", "obligationStatement"])
                    for o in _individuals_in_category(g, "Obligation")]
     return roles, principles, obligations
 
@@ -130,12 +132,27 @@ def _fmt(items: List[Indiv]) -> str:
     return "\n\n".join(out)
 
 
-def build_prompt(roles, principles, obligations, case_id) -> str:
+def _fmt_transformations(transformations) -> str:
+    if not transformations:
+        return ""
+    lines = [f"- {lbl}: {txt[:300]}" for lbl, txt in transformations if txt]
+    if not lines:
+        return ""
+    return (
+        "\nSTATE TRANSFORMATIONS (the state extraction's S->P->O account of how a "
+        "state turns an abstract principle into a concrete obligation; use as "
+        "grounding for derivedFromPrinciple, do NOT invent IRIs from it):\n"
+        + "\n".join(lines) + "\n"
+    )
+
+
+def build_prompt(roles, principles, obligations, case_id, state_transformations=None) -> str:
     return (
         f"Extract R->P->O dependency edges for case {case_id}.\n\n"
         f"ROLES (subject of hasObligation / adheresToPrinciple):\n{_fmt(roles)}\n\n"
         f"PRINCIPLES (object of adheresToPrinciple / derivedFromPrinciple):\n{_fmt(principles)}\n\n"
         f"OBLIGATIONS (object of hasObligation; subject of derivedFromPrinciple):\n{_fmt(obligations)}\n\n"
+        f"{_fmt_transformations(state_transformations)}"
         "TASK: Assert hasObligation (which role bears which obligation), adheresToPrinciple "
         "(which role is guided by which principle), and derivedFromPrinciple (which obligation "
         "operationalizes which principle), using the narrative fields as evidence. "
@@ -161,8 +178,10 @@ class RPOEdgeExtractor:
     def _resolve_model(self):
         if self.model:
             return self.model
+        # R->P->O is a paper-critical, relational reasoning task and a bounded one
+        # call per case, so it runs on the powerful tier (Opus).
         from model_config import ModelConfig
-        return ModelConfig.get_default_model()
+        return ModelConfig.get_claude_model("powerful")
 
     def _call(self, prompt) -> Optional[str]:
         client = self._client()
@@ -171,10 +190,13 @@ class RPOEdgeExtractor:
             logger.error("RPOEdgeExtractor requires an Anthropic streaming client")
             return None
         chunks: List[str] = []
-        with client.messages.stream(
-            model=model, max_tokens=self.max_tokens, temperature=self.temperature,
+        stream_kwargs = dict(
+            model=model, max_tokens=self.max_tokens,
             system=SYSTEM_PROMPT, messages=[{"role": "user", "content": prompt}],
-        ) as stream:
+        )
+        if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
+            stream_kwargs["temperature"] = self.temperature
+        with client.messages.stream(**stream_kwargs) as stream:
             for t in stream.text_stream:
                 chunks.append(t)
             final_msg = stream.get_final_message()
@@ -210,10 +232,12 @@ class RPOEdgeExtractor:
             logger.info("R->P->O partial-recovery salvaged %d edge(s)", len(out))
         return out
 
-    def extract(self, case_id, roles, principles, obligations) -> List[Dict[str, Any]]:
+    def extract(self, case_id, roles, principles, obligations,
+                state_transformations=None) -> List[Dict[str, Any]]:
         if not roles or (not obligations and not principles):
             return []
-        raw = self._call(build_prompt(roles, principles, obligations, case_id))
+        raw = self._call(build_prompt(roles, principles, obligations, case_id,
+                                      state_transformations=state_transformations))
         if not raw:
             return []
         from app.utils.llm_utils import extract_json_from_response
@@ -324,7 +348,94 @@ _DEFEASIBILITY_RANGE = {
     _PREVAILS_OVER: ("Obligation", "Obligation"),
     _DEFEASIBLE_UNDER: ("Obligation", "State"),
 }
-ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE}
+# State-anchored properties (proeth-core) materialized by state_edges.py. Their
+# targets are embedding-resolved, so a low-confidence match could land on an
+# endpoint of the wrong core category; the unified guard drops any such edge.
+_STATE_EDGE_RANGE = {
+    PROETH_CORE.activatesObligation: ("State", "Obligation"),
+    PROETH_CORE.activatesConstraint: ("State", "Constraint"),
+    PROETH_CORE.activatedByEvent: ("State", "Event"),
+    PROETH_CORE.terminatedByEvent: ("State", "Event"),
+}
+# Resource-anchored property (proeth-core) materialized by resource_edges.py from
+# the resource `used_by` field. Range is Agent, which is NOT one of the nine
+# disjoint core categories, so an Agent object resolves to no category and the
+# range clause is skipped (kept); the guard still validates the Resource subject,
+# dropping any edge whose subject's type chain does not resolve to Resource.
+_RESOURCE_EDGE_RANGE = {
+    PROETH_CORE.availableTo: ("Resource", "Agent"),
+}
+# State-anchored actor edge materialized by state_affects_edges.py from the state
+# `affectedParties` field. Range is Agent (outside the nine disjoint categories),
+# so the object resolves to no category and the range clause is skipped; the guard
+# still validates the State subject.
+_STATE_AFFECTS_RANGE = {
+    PROETH_CORE.affects: ("State", "Agent"),
+}
+# Participant edges materialized by participant_edges.py from the Pass-2 component
+# 'who' fields (obligatedParty / constrainedEntity / possessedBy / invokedBy). Range
+# is Agent (outside the nine disjoint categories), so the object resolves to no
+# category and the range clause is skipped; the guard still validates that the
+# subject's type chain resolves to the declared component category.
+_PARTICIPANT_EDGE_RANGE = {
+    PROETH_CORE.obligatedParty: ("Obligation", "Agent"),
+    PROETH_CORE.constrainedEntity: ("Constraint", "Agent"),
+    PROETH_CORE.possessedBy: ("Capability", "Agent"),
+    PROETH_CORE.invokedBy: ("Principle", "Agent"),
+}
+# Fluent transitions materialized by fluent_edges.py (Event Calculus initiates/terminates).
+# The subject is a happening, which is an Action OR an Event, so the subject slot is a SET
+# of allowed categories (the guard normalises a single string to a singleton, so only these
+# need the set form). Object is State. A happening whose type resolves to neither Action nor
+# Event, or an object that is not a State, is dropped by the guard.
+_FLUENT_EDGE_RANGE = {
+    PROETH_CORE.initiates: ({"Action", "Event"}, "State"),
+    PROETH_CORE.terminates: ({"Action", "Event"}, "State"),
+}
+# Action normative-engagement edges materialized by obligation_edges.py from the Step-3
+# Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels.
+# Domain Action, range Obligation/Principle, both among the nine disjoint categories, so
+# the guard validates BOTH endpoints and drops any mis-resolved edge. fulfillsObligation is
+# declared in proeth-core; violates/raises/guidedByPrinciple are proeth-intermediate-only.
+_NORMATIVE_EDGE_RANGE = {
+    PROETH_CORE.fulfillsObligation: ("Action", "Obligation"),
+    PROETH.violatesObligation: ("Action", "Obligation"),
+    PROETH.raisesObligation: ("Action", "Obligation"),
+    PROETH.guidedByPrinciple: ("Action", "Principle"),
+}
+# Causal-chain endpoint edges materialized by causal_edges.py. Domain CausalChain is NOT
+# one of the nine disjoint core categories, so the subject resolves to an empty core-set
+# and the domain clause never fires (the chain is never dropped on its subject). cause /
+# effect range over the happenings (Action OR Event, both disjoint -> the object is
+# validated); responsibleAgent range is Agent (outside the nine -> range clause skipped).
+_CAUSAL_EDGE_RANGE = {
+    PROETH.cause: ("CausalChain", {"Action", "Event"}),
+    PROETH.effect: ("CausalChain", {"Action", "Event"}),
+    PROETH.responsibleAgent: ("CausalChain", "Agent"),
+    # Event -> causing Action (materialized by causal_edges.apply_event_cause_edges from
+    # the converter's legacy causedByAction IRI). Both endpoints are disjoint categories,
+    # so the guard validates both.
+    PROETH.causedByAction: ("Event", "Action"),
+    # CausalNormativeLink (reasoning node) -> the Action it analyzes. Subject is a non-D-tuple
+    # analysis node (empty domain clause -> never dropped on the subject); range Action.
+    PROETH.analyzesAction: ("CausalNormativeLink", "Action"),
+}
+# Temporal (Allen) relation endpoint edges materialized by temporal_relation_edges.py
+# from each reified TemporalRelation's fromEntity/toEntity timeline phrasings. Domain
+# TemporalRelation is NOT one of the nine disjoint core categories, so the subject
+# resolves to an empty core-set and the domain clause never fires (the relation node is
+# never dropped on its subject). Range is the happenings (Action OR Event, both disjoint
+# -> the object IS validated), matching the declared owl:ObjectProperty range
+# unionOf(Action, Event); a phrasing mis-resolved to a State endpoint is dropped here.
+_TEMPORAL_RELATION_RANGE = {
+    PROETH.fromEntity: ("TemporalRelation", {"Action", "Event"}),
+    PROETH.toEntity: ("TemporalRelation", {"Action", "Event"}),
+}
+ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
+                  **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
+                  **_PARTICIPANT_EDGE_RANGE, **_FLUENT_EDGE_RANGE,
+                  **_NORMATIVE_EDGE_RANGE, **_CAUSAL_EDGE_RANGE,
+                  **_TEMPORAL_RELATION_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:
@@ -424,13 +535,30 @@ def drop_domain_range_violations(g: Graph, case_id: int,
     if edge_range is None:
         edge_range = _EDGE_RANGE
 
+    # A category slot is either a single category string or a set of allowed categories
+    # (a union domain/range, e.g. initiates/terminates whose subject may be Action OR
+    # Event). Normalise to a set so the disjointness test below is uniform.
+    def _allowed(slot):
+        return slot if isinstance(slot, (set, frozenset)) else {slot}
+
     merged = _build_merged_graph(g, core_ttl, intermediate_ttl)
     bad = []
     for pred, (dom_exp, rng_exp) in edge_range.items():
+        dom_allowed, rng_allowed = _allowed(dom_exp), _allowed(rng_exp)
         for s, o in merged.subject_objects(pred):
             sc = _core_categories(merged, s)
             oc = _core_categories(merged, o)
-            if (sc and dom_exp not in sc) or (oc and rng_exp not in oc):
+            # The nine core categories are mutually disjoint, so an endpoint that
+            # reaches ANY core category OTHER than the property's required one would
+            # be forced (by the edge's domain/range) into two disjoint categories ->
+            # inconsistent. Drop on that condition, not merely when the required
+            # category is absent: an endpoint can reach the required category AND a
+            # conflicting one (e.g. a class name-collision left it subClassOf both
+            # Principle and Capability), which the reasoner still rejects. Endpoints
+            # with no resolved core category, or whose required category is outside
+            # the nine (e.g. Agent for availableTo/affects), yield an empty set
+            # difference and are kept.
+            if (sc - dom_allowed) or (oc - rng_allowed):
                 bad.append((s, pred, o))
     if not bad:
         return 0
@@ -483,9 +611,18 @@ def apply_rpo_edges(case_id: int, ttl_path, extractor: Optional["RPOEdgeExtracto
                 "roles": len(roles), "principles": len(principles),
                 "obligations": len(obligations)}
 
+    # Grounding: the state-edge applier (run first) annotates state individuals
+    # with proeth:principleTransformation (the S->P->O account). Feed those into
+    # the derivedFromPrinciple derivation instead of re-deriving blind.
+    state_transformations = []
+    for s, t in g.subject_objects(PROETH.principleTransformation):
+        lbl = next(g.objects(s, RDFS.label), None)
+        state_transformations.append((str(lbl) if lbl else str(s).split("#")[-1], str(t)))
+
     if extractor is None:
         extractor = RPOEdgeExtractor()
-    edges = extractor.extract(case_id, roles, principles, obligations)
+    edges = extractor.extract(case_id, roles, principles, obligations,
+                              state_transformations=state_transformations)
     if not edges:
         return {"case_id": case_id, "status": "no_edges",
                 "roles": len(roles), "principles": len(principles),

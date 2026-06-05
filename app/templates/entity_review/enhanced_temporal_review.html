@@ -2,6 +2,9 @@
 
 {% block title %}Enhanced Temporal Review - Case {{ case.id }}{% endblock %}
 
+{# Triple-vs-literal field classification macro (shared with the Pass 1/2 reviews). #}
+{% from 'macros/_field_classification.html' import field_classification %}
+
 {% block styles %}
 <style>
     .page-header {
@@ -286,9 +289,12 @@
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="action-{{ action.id }}">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#action-collapse-{{ action.id }}">
+                            {% if action.temporal_sequence %}
+                            <span class="badge bg-light text-dark border me-2" title="Chronological sequence">#{{ action.temporal_sequence }}</span>
+                            {% endif %}
                             <strong>{{ action.label }}</strong>
                             {% if action.agent %}
-                            <span class="badge bg-primary ms-2">{{ action.agent }}</span>
+                            <span class="badge bg-primary ms-2">{{ action.agent }}{% if action.event_role_context %} ({{ action.event_role_context }}){% endif %}</span>
                             {% endif %}
                         </button>
                     </h2>
@@ -297,7 +303,32 @@
                             <p><strong>Description:</strong> {{ action.description }}</p>
 
                             {% if action.temporal_marker %}
-                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ action.temporal_marker }}</span></p>
+                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ action.temporal_marker }}</span>
+                            {% if action.temporal_extent %}<span class="badge bg-light text-dark border ms-1" title="OWL-Time extent">{{ action.temporal_extent }}</span>{% endif %}</p>
+                            {% endif %}
+
+                            {% if action.initiates or action.terminates %}
+                            <div class="mt-2">
+                                <h6 title="Event Calculus fluent transitions">Fluent Transitions:</h6>
+                                <div class="row g-2">
+                                    {% if action.initiates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-info ps-2">
+                                            <small class="fw-semibold text-info-emphasis"><i class="bi bi-play-circle-fill"></i> Initiates ({{ action.initiates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in action.initiates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if action.terminates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-secondary ps-2">
+                                            <small class="fw-semibold text-secondary"><i class="bi bi-stop-circle-fill"></i> Terminates ({{ action.terminates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in action.terminates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
                             {% endif %}
 
                             {% if action.mental_state %}
@@ -308,28 +339,60 @@
                             <p><strong>Intended Outcome:</strong> {{ action.intended_outcome }}</p>
                             {% endif %}
 
-                            <div class="row mt-3">
-                                <div class="col-md-6">
-                                    {% if action.fulfills_obligation %}
-                                    <h6>Fulfills Obligations:</h6>
-                                    <ul>
-                                        {% for obligation in action.fulfills_obligation %}
-                                        <li>{{ obligation }}</li>
-                                        {% endfor %}
-                                    </ul>
+                            {% if action.foreseen_unintended_effects %}
+                            <p class="mb-1"><strong>Foreseen Unintended Effects:</strong></p>
+                            <ul>
+                                {% for effect in action.foreseen_unintended_effects %}
+                                <li>{{ effect }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+
+                            {# Obligation engagement: the three buckets the obligation-engagement
+                               post-step produces (At stake / Fulfills / Violates), color-coded as
+                               in the study timeline. Showing only "fulfills" hid two thirds. #}
+                            {% if action.raises_obligation or action.fulfills_obligation or action.violates_obligation %}
+                            <div class="mt-3">
+                                <h6>Obligation Engagement:</h6>
+                                <div class="row g-2">
+                                    {% if action.raises_obligation %}
+                                    <div class="col-md-4">
+                                        <div class="border-start border-3 border-warning ps-2">
+                                            <small class="fw-semibold text-warning-emphasis"><i class="bi bi-exclamation-triangle-fill"></i> At stake ({{ action.raises_obligation|length }})</small>
+                                            <ul class="mb-0 small">{% for o in action.raises_obligation %}<li>{{ o }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
                                     {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    {% if action.guided_by_principle %}
-                                    <h6>Guided By Principles:</h6>
-                                    <ul>
-                                        {% for principle in action.guided_by_principle %}
-                                        <li>{{ principle }}</li>
-                                        {% endfor %}
-                                    </ul>
+                                    {% if action.fulfills_obligation %}
+                                    <div class="col-md-4">
+                                        <div class="border-start border-3 border-success ps-2">
+                                            <small class="fw-semibold text-success"><i class="bi bi-check-circle-fill"></i> Fulfills ({{ action.fulfills_obligation|length }})</small>
+                                            <ul class="mb-0 small">{% for o in action.fulfills_obligation %}<li>{{ o }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if action.violates_obligation %}
+                                    <div class="col-md-4">
+                                        <div class="border-start border-3 border-danger ps-2">
+                                            <small class="fw-semibold text-danger"><i class="bi bi-x-circle-fill"></i> Violates ({{ action.violates_obligation|length }})</small>
+                                            <ul class="mb-0 small">{% for o in action.violates_obligation %}<li>{{ o }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>
+                            {% endif %}
+
+                            {% if action.guided_by_principle %}
+                            <div class="mt-3">
+                                <h6>Guided By Principles:</h6>
+                                <ul>
+                                    {% for principle in action.guided_by_principle %}
+                                    <li>{{ principle }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
 
                             {% if action.requires_capability %}
                             <div class="mt-2">
@@ -353,53 +416,7 @@
                                 </small>
                             </div>
 
-                            <!-- Scenario Metadata (NEW) -->
-                            {% if action.rdf_json.get('proeth-scenario:characterMotivation') or action.rdf_json.get('proeth-scenario:ethicalTension') %}
-                            <div class="mt-4 border-top pt-3">
-                                <h6 class="text-primary"><i class="bi bi-book"></i> Scenario Metadata</h6>
-                                <small class="text-muted d-block mb-2">Pedagogical context for interactive teaching scenarios</small>
-
-                                {% if action.rdf_json.get('proeth-scenario:characterMotivation') %}
-                                <p class="mb-2"><strong>Character Motivation:</strong> {{ action.rdf_json['proeth-scenario:characterMotivation'] }}</p>
-                                {% endif %}
-
-                                {% if action.rdf_json.get('proeth-scenario:ethicalTension') %}
-                                <p class="mb-2"><strong>Ethical Tension:</strong> {{ action.rdf_json['proeth-scenario:ethicalTension'] }}</p>
-                                {% endif %}
-
-                                {% if action.rdf_json.get('proeth-scenario:decisionSignificance') %}
-                                <p class="mb-2"><strong>Learning Significance:</strong> {{ action.rdf_json['proeth-scenario:decisionSignificance'] }}</p>
-                                {% endif %}
-
-                                {% if action.rdf_json.get('proeth-scenario:stakes') %}
-                                <p class="mb-2"><strong>Stakes:</strong> {{ action.rdf_json['proeth-scenario:stakes'] }}</p>
-                                {% endif %}
-
-                                {% if action.rdf_json.get('proeth-scenario:isDecisionPoint') %}
-                                <p class="mb-2">
-                                    <strong>Decision Point:</strong>
-                                    <span class="badge bg-success">Yes - Story can branch here</span>
-                                </p>
-                                {% if action.rdf_json.get('proeth-scenario:alternativeActions') %}
-                                <div class="ms-3">
-                                    <strong>Alternative Actions:</strong>
-                                    <ul class="mb-1">
-                                        {% for alt in action.rdf_json['proeth-scenario:alternativeActions'] %}
-                                        <li>{{ alt }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                                {% endif %}
-                                {% endif %}
-
-                                {% if action.rdf_json.get('proeth-scenario:narrativeRole') %}
-                                <p class="mb-0">
-                                    <strong>Narrative Role:</strong>
-                                    <span class="badge bg-info">{{ action.rdf_json['proeth-scenario:narrativeRole'] }}</span>
-                                </p>
-                                {% endif %}
-                            </div>
-                            {% endif %}
+                            {{ field_classification(action.field_groups) }}
 
                             <details class="mt-3">
                                 <summary class="text-muted small">RDF JSON-LD</summary>
@@ -427,9 +444,17 @@
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="event-{{ event.id }}">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#event-collapse-{{ event.id }}">
+                            {% if event.temporal_sequence %}
+                            <span class="badge bg-light text-dark border me-2" title="Chronological sequence">#{{ event.temporal_sequence }}</span>
+                            {% endif %}
                             <strong>{{ event.label }}</strong>
-                            {% if event.emergency_level %}
-                            <span class="badge bg-danger ms-2">{{ event.emergency_level }}</span>
+                            {% if event.event_type %}
+                            {% set _et_label = {'outcome': 'Outcome of action', 'exogenous': 'External event', 'automatic_trigger': 'Auto-triggered'} %}
+                            {% set _et_tip = {'outcome': 'consequence of an agent action', 'exogenous': 'not caused by a case agent', 'automatic_trigger': 'fires automatically when preconditions hold'} %}
+                            <span class="badge bg-secondary ms-2" title="Event Calculus classification (Berreby et al. 2017): {{ _et_tip.get(event.event_type, 'how the event arises relative to agent action') }}">{{ _et_label.get(event.event_type, event.event_type) }}</span>
+                            {% endif %}
+                            {% if event.severity and event.severity != 'routine' %}
+                            <span class="badge ms-1 {% if event.severity in ['critical', 'high'] %}bg-danger{% elif event.severity == 'medium' %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}" title="Heuristic severity/triage indicator, not a formal ontology category">severity: {{ event.severity }}</span>
                             {% endif %}
                         </button>
                     </h2>
@@ -437,100 +462,44 @@
                         <div class="accordion-body">
                             <p><strong>Description:</strong> {{ event.description }}</p>
 
-                            {% if event.affected_entity %}
-                            <p><strong>Affected Entity:</strong> {{ event.affected_entity }}</p>
-                            {% endif %}
-
                             {% if event.temporal_marker %}
-                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ event.temporal_marker }}</span></p>
+                            <p><strong>Temporal Marker:</strong> <span class="badge bg-secondary">{{ event.temporal_marker }}</span>
+                            {% if event.temporal_extent %}<span class="badge bg-light text-dark border ms-1" title="OWL-Time extent">{{ event.temporal_extent }}</span>{% endif %}</p>
                             {% endif %}
 
-                            <div class="row mt-3">
-                                <div class="col-md-4">
-                                    {% if event.triggers_state %}
-                                    <h6>Triggers States:</h6>
-                                    <ul>
-                                        {% for state in event.triggers_state %}
-                                        <li>{{ state }}</li>
-                                        {% endfor %}
-                                    </ul>
+                            {% if event.initiates or event.terminates %}
+                            <div class="mt-2">
+                                <h6 title="Event Calculus fluent transitions">Fluent Transitions:</h6>
+                                <div class="row g-2">
+                                    {% if event.initiates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-info ps-2">
+                                            <small class="fw-semibold text-info-emphasis"><i class="bi bi-play-circle-fill"></i> Initiates ({{ event.initiates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in event.initiates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
                                     {% endif %}
-                                </div>
-                                <div class="col-md-4">
-                                    {% if event.activates_constraint %}
-                                    <h6>Activates Constraints:</h6>
-                                    <ul>
-                                        {% for constraint in event.activates_constraint %}
-                                        <li>{{ constraint }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-4">
-                                    {% if event.transforms_obligation %}
-                                    <h6>Transforms Obligations:</h6>
-                                    <ul>
-                                        {% for obligation in event.transforms_obligation %}
-                                        <li>{{ obligation }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Scenario Metadata (NEW) -->
-                            {% if event.rdf_json.get('proeth-scenario:emotionalImpact') or event.rdf_json.get('proeth-scenario:learningMoment') %}
-                            <div class="mt-4 border-top pt-3">
-                                <h6 class="text-primary"><i class="bi bi-book"></i> Scenario Metadata</h6>
-                                <small class="text-muted d-block mb-2">Pedagogical context for interactive teaching scenarios</small>
-
-                                {% if event.rdf_json.get('proeth-scenario:emotionalImpact') %}
-                                <p class="mb-2"><strong>Emotional Impact:</strong> {{ event.rdf_json['proeth-scenario:emotionalImpact'] }}</p>
-                                {% endif %}
-
-                                {% if event.rdf_json.get('proeth-scenario:stakeholderConsequences') %}
-                                <div class="mb-2">
-                                    <strong>Stakeholder Consequences:</strong>
-                                    <ul class="mb-1 mt-1">
-                                        {% for stakeholder, consequence in event.rdf_json['proeth-scenario:stakeholderConsequences'].items() %}
-                                        <li><strong>{{ stakeholder }}:</strong> {{ consequence }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                                {% endif %}
-
-                                {% if event.rdf_json.get('proeth-scenario:learningMoment') %}
-                                <p class="mb-2"><strong>Learning Moment:</strong> {{ event.rdf_json['proeth-scenario:learningMoment'] }}</p>
-                                {% endif %}
-
-                                {% if event.rdf_json.get('proeth-scenario:ethicalImplications') %}
-                                <p class="mb-2"><strong>Ethical Implications:</strong> {{ event.rdf_json['proeth-scenario:ethicalImplications'] }}</p>
-                                {% endif %}
-
-                                {% if event.rdf_json.get('proeth-scenario:discussionPrompts') %}
-                                <div class="mb-2">
-                                    <strong>Discussion Prompts:</strong>
-                                    <ul class="mb-1 mt-1">
-                                        {% for prompt in event.rdf_json['proeth-scenario:discussionPrompts'] %}
-                                        <li>{{ prompt }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                                {% endif %}
-
-                                <div class="mt-2">
-                                    {% if event.rdf_json.get('proeth-scenario:crisisIdentification') %}
-                                    <span class="badge bg-danger me-2">Crisis / Turning Point</span>
-                                    {% endif %}
-                                    {% if event.rdf_json.get('proeth-scenario:dramaticTension') %}
-                                    <span class="badge bg-warning me-2">Tension: {{ event.rdf_json['proeth-scenario:dramaticTension'] }}</span>
-                                    {% endif %}
-                                    {% if event.rdf_json.get('proeth-scenario:narrativePacing') %}
-                                    <span class="badge bg-info">Pacing: {{ event.rdf_json['proeth-scenario:narrativePacing'] }}</span>
+                                    {% if event.terminates %}
+                                    <div class="col-md-6">
+                                        <div class="border-start border-3 border-secondary ps-2">
+                                            <small class="fw-semibold text-secondary"><i class="bi bi-stop-circle-fill"></i> Terminates ({{ event.terminates|length }})</small>
+                                            <ul class="mb-0 small">{% for s in event.terminates %}<li>{{ s }}</li>{% endfor %}</ul>
+                                        </div>
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>
                             {% endif %}
+
+                            {% if event.causes_state_change %}
+                            <p><strong>Causes State Change:</strong> {{ event.causes_state_change }}</p>
+                            {% endif %}
+
+                            {% if event.caused_by_action %}
+                            <p><strong>Caused By Action:</strong> <code>{{ event.caused_by_action.split('#')[-1] }}</code></p>
+                            {% endif %}
+
+                            {{ field_classification(event.field_groups) }}
 
                             <details class="mt-3">
                                 <summary class="text-muted small">RDF JSON-LD</summary>
@@ -617,6 +586,8 @@
                                 </ol>
                             </div>
                             {% endif %}
+
+                            {{ field_classification(chain.field_groups) }}
 
                             <details class="mt-3">
                                 <summary class="text-muted small">RDF JSON-LD</summary>

@@ -17,9 +17,31 @@ def test_flags_precedent_actors():
     assert is_precedent_reference("BER Case 95-10 Title Use")
 
 
+def test_flags_bare_ber_number_form():
+    # "BER NN-N" without the literal "Case" keyword -- the form that slipped through
+    # before the 2026-05-28 broadening (case-8 Stage-1 pilot, Finding 1).
+    assert is_precedent_reference("Engineer A Environmental Impact Analyst BER 07-6")
+    assert is_precedent_reference("Developer Client BER 07-6")
+    assert is_precedent_reference("Cost-Refusing Client BER 84-5")
+    assert is_precedent_reference("Engineer A Safety Staffing Case BER 84-5")
+    assert is_precedent_reference("Engineer A BER 84-5 Cost-Driven Safety Rejection")
+
+
+def test_flags_doe_placeholder_party():
+    # "Engineer Doe" is exclusively a cited-precedent placeholder in NSPE opinions.
+    assert is_precedent_reference("Engineer Doe Pollution Discharge Consultant")
+    assert is_precedent_reference("Public Welfare Paramount Engineer Doe Pollution")
+    assert is_precedent_reference("Engineer Doe Faithful Agent Limit Pollution Authority")
+
+
 def test_keeps_present_case_actors():
     for label in ("Engineer A", "Attorney X", "Engineer B Forensic Expert",
-                  "Public Welfare Paramount Obligation", "ENGCO Personnel"):
+                  "Public Welfare Paramount Obligation", "ENGCO Personnel",
+                  # bare "BER" with no number must NOT be dropped: this is a legitimate
+                  # present-case (Engineer L) capability about synthesizing precedents.
+                  "Engineer L BER Precedent Synthesis",
+                  # "Doe" must match as a whole word only, not inside other words.
+                  "Engineer does review", "The doer of the action"):
         assert not is_precedent_reference(label)
 
 

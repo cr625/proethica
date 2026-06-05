@@ -375,11 +375,14 @@
             <div class="row mb-5">
                 <div class="col-12">
                     <!-- Panel Header for {{ concept_type|title }} -->
-                    <div class="card {% if concept_type == 'principles' %}border-success{% elif concept_type == 'obligations' %}border-warning{% elif concept_type == 'constraints' %}border-danger{% else %}border-info{% endif %}">
-                        <div class="card-header {% if concept_type == 'principles' %}bg-success{% elif concept_type == 'obligations' %}bg-warning{% elif concept_type == 'constraints' %}bg-danger{% else %}bg-info{% endif %} text-white">
+                    {# Neutral card header with a colored left border + letter badge, matching
+                       Pass 1 (entity_review.html). The entity-type color shows via the badge
+                       and the border-left, not a tinted header background. #}
+                    {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
+                    <div class="card" style="border-left: 5px solid {{ concept_colors.get(concept_type, '#dee2e6') }};">
+                        <div class="card-header">
                             <h4 class="mb-0">
                                 {% set concept_abbrevs = {'roles': 'R', 'states': 'S', 'resources': 'Rs', 'principles': 'P', 'obligations': 'O', 'constraints': 'Cs', 'capabilities': 'Ca', 'actions': 'A', 'events': 'E'} %}
-                                {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
                                 <span class="badge" style="background-color: {{ concept_colors.get(concept_type, '#dee2e6') }}; font-size: 0.6em; vertical-align: middle;">{{ concept_abbrevs.get(concept_type, '?') }}</span>
                                 {{ concept_type|title }}
                             </h4>
@@ -401,36 +404,6 @@
                 </div>
                 {% endif %}
 
-                <!-- Show existing OntServe classes for reference (always visible) -->
-                {% if ontserve_classes and ontserve_classes[concept_type] %}
-                <div class="mt-3">
-                    <a class="text-decoration-none" data-bs-toggle="collapse" href="#ontserve-{{ concept_type }}-classes" role="button" aria-expanded="false">
-                        <i class="bi bi-chevron-down"></i>
-                        <strong>Available {{ concept_type|title }} Classes in OntServe</strong>
-                        <span class="badge bg-secondary">{{ ontserve_classes[concept_type]|length }}</span>
-                    </a>
-                    <div class="collapse mt-2" id="ontserve-{{ concept_type }}-classes">
-                        <div class="card card-body bg-light">
-                            <small class="text-muted mb-2">
-                                These {{ concept_type }} classes already exist in the shared ontology.
-                                Individuals extracted below are typed using these classes.
-                            </small>
-                            <div class="row">
-                                {% for cls in ontserve_classes[concept_type]|sort(attribute='label') %}
-                                <div class="col-md-6 col-lg-4 mb-2">
-                                    <div class="border rounded p-2 bg-white h-100">
-                                        <strong class="text-primary">{{ cls.label }}</strong>
-                                        {% if cls.description %}
-                                        <br/><small class="text-muted">{{ cls.description[:100] }}{% if cls.description|length > 100 %}...{% endif %}</small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </div>
 
             <!-- INDIVIDUALS SUB-SECTION -->
@@ -1306,19 +1279,12 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="d-flex gap-2">
             {% if section_type == 'discussion' %}
-                {# Smart URL: go to review if Step 3 already complete, extraction if not #}
-                {% set step3_done = pipeline_status.step3.complete if pipeline_status else false %}
-                {% if step3_done %}
+                {# Always link to the temporal review; it renders an empty state when there
+                   is no Step-3 data yet (do NOT fall back to the incomplete pipeline page). #}
                 <a href="{{ url_for('entity_review.review_enhanced_temporal', case_id=case.id) }}"
                    class="btn btn-primary btn-lg">
                     Continue to Temporal Analysis <i class="bi bi-arrow-right"></i>
                 </a>
-                {% else %}
-                <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
-                   class="btn btn-primary btn-lg">
-                    Continue to Temporal Analysis <i class="bi bi-arrow-right"></i>
-                </a>
-                {% endif %}
             {% else %}
                 {# Smart URL: go to review if Step 2 already complete, extraction if not #}
                 {% set step2_disc_done = pipeline_status.step2.discussion_complete if pipeline_status else false %}

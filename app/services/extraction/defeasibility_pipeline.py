@@ -90,10 +90,10 @@ def parse_case_graph(g: Graph, case_id: int) -> CaseEntities:
         ObligationContext(
             iri=str(s),
             label=_label(g, s),
-            statement=_lit(g, s, "obligationstatement"),
-            case_context=_lit(g, s, "casecontext"),
-            obligated_party=_lit(g, s, "obligatedparty"),
-            temporal_scope=_lit(g, s, "temporalscope"),
+            statement=_lit(g, s, "obligationStatement"),
+            case_context=_lit(g, s, "caseContext"),
+            obligated_party=_lit(g, s, "obligatedParty"),
+            temporal_scope=_lit(g, s, "temporalScope"),
         )
         for s in _individuals_in_category(g, "Obligation")
     ]
@@ -101,8 +101,8 @@ def parse_case_graph(g: Graph, case_id: int) -> CaseEntities:
         StateContext(
             iri=str(s),
             label=_label(g, s),
-            state_class=_lit(g, s, "stateclass"),
-            triggering_event=_lit(g, s, "triggeringevent"),
+            state_class=_lit(g, s, "stateClass"),
+            triggering_event=_lit(g, s, "triggeringEvent"),
             subject=_lit(g, s, "subject"),
         )
         for s in _individuals_in_category(g, "State")

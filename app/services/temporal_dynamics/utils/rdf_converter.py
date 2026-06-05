@@ -12,6 +12,16 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+
+def _case_ns(case_id: int) -> str:
+    """Canonical per-case namespace base. Single scheme for every producer so the
+    persisted graph is self-describing and the read-time legacy-IRI bridge
+    (ontserve_commit_service._remap_legacy_iri) can be retired after baseline
+    backfill. Matches the edge materialisers + commit serializer
+    (commit_case_versioned). Was the divergent http://proethica.org/cases/<id>#
+    scheme (R2 namespace unification)."""
+    return f"http://proethica.org/ontology/case/{case_id}#"
+
 # A "clean" agent string is a single name followed by exactly one trailing
 # parenthetical role group and nothing else, e.g.
 #   "Engineer A (Professional Engineer, Structural)"
@@ -42,6 +52,64 @@ def split_agent_role(agent: str) -> Tuple[str, Optional[str]]:
     return name, role
 
 
+# Top-level conjunctions joining multiple actors. Matched only at paren depth 0
+# (parenthetical role groups are masked first) so a comma or "and" inside a role
+# string ("superintendent and chief engineer") does not split the actors.
+_AGENT_CONJ_RE = re.compile(r'\s+(and/or|and|or|&|with|in conjunction with)\s+', re.I)
+
+
+def decompose_agents(agent: str):
+    """Decompose a composite multi-actor agent string into structured agents.
+
+    Handles the common conjunction forms, e.g.
+      "Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)"
+      "ZZZ (project owner) and Firm C (design firm)"
+      "Engineer A and Engineer B"   (bare names, no roles)
+    Returns ``(agents, relation)`` where ``agents`` is a list of
+    ``{"name", "role"}`` (role may be None) and ``relation`` is the joining
+    keyword (``and`` / ``or`` / ``and/or`` / ``with`` / ``in_conjunction_with``),
+    or ``None`` when the string is single-actor / not a conjunction (the caller
+    then keeps the existing single-actor ``split_agent_role`` behaviour).
+
+    Generalises the one-off `decompose_composite_agents.py` hand table so a
+    re-extraction (Section C) decomposes new multi-actor strings without it.
+    Precedent cross-references and free-text Discussion notes are NOT extracted
+    here (the precedent filter handles the former; the latter were hand-specific).
+    """
+    if not agent or not agent.strip():
+        return None
+    s = agent.strip()
+    # Mask parenthetical groups so conjunctions inside a role do not split actors.
+    groups: list = []
+
+    def _mask(m):
+        groups.append(m.group(0))
+        return f"\x00{len(groups) - 1}\x00"
+
+    masked = re.sub(r'\([^()]*\)', _mask, s)
+    parts = _AGENT_CONJ_RE.split(masked)
+    if len(parts) < 3:  # no top-level conjunction -> single actor
+        return None
+    segments = parts[0::2]
+    separators = parts[1::2]
+    relation = separators[0].lower().replace(' ', '_') if separators else None
+
+    def _unmask(x: str) -> str:
+        return re.sub(r'\x00(\d+)\x00', lambda mm: groups[int(mm.group(1))], x).strip()
+
+    agents = []
+    for seg in segments:
+        seg = _unmask(seg)
+        if not seg:
+            continue
+        name, role = split_agent_role(seg)
+        if name:
+            agents.append({"name": name, "role": role})
+    if len(agents) < 2:
+        return None
+    return agents, relation
+
+
 def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     """
     Convert action dictionary to RDF JSON-LD format.
@@ -53,13 +121,12 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     Returns:
         RDF JSON-LD dictionary
     """
-    action_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(action.get('label', 'Unknown'))}"
+    action_uri = f"{_case_ns(case_id)}Action_{_safe_id(action.get('label', 'Unknown'))}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
-            'proeth-scenario': 'http://proethica.org/ontology/scenario#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -79,6 +146,17 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     if _role_ctx is not None:
         rdf_entity['proeth:hasAgent'] = _agent_name
         rdf_entity['proeth:eventRoleContext'] = _role_ctx
+    else:
+        # Composite multi-actor string: capture the structured decomposition
+        # (study-corrections Phase 4 made this generic, replacing the hand table
+        # so Section C decomposes new multi-actor strings). hasAgent is kept as
+        # the original string for provenance; consumers prefer proeth:agents.
+        _decomp = decompose_agents(rdf_entity['proeth:hasAgent'])
+        if _decomp:
+            _agents, _relation = _decomp
+            rdf_entity['proeth:agents'] = _agents
+            if _relation:
+                rdf_entity['proeth:agentRelation'] = _relation
 
     # Add intention if present
     intention = action.get('intention', {})
@@ -98,14 +176,12 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         if ethical_context.get('guiding_principles'):
             rdf_entity['proeth:guidedByPrinciple'] = ethical_context['guiding_principles']
 
-    # Add competing priorities
-    competing = action.get('competing_priorities', {})
-    if competing.get('has_tradeoffs'):
-        rdf_entity['proeth:hasCompetingPriorities'] = {
-            '@type': 'proeth:CompetingPriorities',
-            'proeth:priorityConflict': competing.get('priority_conflict', ''),
-            'proeth:resolutionReasoning': competing.get('resolution_reasoning', '')
-        }
+    # competing_priorities (priority_conflict / resolution_reasoning) was dropped from
+    # Step-3 extraction 2026-06-01: a utility audit found it had no real consumer (only a
+    # degenerate empty-definition fallback), it was a nested object dropped at commit, and
+    # its tension is durably captured by the obligation-level defeasibility edges
+    # (competesWith / prevailsOver) + the action's fulfils/violates. See
+    # docs-internal/reextraction/review-vs-synthesis-fields.md.
 
     # Add professional context
     prof_context = action.get('professional_context', {})
@@ -114,21 +190,37 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         if prof_context.get('required_capabilities'):
             rdf_entity['proeth:requiresCapability'] = prof_context['required_capabilities']
 
-    # Add scenario metadata (for interactive teaching scenarios)
-    scenario_meta = action.get('scenario_metadata', {})
-    if scenario_meta:
-        rdf_entity['proeth-scenario:characterMotivation'] = scenario_meta.get('character_motivation', '')
-        rdf_entity['proeth-scenario:ethicalTension'] = scenario_meta.get('ethical_tension', '')
-        rdf_entity['proeth-scenario:decisionSignificance'] = scenario_meta.get('decision_significance', '')
-        rdf_entity['proeth-scenario:narrativeRole'] = scenario_meta.get('narrative_role', '')
-        rdf_entity['proeth-scenario:stakes'] = scenario_meta.get('stakes', '')
-        rdf_entity['proeth-scenario:isDecisionPoint'] = scenario_meta.get('is_decision_point', False)
-        if scenario_meta.get('alternative_actions'):
-            rdf_entity['proeth-scenario:alternativeActions'] = scenario_meta['alternative_actions']
-        if scenario_meta.get('consequences_if_alternative'):
-            rdf_entity['proeth-scenario:consequencesIfAlternative'] = scenario_meta['consequences_if_alternative']
-
+    _add_fluent_and_time(rdf_entity, action)
     return rdf_entity
+
+
+def _add_fluent_and_time(rdf_entity: Dict, src: Dict) -> None:
+    """Attach the Event-Calculus fluent transitions and the OWL-Time anchor a happening
+    (action or event) carries, shared by the action and event converters.
+
+    - proeth:initiates / proeth:terminates: the State (fluent) labels this happening brings
+      into / takes out of holding (Kowalski & Sergot 1986; Berreby et al. 2017). Kept as the
+      raw label lists; fluent_edges.py resolves them to the case State individuals and
+      materialises proeth-core:initiates / terminates edges at commit.
+    - proeth:temporalExtent: the OWL-Time extent classification, "instant" (point
+      occurrence, OWL-Time time:Instant) or "interval" (extended, time:ProperInterval). The
+      relational ordering is carried by the Allen-relation individuals (time:intervalBefore
+      etc., separate individuals) and the discrete order by temporalSequence. A proper
+      per-happening time:hasTime -> time:Instant/Interval individual is materialised at
+      commit by time_anchor.py: the commit serializer emits only literal and IRI property
+      values, so a nested anonymous time entity would not survive (which is why the anchor is
+      minted as a separate first-class time individual rather than a nested blank node).
+    """
+    initiates = src.get('initiates') or []
+    terminates = src.get('terminates') or []
+    if isinstance(initiates, list) and initiates:
+        rdf_entity['proeth:initiates'] = [str(x).strip() for x in initiates if str(x).strip()]
+    if isinstance(terminates, list) and terminates:
+        rdf_entity['proeth:terminates'] = [str(x).strip() for x in terminates if str(x).strip()]
+
+    extent = (src.get('temporal_extent') or '').strip().lower()
+    if extent in ('instant', 'interval'):
+        rdf_entity['proeth:temporalExtent'] = extent
 
 
 def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
@@ -142,13 +234,12 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     Returns:
         RDF JSON-LD dictionary
     """
-    event_uri = f"http://proethica.org/cases/{case_id}#Event_{_safe_id(event.get('label', 'Unknown'))}"
+    event_uri = f"{_case_ns(case_id)}Event_{_safe_id(event.get('label', 'Unknown'))}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
-            'proeth-scenario': 'http://proethica.org/ontology/scenario#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -160,67 +251,70 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
         'proeth:temporalMarker': event.get('temporal_marker', 'Unknown time')
     }
 
-    # Add classification
+    # Add classification. eventType is the Event Calculus distinction between agent-caused
+    # (outcome), external (exogenous), and precondition-triggered (automatic_trigger)
+    # occurrences (Berreby et al. 2017). severity is a heuristic triage indicator of how
+    # serious the occurrence is, NOT a formal ontology category. The former separate
+    # urgencyLevel field was dropped 2026-05-31: it duplicated severity in every case.
     classification = event.get('classification', {})
     if classification:
         rdf_entity['proeth:eventType'] = classification.get('event_type', 'unknown')
-        rdf_entity['proeth:emergencyStatus'] = classification.get('emergency_status', 'routine')
+        rdf_entity['proeth:severity'] = classification.get('severity', 'routine')
 
-    # Add urgency
-    urgency = event.get('urgency', {})
-    if urgency:
-        rdf_entity['proeth:urgencyLevel'] = urgency.get('urgency_level', 'low')
-        if urgency.get('activates_constraints'):
-            rdf_entity['proeth:activatesConstraint'] = urgency['activates_constraints']
+    # The constraint/obligation consequences of an event are NOT emitted as direct event
+    # links: in the Event Calculus an event does not activate a constraint or create an
+    # obligation directly, it initiates a STATE (fluent) that then makes the
+    # constraint/obligation apply. That grounded two-step path is materialised by
+    # fluent_edges.py (Event -> State) + state_edges.py (State activatesConstraint /
+    # activatesObligation -> the real Cs/O individual). The former proeth:activatesConstraint
+    # / proeth:createsObligation literals named free-text obligations/constraints that
+    # resolved to no extracted individual and duplicated that path, dropped 2026-05-31.
 
-    # Add triggers
+    # State change (prose summary of what changed; the structured, grounded form is
+    # initiates / terminates, added by _add_fluent_and_time below).
     triggers = event.get('triggers', {})
-    if triggers:
-        if triggers.get('creates_obligations'):
-            rdf_entity['proeth:createsObligation'] = triggers['creates_obligations']
-        if triggers.get('state_change'):
-            rdf_entity['proeth:causesStateChange'] = triggers['state_change']
+    if triggers and triggers.get('state_change'):
+        rdf_entity['proeth:causesStateChange'] = triggers['state_change']
 
     # Add causal context
     causal = event.get('causal_context', {})
     if causal and causal.get('caused_by_action'):
-        action_ref = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(causal['caused_by_action'])}"
+        action_ref = f"{_case_ns(case_id)}Action_{_safe_id(causal['caused_by_action'])}"
         rdf_entity['proeth:causedByAction'] = action_ref
 
-    # Add scenario metadata (for interactive teaching scenarios)
-    scenario_meta = event.get('scenario_metadata', {})
-    if scenario_meta:
-        rdf_entity['proeth-scenario:emotionalImpact'] = scenario_meta.get('emotional_impact', '')
-        rdf_entity['proeth-scenario:stakeholderConsequences'] = scenario_meta.get('stakeholder_consequences', {})
-        rdf_entity['proeth-scenario:dramaticTension'] = scenario_meta.get('dramatic_tension', 'low')
-        rdf_entity['proeth-scenario:narrativePacing'] = scenario_meta.get('narrative_pacing', '')
-        rdf_entity['proeth-scenario:crisisIdentification'] = scenario_meta.get('crisis_identification', False)
-        rdf_entity['proeth-scenario:learningMoment'] = scenario_meta.get('learning_moment', '')
-        if scenario_meta.get('discussion_prompts'):
-            rdf_entity['proeth-scenario:discussionPrompts'] = scenario_meta['discussion_prompts']
-        rdf_entity['proeth-scenario:ethicalImplications'] = scenario_meta.get('ethical_implications', '')
-
+    _add_fluent_and_time(rdf_entity, event)
     return rdf_entity
 
 
-def convert_causal_chain_to_rdf(chain: Dict, case_id: int) -> Dict:
+def convert_causal_chain_to_rdf(chain: Dict, case_id: int,
+                                chain_index: Optional[int] = None) -> Dict:
     """
     Convert causal chain dictionary to RDF JSON-LD format.
+
+    The CausalChain is reified (it carries the irreducible NESS analysis, the
+    causal-language evidence span, and the responsibility attribution), so it gets an
+    OPAQUE identifier (case#CausalChain_<n>, the W3C n-ary-relations convention), NOT
+    one built from "cause -> effect" prose. The former entity_label-derived committed
+    URI concatenated both endpoint labels (and kept a raw -> arrow), producing 90-140
+    char IRIs; the cause/effect are properties resolved post-commit by causal_edges.
+    The readable "cause -> effect" text stays in entity_label/rdfs:label for display.
 
     Args:
         chain: Causal chain data from Stage 5
         case_id: Case ID for URI generation
+        chain_index: 1-based position in the case's causal-chain list, used for the
+            opaque IRI. ``None`` -> a uuid suffix (still short and opaque).
 
     Returns:
         RDF JSON-LD dictionary
     """
-    chain_id = str(uuid.uuid4())[:8]
-    chain_uri = f"http://proethica.org/cases/{case_id}#CausalChain_{chain_id}"
+    chain_id = str(chain_index) if chain_index is not None else str(uuid.uuid4())[:8]
+    chain_uri = f"{_case_ns(case_id)}CausalChain_{chain_id}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
         },
@@ -230,6 +324,13 @@ def convert_causal_chain_to_rdf(chain: Dict, case_id: int) -> Dict:
         'proeth:effect': chain.get('effect', 'Unknown'),
         'proeth:causalLanguage': chain.get('causal_language', '')
     }
+
+    # Source-section provenance: which case section grounds this causal claim, so the
+    # (irreducible) NESS analysis can be audited against the original text. Emitted under
+    # proeth:discoveredInSection; the commit serializer routes it to the typed PROV-O
+    # predicate. The causalLanguage quote above is the supporting span.
+    if chain.get('source_section'):
+        rdf_entity['proeth:discoveredInSection'] = chain['source_section']
 
     # Add NESS test
     ness = chain.get('ness_test', {})
@@ -274,12 +375,12 @@ def convert_timeline_to_rdf(timeline_data: Dict, case_id: int) -> Dict:
     Returns:
         RDF JSON-LD dictionary
     """
-    timeline_uri = f"http://proethica.org/cases/{case_id}#Timeline"
+    timeline_uri = f"{_case_ns(case_id)}Timeline"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -316,16 +417,41 @@ def convert_timeline_to_rdf(timeline_data: Dict, case_id: int) -> Dict:
     return rdf_entity
 
 
-def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int) -> Dict:
+def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int,
+                                  relation_index: Optional[int] = None) -> Dict:
     """
-    Convert Allen relation dictionary to RDF JSON-LD format with OWL-Time integration.
+    Convert an Allen relation to RDF JSON-LD as a REIFIED temporal relation node.
+
+    The relation is reified (a proeth:TemporalRelation individual) only because it
+    carries metadata of its own -- the verbatim proeth:evidence span, the Allen
+    relation name, and the OWL-Time property. This is the W3C "Defining N-ary
+    Relations on the Semantic Web" pattern, whose guidance is to give the relation
+    instance an OPAQUE/sequential identifier (their `Purchase_1`) and attach the
+    participants as PROPERTIES of the node -- never to build the identity out of the
+    participant prose. So the IRI is `TemporalRelation_<n>` (n = ``relation_index``,
+    1-based, assigned by the caller in extraction order; a short uuid suffix when no
+    index is supplied), NOT the former
+    `AllenRelation_<fromClause>_<relation>_<toClause>` concatenation.
+
+    The endpoints (entity1/entity2) are NOT resolved to individual URIs here: they
+    are free-text timeline phrasings ("Engineer A preparing the summary memo") that
+    do not match the noun-phrase Action/Event individuals by string, and the old
+    `_safe_id` URIs were both lossy (50-char truncation) and wrong-namespace, so the
+    OWL-Time triples silently dangled. The committed individuals are resolved
+    post-commit by embedding in
+    ``app/services/extraction/temporal_relation_edges.apply_temporal_relation_edges``
+    (mirroring the causal-edge appliers), which writes the proeth:fromEntity /
+    proeth:toEntity object edges and the time:* triple onto real individuals. So this
+    converter emits only the clean labels + metadata that resolver consumes.
 
     Args:
         allen_relation: Allen relation data from Stage 2
         case_id: Case ID for URI generation
+        relation_index: 1-based position in the case's Allen-relation list, used for
+            the opaque IRI. ``None`` -> a uuid suffix (still short and opaque).
 
     Returns:
-        RDF JSON-LD dictionary with both ProEthica custom and OWL-Time properties
+        RDF JSON-LD dictionary (descriptive fields only; no precomputed endpoint URIs).
     """
     from .allen_owl_time_mapper import create_allen_relation_metadata
 
@@ -336,18 +462,15 @@ def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int) -> Dict:
     # Get OWL-Time mapping
     allen_metadata = create_allen_relation_metadata(relation)
 
-    # Create unique URI for this relation instance
-    relation_id = f"{_safe_id(entity1)}_{_safe_id(relation)}_{_safe_id(entity2)}"
-    relation_uri = f"http://proethica.org/cases/{case_id}#AllenRelation_{relation_id}"
-
-    # Entity URIs (assume they're actions or events)
-    entity1_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(entity1)}"
-    entity2_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(entity2)}"
+    # Opaque, short, stable identifier (N-ary-relations convention). The readable
+    # "entity1 relation entity2" text lives in rdfs:label for display, not the IRI.
+    suffix = str(relation_index) if relation_index is not None else str(uuid.uuid4())[:8]
+    relation_uri = f"{_case_ns(case_id)}TemporalRelation_{suffix}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -356,27 +479,21 @@ def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int) -> Dict:
         '@type': 'proeth:TemporalRelation',
         'rdfs:label': f'{entity1} {relation} {entity2}',
 
-        # ProEthica custom properties (preserved for backward compatibility)
+        # Clean endpoint labels (resolved to individuals post-commit by the
+        # temporal_relation_edges applier). fromEntity/toEntity are declared
+        # owl:ObjectProperty, so these literals land on the fromEntityText/toEntityText
+        # datatype siblings at commit until the resolver overwrites with real edges.
         'proeth:fromEntity': entity1,
         'proeth:toEntity': entity2,
         'proeth:allenRelation': relation,
-        'proeth:fromEntityURI': entity1_uri,
-        'proeth:toEntityURI': entity2_uri,
 
-        # OWL-Time standard property
+        # OWL-Time standard property name/URI (drives which time:* predicate the
+        # resolver emits) and the supporting evidence span + human description.
         'proeth:owlTimeProperty': allen_metadata.get('owl_time_property', ''),
         'proeth:owlTimeURI': allen_metadata.get('owl_time_uri', ''),
-
-        # Evidence and description
         'proeth:evidence': allen_relation.get('evidence', ''),
         'proeth:description': allen_metadata.get('description', '')
     }
-
-    # Add the actual OWL-Time property assertion (makes this queryable with standard SPARQL)
-    owl_time_prop = allen_metadata.get('owl_time_property')
-    if owl_time_prop:
-        # Add the OWL-Time property directly to the RDF
-        rdf_entity[owl_time_prop] = entity2_uri  # Entity1 [relation] Entity2
 
     return rdf_entity
 

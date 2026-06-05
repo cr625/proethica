@@ -76,10 +76,6 @@ class BaseCandidate(BaseModel):
     )
     source_text: Optional[str] = Field(None, max_length=500)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
-    importance: Optional[str] = Field(
-        None,
-        description="Extraction priority: high, medium, low",
-    )
     match_decision: MatchDecision = Field(default_factory=MatchDecision)
 
 
@@ -91,10 +87,6 @@ class BaseIndividual(BaseModel):
     text_references: List[str] = Field(
         default_factory=list,
         description="Direct quotes from case text where this individual appears",
-    )
-    importance: Optional[str] = Field(
-        None,
-        description="Extraction priority: high, medium, low",
     )
     source_text: Optional[str] = Field(None, max_length=500)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
@@ -145,17 +137,22 @@ class RoleCategory(str, Enum):
 class CandidateRoleClass(BaseCandidate):
     """A new role class discovered in case text."""
     role_category: Optional[RoleCategory] = None
-    distinguishing_features: List[str] = Field(default_factory=list)
-    professional_scope: Optional[str] = None
-    obligations_generated: List[str] = Field(
-        default_factory=list,
-        description="Obligations this role generates (R->O linkage)"
-    )
 
 
 class RoleIndividual(BaseIndividual):
     """A specific person or entity filling a role in the case."""
     name: str = Field("", description="Person/entity identifier")
+    actor: Optional[str] = Field(
+        None,
+        description=(
+            "The stable underlying agent this role facet belongs to, e.g. "
+            "'Engineer A', 'Owner', 'City of X'. The SAME actor seen in a "
+            "different section under a different role facet must reuse this "
+            "exact value. Used to mint one proeth-core:Agent per actor that "
+            "bears each facet via hasRole; do not invent a parallel actor for "
+            "someone already identified in an earlier section."
+        ),
+    )
     role_class: str = Field(
         "", description="Role class label or URI",
         alias="instance_of",
@@ -366,9 +363,18 @@ class ObligationExtractionResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 class StateCategory(str, Enum):
-    """proethica-intermediate.ttl State groupings.
+    """proethica-intermediate.ttl State archetypes (deontic-function axis).
 
-    Jones (1991) moral intensity factors, extended with ontology groups.
+    A state's kind is grounded by its deontic function on a role-derived obligation:
+    activating it (risk, emergency), constraining the action it governs (regulatory),
+    putting obligations in conflict/defeat (conflict), conditioning a duty on capacity
+    (competence) or on knowledge (information), scoping it to a relationship
+    (relationship), bounding it in time (temporal), or conditioning its feasibility
+    (resource). Grounding: Berreby et al. (2017) Event-Calculus fluents that trigger/
+    terminate obligations, Almpani et al. (2023) context-driven obligation priorities,
+    Stenseke (2024) obligation-presupposes-capacity, Govindarajulu & Bringsjord (2017)
+    obligation-depends-on-knowledge -- NOT Jones (1991), whose moral intensity SCORES a
+    situation's salience (a state attribute, e.g. urgency_level) rather than typing it.
     """
     conflict = "conflict"
     risk = "risk"
@@ -563,15 +569,17 @@ class ActionIndividual(BaseModel):
 
     CONFORMED to the emitted vocabulary (HO-006, 2026-05-26). Step-3 temporal
     dynamics does NOT validate through this model: actions are produced by the
-    LangGraph temporal pass and serialised directly to ``proeth:`` / ``proeth-scenario:``
-    JSON-LD by ``app/services/temporal_dynamics/utils/rdf_converter.build_action_rdf``.
+    LangGraph temporal pass and serialised directly to ``proeth:`` JSON-LD by
+    ``app/services/temporal_dynamics/utils/rdf_converter.convert_action_to_rdf``.
     The committed JSON-LD (``temporary_rdf_storage.rdf_json_ld`` for
     ``extraction_type='temporal_dynamics_enhanced'``, ``entity_type='actions'``) is the
     canonical ground truth; this model mirrors those keys via aliases so it can
     round-trip committed output. The earlier snake_case fields (``performed_by``,
     ``temporal_interval``, ``sequence_order``, ``obligations_fulfilled`` ...) never
-    matched what was emitted and were removed. See memory
-    ``feedback_schema-vs-emitted-vocabulary``.
+    matched what was emitted and were removed. The ``proeth-scenario:`` scenario-metadata
+    fields were removed 2026-05-31: that narrative gloss is derivable on demand from the
+    committed entities at scenario/lesson-generation time, so the extractor no longer
+    produces it. See memory ``feedback_schema-vs-emitted-vocabulary``.
     """
     model_config = ConfigDict(populate_by_name=True, extra='allow')
 
@@ -597,26 +605,18 @@ class ActionIndividual(BaseModel):
     fulfills_obligation: List[str] = Field(default_factory=list, alias="proeth:fulfillsObligation")
     violates_obligation: List[str] = Field(default_factory=list, alias="proeth:violatesObligation")
     guided_by_principle: List[str] = Field(default_factory=list, alias="proeth:guidedByPrinciple")
-    has_competing_priorities: Optional[Dict[str, Any]] = Field(
-        None, alias="proeth:hasCompetingPriorities",
-        description="Nested proeth:CompetingPriorities object (priorityConflict + resolutionReasoning)"
-    )
+    # has_competing_priorities (proeth:hasCompetingPriorities) was dropped from Step-3
+    # extraction 2026-06-01 (no real consumer; nested object dropped at commit; tension is
+    # durably captured by the defeasibility edges). See review-vs-synthesis-fields.md.
 
     # Professional context
     within_competence: Optional[bool] = Field(None, alias="proeth:withinCompetence")
     requires_capability: List[str] = Field(default_factory=list, alias="proeth:requiresCapability")
 
-    # Scenario / narrative metadata (proeth-scenario:)
-    character_motivation: Optional[str] = Field(None, alias="proeth-scenario:characterMotivation")
-    ethical_tension: Optional[str] = Field(None, alias="proeth-scenario:ethicalTension")
-    decision_significance: Optional[str] = Field(None, alias="proeth-scenario:decisionSignificance")
-    narrative_role: Optional[str] = Field(None, alias="proeth-scenario:narrativeRole")
-    stakes: Optional[str] = Field(None, alias="proeth-scenario:stakes")
-    is_decision_point: Optional[bool] = Field(None, alias="proeth-scenario:isDecisionPoint")
-    alternative_actions: List[str] = Field(default_factory=list, alias="proeth-scenario:alternativeActions")
-    consequences_if_alternative: List[str] = Field(
-        default_factory=list, alias="proeth-scenario:consequencesIfAlternative"
-    )
+    # Fluent transitions + OWL-Time extent (Event Calculus)
+    initiates: List[str] = Field(default_factory=list, alias="proeth:initiates")
+    terminates: List[str] = Field(default_factory=list, alias="proeth:terminates")
+    temporal_extent: Optional[str] = Field(None, alias="proeth:temporalExtent")
 
     # Added by the wired temporal_sequence / obligation apply-hooks at commit time
     raises_obligation: List[str] = Field(default_factory=list, alias="proeth:raisesObligation")
@@ -715,28 +715,29 @@ class EventIndividual(BaseModel):
     description: Optional[str] = Field(None, alias="proeth:description")
     temporal_marker: Optional[str] = Field(None, alias="proeth:temporalMarker")
 
-    # Classification
+    # Classification. eventType is the Event Calculus agent-caused (outcome) / external
+    # (exogenous) / precondition-triggered (automatic_trigger) distinction (Berreby et al.
+    # 2017). severity is a heuristic triage indicator of how serious the occurrence is, NOT
+    # a formal ontology category. The former emergency_status was renamed to severity and
+    # the separate urgency_level field dropped 2026-05-31 (it duplicated severity in every
+    # case).
     event_type: Optional[str] = Field(None, alias="proeth:eventType")
-    emergency_status: Optional[str] = Field(None, alias="proeth:emergencyStatus")
+    severity: Optional[str] = Field(None, alias="proeth:severity")
 
-    # Urgency / normative dynamics
-    urgency_level: Optional[str] = Field(None, alias="proeth:urgencyLevel")
-    activates_constraint: List[str] = Field(default_factory=list, alias="proeth:activatesConstraint")
-    creates_obligation: List[str] = Field(default_factory=list, alias="proeth:createsObligation")
+    # State change. The former proeth:activatesConstraint and proeth:createsObligation
+    # event links were dropped 2026-05-31: an event activates a constraint or makes an
+    # obligation apply only via the State it initiates (the Event-Calculus path State
+    # proeth-core:activatesConstraint / activatesObligation, materialised by fluent_edges.py
+    # + state_edges.py), so the direct event links named free-text obligations/constraints
+    # that resolved to no extracted individual and duplicated that grounded path. See
+    # rdf_converter._add_fluent_and_time.
     causes_state_change: Optional[str] = Field(None, alias="proeth:causesStateChange")
     caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
 
-    # Scenario / narrative metadata (proeth-scenario:)
-    emotional_impact: Optional[str] = Field(None, alias="proeth-scenario:emotionalImpact")
-    stakeholder_consequences: Optional[Dict[str, Any]] = Field(
-        None, alias="proeth-scenario:stakeholderConsequences"
-    )
-    dramatic_tension: Optional[str] = Field(None, alias="proeth-scenario:dramaticTension")
-    narrative_pacing: Optional[str] = Field(None, alias="proeth-scenario:narrativePacing")
-    crisis_identification: Optional[bool] = Field(None, alias="proeth-scenario:crisisIdentification")
-    learning_moment: Optional[str] = Field(None, alias="proeth-scenario:learningMoment")
-    discussion_prompts: List[str] = Field(default_factory=list, alias="proeth-scenario:discussionPrompts")
-    ethical_implications: Optional[str] = Field(None, alias="proeth-scenario:ethicalImplications")
+    # Fluent transitions + OWL-Time extent (Event Calculus)
+    initiates: List[str] = Field(default_factory=list, alias="proeth:initiates")
+    terminates: List[str] = Field(default_factory=list, alias="proeth:terminates")
+    temporal_extent: Optional[str] = Field(None, alias="proeth:temporalExtent")
 
     # Added by the wired temporal_sequence apply-hook at commit time
     temporal_sequence: Optional[int] = Field(None, alias="proeth:temporalSequence")
@@ -1029,8 +1030,13 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         'professional_peer': f'{INTERMEDIATE_NS}ProfessionalPeerRole',
         'employer_relationship': f'{INTERMEDIATE_NS}EmployerRelationshipRole',
         'public_responsibility': f'{INTERMEDIATE_NS}PublicResponsibilityRole',
-        'participant': f'{INTERMEDIATE_NS}ParticipantRole',
-        'stakeholder': f'{INTERMEDIATE_NS}StakeholderRole',
+        # participant/stakeholder are generic involvement, not duty-relationships,
+        # and ParticipantRole/StakeholderRole live on the (occupational) Participant
+        # side, which is disjoint with ProfessionalRole. Map them to the generic
+        # relational head so the occupational archetype carries the classification
+        # and the relational parent never crosses the occupational disjointness.
+        'participant': f'{INTERMEDIATE_NS}RelationalRole',
+        'stakeholder': f'{INTERMEDIATE_NS}RelationalRole',
     },
     # P: Principle categories -> intermediate subclass IRIs
     'principles': {
@@ -1062,15 +1068,17 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
     # The match_decision field handles mapping to specific state subclasses
     # (ConflictOfInterest, PublicSafetyAtRisk, etc.)
     'states': {
-        'conflict': f'{CORE_NS}State',
-        'risk': f'{CORE_NS}State',
-        'competence': f'{CORE_NS}State',
-        'relationship': f'{CORE_NS}State',
-        'information': f'{CORE_NS}State',
-        'emergency': f'{CORE_NS}State',
-        'regulatory': f'{CORE_NS}State',
-        'temporal': f'{CORE_NS}State',
-        'resource': f'{CORE_NS}State',
+        # Deontic-function state archetypes (proethica-intermediate, 2026-05-30): a
+        # state's kind is its function on a role-derived obligation. Was all -> core:State.
+        'conflict': f'{INTERMEDIATE_NS}ConflictState',
+        'risk': f'{INTERMEDIATE_NS}RiskState',
+        'competence': f'{INTERMEDIATE_NS}CompetenceState',
+        'relationship': f'{INTERMEDIATE_NS}RelationshipState',
+        'information': f'{INTERMEDIATE_NS}InformationState',
+        'emergency': f'{INTERMEDIATE_NS}EmergencyState',
+        'regulatory': f'{INTERMEDIATE_NS}RegulatoryState',
+        'temporal': f'{INTERMEDIATE_NS}TemporalState',
+        'resource': f'{INTERMEDIATE_NS}ResourceAvailabilityState',
     },
     # Rs: Resource categories -> intermediate subclass IRIs
     'resources': {

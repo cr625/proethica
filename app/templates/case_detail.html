@@ -113,6 +113,14 @@
                     <i class="bi bi-journal-richtext me-1"></i>Synthesis
                 </a>
                 {% endif %}
+                <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-sm btn-outline-info" title="Find similar precedent cases by component embedding, provision overlap, and topics">
+                    <i class="bi bi-diagram-2 me-1"></i>Find Similar
+                </a>
+                {% if ontserve_individual_count %}
+                <a href="{{ url_for('cases.case_defeasibility', id=case.id) }}" class="btn btn-sm btn-outline-primary" title="Obligation conflicts: which duty prevails, under what context, and how comparable cases resolved the same tension">
+                    <i class="bi bi-shuffle me-1"></i>Obligation Conflicts
+                </a>
+                {% endif %}
                 {% if case.document_id %}
                 <div class="btn-group btn-group-sm" role="group">
                     <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-outline-secondary" title="Document sections and embeddings">

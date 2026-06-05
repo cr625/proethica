@@ -492,9 +492,11 @@ def _sanitize_label(label: str, space_char: str = '') -> str:
 
 
 def _to_camel_case(snake_str: str) -> str:
-    """Convert snake_case to camelCase."""
-    parts = snake_str.split('_')
-    return parts[0] + ''.join(p.capitalize() for p in parts[1:])
+    """Convert snake_case to camelCase. Delegates to the single shared converter
+    (R3) so storage and commit cannot drift. Behaviour-preserving for the
+    lowercase snake_case field names this receives."""
+    from app.utils.predicate_naming import to_camel_case
+    return to_camel_case(snake_str)
 
 
 # ---------------------------------------------------------------------------

@@ -311,8 +311,8 @@ def register_view_routes(bp):
                 concept_type = ann.concept_type
                 annotation_counts[concept_type] = annotation_counts.get(concept_type, 0) + 1
 
-            # Get transformation classification from precedent features
-            transformation_data = None
+            # Load precedent features (outcome, provisions, tensions, cited cases)
+            # used by the other tabs on this page.
             precedent_features = None
             try:
                 from sqlalchemy import text
@@ -330,10 +330,6 @@ def register_view_routes(bp):
                     {'case_id': case_id}
                 ).fetchone()
                 if result:
-                    transformation_data = {
-                        'type': result[0],
-                        'pattern': result[1]
-                    }
                     precedent_features = {
                         'transformation_type': result[0],
                         'transformation_pattern': result[1],
@@ -349,7 +345,14 @@ def register_view_routes(bp):
                         'cited_case_ids': result[11] or []
                     }
             except Exception as e:
-                logger.debug(f"No transformation data found for case {case_id}: {e}")
+                logger.debug(f"No precedent features found for case {case_id}: {e}")
+
+            # Transformation classification for the summary box reads the live
+            # synthesis-pipeline record (extraction_prompts), not the
+            # case_precedent_features.transformation_type summary column, which the
+            # precedent feature extractor resets to NULL on re-run.
+            from app.services.case_analysis.transformation_classifier import load_latest_transformation
+            transformation_data = load_latest_transformation(case_id)
 
             # Cross-case context for Precedents tab
             cited_cases = []

@@ -411,7 +411,8 @@ Return your analysis as JSON:
             from app.utils.llm_utils import streaming_completion
             response_text = streaming_completion(
                 self.llm_client,
-                model=ModelConfig.get_claude_model("default"),
+                # Transformation analysis is a core Step-4 reasoning task -> powerful tier (Opus).
+                model=ModelConfig.get_claude_model("powerful"),
                 max_tokens=1500,
                 prompt=prompt,
                 temperature=0.2,
@@ -636,3 +637,62 @@ retrospective ethical duties.
 Example: Defect discovered years after construction creates new obligations.
 Indicators: "later discovered", "subsequently revealed", "hidden defect", "years after"
 """
+
+
+def _parse_transformation_record(prompt) -> Optional[Dict[str, Any]]:
+    """Parse a transformation ExtractionPrompt's stored LLM output into a dict.
+
+    Handles both the bare-JSON and markdown-fenced (```json) forms the model
+    emits. A malformed record raises (it is real corruption, not an absence of
+    data) rather than being silently dropped.
+    """
+    raw = (prompt.raw_response or '').strip()
+    if raw:
+        if raw.startswith('```'):
+            raw = raw.split('\n', 1)[1] if '\n' in raw else raw[3:]
+            if raw.endswith('```'):
+                raw = raw[:-3]
+        return json.loads(raw.strip())
+
+    summary = prompt.results_summary
+    if isinstance(summary, str):
+        summary = json.loads(summary)
+    if isinstance(summary, dict):
+        return summary
+    return None
+
+
+def load_latest_transformation(case_id: int) -> Optional[Dict[str, Any]]:
+    """Return the most recent transformation classification for a case.
+
+    The authoritative record is the live synthesis-pipeline output stored in
+    ``extraction_prompts`` (``concept_type='transformation_classification'``).
+    The ``case_precedent_features.transformation_type`` column is a denormalized
+    summary that the precedent feature extractor resets to NULL when it re-runs,
+    so it is not a reliable source for display.
+
+    Returns ``{type, pattern, confidence, reasoning}`` or ``None`` when no
+    classification has been produced for the case.
+    """
+    from app.models import ExtractionPrompt
+
+    prompt = ExtractionPrompt.query.filter_by(
+        case_id=case_id, concept_type='transformation_classification'
+    ).order_by(ExtractionPrompt.created_at.desc()).first()
+    if not prompt:
+        return None
+
+    parsed = _parse_transformation_record(prompt)
+    if not parsed:
+        return None
+
+    trans_type = parsed.get('transformation_type') or parsed.get('type')
+    if not trans_type:
+        return None
+
+    return {
+        'type': trans_type,
+        'pattern': parsed.get('pattern_description') or parsed.get('pattern') or '',
+        'confidence': parsed.get('confidence'),
+        'reasoning': parsed.get('reasoning', ''),
+    }

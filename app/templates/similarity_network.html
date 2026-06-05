@@ -620,6 +620,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let availableTags = [];  // All available tags from API
     let currentLayout = 'force';  // Layout type
     let hideUnconnected = true;  // Hide nodes with no connections
+    let focusAutoSelected = false;  // Open the focus case's details once on initial load
 
     // Loading overlay helpers
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -703,6 +704,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (data.all_tags) {
                             availableTags = data.all_tags;
                             populateTagList(data.all_tags);
+                        }
+                        // Preselect the case the practitioner arrived from, as if it were clicked.
+                        // Only on the first load, so later filter/layout reloads do not reopen the panel.
+                        if (focusCaseId && !focusAutoSelected) {
+                            const focusNode = data.nodes.find(n => n.id === focusCaseId);
+                            if (focusNode) {
+                                showNodeDetails(null, focusNode);
+                                focusAutoSelected = true;
+                            }
                         }
                         hideLoading();
                     }, 50);

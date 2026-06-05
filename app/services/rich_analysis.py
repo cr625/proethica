@@ -19,7 +19,9 @@ from app import db
 from app.models import TemporaryRDFStorage
 from app.utils.llm_utils import get_llm_client, streaming_completion
 from app.utils.llm_json_utils import parse_json_response
-from app.utils.entity_prompt_utils import format_entities_compact, resolve_labels_flat
+from app.utils.entity_prompt_utils import (
+    format_entities_compact, format_subgraph, resolve_labels_flat, _normalize_label,
+)
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 
@@ -107,6 +109,78 @@ class RichAnalyzer:
             all_results.extend(batch_results)
         return all_results
 
+    def _committed_action_edges(self, case_id) -> Dict[str, Dict[str, list]]:
+        """{normalized_action_label: {'fulfills', 'violates', 'guided', 'agent'}} from the
+        committed Step-3 temporal Action rows (obligation_engagement's output). The fulfils /
+        violates pair IS the Step-3 causal-normative analysis; grounded synthesis consumes it
+        rather than re-deriving it with a fresh LLM call."""
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
+        out: Dict[str, Dict[str, list]] = {}
+        if not case_id:
+            return out
+        rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='temporal_dynamics_enhanced', storage_type='individual'
+        ).all()
+
+        def _lst(rdf, key):
+            v = rdf.get(key)
+            return v if isinstance(v, list) else ([v] if v else [])
+
+        for r in rows:
+            rdf = r.rdf_json_ld or {}
+            if 'Action' not in (rdf.get('@type', '') or ''):
+                continue
+            agent = rdf.get('proeth:hasAgent')
+            if isinstance(agent, list):
+                agent = agent[0] if agent else ''
+            out[_normalize_label(r.entity_label or '')] = {
+                'fulfills': _lst(rdf, 'proeth:fulfillsObligation'),
+                'violates': _lst(rdf, 'proeth:violatesObligation'),
+                'guided': _lst(rdf, 'proeth:guidedByPrinciple'),
+                'agent': agent or '',
+            }
+        return out
+
+    def _causal_chains_text(self, case_id) -> str:
+        """The Step-3 CausalChain rows as 'cause -> effect (responsible: agent)' lines, so the
+        normative reasoning is anchored to the Step-3 causal extraction (per the user's
+        principle that causal_normative_link comes from the temporal causal component)."""
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
+        if not case_id:
+            return ""
+        rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='temporal_dynamics_enhanced', storage_type='individual'
+        ).all()
+        lines = []
+        for r in rows:
+            rdf = r.rdf_json_ld or {}
+            if 'CausalChain' not in (rdf.get('@type', '') or ''):
+                continue
+            cause = rdf.get('proeth:cause') or rdf.get('proeth:causeText') or ''
+            eff = rdf.get('proeth:effect') or rdf.get('proeth:effectText') or ''
+            ra = rdf.get('proeth:responsibleAgent') or rdf.get('proeth:responsibleAgentText') or ''
+            if cause or eff:
+                lines.append(f"  - {cause} -> {eff}" + (f" (responsible: {ra})" if ra else ""))
+        return "\n".join(lines)
+
+    def _committed_edges_by_label(self, case_id) -> Dict[str, list]:
+        """{normalized_label: [(predicate, [target_labels]), ...]} of committed edges, for
+        format_subgraph. Surfaces the Step-3 action normative edges (fulfils / violates /
+        guided-by) so any synthesis prompt that injects the entity context also sees the
+        committed normative structure and grounds its analysis in it rather than re-finding it."""
+        edges: Dict[str, list] = {}
+        for nl, ce in self._committed_action_edges(case_id).items():
+            rels = []
+            if ce.get('fulfills'):
+                rels.append(('fulfils', ce['fulfills']))
+            if ce.get('violates'):
+                rels.append(('violates', ce['violates']))
+            if ce.get('guided'):
+                rels.append(('guided by', ce['guided']))
+            if rels:
+                edges[nl] = rels
+        return edges
+
     def _analyze_causal_batch(
         self,
         batch_actions: list,
@@ -114,49 +188,44 @@ class RichAnalyzer:
         foundation: EntityFoundation,
         llm_traces: List[LLMTrace]
     ) -> List[CausalNormativeLink]:
-        """Analyze a batch of actions for causal-normative links."""
+        """Grounded causal-normative reasoning. The action -> fulfils/violates/guided edges are
+        NOT re-derived here: they are taken from the committed Step-3 obligation_engagement
+        output and injected as GIVEN, with the Step-3 causal chains. The LLM produces ONLY the
+        normative-significance reasoning per action (the irreducible insight)."""
         entity_dict = foundation.to_entity_dict()
-        entities_text = format_entities_compact(entity_dict)
+        committed = self._committed_action_edges(foundation.case_id)
+        causal_text = self._causal_chains_text(foundation.case_id)
 
-        # List only the batch actions for analysis
-        actions_text = "\n".join([
-            f"A{i+1}. {a.label}: {a.definition or 'No definition'}"
-            for i, a in enumerate(batch_actions)
-        ])
+        # GIVEN block: each batch action with its committed normative edges.
+        blocks = []
+        for i, a in enumerate(batch_actions):
+            ce = committed.get(_normalize_label(a.label), {})
+            f = '; '.join(ce.get('fulfills', [])) or 'none'
+            v = '; '.join(ce.get('violates', [])) or 'none'
+            g = '; '.join(ce.get('guided', [])) or 'none'
+            blocks.append(f"A{i+1}. {a.label}\n   fulfils: {f}\n   violates: {v}\n   guided by: {g}")
+        actions_text = "\n".join(blocks)
 
-        prompt = f"""Analyze how each ACTION relates to the OBLIGATIONS, PRINCIPLES, and CONSTRAINTS in this ethics case.
+        prompt = f"""These ACTIONS and their normative relations were ALREADY extracted from
+this engineering-ethics case. The fulfils / violates / guided-by edges below are GIVEN -- do
+not change or restate them. The CAUSAL CHAINS show what each action brings about.
 
-## ACTIONS TO ANALYZE
+## ACTIONS (with their committed normative edges)
 {actions_text}
 
-## ALL EXTRACTED ENTITIES (for reference)
-{entities_text}
+## CAUSAL CHAINS (Step-3 causal extraction)
+{causal_text or '  (none)'}
 
-For EACH action listed above, analyze:
-1. Which obligations does it FULFILL? (performing this action satisfies the obligation)
-2. Which obligations does it VIOLATE? (performing this action contradicts the obligation)
-3. Which principles GUIDE it? (the action is motivated by this principle)
-4. Which constraints LIMIT it? (constraints that affect how the action can be performed)
-5. Which role PERFORMS this action?
-6. One sentence reasoning explaining the relationships
-
-Use exact entity labels from the entity list. Output as JSON array:
+For EACH action, write ONE sentence of REASONING explaining the normative significance of the
+action in its causal context: why fulfilling or violating those obligations matters given
+what the action causes downstream. Explain the edges; do not list them. Output JSON array:
 ```json
 [
-  {{
-    "action_label": "exact action label",
-    "fulfills_obligations": ["obligation label", ...],
-    "violates_obligations": ["obligation label", ...],
-    "guided_by_principles": ["principle label", ...],
-    "constrained_by": ["constraint label", ...],
-    "agent_role": "role label or null",
-    "reasoning": "One sentence explaining the key relationship.",
-    "confidence": 0.8
-  }}
+  {{"action_label": "exact action label", "reasoning": "One grounded sentence.", "confidence": 0.8}}
 ]
 ```
 
-Include all {len(batch_actions)} actions even if they have empty relationships.
+Include all {len(batch_actions)} actions.
 
 {STYLE_FORMATTING_LINE}"""
 
@@ -183,10 +252,8 @@ Include all {len(batch_actions)} actions even if they have empty relationships.
                     model=ModelConfig.get_claude_model("default")
                 ))
 
-                links_data = parse_json_response(response_text, f"causal links batch {batch_num}", strict=True)
-                if links_data:
-                    return self._resolve_causal_links(links_data, entity_dict, foundation)
-                return []
+                reasonings = parse_json_response(response_text, f"causal links batch {batch_num}", strict=True) or []
+                return self._build_grounded_links(reasonings, batch_actions, committed, entity_dict)
 
             except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
                 last_error = e
@@ -200,37 +267,49 @@ Include all {len(batch_actions)} actions even if they have empty relationships.
         logger.error(f"Causal links batch {batch_num} failed after {max_retries} retries: {last_error}")
         return []
 
-    def _resolve_causal_links(
+    def _build_grounded_links(
         self,
-        links_data: List[Dict],
+        reasonings: List[Dict],
+        batch_actions: list,
+        committed: Dict[str, Dict[str, list]],
         entity_dict: Dict[str, list],
-        foundation: EntityFoundation
     ) -> List[CausalNormativeLink]:
-        """Resolve label references in parsed causal link data to URIs."""
-        # Build action label -> URI lookup for action_id
-        action_lookup = {}
-        for a in foundation.actions:
-            from app.utils.entity_prompt_utils import _normalize_label
-            action_lookup[_normalize_label(a.label)] = a.uri
+        """Build CausalNormativeLinks from the COMMITTED Step-3 edges (fulfils / violates /
+        guided / agent) plus the LLM's per-action reasoning. No relation is re-derived here --
+        the edges come straight from the temporal extraction; only the reasoning is new."""
+        reason_by = {_normalize_label(d.get('action_label', '')): d
+                     for d in reasonings if isinstance(d, dict)}
+
+        def _resolve(labels):
+            # Resolve each Step-3 obligation/principle label to its case URI, but KEEP the label
+            # when it doesn't exact-match a Pass-2 entity (Step-3 obligation_engagement labels,
+            # e.g. "Professional Obligation III.7.a.", differ from the Pass-2 entity labels --
+            # the canonical label->URI resolution is the commit-time obligation_edges applier;
+            # falling back to the label preserves the committed Step-3 reference rather than
+            # dropping it to '').
+            out = []
+            for l in labels:
+                if not l:
+                    continue
+                r = resolve_labels_flat([l], entity_dict)
+                out.append(r[0] if (r and r[0]) else l)
+            return out
 
         results = []
-        for link in links_data:
-            # Resolve action by label
-            action_label = link.get('action_label', '')
-            action_uri = ''
-            if action_label:
-                action_uri = action_lookup.get(_normalize_label(action_label), '')
-
+        for a in batch_actions:
+            nl = _normalize_label(a.label)
+            ce = committed.get(nl, {})
+            rd = reason_by.get(nl, {})
             results.append(CausalNormativeLink(
-                action_id=action_uri,
-                action_label=action_label,
-                fulfills_obligations=resolve_labels_flat(link.get('fulfills_obligations', []), entity_dict),
-                violates_obligations=resolve_labels_flat(link.get('violates_obligations', []), entity_dict),
-                guided_by_principles=resolve_labels_flat(link.get('guided_by_principles', []), entity_dict),
-                constrained_by=resolve_labels_flat(link.get('constrained_by', []), entity_dict),
-                agent_role=resolve_labels_flat([link['agent_role']], entity_dict)[0] if link.get('agent_role') else None,
-                reasoning=link.get('reasoning', ''),
-                confidence=link.get('confidence', 0.5)
+                action_id=getattr(a, 'uri', '') or '',
+                action_label=a.label,
+                fulfills_obligations=_resolve(ce.get('fulfills', [])),
+                violates_obligations=_resolve(ce.get('violates', [])),
+                guided_by_principles=_resolve(ce.get('guided', [])),
+                constrained_by=[],  # action->constraint is not a Step-3 edge; left empty (was LLM-guessed before)
+                agent_role=ce.get('agent') or None,
+                reasoning=rd.get('reasoning', ''),
+                confidence=rd.get('confidence', 0.7),
             ))
         return results
 
@@ -273,7 +352,10 @@ Include all {len(batch_actions)} actions even if they have empty relationships.
             return []
 
         entity_dict = foundation.to_entity_dict()
-        entities_text = format_entities_compact(entity_dict)
+        # Grounded synthesis: inject the entity subgraph (nodes + committed normative edges)
+        # so the question-emergence analysis is anchored to the committed action->obligation
+        # structure rather than re-finding it from labels alone.
+        entities_text = format_subgraph(entity_dict, self._committed_edges_by_label(foundation.case_id))
 
         # Number questions for index-based matching
         questions_text = "\n".join([
@@ -448,6 +530,11 @@ Include all questions in this batch.
     ) -> List[ResolutionPatternAnalysis]:
         """Analyze a batch of conclusions for resolution patterns."""
         entity_dict = foundation.to_entity_dict() if foundation else {}
+        # Grounded synthesis: inject the committed normative subgraph so "determinative
+        # principles" and "how competing obligations were weighed" are anchored to the
+        # extracted action->obligation structure rather than re-identified from the prose.
+        norm_structure = (format_subgraph(entity_dict, self._committed_edges_by_label(foundation.case_id))
+                          if foundation else "")
 
         # Number conclusions within this batch (1-based for LLM)
         conclusions_text = "\n".join([
@@ -476,6 +563,9 @@ Include all questions in this batch.
 
 ## CODE PROVISIONS (that could be cited)
 {provisions_text}
+
+## CASE NORMATIVE STRUCTURE (already extracted -- ground the weighing in these)
+{norm_structure or '  (not available)'}
 
 A board resolution is DEFEASIBLE: it holds only under the facts and conditions
 that obtained in this case, and would not hold (or would reverse) if those

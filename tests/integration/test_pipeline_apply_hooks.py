@@ -44,7 +44,7 @@ class _FakeEngagementExtractor:
         self._per_action = per_action
         self.calls = 0
 
-    def extract(self, case_id, case_title, actions, discussion_excerpt=""):
+    def extract(self, case_id, case_title, actions, discussion_excerpt="", strict=True):
         self.calls += 1
         return ObligationEngagementResult(actions=self._per_action, rationale="fake")
 
@@ -80,6 +80,27 @@ def test_obligation_engagement_repartitions(app_context):
     rdf = row.rdf_json_ld
     assert rdf["proeth:fulfillsObligation"] == ["O1"]
     assert rdf["proeth:raisesObligation"] == ["O2"]
+
+
+def test_obligation_engagement_reconciles_cross_action_extra(app_context):
+    """An obligation the model carries from another Action (not in this Action's
+    input pool) is dropped by reconciliation, not swallowed; the case still gets
+    its raises bucket. Previously this hit the union==pool ValueError and the
+    caller wrote no raises at all."""
+    case_id = 9103
+    _seed_case(case_id)
+    r1, iri1 = _action_row(case_id, "Action_A", ["O1", "O2"], [], 1)
+    db.session.add(r1)
+    db.session.commit()
+    # Fake carries O3 (NOT in this Action's input pool) into raises.
+    pa = PerActionEngagement(
+        action_iri=iri1, fulfills=["O1"], violates=[], raises=["O2", "O3 carried in"])
+    result = apply_obligation_engagement(case_id, extractor=_FakeEngagementExtractor([pa]))
+    assert result["status"] == "ok"  # not swallowed
+    row = TemporaryRDFStorage.query.filter_by(case_id=case_id).first()
+    rdf = row.rdf_json_ld
+    assert rdf["proeth:fulfillsObligation"] == ["O1"]
+    assert rdf["proeth:raisesObligation"] == ["O2"]  # O3 dropped (not in pool)
 
 
 def test_obligation_engagement_no_actions_skips_llm(app_context):

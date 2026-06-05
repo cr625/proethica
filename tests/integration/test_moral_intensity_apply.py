@@ -10,7 +10,7 @@ import pytest
 
 from app import db
 from app.models.extraction_prompt import ExtractionPrompt
-from app.services.extraction.moral_intensity import is_rated, MoralIntensityTension
+from app.services.extraction.moral_intensity import is_rated, JONES_DIMS, MoralIntensityTension
 from app.services.extraction.moral_intensity_apply import apply_moral_intensity
 
 
@@ -36,7 +36,10 @@ def _phase4_row(case_id, conflicts):
 
 def test_is_rated_helper():
     assert not is_rated({"entity1_label": "A"})
-    assert is_rated({"magnitude_of_consequences": "high"})
+    # A partial rating (one dim, or the pre-R5 five-dim form) is incomplete under
+    # the six-dimension Jones construct, so it must be re-rated rather than skipped.
+    assert not is_rated({"magnitude_of_consequences": "high"})
+    assert is_rated({k: "high" for k in JONES_DIMS})
 
 
 def test_rates_only_unrated(app_context):
@@ -44,7 +47,7 @@ def test_rates_only_unrated(app_context):
     conflicts = [
         {"conflict_id": "t1", "entity1_label": "A", "entity2_label": "B"},
         {"conflict_id": "t2", "entity1_label": "C", "entity2_label": "D",
-         "magnitude_of_consequences": "high"},  # already rated
+         **{k: "high" for k in JONES_DIMS}},  # already rated (all six Jones dims)
     ]
     db.session.add(_phase4_row(case_id, conflicts))
     db.session.commit()
@@ -78,7 +81,7 @@ def test_counts_missed_when_llm_omits(app_context):
 def test_no_unrated_skips_llm(app_context):
     case_id = 9303
     db.session.add(_phase4_row(case_id, [
-        {"conflict_id": "t1", "magnitude_of_consequences": "high"}]))
+        {"conflict_id": "t1", **{k: "high" for k in JONES_DIMS}}]))
     db.session.commit()
 
     extractor = _FakeMIExtractor({"t1": {"proximity": "direct"}})

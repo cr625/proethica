@@ -285,47 +285,12 @@ def register_review_view_routes(bp):
 
                 logger.info(f"Found {len(question_conclusion_links)} Question->Conclusion links")
 
-            # Fetch existing classes from OntServe for reference display
-            ontserve_classes = {
-                'roles': [],
-                'states': [],
-                'resources': []
-            }
-            try:
-                from app.services.external_mcp_client import get_external_mcp_client
-                mcp_client = get_external_mcp_client()
-
-                # Fetch existing role classes
-                existing_roles = mcp_client.get_all_role_entities()
-                for role in existing_roles:
-                    ontserve_classes['roles'].append({
-                        'label': role.get('label', ''),
-                        'description': role.get('description', role.get('comment', '')),
-                        'uri': role.get('uri', '')
-                    })
-
-                # Fetch existing state classes
-                existing_states = mcp_client.get_all_state_entities()
-                for state in existing_states:
-                    ontserve_classes['states'].append({
-                        'label': state.get('label', ''),
-                        'description': state.get('description', state.get('comment', '')),
-                        'uri': state.get('uri', '')
-                    })
-
-                # Fetch existing resource classes
-                existing_resources = mcp_client.get_all_resource_entities()
-                for resource in existing_resources:
-                    ontserve_classes['resources'].append({
-                        'label': resource.get('label', ''),
-                        'description': resource.get('description', resource.get('comment', '')),
-                        'uri': resource.get('uri', '')
-                    })
-
-                logger.info(f"Fetched OntServe classes: {len(ontserve_classes['roles'])} roles, "
-                           f"{len(ontserve_classes['states'])} states, {len(ontserve_classes['resources'])} resources")
-            except Exception as e:
-                logger.warning(f"Could not fetch OntServe classes: {e}")
+            # OntServe class-reference display removed (2026-05-29): it listed
+            # per-case class copies across all case ontologies, which is a heavy
+            # MCP fetch and renders as visual duplicates (the same canonical URI
+            # appears once per case that uses it). The shared ontology is the
+            # authority; the inline reference list is not needed for review.
+            ontserve_classes = {}
 
             # Get pipeline status for navigation
             from app.services.pipeline_status_service import PipelineStatusService
@@ -431,58 +396,10 @@ def register_review_view_routes(bp):
             # Determine section display name
             section_display = section_type.capitalize() if section_type else "All Sections"
 
-            # Fetch existing classes from OntServe for Pass 2 concept types
-            ontserve_classes = {
-                'principles': [],
-                'obligations': [],
-                'constraints': [],
-                'capabilities': []
-            }
-            try:
-                from app.services.external_mcp_client import get_external_mcp_client
-                mcp_client = get_external_mcp_client()
-
-                # Fetch existing principle classes
-                existing_principles = mcp_client.get_all_principle_entities()
-                for p in existing_principles:
-                    ontserve_classes['principles'].append({
-                        'label': p.get('label', ''),
-                        'description': p.get('description', p.get('comment', '')),
-                        'uri': p.get('uri', '')
-                    })
-
-                # Fetch existing obligation classes
-                existing_obligations = mcp_client.get_all_obligation_entities()
-                for o in existing_obligations:
-                    ontserve_classes['obligations'].append({
-                        'label': o.get('label', ''),
-                        'description': o.get('description', o.get('comment', '')),
-                        'uri': o.get('uri', '')
-                    })
-
-                # Fetch existing constraint classes
-                existing_constraints = mcp_client.get_all_constraint_entities()
-                for c in existing_constraints:
-                    ontserve_classes['constraints'].append({
-                        'label': c.get('label', ''),
-                        'description': c.get('description', c.get('comment', '')),
-                        'uri': c.get('uri', '')
-                    })
-
-                # Fetch existing capability classes
-                existing_capabilities = mcp_client.get_all_capability_entities()
-                for cap in existing_capabilities:
-                    ontserve_classes['capabilities'].append({
-                        'label': cap.get('label', ''),
-                        'description': cap.get('description', cap.get('comment', '')),
-                        'uri': cap.get('uri', '')
-                    })
-
-                logger.info(f"Fetched OntServe Pass 2 classes: {len(ontserve_classes['principles'])} principles, "
-                           f"{len(ontserve_classes['obligations'])} obligations, {len(ontserve_classes['constraints'])} constraints, "
-                           f"{len(ontserve_classes['capabilities'])} capabilities")
-            except Exception as e:
-                logger.warning(f"Could not fetch OntServe Pass 2 classes: {e}")
+            # OntServe class-reference display removed (2026-05-29): see the Pass 1
+            # note above. The shared ontology is the authority; the inline
+            # per-case-duplicated reference list is not needed for review.
+            ontserve_classes = {}
 
             # Get pipeline status for navigation
             from app.services.pipeline_status_service import PipelineStatusService

@@ -78,3 +78,6 @@ mypy>=1.13.0
 # Development Tools
 ipython>=8.29.0
 ipdb>=0.13.0
+
+# Documentation (MkDocs build for the /docs/ route; pulls in mkdocs + pymdown-extensions)
+mkdocs-material>=9.7.0,<10.0.0

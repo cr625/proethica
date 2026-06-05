@@ -159,6 +159,41 @@
                                 </p>
                             </div>
 
+                            <h6 class="mt-3">Relational Role Categories (the <code>role_category</code> shown in extraction)</h6>
+                            <div class="border-start border-3 border-secondary ps-3 mb-3">
+                                <p class="small mb-2">Each extracted role can carry a <strong>relational</strong>
+                                    category naming the duty-relationship it establishes (orthogonal to the
+                                    occupational kind of agent). The four categories are literature-grounded and map to
+                                    <code>proethica-intermediate</code> archetype classes under <code>RelationalRole</code>:</p>
+                                <ul class="small mb-2">
+                                    <li><code>provider_client</code> &rarr; <strong>ProviderClientRole</strong>:
+                                        service-delivery relationship with duties of competent service, confidentiality,
+                                        and client welfare.
+                                        <strong>Kong et al. (2020)</strong>
+                                        <a href="https://doi.org/10.1007/s10676-020-09524-4" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                    <li><code>professional_peer</code> &rarr; <strong>ProfessionalPeerRole</strong>:
+                                        collegial relationship with peer review, mentoring, and standard-maintenance
+                                        obligations.
+                                        <strong>Kong et al. (2020)</strong>
+                                        <a href="https://doi.org/10.1007/s10676-020-09524-4" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                    <li><code>employer_relationship</code> &rarr; <strong>EmployerRelationshipRole</strong>:
+                                        organizational relationship balancing loyalty with professional independence.
+                                        <strong>Wendel (2024)</strong>
+                                        <a href="https://doi.org/10.1093/oso/9780198863335.001.0001" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                    <li><code>public_responsibility</code> &rarr; <strong>PublicResponsibilityRole</strong>:
+                                        societal obligation that can override client or employer interests.
+                                        <strong>Thornton et al. (2017)</strong>
+                                        <a href="https://doi.org/10.1080/10508422.2017.1318069" target="_blank">
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i> DOI</a></li>
+                                </ul>
+                                <p class="small mb-0 text-muted">The <code>participant</code> and
+                                    <code>stakeholder</code> categories are generic fallbacks (mapped to the neutral
+                                    <code>RelationalRole</code>), not part of the Kong identity-role framework.</p>
+                            </div>
+
                             <h6 class="mt-3">Additional References</h6>
                             <ul class="mb-0">
                                 <li><strong>Kong et al. (2020)</strong>. Identity roles and virtues across engineering,
@@ -345,18 +380,33 @@
                                 historical context and anticipated future.</p>
                             <h6>Key Literature (Table 2.1)</h6>
                             <ul class="mb-2">
-                                <li><strong>Berreby et al. (2017)</strong>. Exogenous occurrences - automatic events
-                                    that occur when preconditions hold without agent input</li>
+                                <li><strong>Berreby et al. (2017)</strong>. The Event Calculus distinction between
+                                    agent-caused outcomes and exogenous / automatic occurrences (events that fire when
+                                    preconditions hold without agent input). This is the basis of the event-type
+                                    classification described below.</li>
                                 <li><strong>Event Calculus formalism</strong>. Mathematical foundation for modeling
-                                    temporal dynamics - events modify fluents and trigger state transitions</li>
-                                <li><strong>Arkin (2008)</strong>. Emergency overrides - events can temporarily override
-                                    normal constraints reflecting prima facie duties</li>
+                                    temporal dynamics - events modify fluents and trigger state transitions (see the
+                                    Fluents and OWL-Time entries below for how this is materialized)</li>
+                                <li><strong>Arkin (2008)</strong>. Emergency overrides - an emergency can temporarily
+                                    override normal constraints reflecting prima facie duties</li>
                             </ul>
                             <h6>Additional References</h6>
-                            <ul class="mb-0">
+                            <ul class="mb-2">
                                 <li><strong>Anderson & Anderson (2018)</strong>. Event sequence evaluation</li>
                                 <li><strong>Govindarajulu & Bringsjord (2017)</strong>. Temporal modal logic</li>
                             </ul>
+                            <h6>Implementation note: classification vs. severity</h6>
+                            <p class="mb-0">An event carries two distinct labels. <strong>Event type</strong>
+                                (<code>outcome</code>, a consequence of an agent action; <code>exogenous</code>, external
+                                and not caused by a case agent; <code>automatic_trigger</code>, fires when preconditions
+                                hold) is the literature-grounded Event Calculus classification above (Berreby et al.
+                                2017), and it carries weight for responsibility attribution. <strong>Severity</strong>
+                                (critical / high / medium / low / routine) is a deliberately heuristic triage indicator,
+                                <em>not</em> a formal ontology category. Arkin's emergency-override is realized not as a
+                                standalone event flag but through the fluent path: the event <em>initiates</em> a State
+                                (for example an elevated public-safety risk) that in turn activates the overriding
+                                obligation or constraint, so the override is a queryable consequence of the state
+                                transition rather than a property asserted on the event.</p>
                         </div>
                     </div>
                 </div>
@@ -872,8 +922,13 @@
             <div class="border-start border-3 border-warning ps-3 mb-3">
                 <p class="small mt-2 mb-2">
                     <strong>Definition:</strong> Causal-normative links connect professional actions to the obligations
-                    they fulfill or violate. Each action is mapped to normative framework components through causal
-                    responsibility analysis.
+                    they engage. Each action engages an obligation in one of three ways: it
+                    <span class="text-success">fulfills</span> the obligation (directly satisfies it),
+                    <span class="text-danger">violates</span> it (directly breaches it), or
+                    <span class="text-warning-emphasis">raises</span> it (puts it in force, or at stake, to be resolved
+                    by a later action). The fulfills and violates assignment is grounded in causal responsibility
+                    analysis; the raises assignment is grounded in the Event Calculus treatment of an obligation as a
+                    fluent.
                 </p>
                 <p class="mb-1"><strong>Sarmiento, C., Bourgne, G., Inoue, K., & Ganascia, J.-G. (2023)</strong></p>
                 <p class="fst-italic mb-1">Action Languages Based Actual Causality in Decision Making Contexts</p>
@@ -886,24 +941,55 @@
                     Uses the <strong>NESS test</strong> (Necessary Element of a Sufficient Set) for causal responsibility
                     attribution. An action is causally responsible for an outcome if it was a necessary element in a
                     set of conditions jointly sufficient to produce that outcome. ProEthica applies NESS to determine
-                    which actions fulfill or violate specific obligations.
+                    which actions <span class="text-success">fulfill</span> or <span class="text-danger">violate</span>
+                    specific obligations.
+                </p>
+                <p class="small mb-1 mt-3"><strong>Grounding for <span class="text-warning-emphasis">raises</span> (at stake):</strong>
+                    Berreby, F., Bourgne, G., & Ganascia, J.-G. (2017), <em>A Declarative Modular Framework for
+                    Representing and Applying Ethical Principles</em> (AAMAS 2017, pp. 96-104); and Dennis, L., et al.
+                    (2016), <em>Formal Verification of Ethical Choices in Autonomous Systems</em>, with Dennis &amp; del
+                    Olmo (2021), <em>A Defeasible Logic Implementation of Ethical Reasoning</em>.
+                </p>
+                <p class="small mb-2">
+                    In the Event Calculus an obligation is a <strong>fluent</strong> that a happening initiates: the
+                    action puts the obligation in force rather than statically satisfying or breaching it, and a later
+                    action resolves it. The defeasible account treats obligations as coming into force under conditions
+                    and remaining defeasibly in play until discharged. This is the action-side analog of the core State
+                    linkage <code>activatesObligation</code> / <code>defeasibleUnder</code>: a happening
+                    <span class="text-warning-emphasis">raises</span> an obligation just as a State activates one.
                 </p>
                 <div class="alert alert-light border mt-2 mb-0">
+                    <p class="small mb-1">
+                        <strong>Application:</strong> The Analysis and Timeline tabs display causal-normative links showing,
+                        per action, the obligations it <span class="text-success">fulfills</span>,
+                        <span class="text-danger">violates</span>, or <span class="text-warning-emphasis">raises</span>
+                        (puts at stake), enabling systematic evaluation of professional conduct across the case timeline.
+                    </p>
                     <p class="small mb-0">
-                        <strong>Application:</strong> The Analysis tab displays causal-normative links showing which
-                        obligations each action <span class="text-success">fulfills</span> and which it
-                        <span class="text-danger">violates</span>, enabling systematic evaluation of professional conduct.
+                        These are not free-text annotations. Each is materialized as an object-property edge from the
+                        Action to the actual extracted Obligation individual (<code>fulfillsObligation</code> /
+                        <code>violatesObligation</code> / <code>raisesObligation</code>), and the guiding principle as
+                        <code>guidedByPrinciple</code> to the extracted Principle, resolved to the case individuals rather
+                        than restated as prose. This closes the loop the fluent layer begins: the Action initiates a
+                        State, the State activates the real Obligation or Constraint, and the Action fulfills, violates,
+                        or raises that same obligation individual, so the whole chain is queryable.
                     </p>
                 </div>
             </div>
 
-            <h6 id="initial-fluents">Initial Fluents (Event Calculus)</h6>
+            <h6 id="initial-fluents">Fluents and Fluent Transitions (Event Calculus)</h6>
             <div class="border-start border-3 border-success ps-3 mb-3">
                 <p class="small mt-2 mb-2">
-                    <strong>Definition:</strong> Fluents are time-varying properties that represent the state of the
-                    ethical situation. Initial fluents capture the conditions at case start that persist until
-                    changed by actions or events.
+                    <strong>Definition:</strong> A State is a fluent, a time-varying property that holds over an
+                    interval of the case. A happening (an Action, volitional, or an Event, non-volitional) changes
+                    what holds: it <em>initiates</em> a fluent (brings it into force) or <em>terminates</em> it
+                    (ends it). Inertial fluents persist by default until terminated. The fluent layer is what
+                    connects the temporal components to the normative ones: a happening initiates a State, and the
+                    State activates obligations and constraints.
                 </p>
+                <p class="mb-1"><strong>Kowalski, R., & Sergot, M. (1986)</strong></p>
+                <p class="fst-italic mb-1">A Logic-Based Calculus of Events</p>
+                <p class="small text-muted mb-2"><em>New Generation Computing</em>, 4(1), pp. 67-95.</p>
                 <p class="mb-1"><strong>Berreby, F., Bourgne, G., & Ganascia, J.-G. (2017)</strong></p>
                 <p class="fst-italic mb-1">A Declarative Modular Framework for Representing and Applying Ethical Principles</p>
                 <p class="small text-muted mb-2">
@@ -912,15 +998,53 @@
                     <a href="https://www.ifaamas.org/Proceedings/aamas2017/pdfs/p96.pdf" target="_blank">PDF</a>
                 </p>
                 <p class="small mb-2">
-                    Employs <strong>Event Calculus</strong> formalism where fluents are properties that hold at
-                    particular time points. Actions and events <em>initiate</em> or <em>terminate</em> fluents,
-                    creating state transitions. Fluents persist by default (law of inertia) until explicitly changed.
+                    Kowalski &amp; Sergot introduce the <strong>Event Calculus</strong>: a happening
+                    <em>initiates</em> or <em>terminates</em> a fluent, and a fluent <em>holds</em> at a time if it was
+                    initiated and not since terminated. Berreby et al. apply this to machine ethics, distinguishing
+                    inertial fluents (persist until terminated) from non-inertial ones (hold momentarily) and agent
+                    actions from automatic events.
                 </p>
                 <div class="alert alert-light border mt-2 mb-0">
                     <p class="small mb-0">
-                        <strong>Application:</strong> The Narrative tab displays initial fluents as state conditions
-                        at case start (e.g., "Engineer_A hasEmploymentWith Firm_X", "Project_Y hasStatus active").
-                        These provide the baseline context for evaluating subsequent actions and events.
+                        <strong>Application:</strong> Step 3 records, per Action/Event, the States it brings into or
+                        out of holding, materialized at commit as <code>proeth-core:initiates</code> and
+                        <code>proeth-core:terminates</code> edges (Action/Event to State). These generalize the
+                        State-side <code>activatedByEvent</code> / <code>terminatedByEvent</code> to both happening
+                        kinds in the canonical happening-to-fluent direction.
+                    </p>
+                </div>
+            </div>
+
+            <h6 id="owl-time">Temporal Position and Ordering (OWL-Time / Allen)</h6>
+            <div class="border-start border-3 border-success ps-3 mb-3">
+                <p class="small mt-2 mb-2">
+                    <strong>Definition:</strong> Where the Event Calculus says what holds and why it changed, OWL-Time
+                    says <em>when</em>. Each happening is anchored to a temporal entity, and happenings are ordered by
+                    the thirteen Allen interval relations, standardized as OWL-Time object properties.
+                </p>
+                <p class="mb-1"><strong>Allen, J. F. (1983)</strong></p>
+                <p class="fst-italic mb-1">Maintaining Knowledge about Temporal Intervals</p>
+                <p class="small text-muted mb-2"><em>Communications of the ACM</em>, 26(11), pp. 832-843.</p>
+                <p class="mb-1"><strong>Cox, S., & Little, C. (2017)</strong></p>
+                <p class="fst-italic mb-1">Time Ontology in OWL</p>
+                <p class="small text-muted mb-2">
+                    W3C Recommendation (namespace <code>http://www.w3.org/2006/time#</code>).
+                    <a href="https://www.w3.org/TR/owl-time/" target="_blank">W3C</a>
+                </p>
+                <p class="small mb-2">
+                    Allen's interval algebra defines the thirteen relations between intervals (before, meets, overlaps,
+                    during, starts, finishes, equals, and inverses); OWL-Time provides them as
+                    <code>time:intervalBefore</code>, <code>time:intervalMeets</code>, and so on, over
+                    <code>time:ProperInterval</code>, plus <code>time:Instant</code> for point occurrences and
+                    <code>time:hasTime</code> to anchor any entity to a temporal entity.
+                </p>
+                <div class="alert alert-light border mt-2 mb-0">
+                    <p class="small mb-0">
+                        <strong>Application:</strong> Each Action/Event carries a <code>proeth:temporalExtent</code>
+                        (instant or interval) and is anchored via <code>time:hasTime</code> to a minted
+                        <code>time:Instant</code> or <code>time:ProperInterval</code>; the Allen relations between
+                        happenings are stored as <code>time:interval*</code> object properties, and
+                        <code>proeth:temporalSequence</code> gives the discrete chronological order shown in the Timeline.
                     </p>
                 </div>
             </div>

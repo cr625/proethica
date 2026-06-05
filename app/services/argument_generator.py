@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 
 # Ontology URIs
 PROETHICA_INT_NS = "http://proethica.org/ontology/intermediate#"
-PROETHICA_CASE_NS = "http://proethica.org/ontology/case-{case_id}#"
+# Canonical per-case namespace (slash form), matching the commit serializer + edge
+# materialisers. Was the divergent ontology/case-<id># hyphen scheme (R2 unification).
+PROETHICA_CASE_NS = "http://proethica.org/ontology/case/{case_id}#"
 
 
 @dataclass
@@ -180,12 +182,16 @@ class ArgumentGenerator:
         self.last_prompt = prompt
 
         try:
-            response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
+            _arg_model = ModelConfig.get_claude_model("powerful")
+            _arg_kwargs = dict(
+                # Toulmin argument generation is the core Step-4 reasoning output -> powerful tier (Opus).
+                model=_arg_model,
                 max_tokens=4000,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
+            if ModelConfig.supports_temperature(_arg_model):  # Opus 4.8 rejects temperature
+                _arg_kwargs["temperature"] = 0.3
+            response = self.llm_client.messages.create(**_arg_kwargs)
 
             response_text = response.content[0].text
             self.last_response = response_text

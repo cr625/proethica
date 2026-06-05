@@ -23,6 +23,8 @@ import logging
 import os
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+from model_config import ModelConfig
+
 from .enhanced_prompts_defeasibility import (
     NarrativeContext,
     ObligationContext,
@@ -142,8 +144,10 @@ class DefeasibilityEdgeExtractor:
     def _resolve_model(self) -> str:
         if self.model:
             return self.model
+        # Defeasibility edges are a paper-critical, relational reasoning task and a
+        # bounded one call per case, so they run on the powerful tier (Opus).
         from model_config import ModelConfig
-        return ModelConfig.get_default_model()
+        return ModelConfig.get_claude_model("powerful")
 
     def _call_llm(self, user_prompt: str) -> Optional[str]:
         """Invoke the configured LLM via Anthropic streaming.
@@ -167,13 +171,15 @@ class DefeasibilityEdgeExtractor:
 
         try:
             chunks: List[str] = []
-            with client.messages.stream(
+            stream_kwargs = dict(
                 model=model,
                 max_tokens=self.max_tokens,
-                temperature=self.temperature,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_prompt}],
-            ) as stream:
+            )
+            if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
+                stream_kwargs["temperature"] = self.temperature
+            with client.messages.stream(**stream_kwargs) as stream:
                 for text in stream.text_stream:
                     chunks.append(text)
                 final_msg = stream.get_final_message()

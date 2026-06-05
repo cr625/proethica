@@ -20,6 +20,12 @@ def auto_commit_service():
         from app.services.auto_commit_service import AutoCommitService
         service = AutoCommitService.__new__(AutoCommitService)
         service._versioned_commit = True
+        # __new__ bypasses __init__, so attributes the real __init__ sets must be provided
+        # here. The sync/refresh path builds a case TTL path from ontologies_dir; set it to a
+        # fake path consistent with the patched get_ontserve_base_path (no real I/O -- subprocess
+        # and OntServeCommitService are mocked in the tests).
+        service.ontserve_path = Path("/fake/OntServe")
+        service.ontologies_dir = Path("/fake/OntServe/ontologies")
         yield service
 
 

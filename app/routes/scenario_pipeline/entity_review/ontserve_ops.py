@@ -11,6 +11,7 @@ from datetime import datetime
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db, TemporaryRDFStorage
 from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.extraction.field_classification import group_properties
 from app.utils.environment_auth import (
     auth_optional,
     auth_required_for_write
@@ -198,39 +199,76 @@ def register_ontserve_ops_routes(bp):
                 entity_type = rdf_data.get('@type', '')
 
                 if 'Action' in entity_type:
+                    # Surface every field convert_action_to_rdf emits so this review
+                    # faithfully represents the extraction. The obligation engagement
+                    # post-step splits the pool into three buckets (fulfills / violates
+                    # / raises); showing only fulfills hid two thirds of that analysis.
+                    # foreseenUnintendedEffects and the obligation buckets are lists;
+                    # temporalSequence is an int. (competing_priorities was dropped from
+                    # Step-3 extraction 2026-06-01 -- no consumer; tension is in the
+                    # defeasibility edges.)
                     actions.append({
+                        'field_groups': group_properties(rdf_data),
                         'id': entity.id,
                         'label': entity.entity_label,
                         'uri': entity.entity_uri,
                         'description': rdf_data.get('proeth:description', ''),
                         'agent': rdf_data.get('proeth:hasAgent', ''),
+                        'event_role_context': rdf_data.get('proeth:eventRoleContext', ''),
                         'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
+                        'temporal_sequence': rdf_data.get('proeth:temporalSequence'),
                         'mental_state': rdf_data.get('proeth:hasMentalState', ''),
                         'intended_outcome': rdf_data.get('proeth:intendedOutcome', ''),
+                        'foreseen_unintended_effects': rdf_data.get('proeth:foreseenUnintendedEffects', []),
                         'fulfills_obligation': rdf_data.get('proeth:fulfillsObligation', []),
+                        'violates_obligation': rdf_data.get('proeth:violatesObligation', []),
+                        'raises_obligation': rdf_data.get('proeth:raisesObligation', []),
                         'guided_by_principle': rdf_data.get('proeth:guidedByPrinciple', []),
                         'within_competence': rdf_data.get('proeth:withinCompetence', False),
                         'requires_capability': rdf_data.get('proeth:requiresCapability', []),
+                        # Event Calculus fluent transitions: the States this action brings
+                        # into / takes out of holding (committed as proeth-core:initiates /
+                        # terminates edges). temporal_extent = OWL-Time instant|interval.
+                        'initiates': rdf_data.get('proeth:initiates', []),
+                        'terminates': rdf_data.get('proeth:terminates', []),
+                        'temporal_extent': rdf_data.get('proeth:temporalExtent', ''),
                         'rdf_json': rdf_data
                     })
 
                 elif 'Event' in entity_type:
+                    # Field names match what convert_event_to_rdf actually emits
+                    # (rdf_converter.py). event_type is the Event Calculus agent-caused /
+                    # exogenous / automatic distinction (Berreby et al. 2017); severity is a
+                    # heuristic triage indicator (renamed from emergency_status 2026-05-31,
+                    # NOT a formal ontology category). The duplicate urgency_level field and
+                    # the direct proeth:activatesConstraint / proeth:createsObligation event
+                    # links were dropped 2026-05-31 (urgency_level always equalled severity;
+                    # the norm links were redundant with the grounded initiates -> State ->
+                    # activatesConstraint/activatesObligation path). The event now carries its
+                    # world-change as initiates / terminates.
                     events.append({
+                        'field_groups': group_properties(rdf_data),
                         'id': entity.id,
                         'label': entity.entity_label,
                         'uri': entity.entity_uri,
                         'description': rdf_data.get('proeth:description', ''),
-                        'affected_entity': rdf_data.get('proeth:affectsEntity', ''),
                         'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
-                        'triggers_state': rdf_data.get('proeth:triggersState', []),
-                        'activates_constraint': rdf_data.get('proeth:activatesConstraint', []),
-                        'transforms_obligation': rdf_data.get('proeth:transformsObligation', []),
-                        'emergency_level': rdf_data.get('proeth:emergencyLevel', ''),
+                        'temporal_sequence': rdf_data.get('proeth:temporalSequence'),
+                        'event_type': rdf_data.get('proeth:eventType', ''),
+                        'severity': rdf_data.get('proeth:severity', ''),
+                        'causes_state_change': rdf_data.get('proeth:causesStateChange', ''),
+                        'caused_by_action': rdf_data.get('proeth:causedByAction', ''),
+                        # Event Calculus fluent transitions (proeth-core:initiates /
+                        # terminates edges at commit). temporal_extent = OWL-Time instant|interval.
+                        'initiates': rdf_data.get('proeth:initiates', []),
+                        'terminates': rdf_data.get('proeth:terminates', []),
+                        'temporal_extent': rdf_data.get('proeth:temporalExtent', ''),
                         'rdf_json': rdf_data
                     })
 
                 elif 'CausalChain' in entity_type:
                     causal_chains.append({
+                        'field_groups': group_properties(rdf_data),
                         'id': entity.id,
                         'cause': rdf_data.get('proeth:cause', ''),
                         'effect': rdf_data.get('proeth:effect', ''),
@@ -274,6 +312,18 @@ def register_ontserve_ops_routes(bp):
                     })
 
             extraction_complete = len(temporal_entities) > 0
+
+            # Order actions and events chronologically by the temporal-sequence post-step
+            # (the same ordering the study timeline uses), falling back to DB id for rows
+            # the sequence step has not visited. A large sentinel keeps unsequenced rows last.
+            def _seq_key(item):
+                seq = item.get('temporal_sequence')
+                try:
+                    return (0, int(seq))
+                except (TypeError, ValueError):
+                    return (1, item.get('id') or 0)
+            actions.sort(key=_seq_key)
+            events.sort(key=_seq_key)
 
             # Check commit status
             uncommitted_count = sum(1 for e in temporal_entities if not e.is_published)

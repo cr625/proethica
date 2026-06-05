@@ -1,6 +1,8 @@
 {# Card layout for extracted class entities.
    Included from entity_review.html and entity_review_pass2.html.
    Expects parent context: type_data, concept_type, concept_colors, ontserve_web_url, case #}
+{% from 'macros/_definition_list.html' import render_definition_list %}
+{% from 'macros/_field_classification.html' import field_classification %}
 
 {% set color = concept_colors.get(concept_type, '#dee2e6') %}
 
@@ -126,14 +128,8 @@
             <div class="col-md-5">
                 <div class="text-uppercase text-muted fw-bold" style="font-size: 0.7em; letter-spacing: 0.05em;">Definition</div>
                 {% set definitions = (cls.rdf_json_ld or {}).get('definitions', []) %}
-                {% if definitions and definitions|length > 1 %}
-                    {% for defn in definitions %}
-                    <div class="small{% if not defn.is_primary %} text-muted{% endif %} mb-1">
-                        {% if defn.is_primary %}<strong>{{ defn.text }}</strong>
-                        {% else %}{{ defn.text }}{% endif %}
-                        <span class="badge bg-{{ 'primary' if defn.source_type == 'extraction' else ('info' if defn.source_type == 'ontology' else 'secondary') }}" style="font-size: 0.65em;">{{ defn.source_section or defn.source_ontology or defn.source_type }}</span>
-                    </div>
-                    {% endfor %}
+                {% if definitions %}
+                    {{ render_definition_list(definitions) }}
                 {% elif cls.entity_definition %}
                     <div class="small">{{ cls.entity_definition }}</div>
                 {% else %}
@@ -202,6 +198,9 @@
             <div class="text-info"><i class="bi bi-quote"></i> "{{ cls.rdf_json_ld.get('source_text')[:200] }}{% if cls.rdf_json_ld.get('source_text')|length > 200 %}...{% endif %}"</div>
         </div>
         {% endif %}
+
+        {# Triple-vs-literal field classification (same lens as the temporal review). #}
+        {{ field_classification((cls.rdf_json_ld or {}).get('properties') | group_properties) }}
     </div>
 </div>
 {% endfor %}

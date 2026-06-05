@@ -68,6 +68,41 @@ def format_entities_compact(all_entities: Dict[str, List]) -> str:
     return formatted
 
 
+def format_subgraph(all_entities: Dict[str, List], edges_by_label: Dict[str, List]) -> str:
+    """Like format_entities_compact, but appends each entity's COMMITTED edges (label-form)
+    from `edges_by_label`, so the LLM receives a subgraph (nodes + already-extracted relations)
+    rather than a node list.
+
+    This is the synthesis-grounding mechanism: once a relation is shown as GIVEN, the LLM's
+    job shifts from re-deriving it to explaining/extending it, which removes both the
+    duplicated extraction work and the vocabulary drift it caused.
+
+    Args:
+        all_entities: Dict mapping entity type keys to lists of entity objects.
+        edges_by_label: {normalized_label: [(predicate_local, [target_label, ...]), ...]}
+                        -- the committed edges for each entity (empty list if none).
+    """
+    formatted = ""
+    for key, display_name in ENTITY_TYPE_ORDER:
+        entities = all_entities.get(key, [])
+        if not entities:
+            formatted += f"\n**{display_name}:** (none extracted)\n"
+            continue
+        formatted += f"\n**{display_name}:**\n"
+        for entity in entities:
+            label = _get_entity_field(entity, 'label', 'entity_label', default='Unknown')
+            definition = _get_entity_field(entity, 'definition', 'entity_definition')
+            formatted += f"  - {label}"
+            if definition and len(definition) < 150:
+                formatted += f": {definition}"
+            formatted += "\n"
+            for pred, targets in (edges_by_label.get(_normalize_label(label)) or []):
+                tlist = [str(t) for t in targets if t]
+                if tlist:
+                    formatted += f"      [{pred}] {'; '.join(tlist)}\n"
+    return formatted
+
+
 def _normalize_label(label: str) -> str:
     """Normalize an entity label for fuzzy matching.
 

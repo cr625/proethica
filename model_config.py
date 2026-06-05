@@ -13,12 +13,13 @@ class ModelConfig:
     CLAUDE_MODELS = {
         # Primary models for different use cases
         "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001"),
-        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-7"),
+        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-8"),
         "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-6"),
 
         # Specific versions (for testing/compatibility)
         "sonnet-4.6": "claude-sonnet-4-6",  # Latest Sonnet 4.6 (Feb 2026)
-        "opus-4.7": "claude-opus-4-7",  # Latest Opus 4.7
+        "opus-4.8": "claude-opus-4-8",  # Latest Opus 4.8
+        "opus-4.7": "claude-opus-4-7",  # Opus 4.7
         "opus-4.6": "claude-opus-4-6",  # Opus 4.6 (Feb 2026)
         "opus-4.5": "claude-opus-4-5-20251101",  # Legacy Opus 4.5 (Nov 2025)
         "sonnet-4.5": "claude-sonnet-4-5-20250929",  # Sonnet 4.5 (Sep 2025)
@@ -40,11 +41,23 @@ class ModelConfig:
         "embedding": os.getenv("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
     }
     
+    # Models that reject the `temperature` sampling parameter (they manage sampling
+    # internally and return HTTP 400 "temperature is deprecated for this model" if it is
+    # passed). Callers should omit temperature for these. Opus 4.8 is the first such model.
+    TEMPERATURE_UNSUPPORTED = {
+        "claude-opus-4-8",
+    }
+
     # Model selection based on use case
     @classmethod
     def get_claude_model(cls, use_case="default"):
         """Get the appropriate Claude model for a use case."""
         return cls.CLAUDE_MODELS.get(use_case, cls.CLAUDE_MODELS["default"])
+
+    @classmethod
+    def supports_temperature(cls, model: str) -> bool:
+        """Whether `model` accepts the `temperature` parameter (some newer models reject it)."""
+        return model not in cls.TEMPERATURE_UNSUPPORTED
     
     @classmethod
     def get_openai_model(cls, use_case="chat"):

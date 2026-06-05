@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Obligation-Conflict Resolution - {{ case.title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set L = view.entity_lookup or {} %}
+{%- macro onto(text, lookup, cls='') -%}
+{%- set e = lookup.get(text|lower) -%}
+{%- if e -%}
+<span class="{{ ('badge ' ~ cls ~ ' ') if cls else '' }}onto-label" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-html="true" data-bs-placement="top" data-bs-container="body" data-entity-type="{{ e.entityType }}" data-entity-source="{{ e.source }}" data-entity-definition="{{ e.definition|replace('\n', ' ')|replace('\r', '') }}" data-entity-uri="{{ e.uri }}" data-ontology-target="{{ e.ontologyTarget }}" title="{{ text }}">{{ text }}</span>
+{%- elif cls -%}
+<span class="badge {{ cls }}">{{ text }}</span>
+{%- else -%}{{ text }}{%- endif -%}
+{%- endmacro -%}
+<div class="container my-4" id="defeasibility-content">
+
+  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap">
+    <div>
+      <h2 class="mb-1">Obligation-Conflict Resolution</h2>
+      <p class="text-muted mb-0">
+        {% if case.case_number %}Case {{ case.case_number }}{% if case.year %} ({{ case.year }}){% endif %} &middot; {% endif %}{{ case.title }}
+      </p>
+    </div>
+    <div class="btn-group">
+      <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Case
+      </a>
+      <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-outline-info btn-sm">
+        <i class="bi bi-diagram-2"></i> Precedents
+      </a>
+    </div>
+  </div>
+
+  <div class="alert alert-light border d-flex">
+    <i class="bi bi-info-circle text-primary me-2 mt-1"></i>
+    <div class="small mb-0">
+      Professional obligations conflict, and the board applies no fixed rule for which one wins.
+      Each resolution is recorded as three edges:
+      <strong>competesWith</strong> (the tension),
+      <strong>prevailsOver</strong> (the obligation the board allowed to win <em>in this case</em>), and
+      <strong>defeasibleUnder</strong> (the situation under which the yielding obligation gives way).
+      The same tension is then traced across comparable cases, where its resolution shifts with context.
+      Hover any obligation or state to see its definition; click to open it in OntServe.
+    </div>
+  </div>
+
+  <h5 class="mt-4 mb-3"><i class="bi bi-1-circle me-1"></i>How this case resolved it</h5>
+
+  {% if view.case_conflicts.conflicts %}
+  <div class="row g-3">
+    {% for c in view.case_conflicts.conflicts %}
+    <div class="col-md-6">
+      <div class="card h-100 {% if c.featured %}border-primary border-2{% endif %}">
+        <div class="card-body">
+          {% if c.featured %}<span class="badge bg-primary float-end">Featured</span>{% endif %}
+          <div class="mb-2">
+            {{ onto(c.winner, L, 'bg-success') }}
+            <span class="text-muted small mx-1"><i class="bi bi-arrow-right"></i> prevails over <i class="bi bi-arrow-right"></i></span>
+            {{ onto(c.loser, L, 'bg-secondary') }}
+          </div>
+          {% if c.competes %}
+          <div class="small text-muted mb-2"><i class="bi bi-arrow-left-right"></i> the two obligations are in tension (competesWith)</div>
+          {% endif %}
+          {% if c.contexts %}
+          <div class="small">
+            <span class="text-muted">the yielding obligation gives way only under (defeasibleUnder):</span>
+            <ul class="mb-0 mt-1">
+              {% for ctx in c.contexts %}<li>{{ onto(ctx, L) }}</li>{% endfor %}
+            </ul>
+          </div>
+          {% else %}
+          <div class="small text-muted fst-italic">No State context committed for this edge.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-muted">No resolved obligation competitions are committed for this case.</p>
+  {% endif %}
+
+  {% if view.case_conflicts.unresolved %}
+  <div class="mt-3 small">
+    <span class="text-muted me-1">Open tensions recorded without a resolution:</span>
+    {% for pair in view.case_conflicts.unresolved %}
+    <span class="badge bg-light text-dark border me-1">{{ onto(pair[0], L) }} vs {{ onto(pair[1], L) }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if view.case_conflicts.conclusions %}
+  <h6 class="mt-4"><i class="bi bi-chat-quote me-1"></i>What the board concluded</h6>
+  <ul class="small text-body-secondary">
+    {% for con in view.case_conflicts.conclusions[:3] %}<li>{{ con|truncate(400) }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if view.case_conflicts.violations %}
+  <div class="small mt-2">
+    <span class="text-muted me-1">Recorded violations:</span>
+    {% for v in view.case_conflicts.violations %}
+    <span class="badge bg-warning text-dark border me-1">{{ v.action }} violates {{ v.obligation }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if view.cross_case and view.cross_case.rows %}
+  <h5 class="mt-5 mb-2"><i class="bi bi-2-circle me-1"></i>How comparable cases resolved the same tension</h5>
+  <p class="text-muted small">
+    {{ view.cross_case.label }}. The yielding obligation ("{{ view.cross_case.keyword }}") recurs across cases;
+    the obligation that overrides it and the context under which it yields differ case by case. This is the
+    case-law move: not a single rule, but a family of context-indexed resolutions.
+  </p>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Case</th>
+          <th>Obligation that prevailed</th>
+          <th>Yielding obligation</th>
+          <th>Context (defeasibleUnder)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in view.cross_case.rows %}
+        {% for m in row.matches %}
+        <tr>
+          <td>
+            {% if loop.first %}
+            <a href="{{ url_for('cases.view_case', id=row.case_id) }}">{% if row.case_number %}{{ row.case_number }}{% else %}Case {{ row.case_id }}{% endif %}</a>
+            <div class="small text-muted">{{ row.title|truncate(46) }}</div>
+            {% endif %}
+          </td>
+          <td>{{ onto(m.winner, L, 'bg-success') }}</td>
+          <td>{{ onto(m.loser, L, 'bg-secondary') }}</td>
+          <td class="small">
+            {%- if m.contexts -%}
+              {%- for ctx in m.contexts -%}{{ onto(ctx, L) }}{% if not loop.last %}; {% endif %}{%- endfor -%}
+            {%- else -%}--{%- endif -%}
+          </td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof bootstrap === 'undefined' || typeof initializePopovers !== 'function') return;
+    var container = document.getElementById('defeasibility-content');
+    if (container) initializePopovers(container, '{{ ontserve_web_url }}');
+  });
+</script>
+{% endblock %}

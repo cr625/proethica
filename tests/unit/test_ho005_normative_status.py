@@ -97,6 +97,40 @@ def test_build_context_empty_when_no_fields(monkeypatch):
     assert DecisionPointSynthesizer()._build_normative_status_context(case_id=1) == ''
 
 
+def test_build_context_pairs_proficiency_with_evidence(monkeypatch):
+    """HO-005 follow-on: the capability demonstrated_through literal (already
+    stored, previously consumer-less) is paired with the proficiency rating so the
+    rating is defensible -- 'proficiency=X (evidenced by: ...)'."""
+    _patch_storage(monkeypatch, {
+        'obligations': [],
+        'capabilities': [
+            _FakeIndiv('Engineer L Stormwater Domain Expertise', {
+                'proficiencyLevel': ['expert'],
+                'demonstratedThrough': ['Applying stormwater design expertise to identify risk concerns.'],
+            }),
+        ],
+    })
+    ctx = DecisionPointSynthesizer()._build_normative_status_context(case_id=1)
+    assert ('- Engineer L Stormwater Domain Expertise: proficiency=expert '
+            '(evidenced by: Applying stormwater design expertise to identify risk concerns.)') in ctx
+
+
+def test_build_context_surfaces_evidenced_but_unrated_capability(monkeypatch):
+    """The broadened (level or evidence) guard surfaces a capability that has
+    textual evidence but no proficiency rating -- the evidence is the useful part;
+    proficiency is omitted (no fallback) rather than fabricated."""
+    _patch_storage(monkeypatch, {
+        'obligations': [],
+        'capabilities': [
+            _FakeIndiv('Unrated Competence', {'demonstratedThrough': ['Did the thing competently.']}),
+        ],
+    })
+    ctx = DecisionPointSynthesizer()._build_normative_status_context(case_id=1)
+    assert 'Capability proficiency:' in ctx
+    assert '- Unrated Competence: (evidenced by: Did the thing competently.)' in ctx
+    assert 'proficiency=' not in ctx  # no rating present, none invented
+
+
 def test_build_context_dedupes_by_label(monkeypatch):
     _patch_storage(monkeypatch, {
         'obligations': [

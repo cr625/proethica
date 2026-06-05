@@ -3,7 +3,7 @@
 The Phase-4 narrative extractor historically asked the LLM for only "2-5 key
 tensions" with full ratings, then substring-matched them back to the
 algorithmically-derived tensions, leaving most tensions unrated (~20% coverage
-on the study pool). This module rates EVERY tension on the five Jones (1991)
+on the study pool). This module rates EVERY tension on the six Jones (1991)
 moral-intensity dimensions in one batch call.
 
 Structurally mirrors the other focused extractors (temporal_sequence,
@@ -20,9 +20,12 @@ from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
-# The five Jones (1991) moral-intensity dimensions.
-FIVE_DIMS = (
+# The six Jones (1991) moral-intensity dimensions (PDF-verified against
+# Jones 1991, "Ethical Decision Making ... An Issue-Contingent Model"):
+# social_consensus was previously omitted and is restored here (R5, 2026-06-04).
+JONES_DIMS = (
     "magnitude_of_consequences",
+    "social_consensus",
     "probability_of_effect",
     "temporal_immediacy",
     "proximity",
@@ -40,8 +43,11 @@ class MoralIntensityTension:
 
 
 def is_rated(conflict: dict) -> bool:
-    """True if any of the five Jones dimensions is already populated."""
-    return any(conflict.get(k) for k in FIVE_DIMS)
+    """True only if ALL six Jones dimensions are populated. A Jones (1991) rating is
+    the six-dimension construct; a partial rating (e.g. the pre-R5 five-dimension form
+    that omitted social_consensus) is incomplete, so it must be re-rated, not skipped.
+    Using `any` here let pre-R5 five-dim ratings (case 86) survive the R5 re-rate."""
+    return all(conflict.get(k) for k in JONES_DIMS)
 
 
 def build_prompt(tensions: List[MoralIntensityTension]) -> str:
@@ -57,6 +63,7 @@ TENSIONS TO RATE:
 
 For EACH tension above, use:
 - magnitude_of_consequences: high | medium | low
+- social_consensus: high | medium | low
 - probability_of_effect: high | medium | low
 - temporal_immediacy: immediate | near-term | long-term
 - proximity: direct | indirect | remote
@@ -69,6 +76,7 @@ Output JSON with this exact shape:
     {{
       "conflict_id": "tension_1",
       "magnitude_of_consequences": "high",
+      "social_consensus": "high",
       "probability_of_effect": "medium",
       "temporal_immediacy": "immediate",
       "proximity": "direct",
@@ -82,7 +90,7 @@ Rate every tension in TENSIONS TO RATE. Do not omit any. Do not add new tensions
 
 
 class MoralIntensityExtractor:
-    """Rates every supplied tension on the five Jones dimensions in one call."""
+    """Rates every supplied tension on the six Jones dimensions in one call."""
 
     def __init__(self):
         self.last_prompt = None
@@ -130,5 +138,5 @@ class MoralIntensityExtractor:
         for r in ratings:
             cid = r.get("conflict_id")
             if cid:
-                by_id[cid] = {k: r.get(k) for k in FIVE_DIMS if r.get(k)}
+                by_id[cid] = {k: r.get(k) for k in JONES_DIMS if r.get(k)}
         return by_id

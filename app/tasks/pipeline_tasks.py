@@ -157,6 +157,28 @@ def run_extraction_parallel(entity_types, case_text, case_id, section_type,
     return results
 
 
+def _record_pass(run, activity_type, activity_name, result, plan=None,
+                 agent_name=None, agent_type='extraction_service'):
+    """Best-effort: record a non-LLM pipeline pass (reconciliation / enrichment) to provenance,
+    run-scoped (session_id = PipelineRun id). Never fails the task; the surrounding step commits
+    persist the row. This is the Tier-B counterpart to the commit-time Tier-A recording: it makes
+    the reconciliation/enrichment passes (temporal sequencing, obligation engagement, entity
+    reconcile, board-conclusion backfill, cited-provision auto-gen, citation-provenance,
+    moral-intensity) visible as process steps, not prompts."""
+    try:
+        from app.services.provenance_service import get_provenance_service
+        get_provenance_service().track_pass(
+            activity_type=activity_type, activity_name=activity_name,
+            case_id=run.case_id, session_id=str(run.id),
+            agent_type=agent_type, agent_name=agent_name or activity_name,
+            execution_plan=plan or {},
+            result=result if isinstance(result, dict) else {'result': result},
+        )
+    except Exception:
+        logger.warning("provenance _record_pass failed for %s (best-effort)",
+                       activity_name, exc_info=True)
+
+
 @celery.task(bind=True, name='proethica.tasks.run_step1')
 def run_step1_task(self, run_id: int, section_type: str = 'facts'):
     """
@@ -503,6 +525,8 @@ def run_step3_task(self, run_id: int):
             seq_result = apply_temporal_sequence(run.case_id)
             results['temporal_sequence'] = seq_result.get('status')
             logger.info(f"[Task {self.request.id}] Temporal sequencing: {seq_result}")
+            _record_pass(run, 'reconciliation', 'temporal_sequence', seq_result,
+                         plan={'orders': 'Actions/Events into narrative time (proeth:temporalSequence)'})
         except Exception as seq_err:
             logger.exception(f"[Task {self.request.id}] Temporal sequencing hook failed: {seq_err}")
             results['temporal_sequence'] = 'error'
@@ -518,6 +542,9 @@ def run_step3_task(self, run_id: int):
             eng_result = apply_obligation_engagement(run.case_id)
             results['obligation_engagement'] = eng_result.get('status')
             logger.info(f"[Task {self.request.id}] Obligation engagement: {eng_result}")
+            _record_pass(run, 'reconciliation', 'obligation_engagement', eng_result,
+                         plan={'repartitions': "each Action's obligations into fulfills / violates / "
+                               "raises, reconciled against the case's extracted obligations"})
         except Exception as eng_err:
             logger.exception(f"[Task {self.request.id}] Obligation engagement hook failed: {eng_err}")
             results['obligation_engagement'] = 'error'
@@ -569,6 +596,9 @@ def run_reconcile_task(self, run_id: int):
             'skipped': result.skipped,
             'errors': result.errors
         }
+        _record_pass(run, 'reconciliation', 'entity_reconcile', results,
+                     plan={'rule': 'merge duplicate individuals across passes/sections '
+                           '(auto + manual-queue)'})
 
         run.mark_step_complete(step_name, results)
         mode = (run.config or {}).get('mode')
@@ -1006,6 +1036,9 @@ def run_step4_task(self, run_id: int):
             bc_result = apply_board_conclusions(run.case_id)
             results['board_conclusions'] = bc_result.get('status')
             logger.info(f"[Task {self.request.id}] Board-conclusion backfill: {bc_result}")
+            _record_pass(run, 'enrichment', 'board_conclusion_backfill', bc_result,
+                         plan={'fills': 'a primary conclusion for any board-explicit question left '
+                               'unanswered by synthesis (dedup against existing)'})
         except Exception as bc_err:
             logger.exception(f"[Task {self.request.id}] Board-conclusion hook failed: {bc_err}")
             results['board_conclusions'] = 'error'
@@ -1020,6 +1053,9 @@ def run_step4_task(self, run_id: int):
             cp_result = apply_cited_provisions(run.case_id)
             results['cited_provisions'] = cp_result.get('status')
             logger.info(f"[Task {self.request.id}] Cited-provision auto-gen: {cp_result}")
+            _record_pass(run, 'enrichment', 'cited_provision_autogen', cp_result,
+                         plan={'inserts': 'a code_provision_reference (canonical guideline_sections '
+                               'text, NO LLM) for every cited code lacking one'})
         except Exception as cp_err:
             logger.exception(f"[Task {self.request.id}] Cited-provision hook failed: {cp_err}")
             results['cited_provisions'] = 'error'
@@ -1035,6 +1071,9 @@ def run_step4_task(self, run_id: int):
             cpr_result = apply_citation_provenance(run.case_id)
             results['citation_provenance'] = cpr_result.get('status')
             logger.info(f"[Task {self.request.id}] Citation-provenance annotation: {cpr_result}")
+            _record_pass(run, 'enrichment', 'citation_provenance_annotation', cpr_result,
+                         plan={'classifies': 'why each unmapped cited provision does not resolve to '
+                               'a guideline_sections leaf (NO LLM, no crosswalk, no drop)'})
         except Exception as cpr_err:
             logger.exception(f"[Task {self.request.id}] Citation-provenance hook failed: {cpr_err}")
             results['citation_provenance'] = 'error'
@@ -1048,6 +1087,9 @@ def run_step4_task(self, run_id: int):
             mi_result = apply_moral_intensity(run.case_id)
             results['moral_intensity'] = mi_result
             logger.info(f"[Task {self.request.id}] Moral-intensity rating: {mi_result}")
+            _record_pass(run, 'enrichment', 'moral_intensity_rating', mi_result,
+                         plan={'rates': 'each algorithmic tension on the five Jones (1991) moral-'
+                               'intensity dimensions (LLM-backed; idempotent)'})
         except Exception as mi_err:
             logger.exception(f"[Task {self.request.id}] Moral-intensity hook failed: {mi_err}")
             results['moral_intensity'] = 'error'

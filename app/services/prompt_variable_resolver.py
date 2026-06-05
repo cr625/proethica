@@ -292,6 +292,109 @@ class PromptVariableResolver:
                                         label_only_tier2=label_only_tier2)
 
 
+def _entity_source(entity: Dict[str, Any]) -> str:
+    """Source ontology name for an MCP entity (ontology_name / source / metadata)."""
+    return (
+        entity.get('ontology_name')
+        or entity.get('source')
+        or (entity.get('metadata', {}) or {}).get('ontology', '')
+    )
+
+
+def _is_case_copy(entity: Dict[str, Any]) -> bool:
+    """True when the entity's source is a per-case ontology (proethica-case-N)."""
+    return str(_entity_source(entity) or '').startswith('proethica-case-')
+
+
+def _curated_only(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep only the CURATED matching vocabulary; drop per-case self-containment copies.
+
+    The injected existing-class list is the dictionary the extractor matches against,
+    so it must be the curated layers (proethica-core + proethica-intermediate +
+    intermediate-extended + external reference standards), NOT every case's standalone
+    copy of a class. The case ontologies hold a copy of each class they use under the
+    same canonical URI; corpus-wide those copies dominate the MCP result (case 15
+    roles: 618 distinct from case copies vs 61 from intermediate-extended) and a class
+    that exists only in case ontologies is one of the ~4.8k discovered classes that
+    were never consolidated, which we deliberately do not offer for matching. Genuine
+    reusable classes live in intermediate / intermediate-extended."""
+    kept = [e for e in entities if not _is_case_copy(e)]
+    if len(kept) < len(entities):
+        logger.info(
+            "format_existing_entities: excluded %d per-case class copies from the "
+            "matching vocabulary (%d curated entries remain before dedup)",
+            len(entities) - len(kept), len(kept))
+    return kept
+
+
+# Source priority for collapsing duplicate URIs: a class is canonically defined in
+# core/intermediate, else in intermediate-extended (the consolidated discovered
+# store), else an external standard; a per-case ontology is only ever a self-contained
+# COPY (lowest priority). Lower rank wins.
+_SOURCE_RANK = {
+    'proethica-core': 0,
+    'proethica-intermediate': 0,
+    'proethica-intermediate-extended': 1,
+    'engineering-ethics': 2,
+}
+
+
+def _dedup_entities_by_uri(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collapse the per-(ontology, entity) rows the MCP returns into one entry per URI.
+
+    Every case ontology self-contains a COPY of each class it uses under the SAME
+    canonical URI (e.g. 21 cases that use a role -> 21 rows for the one
+    intermediate#<Role> URI). The MCP category query returns every such row, so without
+    this the injected class list is dominated by redundant copies (case 15 roles: 810
+    canonical lines, 498 distinct). The consolidation the intermediate-extended store is
+    meant to provide already holds in the data (the copies share one URI); this surfaces
+    it in the prompt.
+
+    Deduplication is by URI and is LOSSLESS: a class is never dropped, only collapsed.
+    When the same URI appears in several source ontologies, the highest-authority source
+    is kept so the survivor classifies into the right tier (canonical > extracted >
+    external > case-copy) and carries the canonical definition rather than a case copy.
+    Entities without a URI are kept and de-duplicated by label as a fallback.
+    """
+    best: Dict[str, Dict[str, Any]] = {}
+    order: List[str] = []
+    no_uri: List[Dict[str, Any]] = []
+
+    def _rank(e: Dict[str, Any]) -> int:
+        return _SOURCE_RANK.get(_entity_source(e), 3)
+
+    for e in entities:
+        uri = e.get('uri') or e.get('iri') or e.get('id')
+        if not uri:
+            no_uri.append(e)
+            continue
+        cur = best.get(uri)
+        if cur is None:
+            best[uri] = e
+            order.append(uri)
+        elif _rank(e) < _rank(cur):
+            best[uri] = e
+
+    deduped = [best[u] for u in order]
+
+    seen_lbl = set()
+    for e in no_uri:
+        lbl = (e.get('label') or e.get('name') or '').strip().lower()
+        if lbl and lbl in seen_lbl:
+            continue
+        if lbl:
+            seen_lbl.add(lbl)
+        deduped.append(e)
+
+    if len(deduped) < len(entities):
+        logger.info(
+            "format_existing_entities: collapsed %d entity rows -> %d distinct "
+            "(removed %d per-case duplicate copies)",
+            len(entities), len(deduped), len(entities) - len(deduped),
+        )
+    return deduped
+
+
 def format_existing_entities(entities: List[Dict[str, Any]],
                              concept_type: str,
                              label_only_tier2: bool = False) -> str:
@@ -319,6 +422,13 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     if not entities:
         return f"No existing {concept_type} classes found in ontology."
 
+    # Restrict to the curated matching vocabulary (drop per-case self-containment
+    # copies), then collapse any remaining duplicate URIs to one entry per class.
+    entities = _curated_only(entities)
+    if not entities:
+        return f"No existing {concept_type} classes found in ontology."
+    entities = _dedup_entities_by_uri(entities)
+
     # Classify entities by source ontology tier.
     # MCP entities use 'source' for ontology name, and nested
     # metadata.ontology as fallback.
@@ -326,11 +436,7 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     extracted = []     # proethica-intermediate-extended
     external = []      # engineering-ethics
     for entity in entities:
-        ont_name = (
-            entity.get('ontology_name')
-            or entity.get('source')
-            or (entity.get('metadata', {}) or {}).get('ontology', '')
-        )
+        ont_name = _entity_source(entity)
         if ont_name in ('proethica-core', 'proethica-intermediate'):
             canonical.append(entity)
         elif ont_name == 'proethica-intermediate-extended':
