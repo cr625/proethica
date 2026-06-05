@@ -57,6 +57,11 @@ _RELATION = {
     # generic per-individual relationship list (a temp_rdf field the serializer resolves into
     # peer / symmetric-property edges); structural, not a kept synthesis literal.
     "relationships", "relatedTo",
+    # the attributes dict is a structural EXPANSION: the serializer flattens it to one
+    # proeth:<key> datatype triple per key (license/specialty/...), so there is no single
+    # proeth:attributes literal to mark. Classifying it as a kept literal made the
+    # synthesisLiteral marker point at a predicate that does not exist in the graph.
+    "attributes",
     # R -> P -> O dependency chain
     "hasObligation", "adheresToPrinciple", "derivedFromPrinciple",
     # defeasibility
