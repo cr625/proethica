@@ -43,8 +43,11 @@ class MoralIntensityTension:
 
 
 def is_rated(conflict: dict) -> bool:
-    """True if any of the six Jones dimensions is already populated."""
-    return any(conflict.get(k) for k in JONES_DIMS)
+    """True only if ALL six Jones dimensions are populated. A Jones (1991) rating is
+    the six-dimension construct; a partial rating (e.g. the pre-R5 five-dimension form
+    that omitted social_consensus) is incomplete, so it must be re-rated, not skipped.
+    Using `any` here let pre-R5 five-dim ratings (case 86) survive the R5 re-rate."""
+    return all(conflict.get(k) for k in JONES_DIMS)
 
 
 def build_prompt(tensions: List[MoralIntensityTension]) -> str:
