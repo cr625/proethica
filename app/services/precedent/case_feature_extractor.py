@@ -668,21 +668,15 @@ Return ONLY valid JSON in this format:
                     import json
                     obligation_conflicts = json.loads(result[1]) if isinstance(result[1], str) else result[1]
 
-            # Get transformation classification
-            trans_query = text("""
-                SELECT
-                    transformation_type,
-                    pattern_name
-                FROM case_transformation
-                WHERE case_id = :case_id
-                ORDER BY created_at DESC
-                LIMIT 1
-            """)
-            result = db.session.execute(trans_query, {'case_id': case_id}).fetchone()
-
-            if result:
-                transformation_type = result[0]
-                transformation_pattern = result[1]
+            # Get transformation classification from the live synthesis-pipeline
+            # record (extraction_prompts). The legacy case_transformation table is
+            # no longer populated; reading it here was resetting the summary column
+            # to NULL for every freshly extracted case.
+            from app.services.case_analysis.transformation_classifier import load_latest_transformation
+            trans = load_latest_transformation(case_id)
+            if trans:
+                transformation_type = trans['type']
+                transformation_pattern = trans['pattern']
 
         except Exception as e:
             logger.warning(f"Could not retrieve Step 4 data for case {case_id}: {e}")
