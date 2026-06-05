@@ -1877,6 +1877,10 @@ class OntServeCommitService:
         'registration': 'registrationStatus', 'registrationstatus': 'registrationStatus',
         'position': 'roleInOrganization', 'roleinorganization': 'roleInOrganization',
         'technicalbackground': 'technicalBackground',
+        # role-nature descriptors (the kind of actor: "Affected public", "Manufacturing
+        # corporation", "Private development entity")
+        'type': 'roleNature', 'entitytype': 'roleNature', 'roletype': 'roleNature',
+        'rolenature': 'roleNature', 'nature': 'roleNature',
     }
 
     @classmethod
@@ -2274,21 +2278,28 @@ class OntServeCommitService:
                                 continue
                             # Map recurring professional attributes to the controlled
                             # vocabulary (proeth:hasLicense, ...) so cross-case queries
-                            # work; keep + log genuinely novel keys so the uncontrolled
-                            # tail is visible for deliberate vocabulary growth.
-                            controlled = self._ATTRIBUTE_VOCAB.get(str(attr_key).strip().lower())
-                            if controlled:
-                                local = controlled
-                            else:
-                                local = self._camelCase(attr_key)
-                                logger.info("attributes: uncontrolled key %r on %s -> proeth:%s "
-                                            "(not in the controlled attribute vocabulary)",
-                                            attr_key, str(uri).split('#')[-1], local)
-                            attr_uri = PROETHICA[local]
+                            # work. A genuinely case-specific key goes to the single
+                            # declared proeth:otherAttribute as "key: value", so the
+                            # datatype-predicate space stays finite + fully declared
+                            # (closed vocabulary) while the data is preserved; logged so
+                            # the tail stays visible for deliberate vocabulary growth.
+                            # Normalise the key (snake_case / spaced -> the vocab's
+                            # no-separator lowercase form) so 'entity_type' / 'years of
+                            # experience' match 'entitytype' / 'yearsofexperience'.
+                            _akey = str(attr_key).strip().lower().replace('_', '').replace(' ', '')
+                            controlled = self._ATTRIBUTE_VOCAB.get(_akey)
+                            if not controlled:
+                                logger.info("attributes: case-specific key %r on %s -> "
+                                            "proeth:otherAttribute (not in the controlled vocabulary)",
+                                            attr_key, str(uri).split('#')[-1])
                             for v in (attr_val if isinstance(attr_val, list) else [attr_val]):
-                                if v not in (None, ''):
-                                    lit = v if isinstance(v, (str, int, float, bool)) else str(v)
-                                    g.add((uri, attr_uri, Literal(lit)))
+                                if v in (None, ''):
+                                    continue
+                                lit = v if isinstance(v, (str, int, float, bool)) else str(v)
+                                if controlled:
+                                    g.add((uri, PROETHICA[controlled], Literal(lit)))
+                                else:
+                                    g.add((uri, PROETHICA['otherAttribute'], Literal(f"{attr_key}: {lit}")))
                         continue
                 # Relationships (actor-to-actor) become real edges via a
                 # proeth-core relation, instead of opaque stringified dicts.
