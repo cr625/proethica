@@ -39,7 +39,7 @@ CURATED_BANDS = {
     "Faithful Agent": {
         "label": "A faithful-agent duty yields to a public-protection obligation",
         "defeated_contains": "Faithful Agent",
-        "case_ids": [8, 71, 86, 76],
+        "case_ids": [8, 76, 71, 86],
     },
 }
 
