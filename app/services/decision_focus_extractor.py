@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 # Ontology URIs for decision point entities
 PROETHICA_INT_NS = "http://proethica.org/ontology/intermediate#"
-PROETHICA_CASE_NS = "http://proethica.org/ontology/case-{case_id}#"
+# Canonical per-case namespace (slash form), matching the commit serializer + edge
+# materialisers. Was the divergent ontology/case-<id># hyphen scheme (R2 unification).
+PROETHICA_CASE_NS = "http://proethica.org/ontology/case/{case_id}#"
 
 
 @dataclass

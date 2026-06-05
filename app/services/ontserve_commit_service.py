@@ -694,8 +694,10 @@ class OntServeCommitService:
                     label = entity.entity_label or 'UnknownIndividual'
                     full_description = None
 
-                # Sanitize label for valid URI: remove quotes, parens, and other special chars
-                safe_label = self._safe_label(label)
+                # Sanitize label for valid URI: remove quotes, parens, and other special
+                # chars. TemporalRelation individuals instead take the opaque
+                # case#TemporalRelation_<n> URI from their @id (rdfs:label stays readable).
+                safe_label = self._temporal_relation_uri_local(rdf_data) or self._safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Check if individual already exists
@@ -1776,7 +1778,10 @@ class OntServeCommitService:
                 else:
                     label = entity.entity_label or 'UnknownIndividual'
 
-                safe_label = self._safe_label(label)
+                # TemporalRelation individuals get the opaque case#TemporalRelation_<n>
+                # URI (rdfs:label keeps the readable "X relation Y" text); every other
+                # individual mints from its label.
+                safe_label = self._temporal_relation_uri_local(rdf_data) or self._safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Add individual
@@ -1840,6 +1845,21 @@ class OntServeCommitService:
         s = s.replace('"', '').replace("'", "").replace(",", "")
         s = s.replace("<", "").replace(">", "").replace("&", "")
         return s
+
+    @staticmethod
+    def _temporal_relation_uri_local(rdf_data) -> str | None:
+        """Opaque local name (TemporalRelation_<n>) for a reified Allen relation,
+        read from its extraction-time @id (minted by rdf_converter in extraction
+        order). Returns None for any other individual, so the caller mints the URI
+        from the label as usual; also None for legacy rows whose @id still carries
+        the old AllenRelation_<clause> form, which then fall back to _safe_label.
+        rdfs:label is unaffected -- it keeps the readable "X relation Y" text. This
+        is the N-ary-relations convention: identity is opaque, participants are
+        properties resolved post-commit by temporal_relation_edges."""
+        if not rdf_data or rdf_data.get('@type') != 'proeth:TemporalRelation':
+            return None
+        frag = str(rdf_data.get('@id', '')).split('#')[-1]
+        return frag if frag.startswith('TemporalRelation_') else None
 
     @staticmethod
     def _norm_label(label: str) -> str:

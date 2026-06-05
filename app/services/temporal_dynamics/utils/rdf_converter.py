@@ -12,6 +12,16 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+
+def _case_ns(case_id: int) -> str:
+    """Canonical per-case namespace base. Single scheme for every producer so the
+    persisted graph is self-describing and the read-time legacy-IRI bridge
+    (ontserve_commit_service._remap_legacy_iri) can be retired after baseline
+    backfill. Matches the edge materialisers + commit serializer
+    (commit_case_versioned). Was the divergent http://proethica.org/cases/<id>#
+    scheme (R2 namespace unification)."""
+    return f"http://proethica.org/ontology/case/{case_id}#"
+
 # A "clean" agent string is a single name followed by exactly one trailing
 # parenthetical role group and nothing else, e.g.
 #   "Engineer A (Professional Engineer, Structural)"
@@ -111,12 +121,12 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     Returns:
         RDF JSON-LD dictionary
     """
-    action_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(action.get('label', 'Unknown'))}"
+    action_uri = f"{_case_ns(case_id)}Action_{_safe_id(action.get('label', 'Unknown'))}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -224,12 +234,12 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     Returns:
         RDF JSON-LD dictionary
     """
-    event_uri = f"http://proethica.org/cases/{case_id}#Event_{_safe_id(event.get('label', 'Unknown'))}"
+    event_uri = f"{_case_ns(case_id)}Event_{_safe_id(event.get('label', 'Unknown'))}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -269,7 +279,7 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     # Add causal context
     causal = event.get('causal_context', {})
     if causal and causal.get('caused_by_action'):
-        action_ref = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(causal['caused_by_action'])}"
+        action_ref = f"{_case_ns(case_id)}Action_{_safe_id(causal['caused_by_action'])}"
         rdf_entity['proeth:causedByAction'] = action_ref
 
     _add_fluent_and_time(rdf_entity, event)
@@ -288,12 +298,12 @@ def convert_causal_chain_to_rdf(chain: Dict, case_id: int) -> Dict:
         RDF JSON-LD dictionary
     """
     chain_id = str(uuid.uuid4())[:8]
-    chain_uri = f"http://proethica.org/cases/{case_id}#CausalChain_{chain_id}"
+    chain_uri = f"{_case_ns(case_id)}CausalChain_{chain_id}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
         },
@@ -354,12 +364,12 @@ def convert_timeline_to_rdf(timeline_data: Dict, case_id: int) -> Dict:
     Returns:
         RDF JSON-LD dictionary
     """
-    timeline_uri = f"http://proethica.org/cases/{case_id}#Timeline"
+    timeline_uri = f"{_case_ns(case_id)}Timeline"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -396,16 +406,41 @@ def convert_timeline_to_rdf(timeline_data: Dict, case_id: int) -> Dict:
     return rdf_entity
 
 
-def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int) -> Dict:
+def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int,
+                                  relation_index: Optional[int] = None) -> Dict:
     """
-    Convert Allen relation dictionary to RDF JSON-LD format with OWL-Time integration.
+    Convert an Allen relation to RDF JSON-LD as a REIFIED temporal relation node.
+
+    The relation is reified (a proeth:TemporalRelation individual) only because it
+    carries metadata of its own -- the verbatim proeth:evidence span, the Allen
+    relation name, and the OWL-Time property. This is the W3C "Defining N-ary
+    Relations on the Semantic Web" pattern, whose guidance is to give the relation
+    instance an OPAQUE/sequential identifier (their `Purchase_1`) and attach the
+    participants as PROPERTIES of the node -- never to build the identity out of the
+    participant prose. So the IRI is `TemporalRelation_<n>` (n = ``relation_index``,
+    1-based, assigned by the caller in extraction order; a short uuid suffix when no
+    index is supplied), NOT the former
+    `AllenRelation_<fromClause>_<relation>_<toClause>` concatenation.
+
+    The endpoints (entity1/entity2) are NOT resolved to individual URIs here: they
+    are free-text timeline phrasings ("Engineer A preparing the summary memo") that
+    do not match the noun-phrase Action/Event individuals by string, and the old
+    `_safe_id` URIs were both lossy (50-char truncation) and wrong-namespace, so the
+    OWL-Time triples silently dangled. The committed individuals are resolved
+    post-commit by embedding in
+    ``app/services/extraction/temporal_relation_edges.apply_temporal_relation_edges``
+    (mirroring the causal-edge appliers), which writes the proeth:fromEntity /
+    proeth:toEntity object edges and the time:* triple onto real individuals. So this
+    converter emits only the clean labels + metadata that resolver consumes.
 
     Args:
         allen_relation: Allen relation data from Stage 2
         case_id: Case ID for URI generation
+        relation_index: 1-based position in the case's Allen-relation list, used for
+            the opaque IRI. ``None`` -> a uuid suffix (still short and opaque).
 
     Returns:
-        RDF JSON-LD dictionary with both ProEthica custom and OWL-Time properties
+        RDF JSON-LD dictionary (descriptive fields only; no precomputed endpoint URIs).
     """
     from .allen_owl_time_mapper import create_allen_relation_metadata
 
@@ -416,18 +451,15 @@ def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int) -> Dict:
     # Get OWL-Time mapping
     allen_metadata = create_allen_relation_metadata(relation)
 
-    # Create unique URI for this relation instance
-    relation_id = f"{_safe_id(entity1)}_{_safe_id(relation)}_{_safe_id(entity2)}"
-    relation_uri = f"http://proethica.org/cases/{case_id}#AllenRelation_{relation_id}"
-
-    # Entity URIs (assume they're actions or events)
-    entity1_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(entity1)}"
-    entity2_uri = f"http://proethica.org/cases/{case_id}#Action_{_safe_id(entity2)}"
+    # Opaque, short, stable identifier (N-ary-relations convention). The readable
+    # "entity1 relation entity2" text lives in rdfs:label for display, not the IRI.
+    suffix = str(relation_index) if relation_index is not None else str(uuid.uuid4())[:8]
+    relation_uri = f"{_case_ns(case_id)}TemporalRelation_{suffix}"
 
     rdf_entity = {
         '@context': {
             'proeth': 'http://proethica.org/ontology/intermediate#',
-            'proeth-case': f'http://proethica.org/cases/{case_id}#',
+            'proeth-case': _case_ns(case_id),
             'time': 'http://www.w3.org/2006/time#',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
             'rdfs': 'http://www.w3.org/2000/01/rdf-schema#'
@@ -436,27 +468,21 @@ def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int) -> Dict:
         '@type': 'proeth:TemporalRelation',
         'rdfs:label': f'{entity1} {relation} {entity2}',
 
-        # ProEthica custom properties (preserved for backward compatibility)
+        # Clean endpoint labels (resolved to individuals post-commit by the
+        # temporal_relation_edges applier). fromEntity/toEntity are declared
+        # owl:ObjectProperty, so these literals land on the fromEntityText/toEntityText
+        # datatype siblings at commit until the resolver overwrites with real edges.
         'proeth:fromEntity': entity1,
         'proeth:toEntity': entity2,
         'proeth:allenRelation': relation,
-        'proeth:fromEntityURI': entity1_uri,
-        'proeth:toEntityURI': entity2_uri,
 
-        # OWL-Time standard property
+        # OWL-Time standard property name/URI (drives which time:* predicate the
+        # resolver emits) and the supporting evidence span + human description.
         'proeth:owlTimeProperty': allen_metadata.get('owl_time_property', ''),
         'proeth:owlTimeURI': allen_metadata.get('owl_time_uri', ''),
-
-        # Evidence and description
         'proeth:evidence': allen_relation.get('evidence', ''),
         'proeth:description': allen_metadata.get('description', '')
     }
-
-    # Add the actual OWL-Time property assertion (makes this queryable with standard SPARQL)
-    owl_time_prop = allen_metadata.get('owl_time_property')
-    if owl_time_prop:
-        # Add the OWL-Time property directly to the RDF
-        rdf_entity[owl_time_prop] = entity2_uri  # Entity1 [relation] Entity2
 
     return rdf_entity
 

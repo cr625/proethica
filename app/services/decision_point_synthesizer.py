@@ -41,7 +41,9 @@ from app.services.mcp_entity_enrichment_service import (
 
 logger = logging.getLogger(__name__)
 
-PROETHICA_CASE_NS = "http://proethica.org/ontology/case-{case_id}#"
+# Canonical per-case namespace (slash form), matching the commit serializer + edge
+# materialisers. Was the divergent ontology/case-<id># hyphen scheme (R2 unification).
+PROETHICA_CASE_NS = "http://proethica.org/ontology/case/{case_id}#"
 
 
 # =============================================================================

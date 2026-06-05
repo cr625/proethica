@@ -420,10 +420,22 @@ _CAUSAL_EDGE_RANGE = {
     # analysis node (empty domain clause -> never dropped on the subject); range Action.
     PROETH.analyzesAction: ("CausalNormativeLink", "Action"),
 }
+# Temporal (Allen) relation endpoint edges materialized by temporal_relation_edges.py
+# from each reified TemporalRelation's fromEntity/toEntity timeline phrasings. Domain
+# TemporalRelation is NOT one of the nine disjoint core categories, so the subject
+# resolves to an empty core-set and the domain clause never fires (the relation node is
+# never dropped on its subject). Range is the happenings (Action OR Event, both disjoint
+# -> the object IS validated), matching the declared owl:ObjectProperty range
+# unionOf(Action, Event); a phrasing mis-resolved to a State endpoint is dropped here.
+_TEMPORAL_RELATION_RANGE = {
+    PROETH.fromEntity: ("TemporalRelation", {"Action", "Event"}),
+    PROETH.toEntity: ("TemporalRelation", {"Action", "Event"}),
+}
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
                   **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
                   **_PARTICIPANT_EDGE_RANGE, **_FLUENT_EDGE_RANGE,
-                  **_NORMATIVE_EDGE_RANGE, **_CAUSAL_EDGE_RANGE}
+                  **_NORMATIVE_EDGE_RANGE, **_CAUSAL_EDGE_RANGE,
+                  **_TEMPORAL_RELATION_RANGE}
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:

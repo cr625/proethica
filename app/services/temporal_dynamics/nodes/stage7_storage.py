@@ -142,8 +142,11 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
             # Store Allen temporal relations (from temporal_markers)
             temporal_markers = state.get('temporal_markers', {})
             allen_relations = temporal_markers.get('allen_relations', [])
-            for allen_relation in allen_relations:
-                rdf_entity = convert_allen_relation_to_rdf(allen_relation, case_id)
+            for allen_idx, allen_relation in enumerate(allen_relations, start=1):
+                # 1-based index -> opaque case#TemporalRelation_<n> IRI (N-ary-relations
+                # convention; the readable "X relation Y" stays in entity_label/rdfs:label).
+                rdf_entity = convert_allen_relation_to_rdf(allen_relation, case_id,
+                                                           relation_index=allen_idx)
                 entity1 = allen_relation.get('entity1', 'Unknown')
                 entity2 = allen_relation.get('entity2', 'Unknown')
                 relation = allen_relation.get('relation', 'unknown')

@@ -136,6 +136,23 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: time-anchor applier failed for case %s", case_id)
         results["time_anchors"] = {"error": str(e)}
 
+    # 2f-bis. Temporal (Allen) relation endpoints (DB-driven, embedding-resolved): each
+    # reified TemporalRelation's fromEntity/toEntity free-text timeline phrasings are
+    # resolved to the committed Action/Event individuals and the proeth:fromEntity /
+    # proeth:toEntity object edges + the time:* OWL-Time triple are materialised onto
+    # real individuals. Before this the converter's pre-computed endpoint URIs (lossy
+    # 50-char truncation, legacy namespace) dangled silently. Range is union(Action,
+    # Event); the unified guard validates both endpoints, dropping any phrasing
+    # mis-resolved to a State. No-op for cases with no committed temporal relations.
+    try:
+        from app.services.extraction.temporal_relation_edges import apply_temporal_relation_edges
+        results["temporal_relation_edges"] = apply_temporal_relation_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: temporal-relation applier failed for case %s", case_id)
+        results["temporal_relation_edges"] = {"error": str(e)}
+
     # 2g. Action normative-engagement edges (DB-driven, embedding-resolved): the Step-3
     # Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels
     # become Action -> Obligation / Principle edges (proeth-core:fulfillsObligation,
