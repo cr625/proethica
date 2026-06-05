@@ -333,8 +333,16 @@ class DecisionPointSynthesizer:
         ).all():
             props = (c.rdf_json_ld or {}).get('properties', {})
             level = _first(props.get('proficiencyLevel'))
-            if c.entity_label and level:
-                cap_map[c.entity_label] = level
+            # demonstratedThrough is extracted, committed (proeth:demonstratedThrough)
+            # and shown on the review page but had no downstream consumer (HO-005
+            # audit). Pair the proficiency rating with its textual evidence so the
+            # rating is defensible in synthesis, not a bare model judgment. Already
+            # stored at extraction -- re-consumed here, no new LLM call. The guard
+            # also surfaces evidenced-but-unrated capabilities (the evidence is the
+            # useful part); proficiency is rendered only when present (no fallback).
+            evidence = _first(props.get('demonstratedThrough'))
+            if c.entity_label and (level or evidence):
+                cap_map[c.entity_label] = {'level': level, 'evidence': evidence}
 
         if not obl_map and not cap_map:
             return ''
@@ -347,7 +355,12 @@ class DecisionPointSynthesizer:
             lines = [f"- {lbl}: compliance={st}" for lbl, st in list(obl_map.items())[:20]]
             sections.append("Obligation compliance:\n" + "\n".join(lines))
         if cap_map:
-            lines = [f"- {lbl}: proficiency={lv}" for lbl, lv in list(cap_map.items())[:20]]
+            lines = []
+            for lbl, d in list(cap_map.items())[:20]:
+                line = f"- {lbl}: proficiency={d['level']}" if d['level'] else f"- {lbl}:"
+                if d['evidence']:
+                    line += f" (evidenced by: {d['evidence']})"
+                lines.append(line)
             sections.append("Capability proficiency:\n" + "\n".join(lines))
         return "\n\n".join(sections)
 
