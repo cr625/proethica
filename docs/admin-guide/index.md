@@ -29,6 +29,7 @@ A progress indicator shows completion status across the eight-step workflow from
 | [Pipeline Management](pipeline-management.md) | `/pipeline/dashboard` | Batch processing and queue management |
 | [User Management](user-management.md) | `/admin/users` | Manage user accounts |
 | [Service Health](health-dashboard.md) | `/health/status` | Service-monitoring dashboard |
+| [Validation Study](validation-studies.md) | `/validation/admin/dashboard` | Study enrollment, coverage, and results export |
 
 ## System Configuration
 
@@ -51,4 +52,4 @@ The Tools dropdown organizes into three groups:
 
 - **Academic References** - Available to all users
 - **Linked Data** - OntServe Web, Browse ProEthica Ontologies
-- **Admin Tools** (admin login required) -- Batch Processing, Batch Queue, Prompt Editor
+- **Admin Tools** (admin login required) -- Batch Processing, Batch Queue, Prompt Editor, Validation Study

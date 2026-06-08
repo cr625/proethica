@@ -26,7 +26,7 @@ The top navigation provides access to main features:
 | **Case Relations** | Dropdown | Similar Cases, Similarity Network, Lineage Graph |
 | **Guidelines** | Link | Browse ethical guidelines and codes of ethics |
 | **Docs** | Link | This documentation |
-| **Tools** | Dropdown | Academic References; Linked Data (OntServe Web, Browse ProEthica Ontologies); Admin Tools (Batch Processing, Batch Queue, Prompt Editor) |
+| **Tools** | Dropdown | Academic References; Linked Data (OntServe Web, Browse ProEthica Ontologies); Admin Tools (Batch Processing, Batch Queue, Prompt Editor, Validation Study) |
 | **[User]** | Dropdown | User menu with Logout |
 
 ![Case Relations Dropdown](../assets/images/screenshots/navbar-case-relations-dropdown.png)
