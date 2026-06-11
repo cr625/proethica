@@ -1,10 +1,8 @@
 # Import services to make them available when importing from app.services
-from app.services.event_engine import EventEngine
 from app.services.mcp_client import MCPClient
 # Import embedding service conditionally to avoid circular imports
 # This approach allows Triple to import db without causing circular imports
 # EmbeddingService is still available through lazy import in modules that need it
-from app.services.rdf_service import RDFService
 
 # Use a function for conditional importing to avoid circular dependencies
 def get_embedding_service():
@@ -16,8 +14,4 @@ def get_entity_triple_service():
     from app.services.entity_triple_service import EntityTripleService
     return EntityTripleService
 
-# Use a function for conditional importing of RDFSerializationService to avoid circular dependencies
-def get_rdf_serialization_service():
-    from app.services.rdf_serialization_service import RDFSerializationService
-    return RDFSerializationService
 from app.services import temporal_context_service_enhancements
