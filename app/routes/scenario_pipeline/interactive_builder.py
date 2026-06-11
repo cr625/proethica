@@ -57,8 +57,8 @@ def legacy_step_redirect(case_id):
     """Redirect removed step1-3 / complete-analysis pages to the pipeline dashboard.
 
     The ``/complete`` ("complete modular analysis") route formerly ran the
-    legacy ``CaseExtractionPipeline``; that handler is archived under
-    ``_archived/complete_analysis.py`` (dead, superseded by the per-step
+    legacy ``CaseExtractionPipeline``; that handler was archived 2026-05-26
+    and removed 2026-06-11 (in git history, superseded by the per-step
     ``cases.case_pipeline`` dashboard). Bookmarks now redirect here.
     """
     return redirect(url_for('cases.case_pipeline', case_id=case_id))
