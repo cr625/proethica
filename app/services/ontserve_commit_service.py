@@ -2255,7 +2255,7 @@ class OntServeCommitService:
                     continue
                 # The attributes dict (qualifications/credentials/rights) is emitted
                 # as one queryable triple per key, not one opaque stringified-dict
-                # literal. Mirrors the per-key convention already in rdf_service /
+                # literal. Mirrors the per-key convention already in
                 # entity_triple_service (PROETHICA[key]).
                 if prop_name == 'attributes':
                     import ast
