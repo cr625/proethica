@@ -440,17 +440,18 @@ CONCEPT_COLORS = {
 # rendered by ``app/services/extraction/unified_dual_extractor.py``. These
 # paths point at where each prompt's literature-grounded text originated. The
 # states/capabilities/principles/obligations/constraints seed modules were
-# archived 2026-05-26 (see ``_archived/``); roles/resources remain live via the
+# archived 2026-05-26 (8d502bfc) and removed 2026-06-11; their content is in
+# git history at the recorded paths. Roles/resources remain live via the
 # guideline analyzer. Actions/events never had a seed module (the prior
 # enhanced_prompts_actions/events paths were dead).
 CONCEPT_SOURCE_FILES = {
     'roles': 'app/services/extraction/enhanced_prompts_roles_resources.py',
     'resources': 'app/services/extraction/enhanced_prompts_roles_resources.py',
-    'states': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py',
-    'capabilities': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py',
-    'principles': 'app/services/extraction/_archived/enhanced_prompts_principles.py',
-    'obligations': 'app/services/extraction/_archived/enhanced_prompts_obligations.py',
-    'constraints': 'app/services/extraction/_archived/enhanced_prompts_constraints.py',
+    'states': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py (removed 2026-06-11; in git history)',
+    'capabilities': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py (removed 2026-06-11; in git history)',
+    'principles': 'app/services/extraction/_archived/enhanced_prompts_principles.py (removed 2026-06-11; in git history)',
+    'obligations': 'app/services/extraction/_archived/enhanced_prompts_obligations.py (removed 2026-06-11; in git history)',
+    'constraints': 'app/services/extraction/_archived/enhanced_prompts_constraints.py (removed 2026-06-11; in git history)',
     'actions': 'app/services/extraction/unified_dual_extractor.py',
     'events': 'app/services/extraction/unified_dual_extractor.py'
 }
