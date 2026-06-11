@@ -142,7 +142,6 @@ def create_app(config_name=None):
     from app.routes.documents import documents_bp
     from app.routes.cases import cases_bp
     from app.routes.document_structure import doc_structure_bp
-    from app.routes.test_routes import test_bp
     from app.routes.experiment import experiment_bp
     from app.routes.study import study_bp
     from app.routes.type_management import type_management_bp
@@ -193,7 +192,6 @@ def create_app(config_name=None):
     app.register_blueprint(type_management_bp)
     app.register_blueprint(debug_env_bp)
     app.register_blueprint(wizard_bp)
-    app.register_blueprint(test_bp)
     app.register_blueprint(guidelines_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(prompt_builder_bp)
