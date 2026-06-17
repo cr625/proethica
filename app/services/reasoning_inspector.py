@@ -503,27 +503,3 @@ def get_reasoning_inspector() -> ReasoningInspector:
     if _global_inspector is None:
         _global_inspector = ReasoningInspector()
     return _global_inspector
-
-
-def start_reasoning_trace(case_id: int, feature_type: str, session_prefix: str = None) -> str:
-    """Convenience function to start a reasoning trace"""
-    inspector = get_reasoning_inspector()
-    return inspector.start_trace(case_id, feature_type, session_prefix)
-
-
-def capture_llm_call(phase: str, prompt: str, response: str, parsed_result: Any, **kwargs) -> int:
-    """Convenience function to capture LLM interaction"""
-    inspector = get_reasoning_inspector()
-    return inspector.capture_llm_interaction(phase, prompt, response, parsed_result, **kwargs)
-
-
-def capture_ontology_query(phase: str, entity_type: str, query: str, query_type: str, results: List[Dict], **kwargs) -> int:
-    """Convenience function to capture ontology query"""
-    inspector = get_reasoning_inspector()
-    return inspector.capture_ontology_query(phase, entity_type, query, query_type, results, **kwargs)
-
-
-def complete_reasoning_trace(status: str = 'completed') -> Optional[ReasoningTrace]:
-    """Convenience function to complete reasoning trace"""
-    inspector = get_reasoning_inspector()
-    return inspector.complete_trace(status)

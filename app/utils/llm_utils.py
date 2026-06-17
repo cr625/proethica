@@ -96,10 +96,6 @@ def extract_json_from_response(response_text: str) -> Dict[str, Any]:
     raise ValueError(f"Could not extract valid JSON from response: {text[:500]}")
 
 
-class LLMUtilsConfig:
-    """Configuration for LLM utilities"""
-    USE_MOCK_RESPONSES = False
-
 def _get_gemini_client_if_enabled() -> Optional[Any]:
     """Gemini client disabled - always returns None."""
     return None

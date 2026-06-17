@@ -1384,21 +1384,6 @@ def commit_temporal_entities(case_id: int) -> Dict[str, Any]:
     return service.commit_temporal_entities(case_id)
 
 
-def auto_commit_case(case_id: int, force: bool = False) -> CommitSummary:
-    """
-    Convenience function to auto-commit a case.
-
-    Args:
-        case_id: The case ID to process
-        force: If True, re-process already committed entities
-
-    Returns:
-        CommitSummary with results
-    """
-    service = AutoCommitService()
-    return service.commit_case_entities(case_id, force=force)
-
-
 def clear_case_ontology(case_id: int, reset_committed: bool = True) -> Dict[str, Any]:
     """
     Clear a case's OntServe ontology before re-running extraction.

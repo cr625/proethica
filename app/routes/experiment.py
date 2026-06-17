@@ -23,7 +23,7 @@ from wtforms.validators import DataRequired, NumberRange
 from app import db
 from app.models import Document
 from app.models.document_section import DocumentSection
-from app.models.experiment import ExperimentRun, Prediction, ExperimentEvaluation as Evaluation, PredictionTarget
+from app.models.experiment import ExperimentRun, Prediction, ExperimentEvaluation as Evaluation
 from app.services.experiment.prediction_service import PredictionService
 
 # Configure logging
@@ -33,14 +33,6 @@ logger = logging.getLogger(__name__)
 
 # Create blueprint
 experiment_bp = Blueprint('experiment', __name__, url_prefix='/experiment')
-
-# Form for creating experiments
-class ExperimentForm(FlaskForm):
-    """Form for creating a new experiment."""
-    name = StringField('Experiment Name', validators=[DataRequired()])
-    description = TextAreaField('Description')
-    leave_out_conclusion = BooleanField('Leave Out Conclusion', default=True)
-    submit = SubmitField('Create Experiment')
 
 # Form for setting up conclusion predictions
 class ConclusionPredictionForm(FlaskForm):

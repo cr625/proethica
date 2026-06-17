@@ -49,9 +49,3 @@ def get_ontology_service():
         OntologyServiceStub: Stub service with migration messages
     """
     return OntologyServiceStub()
-
-# Maintain backward compatibility
-def create_ontology_service(service_type='stub'):
-    """Legacy factory function for backward compatibility."""
-    logger.warning(f"create_ontology_service called - functionality moved to OntServe MCP")
-    return get_ontology_service()

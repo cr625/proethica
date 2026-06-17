@@ -52,10 +52,6 @@ def case_ttl_path(case_id: int) -> Path:
     return _ontologies_dir() / f"proethica-case-{case_id}.ttl"
 
 
-def case_has_committed_ontology(case_id: int) -> bool:
-    return case_ttl_path(case_id).exists()
-
-
 _GRAPH_CACHE = {}
 
 

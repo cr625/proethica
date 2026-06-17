@@ -35,23 +35,6 @@ class ExperimentRun(db.Model):
         return f"<ExperimentRun {self.id}: {self.name}>"
 
 
-class PredictionTarget(db.Model):
-    """Model for tracking specific prediction targets in experiments."""
-
-    __tablename__ = 'prediction_targets'
-
-    id = db.Column(db.Integer, primary_key=True)
-    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=True)
-    name = db.Column(db.String(50), nullable=True)  # e.g., 'conclusion', 'discussion'
-    description = db.Column(db.Text)
-
-    # Relationships
-    experiment_run = db.relationship('ExperimentRun')
-
-    def __repr__(self):
-        return f"<PredictionTarget {self.id}: {self.name}>"
-
-
 class Prediction(db.Model):
     """Model for storing predictions generated under experimental conditions."""
 

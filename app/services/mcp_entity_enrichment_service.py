@@ -59,14 +59,6 @@ def _get_local_entity(uri: str) -> Optional[Dict]:
         return None
 
 
-def _extract_case_id_from_uri(uri: str) -> Optional[int]:
-    """Extract case ID from a case-scoped URI."""
-    match = re.search(r'/case/(\d+)#', uri)
-    if match:
-        return int(match.group(1))
-    return None
-
-
 class MCPEntityEnrichmentService:
     """
     Service for enriching text with entity definitions from OntServe MCP.
@@ -321,21 +313,6 @@ def get_enrichment_service() -> MCPEntityEnrichmentService:
     if _enrichment_service is None:
         _enrichment_service = MCPEntityEnrichmentService()
     return _enrichment_service
-
-
-def enrich_prompt_with_entities(prompt: str, mode: str = "glossary") -> str:
-    """
-    Convenience function to enrich a prompt with entity definitions.
-
-    Args:
-        prompt: The LLM prompt text
-        mode: "glossary" or "inline"
-
-    Returns:
-        Enriched prompt
-    """
-    service = get_enrichment_service()
-    return service.enrich_text_with_definitions(prompt, mode=mode)
 
 
 @dataclass

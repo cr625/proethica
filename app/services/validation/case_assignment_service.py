@@ -47,15 +47,3 @@ def assign_cases(participant_code: str,
     rng = random.Random(participant_code)
     rng.shuffle(picked)
     return picked
-
-
-def coverage_summary() -> dict:
-    """Per-case review counts across the full pool. For the admin dashboard."""
-    coverage = {cid: 0 for cid in STUDY_CASE_POOL_IDS}
-    rows = ViewUtilityEvaluation.query.filter(
-        ViewUtilityEvaluation.case_id.in_(STUDY_CASE_POOL_IDS)
-    ).with_entities(ViewUtilityEvaluation.case_id).all()
-    for (cid,) in rows:
-        if cid in coverage:
-            coverage[cid] += 1
-    return coverage

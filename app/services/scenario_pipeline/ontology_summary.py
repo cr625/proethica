@@ -58,28 +58,3 @@ def build_ontology_summary(events=None, participants=None):
                         summary["Obligation"].append(decision_text)
     
     return summary
-
-def get_ontology_entities(world=None, entity_type=None):
-    """
-    Stub function for getting ontology entities.
-    
-    Args:
-        world: World object (optional)
-        entity_type: Type of entity to filter by (optional)
-        
-    Returns:
-        list: Empty list (entities now come from OntServe)
-    """
-    return []
-
-def format_entity_summary(entity):
-    """
-    Stub function for formatting entity summaries.
-    
-    Args:
-        entity: Entity object
-        
-    Returns:
-        str: Placeholder message
-    """
-    return "Entity formatting moved to OntServe"

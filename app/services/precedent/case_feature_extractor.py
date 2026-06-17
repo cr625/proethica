@@ -465,21 +465,6 @@ Return ONLY valid JSON in this format:
         Returns:
             ID of the saved record
         """
-        # Convert embeddings to format suitable for pgvector
-        # Database expects 384-dim vectors (local model)
-        EXPECTED_DIM = 384
-
-        def format_embedding(emb):
-            if emb is None:
-                return None
-            if isinstance(emb, np.ndarray):
-                emb = emb.tolist()
-            # Skip embeddings with wrong dimension
-            if isinstance(emb, list) and len(emb) != EXPECTED_DIM:
-                logger.warning(f"Skipping embedding with dimension {len(emb)}, expected {EXPECTED_DIM}")
-                return None
-            return emb
-
         query = text("""
             INSERT INTO case_precedent_features (
                 case_id,

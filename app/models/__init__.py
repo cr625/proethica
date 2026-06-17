@@ -5,7 +5,6 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 # Import models after db is defined
-from app.models.domain import Domain
 from app.models.world import World
 from app.models.role import Role
 from app.models.resource_type import ResourceType
@@ -20,8 +19,6 @@ from app.models.event import Event, Action
 from app.models.evaluation import Evaluation
 from app.models.decision import Decision
 from app.models.document import Document, DocumentChunk
-from app.models.simulation_session import SimulationSession
-from app.models.simulation_state import SimulationState
 # STUB MODELS: Ontology functionality moved to OntServe - these are stubs to prevent import errors
 from app.models.ontology import Ontology
 from app.models.ontology_version import OntologyVersion
@@ -35,11 +32,9 @@ from app.models.guideline_semantic_triple import GuidelineSemanticTriple
 from app.models.ontology_import import OntologyImport
 # Type mapping models (added 2025-01-08)
 from app.models.pending_concept_type import PendingConceptType
-from app.models.custom_concept_type import CustomConceptType
 from app.models.concept_type_mapping import ConceptTypeMapping
 # Deconstructed case models (added 2025-01-27)
 from app.models.deconstructed_case import DeconstructedCase
-from app.models.scenario_template import ScenarioTemplate
 # Temporary concept storage (added 2025-01-21)
 from app.models.temporary_concept import TemporaryConcept
 
@@ -61,12 +56,6 @@ from app.models.provenance import (
     ProvenanceAgent, ProvenanceActivity, ProvenanceEntity,
     ProvenanceDerivation, ProvenanceUsage, ProvenanceCommunication,
     ProvenanceBundle, VersionEnvironment, VersionStatus
-)
-
-# Provenance versioning models (added 2025-11-11)
-from app.models.provenance_versioning import (
-    ProvenanceRevision, ProvenanceVersion, ProvenanceAlternate,
-    VersionConfiguration
 )
 
 # Candidate validation models (added 2025-09-22)

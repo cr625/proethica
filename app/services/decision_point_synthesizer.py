@@ -34,7 +34,6 @@ from app.services.entity_analysis import (
 
 # MCP Entity Enrichment
 from app.services.mcp_entity_enrichment_service import (
-    enrich_prompt_with_entities,
     enrich_prompt_with_metadata,
     EnrichmentResult
 )

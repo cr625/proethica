@@ -166,39 +166,6 @@ def create_allen_relation_metadata(allen_relation: str) -> Dict:
     }
 
 
-def get_inverse_relation(allen_relation: str) -> Optional[str]:
-    """
-    Get the inverse of an Allen relation.
-
-    Args:
-        allen_relation: Allen relation name
-
-    Returns:
-        Inverse relation name or None
-    """
-    inverses = {
-        'precedes': 'preceded_by',
-        'before': 'after',
-        'meets': 'met_by',
-        'overlaps': 'overlapped_by',
-        'during': 'contains',
-        'contains': 'during',
-        'starts': 'started_by',
-        'finishes': 'finished_by',
-        'equals': 'equals',  # Symmetric
-        # Inverse mappings
-        'preceded_by': 'precedes',
-        'after': 'before',
-        'met_by': 'meets',
-        'overlapped_by': 'overlaps',
-        'started_by': 'starts',
-        'finished_by': 'finishes',
-    }
-
-    normalized = allen_relation.lower().strip()
-    return inverses.get(normalized)
-
-
 # Allen's 13 basic relations for reference
 ALLEN_13_BASIC_RELATIONS = [
     'precedes',     # X before Y
@@ -215,30 +182,3 @@ ALLEN_13_BASIC_RELATIONS = [
     'met_by',       # X met by Y
     'preceded_by',  # X preceded by Y (after)
 ]
-
-
-def validate_allen_relation(allen_relation: str) -> bool:
-    """
-    Validate if a string is a recognized Allen relation.
-
-    Args:
-        allen_relation: Relation name to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
-    normalized = allen_relation.lower().strip()
-    return normalized in ALLEN_TO_OWL_TIME
-
-
-def get_all_allen_mappings() -> Dict[str, Dict]:
-    """
-    Get all Allen relation mappings with complete metadata.
-
-    Returns:
-        Dictionary mapping Allen relations to their metadata
-    """
-    return {
-        relation: create_allen_relation_metadata(relation)
-        for relation in ALLEN_TO_OWL_TIME.keys()
-    }
