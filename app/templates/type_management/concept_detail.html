@@ -257,18 +257,6 @@
                         <div class="small text-break">{{ concept.subject }}</div>
                     </div>
                     
-                    {% if guideline %}
-                    <div class="mb-2">
-                        <small class="text-muted">From Guideline:</small>
-                        <div>
-                            <a href="{{ url_for('worlds.guideline_detail', world_id=1, guideline_id=guideline.id) }}" 
-                               class="text-decoration-none">
-                                <i class="bi bi-book"></i> {{ guideline.title|truncate(30) }}
-                            </a>
-                        </div>
-                    </div>
-                    {% endif %}
-                    
                     <div class="mb-2">
                         <small class="text-muted">Created:</small>
                         <div class="small">{{ concept.created_at.strftime('%Y-%m-%d %H:%M') if concept.created_at else 'Unknown' }}</div>
@@ -323,17 +311,10 @@
                         </button>
                         {% endif %}
                         
-                        <a href="{{ url_for('type_management.concept_list', filter='with_metadata') }}" 
+                        <a href="{{ url_for('type_management.concept_list', filter='with_metadata') }}"
                            class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-list"></i> View Similar
                         </a>
-                        
-                        {% if guideline %}
-                        <a href="{{ url_for('worlds.manage_guideline_triples', world_id=1, guideline_id=guideline.id) }}" 
-                           class="btn btn-outline-info btn-sm">
-                            <i class="bi bi-diagram-3"></i> Manage Triples
-                        </a>
-                        {% endif %}
                     </div>
                 </div>
             </div>

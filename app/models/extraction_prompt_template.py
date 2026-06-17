@@ -333,7 +333,7 @@ GUIDELINE_CONCEPTS = {
     'provision_structure': {
         'name': 'Provision Structure',
         'description': 'Extract hierarchical provision structure (canons, rules, sections)',
-        'service_file': 'app/services/guideline_analysis_service.py',
+        'service_file': 'app/services/guideline_structure_annotation_step.py',
         'color': '#f97316'
     },
     'provision_concepts': {
@@ -441,12 +441,12 @@ CONCEPT_COLORS = {
 # paths point at where each prompt's literature-grounded text originated. The
 # states/capabilities/principles/obligations/constraints seed modules were
 # archived 2026-05-26 (8d502bfc) and removed 2026-06-11; their content is in
-# git history at the recorded paths. Roles/resources remain live via the
-# guideline analyzer. Actions/events never had a seed module (the prior
-# enhanced_prompts_actions/events paths were dead).
+# git history at the recorded paths. The roles/resources seed module
+# (enhanced_prompts_roles_resources.py) was removed with the dormant guideline
+# extraction subsystem (2026-06; its content is in git history). Actions/events
+# never had a seed module (the prior enhanced_prompts_actions/events paths were
+# dead).
 CONCEPT_SOURCE_FILES = {
-    'roles': 'app/services/extraction/enhanced_prompts_roles_resources.py',
-    'resources': 'app/services/extraction/enhanced_prompts_roles_resources.py',
     'states': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py (removed 2026-06-11; in git history)',
     'capabilities': 'app/services/extraction/_archived/enhanced_prompts_states_capabilities.py (removed 2026-06-11; in git history)',
     'principles': 'app/services/extraction/_archived/enhanced_prompts_principles.py (removed 2026-06-11; in git history)',

@@ -150,7 +150,6 @@ def create_app(config_name=None):
     from app.routes.guidelines import guidelines_bp
     from app.routes.admin import admin_bp
     from app.routes.prompt_builder import prompt_builder_bp
-    from app.routes.worlds.extraction import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
     from app.routes.agent import agent_bp
     # Unified document annotation API routes
@@ -195,7 +194,6 @@ def create_app(config_name=None):
     app.register_blueprint(guidelines_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(prompt_builder_bp)
-    app.register_blueprint(worlds_extract_only_bp)
     app.register_blueprint(annotations_bp)
     app.register_blueprint(agent_bp)  # Register the agent blueprint
     app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
