@@ -349,8 +349,12 @@ class NarrativeElementExtractor:
                 logger.debug(f"Skipping meta-authority: {role.label}")
                 continue
 
-            # Filter out actors pulled from cited precedent opinions (BER Case
-            # NN-N): they belong to the cited case, not the present one.
+            # Secondary guard against cited-precedent actors (BER Case NN-N): they belong to the
+            # cited case, not the present one. These roles already passed the full contamination
+            # check (marker + clean-label + foreign-actor) at Step-1 extraction, so a foreign
+            # actor cannot reach here; the label-marker primitive is a cheap belt-and-suspenders
+            # over the committed roles. (Computing the foreign-actor set needs the case sections,
+            # which this consumer does not load -- the upstream extractor is the right place.)
             if is_precedent_reference(role.label):
                 logger.debug(f"Skipping cited-case actor: {role.label}")
                 continue

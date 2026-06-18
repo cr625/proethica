@@ -666,42 +666,42 @@ class UnifiedDualExtractor:
         # 3. Parse + validate
         classes, individuals = self._parse_and_validate(raw_json, case_id)
 
-        # 3a. Drop phantom entities pulled from cited precedent cases (e.g. an
-        # individual "Defendant Attorney BER Case 19-3" or a class "BER Case 04-11
-        # Situation 1 Engineer"): they belong to the precedent, not the case under
-        # analysis. This is the LIVE extraction path (extract_concept ->
-        # UnifiedDualExtractor), so the guard applies to every Step 1-2 concept type
-        # (roles, states, resources, principles, obligations, constraints,
-        # capabilities). Same rule as the Step-4 narrative pass (precedent_filter).
-        # Detection is by citation marker in the label (any concept type) PLUS, for fact
-        # concepts, a clean-label provenance rule: an entity whose label is clean but whose
-        # every supporting quote (text_references) sits in cited-precedent context is a
-        # phantom (e.g. "Public Works Director" attested only by "BER Case No. 00-5 ..."").
-        # Norm concepts (principles/obligations/constraints) are exempt from the clean-label
-        # rule because a cited precedent's norms transfer to the present case.
-        from app.services.extraction.precedent_filter import drop_precedent_entities
-        classes, dropped_c = drop_precedent_entities(
+        # 3a. Drop phantom entities pulled from cited precedent cases: they belong to the
+        # precedent, not the case under analysis. One contamination check (precedent_filter)
+        # covers three rules -- a citation marker in the label (e.g. "Defendant Attorney BER
+        # Case 19-3", any concept type); for fact concepts, a clean-label provenance rule (every
+        # supporting quote sits in cited-precedent context, e.g. "Public Works Director" attested
+        # only by "BER Case No. 00-5 ..."); and the present-case actor rule (an engineer letter
+        # absent from this case's facts/question/conclusion, e.g. "Engineer A" in a case whose
+        # engineer is L -- a precedent actor recapped in the Discussion that the first two rules
+        # miss). This is the LIVE Step 1-2 path; the same check runs in the Step-3 temporal and
+        # Step-4 narrative passes via the shared drop_contaminated_entities entry point.
+        from app.services.extraction.precedent_filter import drop_contaminated_entities
+        present_letters = self._present_case_actor_letters(case_id)
+        classes, dropped_c = drop_contaminated_entities(
             classes, lambda c: getattr(c, 'label', None),
             get_quotes=lambda c: getattr(c, 'text_references', None),
-            concept_type=self.concept_type)
-        individuals, dropped_i = drop_precedent_entities(
+            concept_type=self.concept_type, present_letters=present_letters)
+        individuals, dropped_i = drop_contaminated_entities(
             individuals, lambda i: getattr(i, 'identifier', None) or getattr(i, 'label', None),
             get_quotes=lambda i: getattr(i, 'text_references', None),
-            concept_type=self.concept_type)
+            concept_type=self.concept_type, present_letters=present_letters)
         if dropped_c or dropped_i:
             logger.info(
-                f"Precedent filter ({self.concept_type}): dropped "
-                f"{len(dropped_c)} class(es) + {len(dropped_i)} individual(s): "
-                f"{dropped_c + dropped_i}")
+                f"Contamination filter ({self.concept_type}): present-case engineers "
+                f"{sorted(present_letters)}, dropped {len(dropped_c)} class(es) + "
+                f"{len(dropped_i)} individual(s): {dropped_c + dropped_i}")
             try:  # provenance: record the filter PASS (what was rejected + why). Best-effort.
                 from app.services.provenance_service import get_provenance_service
                 get_provenance_service().track_pass(
                     activity_type='filter', activity_name='precedent_filter',
                     case_id=case_id, agent_type='extraction_service', agent_name='precedent_filter',
                     execution_plan={'concept_type': self.concept_type, 'section': section_type,
+                                    'present_case_engineers': sorted(present_letters),
                                     'rule': 'drop entities derived from a cited precedent case '
-                                            '(citation marker in label, any concept type; or, for '
-                                            'fact concepts, all supporting quotes in precedent context)'},
+                                            '(citation marker in label; for fact concepts, all '
+                                            'supporting quotes in precedent context; or a foreign '
+                                            'present-case engineer letter)'},
                     result={'dropped': dropped_c + dropped_i,
                             'dropped_classes': len(dropped_c),
                             'dropped_individuals': len(dropped_i)})
@@ -885,6 +885,18 @@ class UnifiedDualExtractor:
             self.existing_classes, self.concept_type,
             label_only_tier2=(self.injection_mode == 'label_only'),
         )
+
+    def _present_case_actor_letters(self, case_id: int) -> frozenset:
+        """Present-case engineer letters for this case, cached per case on the instance.
+        Delegates to the shared case_actors loader (see its docstring for why the discussion
+        section is excluded)."""
+        cache = getattr(self, '_pc_actor_cache', None)
+        if cache is None:
+            cache = self._pc_actor_cache = {}
+        if case_id not in cache:
+            from app.services.extraction.case_actors import present_case_engineer_letters
+            cache[case_id] = present_case_engineer_letters(case_id)
+        return cache[case_id]
 
     def _format_prior_section_classes(
         self, case_id: int, current_section: str,

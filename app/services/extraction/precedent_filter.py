@@ -47,8 +47,19 @@ PRECEDENT_REF_RE = re.compile(
 # mechanism, not a resource in the case. This is anchored to the full label so it does NOT
 # touch legitimate present-case entities that merely mention precedent (e.g. "Engineer L BER
 # Precedent Synthesis"), which the bare-"BER" exclusion above deliberately preserves.
+# The trailing concept-type head noun (Resource/State/Role/...) is tolerated because the D4
+# label-generality reinforcement appends the concept type to every label, which turned the
+# placeholder into "BER Case Precedent Resource" and slipped this end-anchored pattern (the
+# case-8 Section-C pilot, 2026-06-18). Still anchored, so it only matches a bare placeholder
+# plus its head noun, never a label carrying present-case content.
+_CONCEPT_HEAD_NOUNS = (
+    r"Resource|State|Role|Principle|Obligation|Constraint|Capability|Action|Event"
+)
 GENERIC_PRECEDENT_RE = re.compile(
-    r"^\s*(?:BER\s+)?(?:Case\s+)?Precedent(?:\s+(?:Reference|Case))?\s*$",
+    r"^\s*(?:BER\s+)?(?:Case\s+)?Precedent"
+    r"(?:\s+(?:Reference|Case))?"
+    rf"(?:\s+(?:{_CONCEPT_HEAD_NOUNS})s?)?"
+    r"\s*$",
     re.IGNORECASE,
 )
 
@@ -99,22 +110,75 @@ def is_precedent_entity(
     return False
 
 
-def drop_precedent_entities(
+# Present-case actor consistency (added 2026-06-18, case-8 Section-C pilot, Finding B). NSPE
+# opinions recap prior BER cases in the DISCUSSION section, naming their engineers by letter
+# ("Engineer A"). When the present case's engineer is a different letter (case 8 = Engineer L),
+# that precedent engineer and everything attributed to it are phantoms the rules above MISS: the
+# recap quotes paraphrase the precedent without a case NUMBER, and "Engineer A" reads as a
+# present-case actor. The reliable, per-case discriminator is structural -- an engineer letter
+# that never appears in the present-case sections (facts/question/conclusion; the discussion is
+# the only precedent-bearing section) is foreign. This applies to EVERY concept type including
+# norms: an actor-specific precedent obligation ("Engineer A Bird Species Written Report") is a
+# phantom, not a transferable abstract norm (which carries no actor letter and is untouched here).
+_ENGINEER_LETTER_RE = re.compile(r"\bEngineers?\s+([A-Z])\b")
+
+
+def present_case_actor_letters(text: str | None) -> frozenset:
+    """The set of engineer letters named in present-case text (pass facts+question+conclusion,
+    NOT discussion). Empty when the text is empty -- callers then skip the actor check."""
+    if not text:
+        return frozenset()
+    return frozenset(m.group(1) for m in _ENGINEER_LETTER_RE.finditer(text))
+
+
+def is_foreign_actor_entity(label: str | None, present_letters) -> bool:
+    """True iff the label names one or more engineer letters and EVERY one is absent from the
+    present-case set. No-op when present_letters is empty (cannot judge -> keep) or the label
+    names no engineer letter (abstract entities and present-case actors are untouched). A label
+    mentioning both a present and a foreign letter is kept (it involves a present-case actor)."""
+    if not label or not present_letters:
+        return False
+    letters = {m.group(1) for m in _ENGINEER_LETTER_RE.finditer(label)}
+    if not letters:
+        return False
+    return letters.isdisjoint(present_letters)
+
+
+# Single contamination entry point. Composes the precedent-marker, clean-label, and foreign-actor
+# rules so every entity-producing site (Step 1-2 extraction, Step-3 temporal, Step-4 narrative)
+# applies the SAME check with one call, instead of stacking rule-specific passes.
+def is_contaminated_entity(
+    label: str | None,
+    quotes: List[str] | None = None,
+    concept_type: str | None = None,
+    present_letters=None,
+) -> bool:
+    """True if the entity is precedent-case contamination by ANY rule: a citation marker in the
+    label (every concept type); for fact concepts, all supporting quotes in cited-precedent
+    context; or a foreign present-case actor (an engineer letter absent from this case). Pass
+    present_letters (from present_case_actor_letters over the facts/question/conclusion sections)
+    to enable the actor rule; omit it where the case context is unavailable -- the label/quote
+    rules still apply."""
+    return (is_precedent_entity(label, quotes, concept_type)
+            or is_foreign_actor_entity(label, present_letters))
+
+
+def drop_contaminated_entities(
     items: List[T],
     get_label: Callable[[T], str | None],
     get_quotes: Callable[[T], List[str] | None] | None = None,
     concept_type: str | None = None,
+    present_letters=None,
 ) -> Tuple[List[T], List[str]]:
-    """Partition items into (kept, dropped_labels). Drops by the label-marker rule (all
-    concept types); additionally, when get_quotes is supplied and concept_type is a fact
-    concept, by the clean-label provenance rule (every supporting quote is a precedent
-    reference). Label-only callers omit get_quotes and keep the original behavior."""
+    """Partition items into (kept, dropped_labels) by is_contaminated_entity. The single
+    list-level entry point for precedent-case contamination; use it at every extraction,
+    temporal, and narrative site instead of stacking rule-specific passes."""
     kept: List[T] = []
     dropped: List[str] = []
     for it in items:
         lbl = get_label(it)
         quotes = get_quotes(it) if get_quotes else None
-        if is_precedent_entity(lbl, quotes, concept_type):
+        if is_contaminated_entity(lbl, quotes, concept_type, present_letters):
             dropped.append(lbl or "")
         else:
             kept.append(it)

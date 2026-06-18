@@ -70,29 +70,32 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
             allen_relations_stored = 0
             timeline_stored = 0
 
-            # Drop temporal entities derived from cited precedent cases (e.g. an
-            # Allen relation "BER Case 95-10 before BER Case 04-11", or an action/
-            # event from a precedent's situation): they describe the precedent's
-            # timeline, not this case's. This is the LangGraph Step-3 path, which the
-            # Step 1-2 entity-extractor guard does not reach; same rule
-            # (precedent_filter) so phantom precedents are excluded everywhere.
-            from app.services.extraction.precedent_filter import is_precedent_reference
+            # Drop temporal entities derived from cited precedent cases (e.g. an Allen relation
+            # "BER Case 95-10 before BER Case 04-11", an action/event from a precedent's
+            # situation, or one naming a foreign engineer letter like "Engineer A" in a case
+            # whose engineer is L): they describe the precedent's timeline, not this case's. This
+            # is the LangGraph Step-3 path; it applies the SAME contamination check as Step 1-2
+            # and the Step-4 narrative (precedent_filter.is_contaminated_entity) so phantom
+            # precedents are excluded everywhere.
+            from app.services.extraction.precedent_filter import is_contaminated_entity
+            from app.services.extraction.case_actors import present_case_engineer_letters
+            present_letters = present_case_engineer_letters(case_id)
+
+            def _is_precedent(label):
+                return is_contaminated_entity(label, present_letters=present_letters)
+
             _pre = len(state['actions']) + len(state['events']) + len(state['causal_chains'])
-            state['actions'] = [a for a in state['actions']
-                                if not is_precedent_reference(a.get('label'))]
-            state['events'] = [e for e in state['events']
-                               if not is_precedent_reference(e.get('label'))]
+            state['actions'] = [a for a in state['actions'] if not _is_precedent(a.get('label'))]
+            state['events'] = [e for e in state['events'] if not _is_precedent(e.get('label'))]
             state['causal_chains'] = [c for c in state['causal_chains']
-                                      if not is_precedent_reference(
-                                          f"{c.get('cause', '')} {c.get('effect', '')}")]
+                                      if not _is_precedent(f"{c.get('cause', '')} {c.get('effect', '')}")]
             _tm = state.get('temporal_markers', {})
             if isinstance(_tm.get('allen_relations'), list):
                 _tm['allen_relations'] = [r for r in _tm['allen_relations']
-                                          if not is_precedent_reference(
-                                              f"{r.get('entity1', '')} {r.get('entity2', '')}")]
+                                          if not _is_precedent(f"{r.get('entity1', '')} {r.get('entity2', '')}")]
             _dropped = _pre - (len(state['actions']) + len(state['events']) + len(state['causal_chains']))
             if _dropped:
-                logger.info(f"[Stage 7] Precedent filter dropped {_dropped} temporal entit(ies)")
+                logger.info(f"[Stage 7] Contamination filter dropped {_dropped} temporal entit(ies)")
 
             # Store actions (separate entity_type)
             for action in state['actions']:
