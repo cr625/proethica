@@ -149,6 +149,29 @@ All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored a
    +----------+                    +----------+
 ```
 
+## Ontology Materialization and Conformance
+
+Between extraction and the persisted case ontology, three mechanisms govern how extracted entities enter the shared knowledge graph.
+
+### Entity Matching and Canonicalization
+
+Each extracted entity is matched against existing OntServe classes to limit per-case class proliferation. A reviewer may override a match from the Entity Review interface by searching OntServe and selecting an alternative class. The override is type-safe: the target class must resolve to the same core component as the entity's extraction type, since the nine components form an `owl:AllDisjointClasses` set. A cross-category override (for example, typing an Obligation as a Resource) is rejected before commit. The target category is resolved through the curated category map first, then through the OntServe `parent_uri` subclass chain for case-local classes.
+
+### Conformance Gate
+
+Before a case ontology is persisted, candidate TTL passes a SHACL plus OWL-RL conformance check with a deterministic Tier-0 re-typing repair (`repair_conformance_ttl`). The gate runs against the merged core, intermediate, and case ontologies, so a committed case validates standalone under the Pellet OWL-DL reasoner.
+
+### Edge Materialization
+
+At commit, two families of relations are materialized as queryable, reasoner-visible triples, each carrying a PROV-O derivation node that attributes the edge to a source field.
+
+| Family | Properties | Models |
+|--------|-----------|--------|
+| Dependency (R-P-O) | `hasObligation`, `adheresToPrinciple`, `derivedFromPrinciple` | The Role to Principle to Obligation chain |
+| Defeasibility | `competesWith`, `prevailsOver`, `defeasibleUnder` | Obligation competition and defeat |
+
+These edges replace earlier narrative encodings of competing-duty resolution, so non-monotonic reasoners and SPARQL queries consume them directly. The property definitions are listed in [Ontology Properties](../concepts/ontology-properties.md); the user-facing surface for the defeasibility edges is the [Defeasibility View](../viewing/defeasibility.md).
+
 ## Database Schema
 
 ```text
@@ -213,7 +236,7 @@ All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored a
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| Routes | `app/routes/` | Flask blueprints (37 registered) |
+| Routes | `app/routes/` | Flask blueprints (33 registered) |
 | Templates | `app/templates/` | Jinja2 HTML templates |
 | Services | `app/services/` | Business logic and extraction |
 | Models | `app/models/` | SQLAlchemy database models |
@@ -226,13 +249,11 @@ Large route files are decomposed into sub-module packages. Each package follows 
 
 | Package | Modules | Purpose |
 |---------|---------|---------|
-| `cases/` | 11 | Case listing, viewing, creation, editing, scenario generation |
-| `worlds/` | 8 | World management, guidelines, triples, concept mapping |
-| `scenario_pipeline/step4/` | 19 | Step 4 synthesis, entity management, streaming |
-| `entity_review/` | 4 | Entity selection, OntServe matching, reconciliation |
-| `scenarios/` | 6 | Scenario characters, resources, actions, events, decisions |
+| `cases/` | 11 | Case listing, viewing, creation, editing, the defeasibility view |
+| `worlds/` | 4 | World management and guideline browsing |
+| `scenario_pipeline/` | 6 + subpackages | Steps 4-5 synthesis and interactive scenario; the `step4/` and `entity_review/` subpackages hold the synthesis phases, entity matching, and reconciliation |
 
-Single-file routes handle focused concerns: `admin.py`, `annotations.py`, `dashboard.py`, `documents.py`, `guidelines.py`, `health.py`, `pipeline_dashboard.py`.
+Single-file routes handle focused concerns: `admin.py`, `annotations.py`, `dashboard.py`, `documents.py`, `guidelines.py`, `health.py`, `pipeline_dashboard.py`. The standalone `scenarios/` route package was retired; the `Scenario` model is retained as shared infrastructure for the case-derived scenario pipeline.
 
 ### Service Groups
 
@@ -247,7 +268,9 @@ Single-file routes handle focused concerns: `admin.py`, `annotations.py`, `dashb
 
 ### OntServe Integration
 
-MCP (Model Context Protocol) provides ontology services via 12 tools over FastMCP Streamable HTTP:
+MCP (Model Context Protocol) provides ontology services via 20 tools over FastMCP Streamable HTTP, grouped as 12 integration tools, 5 reasoning/BFO tools, and 3 conformance tools.
+
+Integration tools:
 
 | Tool | Purpose |
 |------|---------|
@@ -260,9 +283,27 @@ MCP (Model Context Protocol) provides ontology services via 12 tools over FastMC
 | `get_candidate_concepts` | Retrieve pending concepts for review |
 | `get_domain_info` | Domain metadata and statistics |
 | `sparql_query` | Execute SPARQL queries against ontologies |
-| `wolfram_lookup` | Look up factual knowledge via Wolfram Alpha |
+| `wolfram_lookup` | Resolve a definitional lookup for ontology grounding |
 | `store_extracted_entities` | Store ProEthica extraction results |
 | `get_case_entities` | Retrieve stored entities for a specific case |
+
+Reasoning and BFO tools run the Pellet OWL-DL reasoner over the merged core, intermediate, and case ontologies:
+
+| Tool | Purpose |
+|------|---------|
+| `reason_ontology` | Consistency check and inference counts |
+| `check_consistency` | Consistency flag and disjointness violations |
+| `get_inferred_hierarchy` | Inferred subclass and type assertions |
+| `get_inconsistent_classes` | Entities forced to `owl:Nothing` |
+| `validate_bfo_compliance` | BFO, PROV-O, and intermediate compliance report |
+
+Conformance tools run a SHACL plus OWL-RL check, with a deterministic re-typing repair:
+
+| Tool | Purpose |
+|------|---------|
+| `validate_conformance` | SHACL and OWL-RL check of a stored case |
+| `validate_conformance_ttl` | Same check over candidate TTL before commit |
+| `repair_conformance_ttl` | Check plus deterministic Tier-0 re-typing repair |
 
 ## Deployment
 
