@@ -248,4 +248,16 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         results["unified_guard"] = {"error": str(e)}
 
     logger.info("Edge materialization for case %s: %s", case_id, results)
+
+    # Refresh the cross-case defeasibility band index from the just-materialized TTL.
+    # Derived/rebuildable cache; a failure must not fail the commit but is logged so it
+    # stays visible (matches the edge-applier hook convention above).
+    try:
+        from app.services.defeasibility_view_service import refresh_band_index
+        results["band_index"] = {"rows": refresh_band_index(case_id)}
+    except Exception as e:
+        logger.warning("materialize: band-index refresh failed for case %s: %s",
+                       case_id, e, exc_info=True)
+        results["band_index"] = {"error": str(e)}
+
     return results

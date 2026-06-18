@@ -103,3 +103,6 @@ from app.models.view_utility_evaluation import (
 
 # Reconciliation state persistence (added 2026-02-20)
 from app.models.reconciliation_run import ReconciliationRun, ReconciliationDecision
+
+# Cross-case defeasibility band index (commit-time precomputed patterns)
+from app.models.defeasibility_band_index import DefeasibilityBandIndex

@@ -276,12 +276,136 @@ def get_cross_case_band(theme_key: str, anchor_case_id: int) -> dict | None:
     return {"label": band["label"], "keyword": keyword, "rows": rows}
 
 
+def refresh_band_index(case_id: int) -> int:
+    """Rebuild this case's rows in the cross-case defeasibility index from its committed
+    TTL. One row per resolved prevailsOver (winner, loser) pair, with the loser label's
+    embedding precomputed. Idempotent (clears the case's existing rows first). Returns the
+    number of rows written. Called at commit time after edge materialization."""
+    from app.models import db
+    from app.models.defeasibility_band_index import DefeasibilityBandIndex
+    from app.services.embedding_service import EmbeddingService
+
+    DefeasibilityBandIndex.query.filter_by(case_id=case_id).delete()
+
+    try:
+        g = _load_graph(case_id)
+    except FileNotFoundError:
+        # No committed TTL -> leave the case with no index rows.
+        db.session.commit()
+        return 0
+
+    _competes, prevails, defeasible = _trio_edges(g)
+    seen = set()
+    pairs = []
+    for winner, loser in prevails:
+        if (winner, loser) in seen:
+            continue
+        seen.add((winner, loser))
+        pairs.append((winner, loser))
+
+    emb = EmbeddingService.get_instance()
+    label_vec = {}
+    for winner, loser in pairs:
+        if loser not in label_vec:
+            label_vec[loser] = emb.get_embedding(loser)
+        db.session.add(DefeasibilityBandIndex(
+            case_id=case_id,
+            winner_label=winner,
+            loser_label=loser,
+            context_labels=sorted(set(defeasible.get(loser, []))),
+            loser_embedding=label_vec[loser],
+        ))
+    db.session.commit()
+    return len(pairs)
+
+
+def _cosine(a, b) -> float:
+    import numpy as np
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    na = float(np.linalg.norm(a))
+    nb = float(np.linalg.norm(b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return float(np.dot(a, b) / (na * nb))
+
+
+def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | None:
+    """Cross-case band assembled from the commit-time index instead of a curated set.
+
+    Ranks every other case's defeated-obligation pattern against the anchor's featured
+    conflict by loser-obligation embedding similarity (0.7) plus State-context Jaccard
+    overlap (0.3), keeps the best-scoring pattern per case, and returns the top five.
+    The band label is generated from the anchor's winner/loser pair. Returns None when
+    the anchor has no resolved conflict or the index holds no other cases.
+    """
+    conflicts = case_data.get("conflicts") or []
+    featured = next((c for c in conflicts if c.get("featured")),
+                    conflicts[0] if conflicts else None)
+    if not featured:
+        return None
+
+    from app.models import Document
+    from app.models.defeasibility_band_index import DefeasibilityBandIndex
+    from app.services.embedding_service import EmbeddingService
+
+    candidates = DefeasibilityBandIndex.query.filter(
+        DefeasibilityBandIndex.case_id != anchor_case_id
+    ).all()
+    if not candidates:
+        return None
+
+    anchor_loser = featured["loser"]
+    anchor_winner = featured["winner"]
+    anchor_ctx = set(featured.get("contexts", []))
+    anchor_vec = EmbeddingService.get_instance().get_embedding(anchor_loser)
+
+    best = {}  # case_id -> (score, row)
+    for r in candidates:
+        sim = _cosine(anchor_vec, r.loser_embedding) if r.loser_embedding else 0.0
+        cand_ctx = set(r.context_labels or [])
+        union = anchor_ctx | cand_ctx
+        jaccard = (len(anchor_ctx & cand_ctx) / len(union)) if union else 0.0
+        score = 0.7 * sim + 0.3 * jaccard
+        current = best.get(r.case_id)
+        if current is None or score > current[0]:
+            best[r.case_id] = (score, r)
+
+    top = sorted(best.values(), key=lambda pair: pair[0], reverse=True)[:5]
+    rows = []
+    for score, r in top:
+        doc = Document.query.get(r.case_id)
+        meta = doc.doc_metadata if (doc and isinstance(doc.doc_metadata, dict)) else {}
+        rows.append({
+            "case_id": r.case_id,
+            "title": doc.title if doc else f"Case {r.case_id}",
+            "case_number": meta.get("case_number", ""),
+            "matches": [{
+                "winner": r.winner_label,
+                "loser": r.loser_label,
+                "contexts": sorted(r.context_labels or []),
+            }],
+            "score": round(score, 3),
+        })
+    if not rows:
+        return None
+    # Generated from the matched pair (no hand-written prose). Kept article-free so it
+    # reads correctly whether the labels are common-noun obligations or engineer-prefixed.
+    label = f"{anchor_loser} yields to {anchor_winner}"
+    return {"label": label, "keyword": anchor_loser, "rows": rows, "dynamic": True}
+
+
 def build_defeasibility_view(case_id: int) -> dict:
     """Assemble both bands for the case. Raises FileNotFoundError if the case has no
     committed ontology yet."""
     case_data = get_case_conflicts(case_id)
+    # A curated theme, when one matches, pins the comparison set for a deterministic
+    # walkthrough; otherwise the band is built dynamically from the commit-time index.
     theme = _theme_for_case(case_data["conflicts"])
-    cross_case = get_cross_case_band(theme, case_id) if theme else None
+    if theme:
+        cross_case = get_cross_case_band(theme, case_id)
+    else:
+        cross_case = get_cross_case_band_dynamic(case_id, case_data)
 
     # Hover lookup over the entities the view renders: the anchor case plus the comparison
     # cases. Each entry links to its own committed OntServe ontology. The anchor case wins
