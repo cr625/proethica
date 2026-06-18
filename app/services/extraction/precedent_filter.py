@@ -144,23 +144,55 @@ def is_foreign_actor_entity(label: str | None, present_letters) -> bool:
     return letters.isdisjoint(present_letters)
 
 
-# Single contamination entry point. Composes the precedent-marker, clean-label, and foreign-actor
-# rules so every entity-producing site (Step 1-2 extraction, Step-3 temporal, Step-4 narrative)
-# applies the SAME check with one call, instead of stacking rule-specific passes.
+# --- Contamination rule set --------------------------------------------------------------------
+# The three precedent-contamination checks above, declared as one coherent, inspectable RuleSet
+# (see app.services.extraction.rules). Each entity-producing site (Step 1-2 extraction, Step-3
+# temporal, Step-4 narrative) applies the SAME set via one call. Adding a future text-pattern
+# filter is one Rule entry here, not a new scattered function + call site.
+from dataclasses import dataclass
+
+from app.services.extraction.rules import Rule, RuleSet
+
+
+@dataclass(frozen=True)
+class EntityContext:
+    """What a precedent-contamination rule may inspect about an extracted entity."""
+    label: str | None
+    quotes: List[str] | None = None
+    concept_type: str | None = None
+    present_letters: frozenset = frozenset()
+
+
+PRECEDENT_RULES: RuleSet[EntityContext] = RuleSet(
+    name="precedent_contamination",
+    rules=[
+        Rule("precedent_marker",
+             "citation marker in the label (any concept type), e.g. 'Defendant BER Case 19-3'",
+             lambda c: is_precedent_reference(c.label)),
+        Rule("clean_label_precedent",
+             "fact concept whose every supporting quote sits in cited-precedent context",
+             lambda c: c.concept_type not in NORM_CONCEPT_TYPES
+             and _all_quotes_are_precedent(c.quotes)),
+        Rule("foreign_actor",
+             "an engineer letter absent from the present case (a precedent actor)",
+             lambda c: is_foreign_actor_entity(c.label, c.present_letters)),
+    ],
+)
+
+
 def is_contaminated_entity(
     label: str | None,
     quotes: List[str] | None = None,
     concept_type: str | None = None,
     present_letters=None,
 ) -> bool:
-    """True if the entity is precedent-case contamination by ANY rule: a citation marker in the
-    label (every concept type); for fact concepts, all supporting quotes in cited-precedent
-    context; or a foreign present-case actor (an engineer letter absent from this case). Pass
-    present_letters (from present_case_actor_letters over the facts/question/conclusion sections)
-    to enable the actor rule; omit it where the case context is unavailable -- the label/quote
-    rules still apply."""
-    return (is_precedent_entity(label, quotes, concept_type)
-            or is_foreign_actor_entity(label, present_letters))
+    """True if the entity matches any PRECEDENT_RULES rule (precedent marker; for fact concepts,
+    all quotes in precedent context; or a foreign present-case actor). Pass present_letters (from
+    present_case_actor_letters over the facts/question/conclusion sections) to enable the actor
+    rule; omit it where the case context is unavailable -- the label/quote rules still apply."""
+    return PRECEDENT_RULES.matches(EntityContext(
+        label=label, quotes=quotes, concept_type=concept_type,
+        present_letters=present_letters or frozenset()))
 
 
 def drop_contaminated_entities(
@@ -170,16 +202,15 @@ def drop_contaminated_entities(
     concept_type: str | None = None,
     present_letters=None,
 ) -> Tuple[List[T], List[str]]:
-    """Partition items into (kept, dropped_labels) by is_contaminated_entity. The single
-    list-level entry point for precedent-case contamination; use it at every extraction,
-    temporal, and narrative site instead of stacking rule-specific passes."""
-    kept: List[T] = []
-    dropped: List[str] = []
-    for it in items:
-        lbl = get_label(it)
-        quotes = get_quotes(it) if get_quotes else None
-        if is_contaminated_entity(lbl, quotes, concept_type, present_letters):
-            dropped.append(lbl or "")
-        else:
-            kept.append(it)
-    return kept, dropped
+    """Partition items into (kept, dropped_labels) by the PRECEDENT_RULES set. The single
+    list-level entry point for precedent-case contamination; use it at every extraction, temporal,
+    and narrative site instead of stacking rule-specific passes."""
+    def to_ctx(it: T) -> EntityContext:
+        return EntityContext(
+            label=get_label(it),
+            quotes=get_quotes(it) if get_quotes else None,
+            concept_type=concept_type,
+            present_letters=present_letters or frozenset())
+
+    kept, hits = PRECEDENT_RULES.partition(items, to_ctx, get_label)
+    return kept, [h.label for h in hits]
