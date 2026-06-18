@@ -23,6 +23,7 @@ Usage:
     )
 """
 
+from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from celery_config import get_celery
@@ -52,12 +53,20 @@ STEP2_ENTITY_TYPES = ['principles', 'obligations', 'constraints', 'capabilities'
 STEP3_ENTITY_TYPES = ['actions', 'events']
 
 
-def get_case_sections(case_id: int) -> dict:
+def get_case_sections(case_id: int, segment_precedents: bool = True) -> dict:
     """
     Get facts and discussion sections for a case.
 
+    The 'discussion' returned to the entity extractors (Step 1-3) has cited-precedent recaps
+    removed at the source (see app.services.extraction.discussion_segmenter): those recaps narrate
+    other cases' actors/scenarios and contaminate the present-case ontology, the worst form being
+    a precedent that shares the present case's engineer letter, which no downstream filter can
+    separate. The full discussion is preserved in 'discussion_full' for the legitimate
+    precedent-reference lane. Pass segment_precedents=False to get the raw discussion.
+
     Returns:
-        dict with 'facts' and 'discussion' keys containing section text
+        dict with 'facts', 'discussion' (present-case), 'discussion_full' (raw),
+        and 'precedent_recaps' keys
     """
     case = Document.query.get(case_id)
     if not case:
@@ -71,14 +80,69 @@ def get_case_sections(case_id: int) -> dict:
     if isinstance(facts, dict):
         facts = facts.get('text', '')
 
-    discussion = sections.get('discussion', '')
-    if isinstance(discussion, dict):
-        discussion = discussion.get('text', '')
+    discussion_section = sections.get('discussion', '')
+    if isinstance(discussion_section, dict):
+        discussion_text = discussion_section.get('text', '')
+        discussion_html = discussion_section.get('html', '')
+    else:
+        discussion_text = discussion_section
+        discussion_html = ''
 
-    return {
+    result = {
         'facts': facts,
-        'discussion': discussion
+        'discussion': discussion_text,
+        'discussion_full': discussion_text,
+        'precedent_recaps': [],
     }
+    if segment_precedents and discussion_html:
+        seg = _present_case_discussion(case, discussion_html)
+        if seg and seg.get('present_case_text'):
+            result['discussion'] = seg['present_case_text']
+            result['precedent_recaps'] = seg.get('precedent_recaps', [])
+    return result
+
+
+def _present_case_discussion(case, discussion_html: str) -> Optional[dict]:
+    """Segment the discussion (cached per case in doc_metadata, keyed on the discussion HTML
+    hash). Returns {'present_case_text', 'precedent_recaps', 'method'} or None on failure.
+
+    The cache lives in a doc_metadata key SEPARATE from sections_dual (which must never be
+    mutated by the pipeline). Best-effort: a write failure just means recomputation next call."""
+    import hashlib
+    src_hash = hashlib.md5(discussion_html.encode('utf-8')).hexdigest()[:16]
+    meta = case.doc_metadata or {}
+    cached = meta.get('discussion_segmentation')
+    if isinstance(cached, dict) and cached.get('source_hash') == src_hash:
+        return cached
+
+    try:
+        from app.services.extraction.discussion_segmenter import segment_discussion
+        r = segment_discussion(discussion_html)
+    except Exception:
+        logger.warning("discussion segmentation failed for case %s; using full discussion",
+                       getattr(case, 'id', '?'), exc_info=True)
+        return None
+
+    entry = {
+        'source_hash': src_hash,
+        'method': r.method,
+        'present_case_text': r.present_case_text,
+        'precedent_recaps': r.precedent_recaps,
+    }
+    try:
+        from sqlalchemy.orm.attributes import flag_modified
+        new_meta = dict(meta)
+        new_meta['discussion_segmentation'] = entry
+        case.doc_metadata = new_meta
+        flag_modified(case, 'doc_metadata')
+        db.session.commit()
+        logger.info("case %s discussion segmented (method=%s, %d recap span(s))",
+                    getattr(case, 'id', '?'), r.method, len(r.precedent_recaps))
+    except Exception:
+        db.session.rollback()
+        logger.debug("could not cache discussion segmentation for case %s",
+                     getattr(case, 'id', '?'), exc_info=True)
+    return entry
 
 
 def run_extraction(case_text: str, case_id: int,
