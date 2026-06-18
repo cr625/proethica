@@ -827,19 +827,18 @@
                         <small class="text-muted ms-2">(Admin only)</small>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3 opacity-50">
+                        <div class="mb-3">
                             <label class="form-label">
                                 Search for Alternative Match
-                                <span class="badge bg-secondary ms-2">Coming Soon</span>
                             </label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="searchMatchInput"
-                                       placeholder="Search OntServe classes..." disabled>
-                                <button class="btn btn-outline-secondary" type="button" id="searchMatchBtn" disabled>
+                                       placeholder="Search OntServe classes...">
+                                <button class="btn btn-outline-secondary" type="button" id="searchMatchBtn">
                                     <i class="bi bi-search"></i> Search
                                 </button>
                             </div>
-                            <small class="text-muted">Type-safe matching (Role to Role, etc.) in development</small>
+                            <small class="text-muted">An override must stay within the same core component (Role to Role, Obligation to Obligation, etc.); cross-category matches are rejected.</small>
                         </div>
                         <div id="searchResults" class="mb-3" style="max-height: 200px; overflow-y: auto; display: none;">
                             <!-- Search results will be populated here -->
@@ -861,7 +860,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 {% if current_user.is_authenticated %}
-                <button type="button" class="btn btn-primary" id="saveMatchBtn" disabled title="Coming soon - type-safe matching in development">
+                <button type="button" class="btn btn-primary" id="saveMatchBtn" disabled>
                     <i class="bi bi-save"></i> Save Changes
                 </button>
                 {% endif %}

@@ -19,6 +19,53 @@ from app.utils.environment_auth import (
 
 logger = logging.getLogger(__name__)
 
+# The nine core components form an owl:AllDisjointClasses set.
+_CORE_CATEGORIES = frozenset({
+    'Role', 'Principle', 'Obligation', 'State', 'Resource',
+    'Action', 'Event', 'Capability', 'Constraint',
+})
+
+
+def _resolve_class_core_category(class_uri):
+    """Resolve an OntServe class URI to one of the nine core categories.
+
+    Tries the curated category resolver first (covers core + intermediate +
+    extended), then walks the OntServe ``parent_uri`` subClassOf chain for
+    per-case classes the curated resolver does not know. Returns the core
+    category name, or None when it genuinely cannot be determined (a class with
+    no chain to a core component). Infrastructure errors are allowed to
+    propagate so they surface rather than silently skipping the type check.
+    """
+    from app.services.extraction.category_resolver import resolve_core_category
+
+    curated = resolve_core_category(class_uri)
+    if curated:
+        return curated
+
+    from sqlalchemy import create_engine, text
+    from app.services.ontserve_config import get_ontserve_db_url
+
+    engine = create_engine(get_ontserve_db_url())
+    seen = set()
+    current = class_uri
+    with engine.connect() as conn:
+        for _ in range(12):  # bounded walk; the subClassOf chain is shallow
+            if not current or current in seen:
+                break
+            seen.add(current)
+            local = current.rsplit('#', 1)[-1].rsplit('/', 1)[-1]
+            if '/ontology/core#' in current and local in _CORE_CATEGORIES:
+                return local
+            row = conn.execute(
+                text("SELECT parent_uri FROM ontology_entities "
+                     "WHERE uri = :u AND parent_uri IS NOT NULL LIMIT 1"),
+                {"u": current},
+            ).fetchone()
+            if not row:
+                break
+            current = row[0]
+    return None
+
 
 def register_ontserve_ops_routes(bp):
     """Register OntServe operation routes on the given blueprint."""
@@ -647,6 +694,31 @@ def register_ontserve_ops_routes(bp):
                     'success': False,
                     'error': 'Entity not found'
                 }), 404
+
+            # Type-safe override gate. The nine core components are an
+            # owl:AllDisjointClasses set, so an override whose target class resolves
+            # to a different core category than the entity's extraction component
+            # would force a disjointness clash at commit/conformance time. Reject it
+            # here (fail-fast) rather than letting it reach the conformance gate.
+            # When either category cannot be resolved (entity is not one of the nine
+            # components, or the target is unknown to the curated tiers) the check is
+            # skipped -- absence of proof is not a violation.
+            if matched_uri:
+                from app.services.extraction.unified_dual_extractor import (
+                    CONCEPT_TYPE_TO_CORE_CATEGORY,
+                )
+
+                entity_category = CONCEPT_TYPE_TO_CORE_CATEGORY.get(entity.extraction_type)
+                target_category = _resolve_class_core_category(matched_uri)
+                if entity_category and target_category and entity_category != target_category:
+                    return jsonify({
+                        'success': False,
+                        'error': (
+                            f"Type mismatch: this entity is a {entity_category}; "
+                            f"'{matched_label or matched_uri}' is a {target_category} class. "
+                            f"An override must stay within the same core category."
+                        )
+                    }), 400
 
             # Capture the pre-update match state for the audit trail before mutating.
             confirmation = EntityMatchConfirmation(
