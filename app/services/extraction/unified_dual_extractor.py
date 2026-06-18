@@ -673,11 +673,21 @@ class UnifiedDualExtractor:
         # UnifiedDualExtractor), so the guard applies to every Step 1-2 concept type
         # (roles, states, resources, principles, obligations, constraints,
         # capabilities). Same rule as the Step-4 narrative pass (precedent_filter).
+        # Detection is by citation marker in the label (any concept type) PLUS, for fact
+        # concepts, a clean-label provenance rule: an entity whose label is clean but whose
+        # every supporting quote (text_references) sits in cited-precedent context is a
+        # phantom (e.g. "Public Works Director" attested only by "BER Case No. 00-5 ..."").
+        # Norm concepts (principles/obligations/constraints) are exempt from the clean-label
+        # rule because a cited precedent's norms transfer to the present case.
         from app.services.extraction.precedent_filter import drop_precedent_entities
         classes, dropped_c = drop_precedent_entities(
-            classes, lambda c: getattr(c, 'label', None))
+            classes, lambda c: getattr(c, 'label', None),
+            get_quotes=lambda c: getattr(c, 'text_references', None),
+            concept_type=self.concept_type)
         individuals, dropped_i = drop_precedent_entities(
-            individuals, lambda i: getattr(i, 'identifier', None) or getattr(i, 'label', None))
+            individuals, lambda i: getattr(i, 'identifier', None) or getattr(i, 'label', None),
+            get_quotes=lambda i: getattr(i, 'text_references', None),
+            concept_type=self.concept_type)
         if dropped_c or dropped_i:
             logger.info(
                 f"Precedent filter ({self.concept_type}): dropped "
@@ -690,7 +700,8 @@ class UnifiedDualExtractor:
                     case_id=case_id, agent_type='extraction_service', agent_name='precedent_filter',
                     execution_plan={'concept_type': self.concept_type, 'section': section_type,
                                     'rule': 'drop entities derived from a cited precedent case '
-                                            '(BER NN-N / generic precedent placeholder)'},
+                                            '(citation marker in label, any concept type; or, for '
+                                            'fact concepts, all supporting quotes in precedent context)'},
                     result={'dropped': dropped_c + dropped_i,
                             'dropped_classes': len(dropped_c),
                             'dropped_individuals': len(dropped_i)})

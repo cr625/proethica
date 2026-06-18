@@ -27,13 +27,16 @@ from __future__ import annotations
 import re
 from typing import Callable, List, Tuple, TypeVar
 
-# Precedent-citation markers anywhere in a label:
-#   BER [Case] NN-N   -> "BER 07-6", "BER Case 19-3"   (BER + optional "Case" + NN-N)
-#   Case NN-N         -> "Case 04-11"                  (the "Case NN-N" form without BER)
-#   Doe               -> placeholder party from a cited precedent
+# Precedent-citation markers anywhere in a label or supporting quote:
+#   BER [Case] [No.] NN-N -> "BER 07-6", "BER Case 19-3", "BER Case No. 00-5"
+#   Case [No.] NN-N       -> "Case 04-11", "Case No. 92-1"
+#   Doe                   -> placeholder party from a cited precedent
+# The optional "No." token was added 2026-06-18 after a clean-labeled phantom
+# ("Public Works Director", attested only by "BER Case No. 00-5 centered on ...")
+# slipped the "Case NN-N"-only pattern when the clean-label rule below began testing quotes.
 PRECEDENT_REF_RE = re.compile(
-    r"\bBER\s+(?:Case\s+)?\d{2}-\d{1,2}\b"
-    r"|\bCase\s+\d{2}-\d{1,2}\b"
+    r"\bBER\s+(?:Case\s+)?(?:No\.?\s+)?\d{2}-\d{1,2}\b"
+    r"|\bCase\s+(?:No\.?\s+)?\d{2}-\d{1,2}\b"
     r"|\bDoe\b",
     re.IGNORECASE,
 )
@@ -53,20 +56,65 @@ T = TypeVar("T")
 
 
 def is_precedent_reference(label: str | None) -> bool:
-    """True if the label names/derives from a cited precedent case, OR is a generic
+    """True if the label/quote names/derives from a cited precedent case, OR is a generic
     precedent-placeholder label with no present-case content."""
     return bool(label and (PRECEDENT_REF_RE.search(label) or GENERIC_PRECEDENT_RE.match(label)))
 
 
+# Concept types whose entities are NORMS. A cited precedent is invoked precisely because
+# its norms apply to the case under analysis, so a clean-labeled principle/obligation/
+# constraint is NOT dropped just because its supporting quote cites the precedent. Fact
+# concepts (roles, states, resources, capabilities; and the Step-3 actions/events) get the
+# clean-label provenance rule below: a fact attested ONLY in cited-precedent text belongs
+# to the precedent, not this case.
+NORM_CONCEPT_TYPES = frozenset({"principles", "obligations", "constraints"})
+
+
+def _all_quotes_are_precedent(quotes: List[str] | None) -> bool:
+    """True iff there is at least one supporting quote and EVERY one is a precedent
+    reference -- i.e. the entity is attested only in cited-precedent context. A single
+    non-precedent quote keeps the entity (it appears in the present case too), so a
+    current-case entity that merely mentions a precedent in one quote is preserved."""
+    qs = [q for q in (quotes or []) if q and q.strip()]
+    return bool(qs) and all(is_precedent_reference(q) for q in qs)
+
+
+def is_precedent_entity(
+    label: str | None,
+    quotes: List[str] | None = None,
+    concept_type: str | None = None,
+) -> bool:
+    """Whether an extracted entity should be dropped as precedent contamination.
+
+    Combines the label-marker rule (every concept type -- a citation marker in the label
+    is itself a contamination artifact) with clean-label provenance detection (fact
+    concepts only): an entity whose label is clean but whose every supporting quote sits
+    in cited-precedent context is a phantom precedent entity (e.g. "Public Works Director"
+    attested only by "BER Case No. 00-5 centered on ..."). Norm concepts are exempt from
+    the clean-label rule because a cited precedent's norms transfer to the present case."""
+    if is_precedent_reference(label):
+        return True
+    if concept_type not in NORM_CONCEPT_TYPES and _all_quotes_are_precedent(quotes):
+        return True
+    return False
+
+
 def drop_precedent_entities(
-    items: List[T], get_label: Callable[[T], str | None]
+    items: List[T],
+    get_label: Callable[[T], str | None],
+    get_quotes: Callable[[T], List[str] | None] | None = None,
+    concept_type: str | None = None,
 ) -> Tuple[List[T], List[str]]:
-    """Partition items into (kept, dropped_labels) by the precedent-ref test."""
+    """Partition items into (kept, dropped_labels). Drops by the label-marker rule (all
+    concept types); additionally, when get_quotes is supplied and concept_type is a fact
+    concept, by the clean-label provenance rule (every supporting quote is a precedent
+    reference). Label-only callers omit get_quotes and keep the original behavior."""
     kept: List[T] = []
     dropped: List[str] = []
     for it in items:
         lbl = get_label(it)
-        if is_precedent_reference(lbl):
+        quotes = get_quotes(it) if get_quotes else None
+        if is_precedent_entity(lbl, quotes, concept_type):
             dropped.append(lbl or "")
         else:
             kept.append(it)
