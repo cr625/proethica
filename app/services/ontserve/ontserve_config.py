@@ -27,11 +27,29 @@ def get_ontserve_db_url() -> str:
 
 
 def get_ontserve_base_path() -> Path:
-    """Return filesystem path to OntServe project root."""
-    return Path(os.environ.get(
-        'ONTSERVE_BASE_PATH',
-        str(Path(__file__).resolve().parent.parent.parent.parent / 'OntServe')
-    ))
+    """Return filesystem path to the OntServe checkout.
+
+    Resolution order:
+      1. ``ONTSERVE_BASE_PATH`` env var (the configured source of truth), else
+      2. discover it: walk up from this file to the workspace root that contains
+         the sibling ``OntServe`` checkout.
+
+    The discovery anchors on the thing being located (the ``OntServe`` directory)
+    rather than a hard-coded ancestor depth, so it is independent of where this
+    module lives in the package tree -- relocating it does not silently point at
+    a non-existent path (as a ``parents[N]`` count would).
+    """
+    env = os.environ.get('ONTSERVE_BASE_PATH')
+    if env:
+        return Path(env)
+    for ancestor in Path(__file__).resolve().parents:
+        candidate = ancestor / 'OntServe'
+        if candidate.is_dir():
+            return candidate
+    raise RuntimeError(
+        "OntServe checkout not found in any parent directory; "
+        "set ONTSERVE_BASE_PATH to its location."
+    )
 
 
 def get_ontserve_mcp_url() -> str:
