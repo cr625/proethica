@@ -10,7 +10,7 @@ from app.models import Document
 from app.models.document import PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding.embedding_service import EmbeddingService
-from app.services.entity_triple_service import EntityTripleService
+from app.services.entity.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
 from app.routes.cases.structure_embeddings import _sync_embeddings_to_precedent_features
 from app import db

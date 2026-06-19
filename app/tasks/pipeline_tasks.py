@@ -30,7 +30,7 @@ from celery_config import get_celery
 from app import db
 from app.models.pipeline_run import PipelineRun, PIPELINE_STATUS
 from app.models.document import Document
-from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 from datetime import datetime
 import logging
 import traceback
@@ -461,7 +461,7 @@ def run_step3_task(self, run_id: int):
     try:
         # Import the LangGraph builder
         from app.services.temporal_dynamics import build_temporal_dynamics_graph
-        from app.services.case_entity_storage_service import CaseEntityStorageService
+        from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 
         # Get case sections
         sections = get_case_sections(run.case_id)
@@ -651,7 +651,7 @@ def run_reconcile_task(self, run_id: int):
     db.session.commit()
 
     try:
-        from app.services.entity_reconciliation_service import EntityReconciliationService
+        from app.services.entity.entity_reconciliation_service import EntityReconciliationService
         service = EntityReconciliationService()
         result = service.reconcile_auto(run.case_id)
 

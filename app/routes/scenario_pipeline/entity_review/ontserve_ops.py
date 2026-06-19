@@ -10,7 +10,7 @@ from datetime import datetime
 
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db, TemporaryRDFStorage
-from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 from app.services.extraction.field_classification import group_properties
 from app.utils.environment_auth import (
     auth_optional,

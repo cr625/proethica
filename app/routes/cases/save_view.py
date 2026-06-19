@@ -8,7 +8,7 @@ from flask_login import current_user
 from app.models import Document
 from app.models.document import PROCESSING_STATUS
 from app.models.world import World
-from app.services.entity_triple_service import EntityTripleService
+from app.services.entity.entity_triple_service import EntityTripleService
 from app import db
 
 logger = logging.getLogger(__name__)

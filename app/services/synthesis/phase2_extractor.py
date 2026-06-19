@@ -34,7 +34,7 @@ from app.services.question_analyzer import QuestionAnalyzer
 from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
 from app.services.case_analysis.transformation_classifier import TransformationClassifier
-from app.services.entity_grounding_service import EntityGroundingService
+from app.services.entity.entity_grounding_service import EntityGroundingService
 # Rich analysis is handled by CaseSynthesizer._run_rich_analysis()
 
 logger = logging.getLogger(__name__)

@@ -22,7 +22,7 @@ from app.services.question_analyzer import QuestionAnalyzer
 from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
 
-from app.services.entity_graph_service import (
+from app.services.entity.entity_graph_service import (
     build_entity_graph,
     build_qc_flow,
     extract_questions_conclusions,

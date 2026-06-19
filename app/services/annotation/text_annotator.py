@@ -73,7 +73,7 @@ class TextAnnotator:
         if label_index is not None:
             self._label_index = label_index
         else:
-            from app.services.unified_entity_resolver import UnifiedEntityResolver
+            from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
             resolver = UnifiedEntityResolver(case_id=case_id)
             self._label_index = resolver.get_label_index()
 

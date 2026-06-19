@@ -9,7 +9,7 @@ import os
 
 from flask import render_template, request, redirect, url_for, flash, current_app
 from app.models import Document, db, TemporaryRDFStorage
-from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 from app.utils.environment_auth import auth_optional
 
 logger = logging.getLogger(__name__)
@@ -299,7 +299,7 @@ def register_review_view_routes(bp):
             ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             # Entity change detection
-            from app.services.entity_change_detector import get_changed_entity_uris
+            from app.services.entity.entity_change_detector import get_changed_entity_uris
             changed_entity_uris = get_changed_entity_uris(case_id)
 
             return render_template(
@@ -408,7 +408,7 @@ def register_review_view_routes(bp):
             ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             # Entity change detection
-            from app.services.entity_change_detector import get_changed_entity_uris
+            from app.services.entity.entity_change_detector import get_changed_entity_uris
             changed_entity_uris = get_changed_entity_uris(case_id)
 
             # Return the entity review page for Pass 2

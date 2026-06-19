@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.services.pipeline_status_service import PipelineStatusService
-from app.services.unified_entity_resolver import get_unified_entity_lookup
+from app.services.entity.unified_entity_resolver import get_unified_entity_lookup
 
 from app.routes.scenario_pipeline.step4.config import STEP4_SECTION_TYPE
 

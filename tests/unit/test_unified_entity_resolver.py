@@ -18,7 +18,7 @@ class TestUnifiedEntityResolver:
 
     def test_case_entities_take_precedence(self):
         """Case entities override OntServe entities with same URI."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ontserve:
             with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
@@ -55,7 +55,7 @@ class TestUnifiedEntityResolver:
 
     def test_ontserve_only_when_no_case_match(self):
         """OntServe entities available when no case match exists."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ontserve:
             with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
@@ -81,7 +81,7 @@ class TestUnifiedEntityResolver:
 
     def test_label_index_case_insensitive(self):
         """Label index supports case-insensitive matching."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ontserve:
             with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
@@ -107,7 +107,7 @@ class TestUnifiedEntityResolver:
 
     def test_resolve_by_uri(self):
         """resolve() method works with URI."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ontserve:
             with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
@@ -131,7 +131,7 @@ class TestUnifiedEntityResolver:
 
     def test_resolve_by_label(self):
         """resolve() method works with label."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ontserve:
             with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
@@ -155,7 +155,7 @@ class TestUnifiedEntityResolver:
 
     def test_resolve_returns_none_for_unknown(self):
         """resolve() returns None for unknown entities."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ontserve:
             with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
@@ -169,9 +169,9 @@ class TestUnifiedEntityResolver:
 
     def test_convenience_function(self):
         """get_unified_entity_lookup() convenience function works."""
-        from app.services.unified_entity_resolver import get_unified_entity_lookup
+        from app.services.entity.unified_entity_resolver import get_unified_entity_lookup
 
-        with patch('app.services.unified_entity_resolver.UnifiedEntityResolver') as MockResolver:
+        with patch('app.services.entity.unified_entity_resolver.UnifiedEntityResolver') as MockResolver:
             mock_instance = MagicMock()
             mock_instance.get_lookup_dict.return_value = {'test': 'data'}
             MockResolver.return_value = mock_instance
@@ -187,8 +187,8 @@ class TestOntServeCache:
 
     def test_cache_used_on_second_call(self):
         """Second call uses cached OntServe entities."""
-        from app.services import unified_entity_resolver
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity import unified_entity_resolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         # Set up cache directly to test caching behavior
         unified_entity_resolver._ontserve_cache['entities'] = {
@@ -218,8 +218,8 @@ class TestOntServeCache:
 
     def test_clear_cache(self):
         """clear_ontserve_cache() clears the cache."""
-        from app.services import unified_entity_resolver
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity import unified_entity_resolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         # Set up fake cache
         unified_entity_resolver._ontserve_cache['entities'] = {'fake': 'data'}
@@ -237,34 +237,34 @@ class TestOntologyTargetDerivation:
 
     def test_case_ontology_uri(self):
         """Case ontology URIs produce proethica-case-N target."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         assert UnifiedEntityResolver._derive_ontology_target(
             'http://proethica.org/ontology/case/7#EngineerARole'
         ) == 'proethica-case-7'
 
     def test_intermediate_ontology_uri(self):
         """Intermediate ontology URIs produce proethica-intermediate target."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         assert UnifiedEntityResolver._derive_ontology_target(
             'http://proethica.org/ontology/intermediate#ProfessionalEngineer'
         ) == 'proethica-intermediate'
 
     def test_unknown_uri_returns_empty(self):
         """Unrecognized URIs return empty string."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         assert UnifiedEntityResolver._derive_ontology_target(
             'http://example.org/some/other/uri#Foo'
         ) == ''
 
     def test_empty_and_none(self):
         """Empty string and None return empty string."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         assert UnifiedEntityResolver._derive_ontology_target('') == ''
         assert UnifiedEntityResolver._derive_ontology_target(None) == ''
 
     def test_ontology_target_in_case_entities(self):
         """ontology_target propagates through _get_case_entities output."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities', return_value={}):
             with patch.object(UnifiedEntityResolver, '_get_case_entities') as mock_case:
@@ -287,7 +287,7 @@ class TestOntologyTargetDerivation:
 
     def test_ontology_target_in_ontserve_entities(self):
         """ontology_target is set to proethica-intermediate for OntServe entities."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         with patch.object(UnifiedEntityResolver, '_get_ontserve_entities') as mock_ont:
             mock_ont.return_value = {
@@ -311,7 +311,7 @@ class TestComputeOntservePath:
     """Tests for compute_ontserve_path URL construction."""
 
     def test_case_entity_path(self):
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         path = UnifiedEntityResolver.compute_ontserve_path(
             'http://proethica.org/ontology/case/7#EngineerARole',
             'proethica-case-7'
@@ -319,7 +319,7 @@ class TestComputeOntservePath:
         assert path == '/entity/proethica-case-7/EngineerARole'
 
     def test_intermediate_entity_path(self):
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         path = UnifiedEntityResolver.compute_ontserve_path(
             'http://proethica.org/ontology/intermediate#DutyOfCare',
             'proethica-intermediate'
@@ -327,23 +327,23 @@ class TestComputeOntservePath:
         assert path == '/entity/proethica-intermediate/DutyOfCare'
 
     def test_derives_target_when_none(self):
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         path = UnifiedEntityResolver.compute_ontserve_path(
             'http://proethica.org/ontology/case/7#EngineerARole'
         )
         assert path == '/entity/proethica-case-7/EngineerARole'
 
     def test_empty_uri_returns_empty(self):
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         assert UnifiedEntityResolver.compute_ontserve_path('') == ''
         assert UnifiedEntityResolver.compute_ontserve_path(None) == ''
 
     def test_uri_without_fragment_returns_empty(self):
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         assert UnifiedEntityResolver.compute_ontserve_path('http://example.org/no-fragment') == ''
 
     def test_unrecognized_uri_no_target_returns_empty(self):
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         assert UnifiedEntityResolver.compute_ontserve_path('http://example.org/other#Foo') == ''
 
 
@@ -352,7 +352,7 @@ class TestPassMapping:
 
     def test_pass_1_entities(self):
         """Pass 1 entities get source_pass=1."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         assert UnifiedEntityResolver.PASS_MAP['roles'] == 1
         assert UnifiedEntityResolver.PASS_MAP['states'] == 1
@@ -360,7 +360,7 @@ class TestPassMapping:
 
     def test_pass_2_entities(self):
         """Pass 2 entities get source_pass=2."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         assert UnifiedEntityResolver.PASS_MAP['principles'] == 2
         assert UnifiedEntityResolver.PASS_MAP['obligations'] == 2
@@ -369,14 +369,14 @@ class TestPassMapping:
 
     def test_pass_3_entities(self):
         """Pass 3 entities get source_pass=3."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         assert UnifiedEntityResolver.PASS_MAP['actions'] == 3
         assert UnifiedEntityResolver.PASS_MAP['events'] == 3
 
     def test_pass_4_entities(self):
         """Pass 4 entities get source_pass=4."""
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
 
         assert UnifiedEntityResolver.PASS_MAP['ethical_question'] == 4
         assert UnifiedEntityResolver.PASS_MAP['ethical_conclusion'] == 4

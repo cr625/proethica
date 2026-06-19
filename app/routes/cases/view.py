@@ -5,7 +5,7 @@ from flask import render_template, redirect, url_for, flash
 from app.utils.environment_auth import auth_optional
 from app.models import Document
 from app.models.world import World
-from app.services.entity_triple_service import EntityTripleService
+from app.services.entity.entity_triple_service import EntityTripleService
 from app.services.pipeline_status_service import PipelineStatusService
 from app import db
 
@@ -132,7 +132,7 @@ def register_view_routes(bp):
         entity_lookup_by_label = {}
         if entity_count > 0:
             try:
-                from app.services.unified_entity_resolver import UnifiedEntityResolver
+                from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
                 resolver = UnifiedEntityResolver(case_id=document.id)
                 entity_lookup = resolver.get_lookup_dict()
                 entity_lookup_by_label = resolver.get_label_index()

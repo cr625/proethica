@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 
 from app.models import db
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
-from app.services.entity_merge_service import EntityMergeService
+from app.services.entity.entity_merge_service import EntityMergeService
 
 logger = logging.getLogger(__name__)
 

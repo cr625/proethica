@@ -77,7 +77,7 @@ class CorrectionHandler:
             triples: New triples to update
         """
         try:
-            from app.services.entity_triple_service import EntityTripleService
+            from app.services.entity.entity_triple_service import EntityTripleService
             triple_service = EntityTripleService()
             
             # Get existing triples for the document

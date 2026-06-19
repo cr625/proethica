@@ -22,7 +22,7 @@ from sqlalchemy import and_  # noqa: F401
 from app import db
 from app.models.entity_triple import EntityTriple
 from app.models.guideline import Guideline
-from app.services.triple_duplicate_detection_service import (
+from app.services.entity.triple_duplicate_detection_service import (
     get_duplicate_detection_service,
 )
 

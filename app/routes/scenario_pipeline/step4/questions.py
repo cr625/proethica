@@ -18,7 +18,7 @@ from app.utils.environment_auth import auth_required_for_llm
 from app.routes.scenario_pipeline.step4.config import STEP4_DEFAULT_MODEL
 
 from app.services.question_analyzer import QuestionAnalyzer
-from app.services.entity_grounding_service import EntityGroundingService
+from app.services.entity.entity_grounding_service import EntityGroundingService
 
 logger = logging.getLogger(__name__)
 

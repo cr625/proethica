@@ -185,7 +185,7 @@ class TestReconcileNormalizeEquivalence:
     unchanged)."""
 
     def _migrated(self, label):
-        from app.services.entity_reconciliation_service import EntityReconciliationService
+        from app.services.entity.entity_reconciliation_service import EntityReconciliationService
         svc = object.__new__(EntityReconciliationService)
         return svc._normalize_label(label)
 

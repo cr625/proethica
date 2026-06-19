@@ -8,7 +8,7 @@ import logging
 
 from flask import request, jsonify, redirect, url_for, flash
 from app.models import Document, db, TemporaryRDFStorage
-from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 from app.models.temporary_concept import TemporaryConcept
 from app.utils.environment_auth import auth_required_for_write
 
