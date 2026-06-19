@@ -9,7 +9,7 @@ resolution (e.g. self._fetch_class_definitions, kept on the class) is preserved 
 import json
 import re
 from typing import Dict, List, Optional, Any
-from app.models import db, Document, TemporaryRDFStorage
+from app.models import Document, TemporaryRDFStorage
 from app.models.extraction_prompt import ExtractionPrompt
 from app.models.document_section import DocumentSection
 
