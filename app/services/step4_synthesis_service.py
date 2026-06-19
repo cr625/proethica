@@ -363,11 +363,11 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
     """
     Run provisions extraction - SAME code as step4_run_all.py.
     """
-    from app.services.nspe_references_parser import NSPEReferencesParser
-    from app.services.universal_provision_detector import UniversalProvisionDetector
-    from app.services.provision_grouper import ProvisionGrouper
-    from app.services.provision_group_validator import ProvisionGroupValidator
-    from app.services.code_provision_linker import CodeProvisionLinker
+    from app.services.provision.nspe_references_parser import NSPEReferencesParser
+    from app.services.provision.universal_provision_detector import UniversalProvisionDetector
+    from app.services.provision.provision_grouper import ProvisionGrouper
+    from app.services.provision.provision_group_validator import ProvisionGroupValidator
+    from app.services.provision.code_provision_linker import CodeProvisionLinker
 
     try:
         case = Document.query.get_or_404(case_id)

@@ -98,11 +98,11 @@ class Phase2ExtractionMixin:
         Returns:
             Tuple of (provisions, questions, conclusions, llm_traces)
         """
-        from app.services.nspe_references_parser import NSPEReferencesParser
-        from app.services.universal_provision_detector import UniversalProvisionDetector
-        from app.services.provision_grouper import ProvisionGrouper
-        from app.services.provision_group_validator import ProvisionGroupValidator
-        from app.services.code_provision_linker import CodeProvisionLinker
+        from app.services.provision.nspe_references_parser import NSPEReferencesParser
+        from app.services.provision.universal_provision_detector import UniversalProvisionDetector
+        from app.services.provision.provision_grouper import ProvisionGrouper
+        from app.services.provision.provision_group_validator import ProvisionGroupValidator
+        from app.services.provision.code_provision_linker import CodeProvisionLinker
         from app.services.question_analyzer import QuestionAnalyzer
         from app.services.conclusion_analyzer import ConclusionAnalyzer
         from app.services.question_conclusion_linker import QuestionConclusionLinker

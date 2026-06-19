@@ -355,11 +355,11 @@ STEP4_PHASES = {
     'provisions': {
         'name': 'Provisions',
         'description': 'NSPE code provision detection and entity linking',
-        'service_file': 'app/services/provision_group_validator.py',
+        'service_file': 'app/services/provision/provision_group_validator.py',
         'color': '#f97316',
         'prompts': [
             {'name': 'Provision Group Validator', 'method': '_create_validation_prompt'},
-            {'name': 'Code Provision Linker', 'method': '_create_linking_prompt', 'file': 'app/services/code_provision_linker.py'}
+            {'name': 'Code Provision Linker', 'method': '_create_linking_prompt', 'file': 'app/services/provision/code_provision_linker.py'}
         ]
     },
     'questions': {
