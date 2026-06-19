@@ -17,7 +17,6 @@ from typing import List, Optional
 
 from app.models import db, ExtractionPrompt
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
-from app.services.entity_merge_service import EntityMergeService
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +49,6 @@ def store_extraction_results(
     Returns:
         List of created/updated TemporaryRDFStorage objects
     """
-    merge_service = EntityMergeService()
-
     logger.info(f"store_extraction_results called for {extraction_type} case {case_id}")
     logger.info(
         f"RDF data: {len(rdf_data.get('new_classes', []))} classes, "

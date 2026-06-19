@@ -17,7 +17,6 @@ from app.services.section_embedding_service import SectionEmbeddingService
 from app.services.guideline_section_service import GuidelineSectionService 
 from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
 from app.services.structure_triple_formatter import StructureTripleFormatter
-from app.services.ontology_term_recognition_service import OntologyTermRecognitionService
 from datetime import datetime
 from app import db
 
@@ -726,62 +725,20 @@ def generate_term_links(id):
         else:
             abort(404)
     
-    try:
-        # Initialize the term recognition service
-        recognition_service = OntologyTermRecognitionService()
-        
-        if not recognition_service.ontology_terms:
-            error_msg = "Ontology terms not loaded. Cannot generate term links."
-            current_app.logger.error(error_msg)
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({
-                    'success': False,
-                    'message': error_msg
-                }), 500
-            else:
-                flash(error_msg, 'danger')
-                return redirect(url_for('doc_structure.view_structure', id=id))
-        
-        # Process the document
-        result = recognition_service.process_document_sections(id, force_regenerate=True)
-        
-        if result.get('success'):
-            success_message = f"Successfully generated {result.get('term_links_created')} term links across {result.get('sections_processed')} sections"
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({
-                    'success': True,
-                    'message': success_message,
-                    'term_links_created': result.get('term_links_created'),
-                    'sections_processed': result.get('sections_processed')
-                })
-            else:
-                flash(success_message, 'success')
-        else:
-            error_msg = result.get('error', 'Unknown error')
-            current_app.logger.error(f"Error generating term links: {error_msg}")
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({
-                    'success': False,
-                    'message': f"Error generating term links: {error_msg}"
-                }), 500
-            else:
-                flash(f"Error generating term links: {error_msg}", 'danger')
-    
-    except Exception as e:
-        current_app.logger.exception(f"Exception during term link generation: {str(e)}")
-        error_message = str(e)
-        
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                'success': False,
-                'message': error_message
-            }), 500
-        else:
-            flash(f"Error processing term links: {error_message}", 'danger')
-    
+    # Ontology term recognition moved to OntServe; the former local service was
+    # a stub with no loaded terms, so this route never produced links. Surface
+    # that cleanly instead of attempting the unavailable operation.
+    error_msg = "Ontology term recognition has moved to OntServe; term links are not generated here."
+    current_app.logger.info(error_msg)
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': False,
+            'message': error_msg
+        }), 500
+    else:
+        flash(error_msg, 'warning')
+
     # Add timestamp to prevent caching
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
 

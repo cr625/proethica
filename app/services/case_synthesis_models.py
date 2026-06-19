@@ -410,3 +410,61 @@ class SynthesisResult:
             'synthesis_timestamp': self.synthesis_timestamp.isoformat() if self.synthesis_timestamp else None,
             'extraction_session_id': self.extraction_session_id
         }
+
+
+# =============================================================================
+# ENTITY GRAPH (Step 4 Part C streaming synthesis)
+# =============================================================================
+
+@dataclass
+class EntityNode:
+    """Represents a single entity in the knowledge graph"""
+    entity_id: str
+    entity_type: str  # roles, states, resources, etc.
+    label: str
+    definition: str
+    section_type: str  # facts, discussion, questions, conclusions
+    extraction_session_id: str
+    rdf_json_ld: Dict
+
+    # Graph relationships
+    related_entities: List[str] = field(default_factory=list)
+    causal_links: List[str] = field(default_factory=list)
+    normative_links: List[str] = field(default_factory=list)
+    temporal_links: List[str] = field(default_factory=list)
+
+
+@dataclass
+class EntityGraph:
+    """Complete knowledge graph of all case entities"""
+    nodes: Dict[str, EntityNode]  # entity_id -> EntityNode
+
+    # Index by type for fast lookup
+    by_type: Dict[str, List[str]] = field(default_factory=dict)
+
+    # Index by section for cross-section analysis
+    by_section: Dict[str, List[str]] = field(default_factory=dict)
+
+    def add_node(self, node: EntityNode):
+        """Add node to graph with indexing"""
+        self.nodes[node.entity_id] = node
+
+        # Index by type
+        if node.entity_type not in self.by_type:
+            self.by_type[node.entity_type] = []
+        self.by_type[node.entity_type].append(node.entity_id)
+
+        # Index by section
+        if node.section_type not in self.by_section:
+            self.by_section[node.section_type] = []
+        self.by_section[node.section_type].append(node.entity_id)
+
+    def get_nodes_by_type(self, entity_type: str) -> List[EntityNode]:
+        """Get all nodes of a specific type"""
+        entity_ids = self.by_type.get(entity_type, [])
+        return [self.nodes[eid] for eid in entity_ids]
+
+    def get_nodes_by_section(self, section_type: str) -> List[EntityNode]:
+        """Get all nodes from a specific section"""
+        entity_ids = self.by_section.get(section_type, [])
+        return [self.nodes[eid] for eid in entity_ids]

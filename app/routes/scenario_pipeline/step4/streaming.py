@@ -29,7 +29,6 @@ from app.services.code_provision_linker import CodeProvisionLinker
 from app.services.question_analyzer import QuestionAnalyzer
 from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
-from app.services.case_synthesis_service import CaseSynthesisService
 
 logger = logging.getLogger(__name__)
 
@@ -309,12 +308,8 @@ def synthesize_case_streaming(case_id):
                     'messages': ['Part C: Performing whole-case synthesis...']
                 })
                 
-                # NOTE: CaseSynthesisService uses pre-loaded entities from closure
-                # It doesn't make new database queries
-                synthesis_service = CaseSynthesisService(llm_client)
-                
                 # Build entity graph (uses pre-loaded all_entities)
-                from app.services.case_synthesis_service import EntityGraph, EntityNode
+                from app.services.case_synthesis_models import EntityGraph, EntityNode
                 entity_graph = EntityGraph(nodes={})
                 
                 # Pre-loaded entities are already in memory, just structure them

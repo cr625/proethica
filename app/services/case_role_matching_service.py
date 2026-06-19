@@ -21,7 +21,6 @@ from app.services.llm.manager import LLMManager
 from app.services.embedding_service import EmbeddingService
 from app.models.world import World
 from app.services.role_description_service import RoleDescriptionService
-from app.services.ontology_entity_service import OntologyEntityService
 from app.utils.label_normalization import normalize_role_label
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,6 @@ class CaseRoleMatchingService:
         self.llm_manager = LLMManager()
         self.embedding = EmbeddingService.get_instance()
         self.role_desc = RoleDescriptionService()
-        self.ontology_service = OntologyEntityService.get_instance()
         # Semantic similarity threshold and number of candidates
         self.confidence_threshold = 0.4
         self.top_k_candidates = 3
@@ -68,7 +66,8 @@ class CaseRoleMatchingService:
         # If a world is provided, prefer aggregating roles across base and derived ontologies
         if world is not None:
             try:
-                entities = self.ontology_service.get_entities_for_world(world)
+                # World-entity aggregation moved to OntServe; no local entities.
+                entities = []
                 if entities and isinstance(entities, dict) and 'entities' in entities:
                     aggregated = entities['entities'].get('role', [])
                 elif isinstance(entities, list):

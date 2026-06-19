@@ -268,3 +268,54 @@ class DocumentAnnotationService:
             return f"/cases/{document_id}/annotations"
         else:
             return "#"
+
+    @staticmethod
+    def get_annotation_summary(document_type: str, document_id: int) -> Dict[str, Any]:
+        """Get a summary of annotations for a document.
+
+        Moved from the retired DocumentAnnotationPipeline (the LLM
+        annotate_document generator was dead; this summary was its only
+        live entry point).
+        """
+        annotations = DocumentConceptAnnotation.get_annotations_for_document(
+            document_type, document_id
+        )
+
+        if not annotations:
+            return {
+                'total_annotations': 0,
+                'by_ontology': {},
+                'by_confidence': {'high': 0, 'medium': 0, 'low': 0},
+                'by_status': {'pending': 0, 'approved': 0, 'rejected': 0}
+            }
+
+        # Group by ontology
+        by_ontology = {}
+        for ann in annotations:
+            if ann.ontology_name not in by_ontology:
+                by_ontology[ann.ontology_name] = 0
+            by_ontology[ann.ontology_name] += 1
+
+        # Group by confidence level
+        by_confidence = {'high': 0, 'medium': 0, 'low': 0}
+        for ann in annotations:
+            level = ann.get_confidence_level()
+            if level == 'high':
+                by_confidence['high'] += 1
+            elif level == 'medium':
+                by_confidence['medium'] += 1
+            else:
+                by_confidence['low'] += 1
+
+        # Group by validation status
+        by_status = {'pending': 0, 'approved': 0, 'rejected': 0}
+        for ann in annotations:
+            by_status[ann.validation_status] += 1
+
+        return {
+            'total_annotations': len(annotations),
+            'by_ontology': by_ontology,
+            'by_confidence': by_confidence,
+            'by_status': by_status,
+            'created_at': max(ann.created_at for ann in annotations).isoformat()
+        }

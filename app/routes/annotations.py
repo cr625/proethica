@@ -7,7 +7,7 @@ from app.models.guideline import Guideline
 from app.models import Document
 from app.models.document_concept_annotation import DocumentConceptAnnotation
 from app.models.world import World
-from app.services.document_annotation_pipeline import DocumentAnnotationPipeline
+from app.services.document_annotation_service import DocumentAnnotationService
 from app.services.simple_annotation_service import SimpleAnnotationService
 from app.services.ontserve_annotation_service import OntServeAnnotationService
 import logging
@@ -200,10 +200,9 @@ def get_annotation_summary(document_type, document_id):
         if document_type not in ['guideline', 'case']:
             return jsonify({'error': 'Invalid document type'}), 400
         
-        # Get summary using pipeline service
-        pipeline = DocumentAnnotationPipeline()
-        summary = pipeline.get_annotation_summary(document_type, document_id)
-        
+        # Get summary using the annotation service
+        summary = DocumentAnnotationService.get_annotation_summary(document_type, document_id)
+
         return jsonify(summary)
         
     except Exception as e:

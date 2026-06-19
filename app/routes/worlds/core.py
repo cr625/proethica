@@ -18,7 +18,6 @@ from app.models.ontology import Ontology
 from app.models import Document
 from app.services.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
-from app.services.ontology_entity_service import OntologyEntityService
 
 from app.routes.worlds.helpers import _get_dynamic_entity_type_config
 
@@ -27,7 +26,6 @@ logger = logging.getLogger(__name__)
 # Get singleton instances
 mcp_client = MCPClient.get_instance()
 task_queue = BackgroundTaskQueue.get_instance()
-ontology_entity_service = OntologyEntityService.get_instance()
 
 
 def register_core_routes(bp):
@@ -152,8 +150,9 @@ def register_core_routes(bp):
             ontology = Ontology.query.get(world.ontology_id)
 
             try:
-                # Get entities using our direct service
-                entities = ontology_entity_service.get_entities_for_world(world)
+                # World-entity listing moved to OntServe; the former local
+                # service returned no entities, so this view shows none.
+                entities = []
 
                 # Optionally check ontology status from MCP if we have an ontology source
                 if world.ontology_source:

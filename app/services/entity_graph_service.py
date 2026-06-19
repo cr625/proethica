@@ -21,7 +21,6 @@ from app.utils.llm_utils import get_llm_client
 from app.services.question_analyzer import QuestionAnalyzer
 from app.services.conclusion_analyzer import ConclusionAnalyzer
 from app.services.question_conclusion_linker import QuestionConclusionLinker
-from app.services.case_synthesis_service import CaseSynthesisService
 
 logger = logging.getLogger(__name__)
 

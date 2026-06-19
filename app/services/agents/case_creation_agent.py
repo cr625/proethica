@@ -9,7 +9,6 @@ to help users develop comprehensive engineering ethics cases.
 from typing import Dict, List, Any, Optional
 import logging
 from .base_agent import BaseAgent
-from app.services.ontology_entity_service import OntologyEntityService
 from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,6 @@ class CaseCreationAgent(BaseAgent):
     def __init__(self, world_id: Optional[int] = None):
         """Initialize the Case Creation Agent."""
         super().__init__("CaseCreationAgent", world_id)
-        self.ontology_service = OntologyEntityService.get_instance()
         self.llm_service = LLMService()
         self.selected_categories = []
         self.selected_concepts = {}
@@ -116,9 +114,9 @@ class CaseCreationAgent(BaseAgent):
         }
         
         if world:
-            # Get entities for the selected categories
-            entities = self.ontology_service.get_entities_for_world(world)
-            
+            # World-entity listing moved to OntServe; no local entities.
+            entities = {}
+
             for category in self.selected_categories:
                 if category in entities.get("entities", {}):
                     context["available_entities"][category] = entities["entities"][category]
@@ -292,7 +290,8 @@ Provide specific, actionable guidance for developing this case. Be concrete abou
                 from app.models.world import World
                 world = World.query.get(world_id)
                 if world:
-                    entities = self.ontology_service.get_entities_for_world(world)
+                    # World-entity listing moved to OntServe; no local entities.
+                    entities = {}
                     return entities.get("entities", {}).get(category, [])
             
             return []

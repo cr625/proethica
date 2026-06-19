@@ -15,7 +15,6 @@ from app.models.resource import Resource
 from app.models.event import Event, Action
 from app.models import Document
 from app.services.case_role_matching_service import CaseRoleMatchingService
-from app.services.ontology_entity_service import OntologyEntityService
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +141,7 @@ class EnhancedScenarioModelGenerator:
         
     # Initialize role matching service and get ontology roles
         role_matcher = CaseRoleMatchingService()
-        ontology_service = OntologyEntityService.get_instance()
-        
+
         # Get the world from scenario to load ontology roles
         scenario = db.session.get(Scenario, scenario_id)
         role_matches_by_index = {}
@@ -155,7 +153,8 @@ class EnhancedScenarioModelGenerator:
             if world:
                 # Get roles for this specific world only (not across worlds)
                 try:
-                    entities_result = ontology_service.get_entities_for_world(world)
+                    # World-entity listing moved to OntServe; no local entities.
+                    entities_result = []
                     if isinstance(entities_result, dict) and 'entities' in entities_result:
                         ontology_roles = entities_result['entities'].get('role', [])
                     elif isinstance(entities_result, list):

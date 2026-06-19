@@ -197,29 +197,10 @@ def register_guideline_routes(bp):
             elif 'concepts_extracted' in guideline.guideline_metadata:
                 concept_count = guideline.guideline_metadata['concepts_extracted']
 
-        # Check for pending concept extractions in temporary storage
+        # Pending-concept temporary storage panel was retired with the
+        # extraction stack that wrote it (TemporaryConceptService had no live
+        # writer); the template no longer renders this region.
         pending_extraction = {'has_pending': False, 'session_id': None, 'concept_count': 0, 'extraction_date': None}
-        try:
-            from app.services.temporary_concept_service import TemporaryConceptService
-            session_id = TemporaryConceptService.get_latest_session_for_document(
-                document_id=document_id,
-                world_id=id
-            )
-
-            if session_id:
-                # Get concepts from any status (pending, reviewed, etc.)
-                temp_concepts = TemporaryConceptService.get_session_concepts(session_id)
-                if temp_concepts:
-                    pending_extraction = {
-                        'has_pending': True,
-                        'session_id': session_id,
-                        'concept_count': len(temp_concepts),
-                        'extraction_date': temp_concepts[0].extraction_timestamp.strftime('%Y-%m-%d %H:%M') if temp_concepts[0].extraction_timestamp else None,
-                        'status': temp_concepts[0].status
-                    }
-                    logger.info(f"Found {len(temp_concepts)} temporary concepts for document {document_id}")
-        except Exception as e:
-            logger.warning(f"Could not check temporary concepts: {str(e)}")
 
         # Check if concepts have been saved to ontology from metadata
         concepts_saved_to_ontology = False

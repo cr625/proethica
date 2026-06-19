@@ -5,10 +5,9 @@ Bridges the gap between extracted guideline concepts and ontology entities.
 This service takes concepts that have been extracted and saved as EntityTriples
 and promotes them to actual entities in the engineering-ethics ontology.
 
-Uses existing infrastructure:
-- EntityService.create_entity() for ontology modification
-- Automatic versioning via OntologyVersion
-- Existing duplicate detection and validation
+Entity creation and listing moved to OntServe; the former local EntityService
+was a stub that always failed, so the promote-to-ontology path here records an
+error per concept (no entities are written from ProEthica).
 """
 
 import logging
@@ -21,7 +20,6 @@ from app.models.ontology import Ontology
 from app.models.ontology_import import OntologyImport
 from app.models.entity_triple import EntityTriple
 from app.models.guideline import Guideline
-from app.services.entity_service import EntityService
 from datetime import datetime
 from app.utils.label_normalization import ensure_role_suffix, normalize_role_label, make_role_uri_fragment
 
@@ -191,12 +189,12 @@ class GuidelineConceptIntegrationService:
                     if concept_type == 'role':
                         payload['id_fragment'] = make_role_uri_fragment(concept_label)
 
-                    success, result = EntityService.create_entity(
-                        ontology_id=derived_ontology.id,
-                        entity_type=concept_type,
-                        data=payload
-                    )
-                    
+                    # Entity creation moved to OntServe; no local write path.
+                    success, result = (False, {
+                        'error': 'Entity creation has moved to OntServe; '
+                                 'concepts are not written to the ontology from ProEthica.'
+                    })
+
                     if success:
                         logger.info(f"Successfully created entity: {concept_label}")
                         results.append({
@@ -386,9 +384,9 @@ class GuidelineConceptIntegrationService:
             List of existing entity labels
         """
         try:
-            # Use EntityService to get existing entities
-            entities = EntityService.get_entities(ontology_id)
-            
+            # Entity listing moved to OntServe; no local entities to dedupe against.
+            entities = {}
+
             # Extract labels from all entity types
             labels = []
             for entity_type, entity_list in entities.items():

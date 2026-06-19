@@ -12,7 +12,6 @@ from typing import Dict, Optional
 
 from app.models.world import World
 from app.services.llm.manager import LLMManager
-from app.services.ontology_entity_service import OntologyEntityService
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,6 @@ class RoleDescriptionService:
 
     def __init__(self):
         self.llm = LLMManager()
-        self.ontology_service = OntologyEntityService.get_instance()
 
     def generate(self, role_label: str, world: Optional[World] = None) -> Dict:
         """Generate a standardized description for a role.
@@ -45,7 +43,8 @@ class RoleDescriptionService:
         parent_suggestion = self._heuristic_parent(role_label)
         try:
             if world:
-                entities = self.ontology_service.get_entities_for_world(world)
+                # World-entity hints moved to OntServe; no local entities.
+                entities = {}
                 roles = entities.get("entities", {}).get("roles", []) or entities.get("entities", {}).get("role", [])
                 # Use role labels to give LLM context of nearby concepts
                 nearby = sorted({r.get('label') for r in roles if r.get('label')})
