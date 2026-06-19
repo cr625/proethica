@@ -6,8 +6,9 @@ All ontology calls silently fell back to mock data. This slim replacement
 preserves the same public API (21 consumer files import it) while removing
 600+ lines of dead REST/mock code.
 
-Active MCP communication uses ExternalMCPClient and OntServeMCPClient,
-which speak the correct MCP Streamable HTTP protocol (JSON-RPC over SSE).
+Active MCP communication uses ExternalMCPClient (over the shared
+mcp_transport singleton), which speaks the correct MCP Streamable HTTP
+protocol (JSON-RPC over SSE).
 """
 
 import logging

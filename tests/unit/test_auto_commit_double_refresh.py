@@ -135,7 +135,7 @@ class TestDoubleRefreshFix:
 
 
 class TestMCPClientSharedTransport:
-    """Test that ExternalMCPClient and OntServeMCPClient share transport singleton."""
+    """Test that ExternalMCPClient shares the transport singleton."""
 
     def test_external_client_uses_singleton(self):
         """ExternalMCPClient without custom URL uses shared transport."""
@@ -160,26 +160,3 @@ class TestMCPClientSharedTransport:
                 client = ExternalMCPClient(server_url="http://custom:9000")
                 mock_get.assert_not_called()
                 mock_cls.assert_called_once_with(base_url="http://custom:9000")
-
-    def test_ontserve_client_uses_singleton(self):
-        """OntServeMCPClient without custom URL uses shared transport."""
-        from app.services.mcp_transport import MCPTransport
-        with patch('app.services.ontserve_mcp_client.get_mcp_transport') as mock_get:
-            mock_transport = MagicMock(spec=MCPTransport)
-            mock_transport.base_url = "http://localhost:8082"
-            mock_get.return_value = mock_transport
-
-            from app.services.ontserve_mcp_client import OntServeMCPClient
-            client = OntServeMCPClient()
-            assert client._transport is mock_transport
-            assert client.mcp_url == "http://localhost:8082"
-
-    def test_ontserve_client_custom_url_creates_new(self):
-        """OntServeMCPClient with custom URL creates its own transport."""
-        with patch('app.services.ontserve_mcp_client.get_mcp_transport') as mock_get:
-            with patch('app.services.ontserve_mcp_client.MCPTransport') as mock_cls:
-                mock_cls.return_value = MagicMock(base_url="http://custom:9000")
-                from app.services.ontserve_mcp_client import OntServeMCPClient
-                client = OntServeMCPClient(mcp_url="http://custom:9000")
-                mock_get.assert_not_called()
-                mock_cls.assert_called_once_with(base_url="http://custom:9000", timeout=30)

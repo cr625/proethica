@@ -663,58 +663,6 @@ def test_example(example_id):
         }), 500
 
 
-@prompt_builder_bp.route('/api/examples/statistics')
-@login_required
-def get_examples_statistics():
-    """
-    Get comprehensive statistics about LangExtract examples usage.
-    """
-    try:
-        # Import here to avoid circular imports
-        from ..services.database_langextract_service import DatabaseLangExtractService
-        
-        service = DatabaseLangExtractService()
-        stats = service.get_example_statistics()
-        
-        return jsonify({
-            'success': True,
-            'statistics': stats
-        })
-    
-    except Exception as e:
-        logger.error(f"Error getting example statistics: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@prompt_builder_bp.route('/api/examples/coverage')
-@login_required
-def get_examples_coverage():
-    """
-    Get coverage validation report for LangExtract examples.
-    """
-    try:
-        # Import here to avoid circular imports
-        from ..services.database_langextract_service import DatabaseLangExtractService
-        
-        service = DatabaseLangExtractService()
-        coverage = service.validate_example_coverage()
-        
-        return jsonify({
-            'success': True,
-            'coverage': coverage
-        })
-    
-    except Exception as e:
-        logger.error(f"Error getting example coverage: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
 @prompt_builder_bp.route('/registry')
 @login_required
 def registry():

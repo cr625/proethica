@@ -115,23 +115,3 @@ class LangChainClaudeService:
             logger.info("Using mock response instead of running chain with Claude")
             input_summary = ", ".join([f"{k}: {str(v)[:50]}..." for k, v in kwargs.items()])
             return f"This is a mock response.\n\nRequest parameters: {input_summary}\n\nMock responses are being used because USE_CLAUDE is set to false in the environment configuration."
-    
-    def get_guidelines_for_world(self, world_id: Optional[int] = None) -> str:
-        """
-        Get guidelines for a specific world.
-        This reuses the same method from ClaudeService to maintain consistency.
-        
-        Args:
-            world_id: ID of the world (optional)
-            
-        Returns:
-            String containing the guidelines
-        """
-        # Import here to avoid circular imports
-        from app.services.claude_service import ClaudeService
-        try:
-            claude_service = ClaudeService()
-            return claude_service.get_guidelines_for_world(world_id=world_id)
-        except Exception as e:
-            logger.error(f"Error getting guidelines: {str(e)}")
-            return "No specific guidelines available."
