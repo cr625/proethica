@@ -24,11 +24,18 @@ C = TypeVar("C")  # the per-item context a RuleSet's rules inspect
 
 @dataclass(frozen=True)
 class Rule(Generic[C]):
-    """A named text-pattern check. ``test(context)`` returns True when the rule MATCHES
-    (i.e. the item should be dropped/flagged)."""
+    """A named text-pattern check. ``test(context)`` returns True when the rule MATCHES.
+
+    Depending on how the RuleSet is consumed, a match means different things:
+    - drop/keep (``partition``): a match means "drop this item",
+    - classify (``classify``): a match yields this rule's ``payload`` (e.g. a category),
+    - score (``collect``): every matching rule contributes its ``payload`` (e.g. a (weight,
+      feedback) penalty).
+    ``payload`` is the value a match carries; leave it None for plain drop/keep rules."""
     name: str
     description: str
     test: Callable[[C], bool]
+    payload: Any = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,19 @@ class RuleSet(Generic[C]):
 
     def matches(self, context: C) -> bool:
         return self.evaluate(context) is not None
+
+    def classify(self, context: C, default: Any = None) -> Any:
+        """The payload of the first matching rule, or ``default`` if none match. For a
+        classifying rule set (each rule's payload is the category/label it assigns)."""
+        for rule in self.rules:
+            if rule.test(context):
+                return rule.payload
+        return default
+
+    def collect(self, context: C) -> List[Rule[C]]:
+        """Every rule that matches (read ``.payload`` off each). For a scoring rule set where
+        all matching rules contribute, e.g. summing penalty weights and gathering feedback."""
+        return [rule for rule in self.rules if rule.test(context)]
 
     def partition(
         self,

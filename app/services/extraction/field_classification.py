@@ -36,6 +36,8 @@ import re
 from enum import Enum
 from typing import Dict, Iterable, List
 
+from app.services.extraction.rules import Rule, RuleSet
+
 
 class FieldKind(str, Enum):
     RELATION = "relation"
@@ -142,33 +144,38 @@ def _normalize(predicate: str) -> str:
     return local
 
 
+# The classification as a coherent, inspectable rule set over the bare local name (see
+# app.services.extraction.rules). Order IS the precedence: PROVENANCE > ASSESSMENT > DERIVED
+# > RELATION, with the demoted "<relation>Text" rule first (a literal shadow of an object
+# property is content, not the relation it mirrors). CONTENT is the default when none match.
+FIELD_RULES: RuleSet[str] = RuleSet("field_classification", [
+    Rule("demoted_text",
+         "a '<relation>Text' literal shadows its object property and is kept content",
+         lambda local: local.endswith("Text") and local[: -len("Text")] in _RELATION,
+         payload=FieldKind.CONTENT),
+    Rule("provenance", "extraction bookkeeping / XAI annotation",
+         lambda local: local in _PROVENANCE, payload=FieldKind.PROVENANCE),
+    Rule("assessment", "an LLM judgment (boolean / score / category)",
+         lambda local: local in _ASSESSMENT, payload=FieldKind.ASSESSMENT),
+    Rule("derived", "mechanically reconstructable from the graph",
+         lambda local: local in _DERIVED, payload=FieldKind.DERIVED),
+    Rule("relation", "a relationship to another individual (object-property edge)",
+         lambda local: local in _RELATION, payload=FieldKind.RELATION),
+])
+
+
 def classify(predicate: str) -> FieldKind:
     """Classify a predicate (JSON-LD key, prefixed name, or IRI) into a FieldKind.
 
     Precedence: PROVENANCE > ASSESSMENT > DERIVED > RELATION > CONTENT (default). A
     ``...Text`` datatype sibling of an object property (the commit-time demotion of a
     literal placed on an object property, e.g. ``fulfillsObligationText``) is the raw-text
-    literal form and classifies as CONTENT, not as the RELATION it shadows.
-    """
+    literal form and classifies as CONTENT, not as the RELATION it shadows. Backed by
+    FIELD_RULES so the vocabulary is one inspectable registry."""
     local = _normalize(predicate)
     if not local:
         return FieldKind.CONTENT
-
-    # A demoted "<relation>Text" literal is content, not the relation it mirrors.
-    if local.endswith("Text"):
-        base = local[: -len("Text")]
-        if base in _RELATION:
-            return FieldKind.CONTENT
-
-    if local in _PROVENANCE:
-        return FieldKind.PROVENANCE
-    if local in _ASSESSMENT:
-        return FieldKind.ASSESSMENT
-    if local in _DERIVED:
-        return FieldKind.DERIVED
-    if local in _RELATION:
-        return FieldKind.RELATION
-    return FieldKind.CONTENT
+    return FIELD_RULES.classify(local, default=FieldKind.CONTENT)
 
 
 def is_synthesis_literal(predicate: str) -> bool:
