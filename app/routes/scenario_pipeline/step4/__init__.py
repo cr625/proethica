@@ -36,7 +36,6 @@ from app.routes.scenario_pipeline.step4.entity_mgmt import register_entity_mgmt_
 from app.routes.scenario_pipeline.step4.provisions import register_provision_routes  # noqa: E402
 from app.routes.scenario_pipeline.step4.precedents import register_precedent_routes  # noqa: E402
 from app.routes.scenario_pipeline.step4.qc_extraction import register_qc_routes  # noqa: E402
-from app.routes.scenario_pipeline.step4.decision_legacy import register_decision_legacy_routes  # noqa: E402
 from app.routes.scenario_pipeline.step4.entity_analysis import register_entity_analysis_routes  # noqa: E402
 from app.routes.scenario_pipeline.step4.synthesis import register_synthesis_routes  # noqa: E402
 
@@ -45,7 +44,6 @@ register_entity_mgmt_routes(bp)
 register_provision_routes(bp)
 register_precedent_routes(bp)
 register_qc_routes(bp)
-register_decision_legacy_routes(bp)
 register_entity_analysis_routes(bp)
 register_synthesis_routes(bp)
 

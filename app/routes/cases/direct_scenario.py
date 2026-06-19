@@ -6,80 +6,12 @@ from sqlalchemy import text
 from sqlalchemy.orm.attributes import flag_modified
 from app.utils.environment_auth import auth_optional, auth_required_for_write
 from app.models import Document
-from app.services.scenario_pipeline.scenario_generation_phase_a import DirectScenarioPipelineService
 from app import db
 
 logger = logging.getLogger(__name__)
 
 
 def register_direct_scenario_routes(bp):
-
-    @bp.route('/<int:case_id>/direct_scenario', methods=['POST'])
-    def generate_direct_scenario(case_id):
-        """Generate enhanced scenario with LLM-mediated temporal reasoning and ontology integration."""
-        try:
-            case = Document.query.get_or_404(case_id)
-            overwrite = (request.args.get('overwrite', 'false').lower() == 'true')
-
-            pipeline = DirectScenarioPipelineService()
-
-            logger.info(f"Scenario generation for case {case_id}:")
-            logger.info(f"  Enhanced enabled: {pipeline.enhanced_enabled}")
-            logger.info(f"  LLM temporal enabled: {getattr(pipeline, 'llm_temporal_enabled', False)}")
-            logger.info(f"  Enhanced service available: {getattr(pipeline, 'enhanced_service', None) is not None}")
-
-            data = pipeline.generate(case, overwrite=True)
-
-            if data is None:
-                logger.error(f"Pipeline generate returned None for case {case_id}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Scenario generation failed - pipeline returned no data'
-                }), 500
-
-            if not isinstance(data, dict):
-                logger.error(f"Pipeline generate returned invalid data type: {type(data)}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Scenario generation failed - invalid data structure returned'
-                }), 500
-
-            if 'stats' not in data:
-                logger.error(f"Pipeline data missing 'stats' field for case {case_id}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Scenario generation failed - incomplete data structure'
-                }), 500
-
-            include_events = request.args.get('include_events', 'true').lower() != 'false'
-            payload = {
-                'success': True,
-                'case_id': case_id,
-                'version_number': data.get('version_number'),
-                'stats': data.get('stats'),
-                'event_count': data.get('stats', {}).get('event_count', 0),
-                'decision_count': data.get('stats', {}).get('decision_count', 0)
-            }
-            if include_events:
-                if request.args.get('trim'):
-                    trimmed = []
-                    for ev in data['events']:
-                        trimmed.append({
-                            'id': ev.get('id'),
-                            'kind': ev.get('kind'),
-                            'section': ev.get('section'),
-                            'text': (ev.get('text', '')[:160] + ('\u2026' if len(ev.get('text', '')) > 160 else '')),
-                            'options': ev.get('options') and [o.get('label') for o in ev['options']],
-                            'refined': ev.get('refined')
-                        })
-                    payload['events'] = trimmed
-                    payload['trimmed'] = True
-                else:
-                    payload['events'] = data['events']
-            return jsonify(payload)
-        except Exception as e:
-            logger.error(f"Direct scenario generation failed for case {case_id}: {str(e)}", exc_info=True)
-            return jsonify({'success': False, 'error': str(e)}), 500
 
     @bp.route('/<int:case_id>/scenario', methods=['GET'])
     @auth_optional

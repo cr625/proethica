@@ -151,7 +151,6 @@ def create_app(config_name=None):
     from app.routes.admin import admin_bp
     from app.routes.prompt_builder import prompt_builder_bp
     from app.routes.annotations import annotations_bp
-    from app.routes.agent import agent_bp
     # Unified document annotation API routes
     from app.routes.api_document_annotations import bp as api_document_annotations_bp
     # Reasoning inspector routes
@@ -195,7 +194,6 @@ def create_app(config_name=None):
     app.register_blueprint(admin_bp)
     app.register_blueprint(prompt_builder_bp)
     app.register_blueprint(annotations_bp)
-    app.register_blueprint(agent_bp)  # Register the agent blueprint
     app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
     app.register_blueprint(reasoning_bp)  # Register reasoning inspector routes
     app.register_blueprint(provenance_bp)  # Register PROV-O provenance viewer routes

@@ -34,7 +34,6 @@ def init_cases_csrf_exemption(app):
     """Exempt specific case routes from CSRF protection."""
     if hasattr(app, 'csrf') and app.csrf:
         for view_name in [
-            'cases.generate_direct_scenario',
             'cases.clear_scenario',
             'cases.generate_case_embeddings',
         ]:

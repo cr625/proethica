@@ -1,5 +1,4 @@
 # Import blueprints to make them available when importing from app.routes
-from app.routes.agent import agent_bp
 from app.routes.auth import auth_bp
 from app.routes.worlds import worlds_bp
 from app.routes.documents import documents_bp
