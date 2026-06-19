@@ -10,7 +10,10 @@ These tests are hermetic: ``TemporaryRDFStorage`` is monkeypatched so the parsin
 and append logic are exercised without DB state or an LLM call.
 """
 
-import app.services.decision_point_synthesizer as dps
+# Patch the submodule where TemporaryRDFStorage is actually resolved: after the
+# package split, the class's code lives in `.synthesizer`, so monkeypatching the
+# package `__init__` would not intercept the name.
+import app.services.decision_point_synthesizer.synthesizer as dps
 from app.services.decision_point_synthesizer import DecisionPointSynthesizer
 
 
