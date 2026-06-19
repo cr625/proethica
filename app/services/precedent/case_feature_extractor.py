@@ -24,7 +24,7 @@ from app import db
 from app.models import Document
 from app.models.document_section import DocumentSection
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
-from app.services.embedding_service import EmbeddingService
+from app.services.embedding.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
 

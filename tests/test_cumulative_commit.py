@@ -7,7 +7,7 @@ This demonstrates that new classes are added without removing existing ones.
 
 from app import create_app, db
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
-from app.services.ontserve_commit_service import OntServeCommitService
+from app.services.commit.ontserve_commit_service import OntServeCommitService
 from datetime import datetime
 import json
 

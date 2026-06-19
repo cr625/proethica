@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.services.llm.manager import LLMManager
-from app.services.firac_analysis_service import FIRACCaseAnalysis
+from app.services.step4_synthesis.firac_analysis_service import FIRACCaseAnalysis
 
 
 @dataclass

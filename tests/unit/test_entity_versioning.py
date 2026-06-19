@@ -277,10 +277,10 @@ class TestPublishedEntityFields:
 class TestEntityChangeDetector:
     """Test entity change detection logic."""
 
-    @patch('app.services.entity_change_detector.psycopg2')
+    @patch('app.services.entity.entity_change_detector.psycopg2')
     def test_detects_changed_entity(self, mock_psycopg2, case_with_entities):
         """Entity with different hash in OntServe is detected as changed."""
-        from app.services.entity_change_detector import detect_changed_entities
+        from app.services.entity.entity_change_detector import detect_changed_entities
 
         cls = case_with_entities['published_class']
         indiv = case_with_entities['published_indiv']
@@ -305,10 +305,10 @@ class TestEntityChangeDetector:
         assert changed[cls.entity_uri]['current_hash'] == new_hash
         assert indiv.entity_uri not in changed
 
-    @patch('app.services.entity_change_detector.psycopg2')
+    @patch('app.services.entity.entity_change_detector.psycopg2')
     def test_no_changes_when_hashes_match(self, mock_psycopg2, case_with_entities):
         """No changes detected when all hashes match."""
-        from app.services.entity_change_detector import detect_changed_entities
+        from app.services.entity.entity_change_detector import detect_changed_entities
 
         cls = case_with_entities['published_class']
         indiv = case_with_entities['published_indiv']
@@ -327,10 +327,10 @@ class TestEntityChangeDetector:
         changed = detect_changed_entities(case_id)
         assert len(changed) == 0
 
-    @patch('app.services.entity_change_detector.psycopg2')
+    @patch('app.services.entity.entity_change_detector.psycopg2')
     def test_missing_ontserve_entities_excluded(self, mock_psycopg2, case_with_entities):
         """Entities not found in OntServe are not reported as changed."""
-        from app.services.entity_change_detector import detect_changed_entities
+        from app.services.entity.entity_change_detector import detect_changed_entities
 
         case_id = case_with_entities['case'].id
 
@@ -345,10 +345,10 @@ class TestEntityChangeDetector:
         changed = detect_changed_entities(case_id)
         assert len(changed) == 0
 
-    @patch('app.services.entity_change_detector.psycopg2')
+    @patch('app.services.entity.entity_change_detector.psycopg2')
     def test_db_connection_failure_returns_empty(self, mock_psycopg2, case_with_entities):
         """Connection failure returns empty dict, not an exception."""
-        from app.services.entity_change_detector import detect_changed_entities
+        from app.services.entity.entity_change_detector import detect_changed_entities
         import psycopg2 as real_psycopg2
 
         case_id = case_with_entities['case'].id
@@ -358,10 +358,10 @@ class TestEntityChangeDetector:
         changed = detect_changed_entities(case_id)
         assert changed == {}
 
-    @patch('app.services.entity_change_detector.psycopg2')
+    @patch('app.services.entity.entity_change_detector.psycopg2')
     def test_get_changed_entity_uris_returns_set(self, mock_psycopg2, case_with_entities):
         """Convenience wrapper returns a set of URIs."""
-        from app.services.entity_change_detector import get_changed_entity_uris
+        from app.services.entity.entity_change_detector import get_changed_entity_uris
 
         cls = case_with_entities['published_class']
         indiv = case_with_entities['published_indiv']
@@ -385,7 +385,7 @@ class TestEntityChangeDetector:
 
     def test_no_published_entities_returns_empty(self, app):
         """Case with no published entities returns empty dict."""
-        from app.services.entity_change_detector import detect_changed_entities
+        from app.services.entity.entity_change_detector import detect_changed_entities
 
         with app.app_context():
             world = World(name="Empty World", description="test", metadata={})

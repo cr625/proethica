@@ -9,8 +9,8 @@ from app.utils.environment_auth import auth_required_for_write
 from app.models import Document
 from app.models.document import PROCESSING_STATUS
 from app.models.world import World
-from app.services.embedding_service import EmbeddingService
-from app.services.entity_triple_service import EntityTripleService
+from app.services.embedding.embedding_service import EmbeddingService
+from app.services.entity.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
 from app.routes.cases.structure_embeddings import _sync_embeddings_to_precedent_features
 from app import db
@@ -175,7 +175,7 @@ def register_creation_processing_routes(bp):
             # Generate section embeddings
             logger.info(f"Generating section embeddings for document ID: {document.id}")
             try:
-                from app.services.section_embedding_service import SectionEmbeddingService
+                from app.services.embedding.section_embedding_service import SectionEmbeddingService
                 section_embedding_service = SectionEmbeddingService()
 
                 embedding_result = section_embedding_service.process_document_sections(document.id)
@@ -531,7 +531,7 @@ def register_creation_processing_routes(bp):
 
             # Generate section embeddings
             try:
-                from app.services.section_embedding_service import SectionEmbeddingService
+                from app.services.embedding.section_embedding_service import SectionEmbeddingService
                 section_embedding_service = SectionEmbeddingService()
                 embedding_result = section_embedding_service.process_document_sections(document.id)
                 if embedding_result.get('success'):

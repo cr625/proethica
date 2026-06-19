@@ -15,7 +15,7 @@ class TestMCPClientSingleton:
     """Test singleton pattern preserved for consumers."""
 
     def test_get_instance_returns_same_object(self):
-        from app.services.mcp_client import MCPClient
+        from app.services.ontserve.mcp_client import MCPClient
         MCPClient._instance = None
         try:
             a = MCPClient.get_instance()
@@ -25,7 +25,7 @@ class TestMCPClientSingleton:
             MCPClient._instance = None
 
     def test_is_connected_false(self):
-        from app.services.mcp_client import MCPClient
+        from app.services.ontserve.mcp_client import MCPClient
         MCPClient._instance = None
         try:
             client = MCPClient.get_instance()
@@ -34,7 +34,7 @@ class TestMCPClientSingleton:
             MCPClient._instance = None
 
     def test_check_connection_returns_false(self):
-        from app.services.mcp_client import MCPClient
+        from app.services.ontserve.mcp_client import MCPClient
         MCPClient._instance = None
         try:
             client = MCPClient.get_instance()
@@ -48,7 +48,7 @@ class TestOntologyStubs:
 
     @pytest.fixture
     def client(self):
-        from app.services.mcp_client import MCPClient
+        from app.services.ontserve.mcp_client import MCPClient
         MCPClient._instance = None
         c = MCPClient.get_instance()
         yield c
@@ -102,7 +102,7 @@ class TestZoteroDelegation:
 
     @pytest.fixture
     def client_with_mock_zotero(self):
-        from app.services.mcp_client import MCPClient
+        from app.services.ontserve.mcp_client import MCPClient
         MCPClient._instance = None
         c = MCPClient.get_instance()
         mock_zotero = MagicMock()
@@ -201,7 +201,7 @@ class TestZoteroErrorHandling:
 
     @pytest.fixture
     def client_with_failing_zotero(self):
-        from app.services.mcp_client import MCPClient
+        from app.services.ontserve.mcp_client import MCPClient
         MCPClient._instance = None
         c = MCPClient.get_instance()
         mock_zotero = MagicMock()

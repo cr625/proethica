@@ -9,7 +9,7 @@ import json
 import pytest
 from unittest.mock import patch, MagicMock
 
-from app.services.mcp_transport import MCPTransport, MCPTransportError
+from app.services.ontserve.mcp_transport import MCPTransport, MCPTransportError
 
 
 @pytest.fixture
@@ -235,7 +235,7 @@ class TestGetMCPTransport:
     """Test module-level singleton."""
 
     def test_returns_same_instance(self):
-        import app.services.mcp_transport as mod
+        import app.services.ontserve.mcp_transport as mod
         mod._transport = None
         with patch.object(MCPTransport, '__init__', return_value=None):
             t1 = mod.get_mcp_transport()

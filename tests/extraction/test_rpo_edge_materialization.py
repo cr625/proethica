@@ -177,7 +177,7 @@ def test_established_core_category_resolves_corrected_classes():
     """Regression guard for direction A (type-chain authoritative) + the 6
     re-parented discovered classes. Reads the live intermediate ontologies, so it
     fails if either the resolver breaks or a correction is reverted."""
-    from app.services.ontserve_commit_service import OntServeCommitService
+    from app.services.commit.ontserve_commit_service import OntServeCommitService
     svc = OntServeCommitService()
 
     # The 6 drifted classes corrected on 2026-05-27 (were Principle/Resource).

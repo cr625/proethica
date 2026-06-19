@@ -192,7 +192,7 @@ class TemporaryRDFStorage(db.Model):
                                 extraction_type, rdf_data,
                                 extraction_model=None, provenance_data=None):
         """Delegate to rdf_storage_service. Commits for backward compatibility."""
-        from app.services.rdf_storage_service import store_extraction_results as _store
+        from app.services.entity.rdf_storage_service import store_extraction_results as _store
         result = _store(
             case_id=case_id,
             extraction_session_id=extraction_session_id,

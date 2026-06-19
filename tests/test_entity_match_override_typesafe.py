@@ -51,7 +51,7 @@ def test_chain_walk_resolves_per_case_class_to_core():
     }
     with patch('app.services.extraction.category_resolver.resolve_core_category',
                return_value=None), \
-            patch('app.services.ontserve_config.get_ontserve_db_url',
+            patch('app.services.ontserve.ontserve_config.get_ontserve_db_url',
                   return_value='postgresql://x'), \
             patch('sqlalchemy.create_engine', return_value=_fake_engine(chain)):
         cat = ops._resolve_class_core_category(
@@ -62,7 +62,7 @@ def test_chain_walk_resolves_per_case_class_to_core():
 def test_chain_walk_returns_none_for_orphan_class():
     with patch('app.services.extraction.category_resolver.resolve_core_category',
                return_value=None), \
-            patch('app.services.ontserve_config.get_ontserve_db_url',
+            patch('app.services.ontserve.ontserve_config.get_ontserve_db_url',
                   return_value='postgresql://x'), \
             patch('sqlalchemy.create_engine', return_value=_fake_engine({})):
         cat = ops._resolve_class_core_category(

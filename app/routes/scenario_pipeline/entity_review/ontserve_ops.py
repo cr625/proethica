@@ -10,7 +10,7 @@ from datetime import datetime
 
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db, TemporaryRDFStorage
-from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 from app.services.extraction.field_classification import group_properties
 from app.utils.environment_auth import (
     auth_optional,
@@ -43,7 +43,7 @@ def _resolve_class_core_category(class_uri):
         return curated
 
     from sqlalchemy import create_engine, text
-    from app.services.ontserve_config import get_ontserve_db_url
+    from app.services.ontserve.ontserve_config import get_ontserve_db_url
 
     engine = create_engine(get_ontserve_db_url())
     seen = set()
@@ -80,7 +80,7 @@ def register_ontserve_ops_routes(bp):
         Also removes entities that have been deleted from OntServe.
         """
         try:
-            from app.services.ontserve_data_fetcher import OntServeDataFetcher
+            from app.services.ontserve.ontserve_data_fetcher import OntServeDataFetcher
 
             # Get all committed entities from ProEthica
             committed_entities = TemporaryRDFStorage.query.filter_by(
@@ -183,7 +183,7 @@ def register_ontserve_ops_routes(bp):
     def commit_temporal_entities(case_id):
         """Commit all temporal dynamics entities to OntServe."""
         try:
-            from app.services.temporal_commit_service import TemporalCommitService
+            from app.services.commit.temporal_commit_service import TemporalCommitService
 
             commit_service = TemporalCommitService()
             result = commit_service.commit_temporal_entities(case_id)
@@ -498,7 +498,7 @@ def register_ontserve_ops_routes(bp):
         generates case TTL file, and updates precedent features for Jaccard calculation.
         """
         try:
-            from app.services.auto_commit_service import AutoCommitService
+            from app.services.commit.auto_commit_service import AutoCommitService
 
             data = request.get_json() or {}
             force = data.get('force', False)
@@ -554,7 +554,7 @@ def register_ontserve_ops_routes(bp):
         Returns information about entity matching status and Jaccard readiness.
         """
         try:
-            from app.services.auto_commit_service import AutoCommitService
+            from app.services.commit.auto_commit_service import AutoCommitService
 
             auto_commit_service = AutoCommitService()
             status = auto_commit_service.get_commit_status(case_id)
@@ -584,7 +584,7 @@ def register_ontserve_ops_routes(bp):
         has already been committed to OntServe.
         """
         try:
-            from app.services.auto_commit_service import AutoCommitService
+            from app.services.commit.auto_commit_service import AutoCommitService
 
             data = request.get_json() or {}
             reset_committed = data.get('reset_committed', True)
@@ -611,7 +611,7 @@ def register_ontserve_ops_routes(bp):
         """
         try:
             from sqlalchemy import create_engine, text
-            from app.services.ontserve_config import get_ontserve_db_url
+            from app.services.ontserve.ontserve_config import get_ontserve_db_url
 
             query_param = request.args.get('q', '').strip()
             if not query_param:

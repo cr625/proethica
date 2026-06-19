@@ -55,7 +55,7 @@ def test_idempotent_on_already_camel():
 def test_both_call_sites_delegate_to_shared():
     """extraction_graph._to_camel_case and ontserve_commit_service._camelCase must
     both agree with the shared converter, so storage and commit cannot drift."""
-    from app.services.ontserve_commit_service import OntServeCommitService
+    from app.services.commit.ontserve_commit_service import OntServeCommitService
     svc = OntServeCommitService.__new__(OntServeCommitService)
     for snake in list(CONTRACT) + PASSTHROUGH:
         assert _to_camel_case(snake) == to_camel_case(snake)

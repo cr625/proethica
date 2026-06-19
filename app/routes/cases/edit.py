@@ -29,7 +29,7 @@ def register_edit_routes(bp):
                 db.session.add(world)
 
         try:
-            from app.services.entity_triple_service import EntityTripleService
+            from app.services.entity.entity_triple_service import EntityTripleService
             triple_service = EntityTripleService()
             triple_service.delete_triples_for_entity('document', id)
         except Exception as e:

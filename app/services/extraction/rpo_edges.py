@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rdflib import Graph, Literal, RDF, RDFS, URIRef, Namespace
 
-from model_config import ModelConfig
+from .edge_extractor_base import StreamingEdgeExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -162,72 +162,36 @@ def build_prompt(roles, principles, obligations, case_id, state_transformations=
     )
 
 
-class RPOEdgeExtractor:
-    def __init__(self, llm_client=None, model=None, temperature=0.1, max_tokens=32000):
-        self._llm_client = llm_client
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+class RPOEdgeExtractor(StreamingEdgeExtractor):
+    """LLM-backed R->P->O dependency-edge extractor.
 
-    def _client(self):
-        if self._llm_client is None:
-            from app.utils.llm_utils import get_llm_client
-            self._llm_client = get_llm_client()
-        return self._llm_client
+    LLM plumbing lives in `StreamingEdgeExtractor`; this class supplies the
+    system prompt and the endpoint-category validation/dedupe below.
+    """
 
-    def _resolve_model(self):
-        if self.model:
-            return self.model
-        # R->P->O is a paper-critical, relational reasoning task and a bounded one
-        # call per case, so it runs on the powerful tier (Opus).
-        from model_config import ModelConfig
-        return ModelConfig.get_claude_model("powerful")
+    log_label = "R->P->O"
+    default_max_tokens = 32000
+    # RPO historically had no try/except around the stream, so a streaming
+    # exception propagated to the caller. Preserve that (the swallowing default
+    # would otherwise convert it to an empty result).
+    swallow_stream_errors = False
 
-    def _call(self, prompt) -> Optional[str]:
-        client = self._client()
-        model = self._resolve_model()
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.error("RPOEdgeExtractor requires an Anthropic streaming client")
-            return None
-        chunks: List[str] = []
-        stream_kwargs = dict(
-            model=model, max_tokens=self.max_tokens,
-            system=SYSTEM_PROMPT, messages=[{"role": "user", "content": prompt}],
-        )
-        if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
-            stream_kwargs["temperature"] = self.temperature
-        with client.messages.stream(**stream_kwargs) as stream:
-            for t in stream.text_stream:
-                chunks.append(t)
-            final_msg = stream.get_final_message()
-        if getattr(final_msg, "stop_reason", None) == "max_tokens":
-            logger.warning(
-                "R->P->O hit max_tokens (%d); response truncated, "
-                "partial recovery will be attempted", self.max_tokens,
-            )
-        return "".join(chunks)
+    def _system_prompt(self) -> str:
+        return SYSTEM_PROMPT
 
     @staticmethod
     def _recover_partial_edges(raw: str) -> List[Dict[str, Any]]:
         """Salvage edge objects from a truncated JSON response.
 
         R->P->O edges are flat objects (no nested braces in values), so each
-        complete edge is a `{ ... }` block with no inner braces. Scanning for
-        such blocks recovers every edge that landed before the max_tokens
-        cutoff even when the enclosing array was never closed. Mirrors
-        DefeasibilityEdgeExtractor._recover_partial_edges.
+        complete edge survives as a brace-balanced block even when the enclosing
+        array was never closed. Uses the shared scan in
+        `StreamingEdgeExtractor._iter_flat_json_objects`.
         """
-        import json as _json
-        import re as _re
-
-        out: List[Dict[str, Any]] = []
-        for m in _re.finditer(r"\{[^{}]*\}", raw):
-            try:
-                obj = _json.loads(m.group(0))
-            except Exception:
-                continue
-            if isinstance(obj, dict) and "predicate" in obj and "subject_iri" in obj:
-                out.append(obj)
+        out: List[Dict[str, Any]] = [
+            obj for obj in StreamingEdgeExtractor._iter_flat_json_objects(raw)
+            if "predicate" in obj and "subject_iri" in obj
+        ]
         if out:
             logger.info("R->P->O partial-recovery salvaged %d edge(s)", len(out))
         return out
@@ -236,8 +200,8 @@ class RPOEdgeExtractor:
                 state_transformations=None) -> List[Dict[str, Any]]:
         if not roles or (not obligations and not principles):
             return []
-        raw = self._call(build_prompt(roles, principles, obligations, case_id,
-                                      state_transformations=state_transformations))
+        raw = self._stream_llm(build_prompt(roles, principles, obligations, case_id,
+                                            state_transformations=state_transformations))
         if not raw:
             return []
         from app.utils.llm_utils import extract_json_from_response

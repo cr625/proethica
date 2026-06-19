@@ -132,7 +132,7 @@ def register_view_routes(bp):
             ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             # Entity change detection (compare committed hashes vs OntServe current)
-            from app.services.entity_change_detector import get_changed_entity_uris
+            from app.services.entity.entity_change_detector import get_changed_entity_uris
             changed_entity_uris = get_changed_entity_uris(case_id) if published_count > 0 else set()
 
             return render_template(
@@ -521,7 +521,7 @@ def register_view_routes(bp):
             pipeline_status = PipelineStatusService.get_step_status(case_id)
             can_publish = pipeline_status.get('step1', {}).get('complete', False) and unpublished_count > 0
 
-            from app.services.unified_entity_resolver import UnifiedEntityResolver
+            from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
             resolver = UnifiedEntityResolver(case_id=case_id)
             entity_lookup = resolver.get_lookup_dict()
             entity_lookup_by_label = resolver.get_label_index()

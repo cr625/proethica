@@ -12,11 +12,11 @@ from datetime import datetime
 from flask import request, jsonify, Response, stream_with_context
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
-from app.services.nspe_references_parser import NSPEReferencesParser
-from app.services.universal_provision_detector import UniversalProvisionDetector
-from app.services.provision_grouper import ProvisionGrouper
-from app.services.provision_group_validator import ProvisionGroupValidator
-from app.services.code_provision_linker import CodeProvisionLinker
+from app.services.provision.nspe_references_parser import NSPEReferencesParser
+from app.services.provision.universal_provision_detector import UniversalProvisionDetector
+from app.services.provision.provision_grouper import ProvisionGrouper
+from app.services.provision.provision_group_validator import ProvisionGroupValidator
+from app.services.provision.code_provision_linker import CodeProvisionLinker
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
 

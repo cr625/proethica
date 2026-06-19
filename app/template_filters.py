@@ -245,7 +245,7 @@ def init_app(app):
             {{ entity.entity_uri | ontserve_entity_path(entity.ontology_target) }}
             -> '/entity/proethica-case-7/EngineerARole'
         """
-        from app.services.unified_entity_resolver import UnifiedEntityResolver
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
         return UnifiedEntityResolver.compute_ontserve_path(uri or '', ontology_target)
 
     @app.template_filter('annotate_entities')

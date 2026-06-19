@@ -118,7 +118,7 @@ def register_interactive_routes(bp):
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
             # Entity lookup for inline popovers
-            from app.services.unified_entity_resolver import UnifiedEntityResolver
+            from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
             resolver = UnifiedEntityResolver(case_id=case_id)
             entity_lookup_by_label = resolver.get_label_index()
 

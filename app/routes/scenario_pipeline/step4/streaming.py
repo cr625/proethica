@@ -21,14 +21,14 @@ from app.routes.scenario_pipeline.step4.config import (
 )
 
 # Import synthesis services
-from app.services.nspe_references_parser import NSPEReferencesParser
-from app.services.universal_provision_detector import UniversalProvisionDetector
-from app.services.provision_grouper import ProvisionGrouper
-from app.services.provision_group_validator import ProvisionGroupValidator
-from app.services.code_provision_linker import CodeProvisionLinker
-from app.services.question_analyzer import QuestionAnalyzer
-from app.services.conclusion_analyzer import ConclusionAnalyzer
-from app.services.question_conclusion_linker import QuestionConclusionLinker
+from app.services.provision.nspe_references_parser import NSPEReferencesParser
+from app.services.provision.universal_provision_detector import UniversalProvisionDetector
+from app.services.provision.provision_grouper import ProvisionGrouper
+from app.services.provision.provision_group_validator import ProvisionGroupValidator
+from app.services.provision.code_provision_linker import CodeProvisionLinker
+from app.services.step4_synthesis.question_analyzer import QuestionAnalyzer
+from app.services.step4_synthesis.conclusion_analyzer import ConclusionAnalyzer
+from app.services.step4_synthesis.question_conclusion_linker import QuestionConclusionLinker
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +309,7 @@ def synthesize_case_streaming(case_id):
                 })
                 
                 # Build entity graph (uses pre-loaded all_entities)
-                from app.services.case_synthesis_models import EntityGraph, EntityNode
+                from app.services.step4_synthesis.case_synthesis_models import EntityGraph, EntityNode
                 entity_graph = EntityGraph(nodes={})
                 
                 # Pre-loaded entities are already in memory, just structure them

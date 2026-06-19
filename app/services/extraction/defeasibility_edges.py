@@ -23,8 +23,7 @@ import logging
 import os
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from model_config import ModelConfig
-
+from .edge_extractor_base import StreamingEdgeExtractor
 from .enhanced_prompts_defeasibility import (
     NarrativeContext,
     ObligationContext,
@@ -40,7 +39,7 @@ logger = logging.getLogger(__name__)
 _VALID_PREDICATES = {"competesWith", "prevailsOver", "defeasibleUnder"}
 
 
-class DefeasibilityEdgeExtractor:
+class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
     """LLM-backed extractor for defeasibility edges.
 
     The extractor takes already-extracted Obligation and State individuals
@@ -53,24 +52,17 @@ class DefeasibilityEdgeExtractor:
     referencing IRIs not present in the input lists are dropped with a
     warning. competesWith inverse triples are added in
     `_close_symmetric_competesWith`.
+
+    LLM plumbing (client, model resolution, streaming, truncation recovery)
+    lives in `StreamingEdgeExtractor`; this class supplies the system prompt
+    and the defeasibility-specific parse/filter/closure/dedupe.
     """
 
-    def __init__(
-        self,
-        llm_client: Any = None,
-        model: Optional[str] = None,
-        temperature: float = 0.1,
-        max_tokens: int = 16384,
-    ):
-        # Lazy LLM client; mirrors the obligations extractor pattern so the
-        # backfill script can supply a pre-built client and the live
-        # pipeline can let us fetch one at extract() time.
-        self._llm_client = llm_client
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.last_prompt: Optional[str] = None
-        self.last_raw_response: Optional[str] = None
+    log_label = "Defeasibility"
+    default_max_tokens = 16384
+
+    def _system_prompt(self) -> str:
+        return SYSTEM_PROMPT
 
     # ------------------------------------------------------------------
     # Public API
@@ -105,7 +97,7 @@ class DefeasibilityEdgeExtractor:
         )
         self.last_prompt = prompt
 
-        raw_response = self._call_llm(prompt)
+        raw_response = self._stream_llm(prompt)
         self.last_raw_response = raw_response
         if not raw_response:
             logger.warning("Case %s: defeasibility LLM returned no response", case_id)
@@ -129,76 +121,6 @@ class DefeasibilityEdgeExtractor:
             case_id, len(edges),
         )
         return edges
-
-    # ------------------------------------------------------------------
-    # LLM invocation
-    # ------------------------------------------------------------------
-
-    def _get_client(self):
-        if self._llm_client is not None:
-            return self._llm_client
-        from app.utils.llm_utils import get_llm_client
-        self._llm_client = get_llm_client()
-        return self._llm_client
-
-    def _resolve_model(self) -> str:
-        if self.model:
-            return self.model
-        # Defeasibility edges are a paper-critical, relational reasoning task and a
-        # bounded one call per case, so they run on the powerful tier (Opus).
-        from model_config import ModelConfig
-        return ModelConfig.get_claude_model("powerful")
-
-    def _call_llm(self, user_prompt: str) -> Optional[str]:
-        """Invoke the configured LLM via Anthropic streaming.
-
-        Streaming is the standard pattern in this codebase: it keeps the
-        TCP connection alive past the WSL2 60s idle window and avoids
-        the APIConnectionError that non-streaming requests hit when
-        generation runs long. We use the system+user split so the
-        property axioms in SYSTEM_PROMPT receive Anthropic's higher
-        system-prompt treatment.
-        """
-        client = self._get_client()
-        model = self._resolve_model()
-
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.error(
-                "DefeasibilityEdgeExtractor requires an Anthropic streaming "
-                "client; got %s", type(client).__name__,
-            )
-            return None
-
-        try:
-            chunks: List[str] = []
-            stream_kwargs = dict(
-                model=model,
-                max_tokens=self.max_tokens,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_prompt}],
-            )
-            if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
-                stream_kwargs["temperature"] = self.temperature
-            with client.messages.stream(**stream_kwargs) as stream:
-                for text in stream.text_stream:
-                    chunks.append(text)
-                final_msg = stream.get_final_message()
-            stop_reason = getattr(final_msg, "stop_reason", None)
-            usage = getattr(final_msg, "usage", None)
-            if usage:
-                logger.info(
-                    "Defeasibility stream complete: %d in / %d out, stop=%s",
-                    usage.input_tokens, usage.output_tokens, stop_reason,
-                )
-            if stop_reason == "max_tokens":
-                logger.warning(
-                    "Defeasibility hit max_tokens (%d); some edges may be lost",
-                    self.max_tokens,
-                )
-            return "".join(chunks)
-        except Exception as e:
-            logger.error("Anthropic defeasibility stream failed: %s", e)
-            return None
 
     # ------------------------------------------------------------------
     # Parsing + validation
@@ -265,24 +187,14 @@ class DefeasibilityEdgeExtractor:
 
         Defeasibility edges have flat structure (no nested objects in
         values), so each edge is a minimal `{ ... }` block whose body
-        contains no further `{` or `}`. We scan for such blocks anywhere
-        in the response: this works whether or not the outer "edges"
-        array is well-formed, and recovers complete edges that landed
-        before the max_tokens cutoff.
+        contains no further `{` or `}`. The shared scan in
+        `StreamingEdgeExtractor._iter_flat_json_objects` finds such blocks
+        anywhere in the response (whether or not the outer "edges" array is
+        well-formed), recovering complete edges that landed before the
+        max_tokens cutoff.
         """
-        import json as _json
-        import re as _re
-
         edges: List[DefeasibilityEdge] = []
-        # Match flat objects: `{ ...no inner braces... }`
-        for m in _re.finditer(r"\{[^{}]*\}", raw):
-            chunk = m.group(0)
-            try:
-                obj = _json.loads(chunk)
-            except Exception:
-                continue
-            if not isinstance(obj, dict):
-                continue
+        for obj in StreamingEdgeExtractor._iter_flat_json_objects(raw):
             if "predicate" not in obj or "subject_iri" not in obj:
                 continue
             try:

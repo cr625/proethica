@@ -102,7 +102,7 @@ def register_reconciliation_routes(bp):
         Persists results in ReconciliationRun + ReconciliationDecision tables
         so page reloads don't lose state.
         """
-        from app.services.entity_reconciliation_service import EntityReconciliationService
+        from app.services.entity.entity_reconciliation_service import EntityReconciliationService
         from app.models.reconciliation_run import ReconciliationRun, ReconciliationDecision
 
         try:
@@ -206,7 +206,7 @@ def register_reconciliation_routes(bp):
         if not keep_id or not merge_id:
             return jsonify({'success': False, 'error': 'Missing keep_id or merge_id'}), 400
 
-        from app.services.entity_reconciliation_service import EntityReconciliationService
+        from app.services.entity.entity_reconciliation_service import EntityReconciliationService
         from app.models.reconciliation_run import ReconciliationDecision
 
         service = EntityReconciliationService()
@@ -257,7 +257,7 @@ def register_reconciliation_routes(bp):
         if not snapshots or 'keep' not in snapshots or 'merge' not in snapshots:
             return jsonify({'success': False, 'error': 'Missing snapshots'}), 400
 
-        from app.services.entity_reconciliation_service import EntityReconciliationService
+        from app.services.entity.entity_reconciliation_service import EntityReconciliationService
         from app.models.reconciliation_run import ReconciliationDecision
 
         service = EntityReconciliationService()
@@ -383,7 +383,7 @@ def register_reconciliation_routes(bp):
         are auto-applied at commit time.
         Logs commit to provenance.
         """
-        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.services.commit.ontserve_commit_service import OntServeCommitService
         from app.models.reconciliation_run import ReconciliationRun
         from app.models.provenance import ProvenanceActivity, ProvenanceAgent
 
@@ -476,7 +476,7 @@ def register_reconciliation_routes(bp):
     @auth_required_for_write
     def reconcile_uncommit(case_id):
         """Reverse a commit: remove entities from OntServe, reset is_published."""
-        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.services.commit.ontserve_commit_service import OntServeCommitService
         from app.models.provenance import ProvenanceActivity, ProvenanceAgent
 
         published_count = TemporaryRDFStorage.query.filter_by(

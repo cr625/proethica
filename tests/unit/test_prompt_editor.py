@@ -239,7 +239,7 @@ class TestExtractionPromptTemplateToLangchainChatPrompt:
 class TestPromptVariableResolverResolveVariables:
     """Tests for PromptVariableResolver.resolve_variables() method."""
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_resolve_variables_returns_case_text(self, mock_get_mcp):
         """Test that resolve_variables returns case_text variable."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -265,7 +265,7 @@ class TestPromptVariableResolverResolveVariables:
         assert 'section_type' in variables
         assert variables['section_type'] == 'facts'
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_resolve_variables_includes_existing_entities(self, mock_get_mcp):
         """Test that existing entities are included in resolved variables."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -294,7 +294,7 @@ class TestPromptVariableResolverResolveVariables:
         assert 'existing_entities_text' in variables
         assert 'existing_entities' in variables
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_resolve_variables_handles_different_concept_types(self, mock_get_mcp):
         """Test that different concept types create correct variable names."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -322,7 +322,7 @@ class TestPromptVariableResolverResolveVariables:
 class TestPromptVariableResolverGetCaseText:
     """Tests for PromptVariableResolver._extract_section_from_html() method."""
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_extract_facts_section(self, mock_get_mcp):
         """Test extraction of facts section from HTML."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -345,7 +345,7 @@ class TestPromptVariableResolverGetCaseText:
         assert 'Engineer A was retained by Client W' in result
         assert 'groundwater data' in result
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_extract_discussion_section(self, mock_get_mcp):
         """Test extraction of discussion section from HTML."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -366,7 +366,7 @@ class TestPromptVariableResolverGetCaseText:
 
         assert 'Board analyzed' in result
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_handles_missing_section(self, mock_get_mcp):
         """Test handling of missing section in HTML."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -389,7 +389,7 @@ class TestPromptVariableResolverGetCaseText:
 class TestPromptVariableResolverFormatExistingEntities:
     """Tests for PromptVariableResolver.format_existing_entities() method."""
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_formats_entities_with_definitions(self, mock_get_mcp):
         """Test formatting of entities that have definitions."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -408,7 +408,7 @@ class TestPromptVariableResolverFormatExistingEntities:
         assert 'Client W: Corporate client' in result
         assert '- Engineer A' in result
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_formats_entities_without_definitions(self, mock_get_mcp):
         """Test formatting of entities without definitions."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -426,7 +426,7 @@ class TestPromptVariableResolverFormatExistingEntities:
         assert '- Public' in result
         assert '- Regulator' in result
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_returns_no_entities_message_for_empty_list(self, mock_get_mcp):
         """Test that empty entity list returns appropriate message."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -439,7 +439,7 @@ class TestPromptVariableResolverFormatExistingEntities:
         assert 'no existing' in result.lower()
         assert 'principles' in result.lower()
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_preserves_full_definitions(self, mock_get_mcp):
         """Test that definitions are included in full (no truncation)."""
         from app.services.prompt_variable_resolver import PromptVariableResolver
@@ -455,7 +455,7 @@ class TestPromptVariableResolverFormatExistingEntities:
         # Full definition should be present
         assert long_definition in result
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_includes_all_entities(self, mock_get_mcp):
         """Test that all entities are included (no limit)."""
         from app.services.prompt_variable_resolver import PromptVariableResolver

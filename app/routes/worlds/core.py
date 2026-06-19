@@ -16,7 +16,7 @@ from app import db
 from app.models.world import World
 from app.models.ontology import Ontology
 from app.models import Document
-from app.services.mcp_client import MCPClient
+from app.services.ontserve.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
 
 from app.routes.worlds.helpers import _get_dynamic_entity_type_config
@@ -403,7 +403,7 @@ def register_core_routes(bp):
             # Process guidelines URL
             if 'url' in guidelines and guidelines['url']:
                 from app.models import Document
-                from app.services.embedding_service import EmbeddingService
+                from app.services.embedding.embedding_service import EmbeddingService
 
                 try:
                     # Process the URL using the embedding service
@@ -438,7 +438,7 @@ def register_core_routes(bp):
                 db.session.add(document)
 
                 # Create chunks and embeddings for the document
-                from app.services.embedding_service import EmbeddingService
+                from app.services.embedding.embedding_service import EmbeddingService
                 try:
                     embedding_service = EmbeddingService()
                     chunks = embedding_service._split_text(guidelines['text'])

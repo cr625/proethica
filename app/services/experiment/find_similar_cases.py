@@ -11,7 +11,7 @@ from sqlalchemy import func, desc
 
 from app.models import Document
 from app.models.document_section import DocumentSection
-from app.services.section_embedding_service import SectionEmbeddingService
+from app.services.embedding.section_embedding_service import SectionEmbeddingService
 
 logger = logging.getLogger(__name__)
 

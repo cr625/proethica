@@ -9,7 +9,7 @@ from app.models.document_concept_annotation import DocumentConceptAnnotation
 from app.models.world import World
 from app.services.document_annotation_service import DocumentAnnotationService
 from app.services.simple_annotation_service import SimpleAnnotationService
-from app.services.ontserve_annotation_service import OntServeAnnotationService
+from app.services.ontserve.ontserve_annotation_service import OntServeAnnotationService
 import logging
 
 logger = logging.getLogger(__name__)

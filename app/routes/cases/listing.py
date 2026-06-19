@@ -6,7 +6,7 @@ from flask import render_template, request, redirect, url_for
 from app.utils.environment_auth import auth_optional
 from app.models import Document
 from app.models.world import World
-from app.services.embedding_service import EmbeddingService
+from app.services.embedding.embedding_service import EmbeddingService
 from app.services.pipeline_state_manager import get_bulk_progress
 from app import db
 

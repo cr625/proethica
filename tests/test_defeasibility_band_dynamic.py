@@ -44,7 +44,7 @@ def _run(rows, anchor_featured, anchor_vec=(1.0, 0.0, 0.0)):
     document.query.get.side_effect = lambda cid: _Doc(cid)
 
     case_data = {"conflicts": [anchor_featured]}
-    with patch('app.services.embedding_service.EmbeddingService', embedding_service), \
+    with patch('app.services.embedding.embedding_service.EmbeddingService', embedding_service), \
             patch('app.models.defeasibility_band_index.DefeasibilityBandIndex', band_index), \
             patch('app.models.Document', document):
         return svc.get_cross_case_band_dynamic(7, case_data)

@@ -8,8 +8,8 @@ pin the historical-format handling, using the verbatim case-103 (BER 63-5)
 references wording.
 """
 
-from app.services.nspe_references_parser import NSPEReferencesParser
-from app.services.universal_provision_detector import UniversalProvisionDetector
+from app.services.provision.nspe_references_parser import NSPEReferencesParser
+from app.services.provision.universal_provision_detector import UniversalProvisionDetector
 
 
 # Verbatim references text from case 103 (BER 63-5), as stored in the DB.

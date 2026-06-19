@@ -30,7 +30,7 @@ from celery_config import get_celery
 from app import db
 from app.models.pipeline_run import PipelineRun, PIPELINE_STATUS
 from app.models.document import Document
-from app.services.case_entity_storage_service import CaseEntityStorageService
+from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 from datetime import datetime
 import logging
 import traceback
@@ -461,7 +461,7 @@ def run_step3_task(self, run_id: int):
     try:
         # Import the LangGraph builder
         from app.services.temporal_dynamics import build_temporal_dynamics_graph
-        from app.services.case_entity_storage_service import CaseEntityStorageService
+        from app.services.entity.case_entity_storage_service import CaseEntityStorageService
 
         # Get case sections
         sections = get_case_sections(run.case_id)
@@ -651,7 +651,7 @@ def run_reconcile_task(self, run_id: int):
     db.session.commit()
 
     try:
-        from app.services.entity_reconciliation_service import EntityReconciliationService
+        from app.services.entity.entity_reconciliation_service import EntityReconciliationService
         service = EntityReconciliationService()
         result = service.reconcile_auto(run.case_id)
 
@@ -749,7 +749,7 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None,
     # Clean up previous OntServe data for this case before re-extraction
     if commit_to_ontserve:
         try:
-            from app.services.ontserve_commit_service import OntServeCommitService
+            from app.services.commit.ontserve_commit_service import OntServeCommitService
             svc = OntServeCommitService()
             ur = svc.uncommit_case(case_id)
             logger.info(f"[Task {self.request.id}] Pre-extraction uncommit: "
@@ -985,7 +985,7 @@ def run_step4_substep_task(self, run_id: int, substep: str):
     db.session.commit()
 
     try:
-        from app.services.step4_synthesis_service import run_step4_substep
+        from app.services.step4_synthesis.step4_synthesis_service import run_step4_substep
 
         def update_progress(stage: str, message: str):
             run.current_step = f"{substep}: {message}"
@@ -1059,7 +1059,7 @@ def run_step4_task(self, run_id: int):
     db.session.commit()
 
     try:
-        from app.services.step4_synthesis_service import run_step4_synthesis
+        from app.services.step4_synthesis.step4_synthesis_service import run_step4_synthesis
 
         # Progress callback to update run status
         def update_progress(stage: str, message: str):
@@ -1211,7 +1211,7 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
     db.session.commit()
 
     try:
-        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.services.commit.ontserve_commit_service import OntServeCommitService
         from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
         # Get all unpublished entity IDs

@@ -151,7 +151,7 @@ class TestRenderTemplateAPI:
 
         assert response.status_code == 302  # Redirects to login
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_render_requires_case_id(self, mock_mcp, auth_client, create_test_template):
         """Test that render endpoint requires case_id."""
         mock_mcp.return_value = MagicMock()
@@ -168,7 +168,7 @@ class TestRenderTemplateAPI:
         assert data['success'] is False
         assert 'case_id' in data['error'].lower()
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     @patch('app.services.prompt_variable_resolver.get_prompt_variable_resolver')
     def test_render_with_valid_case(self, mock_resolver_factory, mock_mcp, auth_client, create_test_template, create_test_document):
         """Test rendering a template with a valid case."""
@@ -232,7 +232,7 @@ class TestResolveVariablesAPI:
 
         assert response.status_code == 302
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_resolve_variables_requires_case_id(self, mock_mcp, auth_client, create_test_template):
         """Test that resolve-variables requires case_id."""
         mock_mcp.return_value = MagicMock()
@@ -248,7 +248,7 @@ class TestResolveVariablesAPI:
         data = json.loads(response.data)
         assert data['success'] is False
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     @patch('app.services.prompt_variable_resolver.get_prompt_variable_resolver')
     def test_resolve_variables_returns_formatted_variables(self, mock_resolver_factory, mock_mcp, auth_client, create_test_template, create_test_document):
         """Test that resolve-variables returns properly formatted variables."""
@@ -555,7 +555,7 @@ class TestErrorHandling:
         # Should return 400 for bad request
         assert response.status_code in [400, 500]
 
-    @patch('app.services.external_mcp_client.get_external_mcp_client')
+    @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     @patch('app.services.prompt_variable_resolver.get_prompt_variable_resolver')
     def test_resolver_error_returns_500(self, mock_resolver_factory, mock_mcp, auth_client, create_test_template, create_test_document):
         """Test that resolver errors are handled gracefully."""

@@ -14,7 +14,7 @@ from app.services.temporal_dynamics.utils.rdf_converter import (
     convert_allen_relation_to_rdf,
     convert_causal_chain_to_rdf,
 )
-from app.services.ontserve_commit_service import OntServeCommitService
+from app.services.commit.ontserve_commit_service import OntServeCommitService
 
 CANON = "http://proethica.org/ontology/case/"
 

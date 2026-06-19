@@ -51,7 +51,7 @@ def main():
             
             # Try to import and test the service
             try:
-                from app.services.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
+                from app.services.guideline.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
                 
                 service = EnhancedGuidelineAssociationService()
                 

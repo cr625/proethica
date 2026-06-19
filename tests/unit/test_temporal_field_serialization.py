@@ -8,7 +8,7 @@ and the OWL-DL-safety skips (IRI object refs, nested dicts, scenario metadata).
 """
 from rdflib import Graph, Namespace, URIRef, RDF, RDFS, Literal
 
-from app.services.ontserve_commit_service import OntServeCommitService
+from app.services.commit.ontserve_commit_service import OntServeCommitService
 
 CASE = Namespace('http://proethica.org/ontology/case/60#')
 CORE = 'http://proethica.org/ontology/core#'

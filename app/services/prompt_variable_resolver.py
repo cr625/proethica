@@ -31,7 +31,7 @@ class PromptVariableResolver:
 
     def __init__(self):
         """Initialize the resolver with MCP client."""
-        from app.services.external_mcp_client import get_external_mcp_client
+        from app.services.ontserve.external_mcp_client import get_external_mcp_client
         self.mcp_client = get_external_mcp_client()
 
     def resolve_variables(self, case_id: int, section_type: str,

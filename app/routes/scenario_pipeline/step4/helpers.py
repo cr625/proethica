@@ -15,14 +15,14 @@ from typing import Dict, List, Optional, Tuple
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.services.pipeline_status_service import PipelineStatusService
-from app.services.unified_entity_resolver import get_unified_entity_lookup
+from app.services.entity.unified_entity_resolver import get_unified_entity_lookup
 
 from app.routes.scenario_pipeline.step4.config import STEP4_SECTION_TYPE
 
 # Re-export functions that live in the service layer.  These were moved to
-# app/services/step4_data_helpers.py to fix service-imports-from-routes, but
+# app/services/step4_synthesis/step4_data_helpers.py to fix service-imports-from-routes, but
 # are re-exported here so existing route-layer consumers keep working.
-from app.services.step4_data_helpers import (  # noqa: F401
+from app.services.step4_synthesis.step4_data_helpers import (  # noqa: F401
     get_all_case_entities,
     _classify_conclusion_type,
     _count_conclusion_types,

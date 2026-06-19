@@ -333,13 +333,13 @@ GUIDELINE_CONCEPTS = {
     'provision_structure': {
         'name': 'Provision Structure',
         'description': 'Extract hierarchical provision structure (canons, rules, sections)',
-        'service_file': 'app/services/guideline_structure_annotation_step.py',
+        'service_file': 'app/services/guideline/guideline_structure_annotation_step.py',
         'color': '#f97316'
     },
     'provision_concepts': {
         'name': 'Provision Concepts',
         'description': 'Identify principles, obligations, and constraints each provision establishes',
-        'service_file': 'app/services/guideline_concept_integration_service.py',
+        'service_file': 'app/services/guideline/guideline_concept_integration_service.py',
         'color': '#fd7e14'
     },
     'provision_linkage': {
@@ -355,17 +355,17 @@ STEP4_PHASES = {
     'provisions': {
         'name': 'Provisions',
         'description': 'NSPE code provision detection and entity linking',
-        'service_file': 'app/services/provision_group_validator.py',
+        'service_file': 'app/services/provision/provision_group_validator.py',
         'color': '#f97316',
         'prompts': [
             {'name': 'Provision Group Validator', 'method': '_create_validation_prompt'},
-            {'name': 'Code Provision Linker', 'method': '_create_linking_prompt', 'file': 'app/services/code_provision_linker.py'}
+            {'name': 'Code Provision Linker', 'method': '_create_linking_prompt', 'file': 'app/services/provision/code_provision_linker.py'}
         ]
     },
     'questions': {
         'name': 'Questions',
         'description': 'Board and analytical question extraction',
-        'service_file': 'app/services/question_analyzer.py',
+        'service_file': 'app/services/step4_synthesis/question_analyzer.py',
         'color': '#3b82f6',
         'prompts': [
             {'name': 'Board Question Extraction', 'method': '_create_board_extraction_prompt'},
@@ -375,7 +375,7 @@ STEP4_PHASES = {
     'conclusions': {
         'name': 'Conclusions',
         'description': 'Board and analytical conclusion extraction with Q-C linking',
-        'service_file': 'app/services/conclusion_analyzer.py',
+        'service_file': 'app/services/step4_synthesis/conclusion_analyzer.py',
         'color': '#10b981',
         'prompts': [
             {'name': 'Board Conclusion Extraction', 'method': '_create_board_extraction_prompt'},

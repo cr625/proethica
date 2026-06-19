@@ -30,7 +30,7 @@ try:
 except ImportError:
     # Create a placeholder for testing if the model doesn't exist yet
     TemporaryConcept = None
-from app.services.firac_analysis_service import firac_analysis_service
+from app.services.step4_synthesis.firac_analysis_service import firac_analysis_service
 from app.services.ethics_committee_agent import ethics_committee_agent
 
 # Create blueprint
