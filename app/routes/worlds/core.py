@@ -16,7 +16,7 @@ from app import db
 from app.models.world import World
 from app.models.ontology import Ontology
 from app.models import Document
-from app.services.mcp_client import MCPClient
+from app.services.ontserve.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
 
 from app.routes.worlds.helpers import _get_dynamic_entity_type_config

@@ -12,7 +12,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import json
 
-from app.services.ontserve_config import get_ontserve_db_config, get_ontserve_mcp_url
+from app.services.ontserve.ontserve_config import get_ontserve_db_config, get_ontserve_mcp_url
 
 logger = logging.getLogger(__name__)
 

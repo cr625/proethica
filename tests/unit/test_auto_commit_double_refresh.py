@@ -204,24 +204,24 @@ class TestMCPClientSharedTransport:
 
     def test_external_client_uses_singleton(self):
         """ExternalMCPClient without custom URL uses shared transport."""
-        from app.services.mcp_transport import MCPTransport
-        with patch('app.services.external_mcp_client.get_mcp_transport') as mock_get:
+        from app.services.ontserve.mcp_transport import MCPTransport
+        with patch('app.services.ontserve.external_mcp_client.get_mcp_transport') as mock_get:
             mock_transport = MagicMock(spec=MCPTransport)
             mock_transport.base_url = "http://localhost:8082"
             mock_get.return_value = mock_transport
 
-            from app.services.external_mcp_client import ExternalMCPClient
+            from app.services.ontserve.external_mcp_client import ExternalMCPClient
             client = ExternalMCPClient()
             assert client.transport is mock_transport
             mock_get.assert_called_once()
 
     def test_external_client_custom_url_creates_new(self):
         """ExternalMCPClient with custom URL creates its own transport."""
-        from app.services.mcp_transport import MCPTransport
-        with patch('app.services.external_mcp_client.get_mcp_transport') as mock_get:
-            with patch('app.services.external_mcp_client.MCPTransport') as mock_cls:
+        from app.services.ontserve.mcp_transport import MCPTransport
+        with patch('app.services.ontserve.external_mcp_client.get_mcp_transport') as mock_get:
+            with patch('app.services.ontserve.external_mcp_client.MCPTransport') as mock_cls:
                 mock_cls.return_value = MagicMock(base_url="http://custom:9000")
-                from app.services.external_mcp_client import ExternalMCPClient
+                from app.services.ontserve.external_mcp_client import ExternalMCPClient
                 client = ExternalMCPClient(server_url="http://custom:9000")
                 mock_get.assert_not_called()
                 mock_cls.assert_called_once_with(base_url="http://custom:9000")

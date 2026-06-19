@@ -84,7 +84,7 @@ class UnifiedDualExtractor(
         self.existing_classes: List[Dict[str, Any]] = []
         self.mcp_client = None
         try:
-            from app.services.external_mcp_client import get_external_mcp_client
+            from app.services.ontserve.external_mcp_client import get_external_mcp_client
             self.mcp_client = get_external_mcp_client()
             self.existing_classes = self._load_existing_classes()
             logger.info(

@@ -25,7 +25,7 @@ from pathlib import Path
 import rdflib
 from rdflib import RDFS
 
-from app.services.ontserve_config import get_ontserve_base_path
+from app.services.ontserve.ontserve_config import get_ontserve_base_path
 
 logger = logging.getLogger(__name__)
 

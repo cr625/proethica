@@ -80,7 +80,7 @@ class TestPromptPersistence:
         from app.tasks.pipeline_tasks import run_extraction
 
         # Mock the LLM calls
-        with patch('app.services.external_mcp_client.get_external_mcp_client') as mock_mcp:
+        with patch('app.services.ontserve.external_mcp_client.get_external_mcp_client') as mock_mcp:
             mock_mcp.return_value = MagicMock()
 
             # Run extraction (uses UnifiedDualExtractor internally)

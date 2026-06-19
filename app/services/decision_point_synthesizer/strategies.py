@@ -21,7 +21,7 @@ from app.models import TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from app.utils.llm_json_utils import parse_json_response
 from app.domains import DomainConfig, get_domain_config
-from app.services.ontserve_config import get_ontserve_mcp_url
+from app.services.ontserve.ontserve_config import get_ontserve_mcp_url
 from model_config import ModelConfig
 
 from app.services.entity_analysis import (
@@ -29,7 +29,7 @@ from app.services.entity_analysis import (
     ComposedDecisionPoints,
     EntityGroundedDecisionPoint,
 )
-from app.services.mcp_entity_enrichment_service import (
+from app.services.ontserve.mcp_entity_enrichment_service import (
     enrich_prompt_with_metadata,
     EnrichmentResult,
 )

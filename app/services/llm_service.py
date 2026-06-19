@@ -18,7 +18,7 @@ import os
 import json
 import time
 from datetime import datetime
-from app.services.mcp_client import MCPClient
+from app.services.ontserve.mcp_client import MCPClient
 
 logger = logging.getLogger(__name__)
 

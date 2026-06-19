@@ -7,7 +7,7 @@ import json
 import logging
 from typing import Dict, List, Any, Optional
 
-from app.services.mcp_transport import MCPTransport, MCPTransportError, get_mcp_transport
+from app.services.ontserve.mcp_transport import MCPTransport, MCPTransportError, get_mcp_transport
 
 logger = logging.getLogger(__name__)
 

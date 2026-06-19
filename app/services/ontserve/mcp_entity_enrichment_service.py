@@ -186,7 +186,7 @@ class MCPEntityEnrichmentService:
 
     def _call_mcp_tool(self, tool_name: str, arguments: dict) -> dict:
         """Call an MCP tool on the OntServe server."""
-        from app.services.mcp_transport import MCPTransport, MCPTransportError
+        from app.services.ontserve.mcp_transport import MCPTransport, MCPTransportError
 
         if not hasattr(self, '_transport'):
             self._transport = MCPTransport(

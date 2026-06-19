@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Any
 from urllib.parse import urljoin
 from app.models.world import World
 from app.models.document_concept_annotation import DocumentConceptAnnotation
-from app.services.ontserve_config import get_ontserve_web_url
+from app.services.ontserve.ontserve_config import get_ontserve_web_url
 
 logger = logging.getLogger(__name__)
 

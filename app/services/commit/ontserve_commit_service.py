@@ -35,7 +35,7 @@ from rdflib.namespace import SKOS, DCTERMS
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.models.case_ontology_commit import CaseOntologyCommit
 from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
-from app.services.ontserve_config import (
+from app.services.ontserve.ontserve_config import (
     get_ontserve_db_config, get_ontserve_base_path, get_ontserve_mcp_url,
 )
 

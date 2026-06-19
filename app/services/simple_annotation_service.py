@@ -5,7 +5,7 @@ import logging
 import re
 from typing import Dict, List, Optional, Any, Tuple
 from app.models.document_concept_annotation import DocumentConceptAnnotation
-from app.services.ontserve_annotation_service import OntServeAnnotationService
+from app.services.ontserve.ontserve_annotation_service import OntServeAnnotationService
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ import os
 import logging
 from app import db
 from app.models.world import World
-from app.services.mcp_client import MCPClient
+from app.services.ontserve.mcp_client import MCPClient
 
 logger = logging.getLogger(__name__)
 

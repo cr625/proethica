@@ -43,7 +43,7 @@ def _resolve_class_core_category(class_uri):
         return curated
 
     from sqlalchemy import create_engine, text
-    from app.services.ontserve_config import get_ontserve_db_url
+    from app.services.ontserve.ontserve_config import get_ontserve_db_url
 
     engine = create_engine(get_ontserve_db_url())
     seen = set()
@@ -80,7 +80,7 @@ def register_ontserve_ops_routes(bp):
         Also removes entities that have been deleted from OntServe.
         """
         try:
-            from app.services.ontserve_data_fetcher import OntServeDataFetcher
+            from app.services.ontserve.ontserve_data_fetcher import OntServeDataFetcher
 
             # Get all committed entities from ProEthica
             committed_entities = TemporaryRDFStorage.query.filter_by(
@@ -611,7 +611,7 @@ def register_ontserve_ops_routes(bp):
         """
         try:
             from sqlalchemy import create_engine, text
-            from app.services.ontserve_config import get_ontserve_db_url
+            from app.services.ontserve.ontserve_config import get_ontserve_db_url
 
             query_param = request.args.get('q', '').strip()
             if not query_param:

@@ -21,7 +21,7 @@ from sqlalchemy import text, create_engine
 
 from app import db
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
-from app.services.ontserve_config import get_ontserve_base_path, get_ontserve_db_url
+from app.services.ontserve.ontserve_config import get_ontserve_base_path, get_ontserve_db_url
 
 logger = logging.getLogger(__name__)
 

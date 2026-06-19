@@ -143,7 +143,7 @@ def register_view_routes(bp):
         ontserve_individual_count = None
         try:
             import psycopg2
-            from app.services.ontserve_config import get_ontserve_db_config
+            from app.services.ontserve.ontserve_config import get_ontserve_db_config
             conn = psycopg2.connect(**get_ontserve_db_config())
             cur = conn.cursor()
             cur.execute("""

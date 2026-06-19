@@ -159,7 +159,7 @@ class UnifiedEntityResolver:
         # Fetch from OntServe
         entities = {}
         try:
-            from app.services.external_mcp_client import get_external_mcp_client
+            from app.services.ontserve.external_mcp_client import get_external_mcp_client
             client = get_external_mcp_client()
 
             # Fetch each category

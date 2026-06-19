@@ -36,7 +36,7 @@ def gate_case_ttl(case_id: int, ttl_path, domain: str = "engineering") -> Dict[s
     if not ttl_path.exists():
         return {"status": "no_ttl"}
     try:
-        from app.services.external_mcp_client import get_external_mcp_client
+        from app.services.ontserve.external_mcp_client import get_external_mcp_client
 
         client = get_external_mcp_client()
         content = ttl_path.read_text()

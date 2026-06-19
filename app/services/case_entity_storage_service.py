@@ -18,7 +18,7 @@ from app.models import db
 from app.models.temporary_concept import TemporaryConcept
 from app.models import Document
 from app.services.provenance_service import get_provenance_service
-from app.services.external_mcp_client import get_external_mcp_client
+from app.services.ontserve.external_mcp_client import get_external_mcp_client
 
 logger = logging.getLogger(__name__)
 

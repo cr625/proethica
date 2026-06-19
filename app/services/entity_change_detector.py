@@ -15,7 +15,7 @@ from typing import Dict, Set
 
 import psycopg2
 
-from app.services.ontserve_config import get_ontserve_db_config
+from app.services.ontserve.ontserve_config import get_ontserve_db_config
 
 logger = logging.getLogger(__name__)
 

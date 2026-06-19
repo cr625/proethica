@@ -98,7 +98,7 @@ def test_view_world(client, create_test_world, monkeypatch):
             }
         }
 
-    from app.services.mcp_client import MCPClient
+    from app.services.ontserve.mcp_client import MCPClient
     monkeypatch.setattr(MCPClient, 'get_world_entities', mock_get_world_entities)
 
     response = client.get(f'/worlds/{world.id}')
@@ -347,7 +347,7 @@ def test_world_references(client, create_test_world, monkeypatch):
     """Test the world_references route."""
     world = create_test_world()
 
-    from app.services.mcp_client import MCPClient
+    from app.services.ontserve.mcp_client import MCPClient
     from app.services.zotero_client import ZoteroClient
 
     MCPClient._instance = None
@@ -373,7 +373,7 @@ def test_world_references_with_search(client, create_test_world, monkeypatch):
     """Test the world_references route with search query."""
     world = create_test_world()
 
-    from app.services.mcp_client import MCPClient
+    from app.services.ontserve.mcp_client import MCPClient
     from app.services.zotero_client import ZoteroClient
 
     MCPClient._instance = None
