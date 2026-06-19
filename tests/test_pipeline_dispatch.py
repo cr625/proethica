@@ -72,7 +72,7 @@ class TestSubstepRunners:
     """Validate SUBSTEP_RUNNERS mapping and run_step4_substep routing."""
 
     def test_all_step4_substeps_have_runners(self):
-        from app.services.step4_synthesis_service import SUBSTEP_RUNNERS
+        from app.services.step4_synthesis.step4_synthesis_service import SUBSTEP_RUNNERS
         expected = {
             'step4_provisions', 'step4_precedents', 'step4_qc',
             'step4_transformation', 'step4_rich_analysis',
@@ -82,14 +82,14 @@ class TestSubstepRunners:
 
     def test_runner_functions_exist(self):
         """Each runner function name in SUBSTEP_RUNNERS must exist as a module-level function."""
-        import app.services.step4_synthesis_service as mod
-        from app.services.step4_synthesis_service import SUBSTEP_RUNNERS
+        import app.services.step4_synthesis.step4_synthesis_service as mod
+        from app.services.step4_synthesis.step4_synthesis_service import SUBSTEP_RUNNERS
         for substep, (func_name, _, _) in SUBSTEP_RUNNERS.items():
             assert hasattr(mod, func_name), \
                 f"Function {func_name} not found for {substep}"
 
     def test_run_step4_substep_rejects_unknown(self):
-        from app.services.step4_synthesis_service import run_step4_substep
+        from app.services.step4_synthesis.step4_synthesis_service import run_step4_substep
         result = run_step4_substep(case_id=999, substep='step4_nonexistent')
         assert 'error' in result
         assert 'Unknown' in result['error']

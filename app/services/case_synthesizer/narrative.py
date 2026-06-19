@@ -19,7 +19,7 @@ from app.domains import DomainConfig, get_domain_config
 from model_config import ModelConfig
 
 # Data models (extracted to separate module for modularity)
-from app.services.case_synthesis_models import (  # noqa: F401 -- re-exported for backward compatibility
+from app.services.step4_synthesis.case_synthesis_models import (  # noqa: F401 -- re-exported for backward compatibility
     EntitySummary, EntityFoundation, TimelineEvent, ScenarioSeeds,
     CaseNarrative, LLMTrace, CausalNormativeLink, QuestionEmergenceAnalysis,
     ResolutionPatternAnalysis, TransformationAnalysis, CaseSynthesisModel,

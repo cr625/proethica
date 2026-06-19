@@ -19,7 +19,7 @@ from app.domains import DomainConfig, get_domain_config
 from model_config import ModelConfig
 
 # Data models (extracted to separate module for modularity)
-from app.services.case_synthesis_models import (  # noqa: F401 -- re-exported for backward compatibility
+from app.services.step4_synthesis.case_synthesis_models import (  # noqa: F401 -- re-exported for backward compatibility
     EntitySummary, EntityFoundation, TimelineEvent, ScenarioSeeds,
     CaseNarrative, LLMTrace, CausalNormativeLink, QuestionEmergenceAnalysis,
     ResolutionPatternAnalysis, TransformationAnalysis, CaseSynthesisModel,
@@ -103,9 +103,9 @@ class Phase2ExtractionMixin:
         from app.services.provision.provision_grouper import ProvisionGrouper
         from app.services.provision.provision_group_validator import ProvisionGroupValidator
         from app.services.provision.code_provision_linker import CodeProvisionLinker
-        from app.services.question_analyzer import QuestionAnalyzer
-        from app.services.conclusion_analyzer import ConclusionAnalyzer
-        from app.services.question_conclusion_linker import QuestionConclusionLinker
+        from app.services.step4_synthesis.question_analyzer import QuestionAnalyzer
+        from app.services.step4_synthesis.conclusion_analyzer import ConclusionAnalyzer
+        from app.services.step4_synthesis.question_conclusion_linker import QuestionConclusionLinker
 
         llm_traces = []
         session_id = f"phase2_{case_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"

@@ -6,7 +6,7 @@ These assertions pin the exact constructed TemporaryRDFStorage shape so the
 extraction stays behavior-preserving (the rows the two wrappers persist are
 unchanged). DB/app-context-free: model instances construct in memory.
 """
-from app.services.qc_entity_storage import (
+from app.services.step4_synthesis.qc_entity_storage import (
     make_question_storage,
     make_conclusion_storage,
 )

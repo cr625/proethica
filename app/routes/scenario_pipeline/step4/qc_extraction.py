@@ -18,9 +18,9 @@ from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
 
-from app.services.question_analyzer import QuestionAnalyzer
-from app.services.conclusion_analyzer import ConclusionAnalyzer
-from app.services.question_conclusion_linker import QuestionConclusionLinker
+from app.services.step4_synthesis.question_analyzer import QuestionAnalyzer
+from app.services.step4_synthesis.conclusion_analyzer import ConclusionAnalyzer
+from app.services.step4_synthesis.question_conclusion_linker import QuestionConclusionLinker
 
 from app.services.entity.entity_graph_service import (
     build_entity_graph,

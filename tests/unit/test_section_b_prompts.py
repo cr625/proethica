@@ -15,8 +15,8 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.case_synthesis_models import EntityFoundation, EntitySummary, ResolutionPatternAnalysis
-from app.services.rich_analysis import RichAnalyzer
+from app.services.step4_synthesis.case_synthesis_models import EntityFoundation, EntitySummary, ResolutionPatternAnalysis
+from app.services.step4_synthesis.rich_analysis import RichAnalyzer
 from app.services.narrative.narrative_element_extractor import (
     NarrativeElementExtractor,
     NarrativeCharacter,

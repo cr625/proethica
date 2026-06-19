@@ -25,7 +25,7 @@ from app.utils.entity_prompt_utils import (
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 
-from app.services.case_synthesis_models import (
+from app.services.step4_synthesis.case_synthesis_models import (
     EntityFoundation, LLMTrace,
     CausalNormativeLink, QuestionEmergenceAnalysis, ResolutionPatternAnalysis
 )

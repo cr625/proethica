@@ -985,7 +985,7 @@ def run_step4_substep_task(self, run_id: int, substep: str):
     db.session.commit()
 
     try:
-        from app.services.step4_synthesis_service import run_step4_substep
+        from app.services.step4_synthesis.step4_synthesis_service import run_step4_substep
 
         def update_progress(stage: str, message: str):
             run.current_step = f"{substep}: {message}"
@@ -1059,7 +1059,7 @@ def run_step4_task(self, run_id: int):
     db.session.commit()
 
     try:
-        from app.services.step4_synthesis_service import run_step4_synthesis
+        from app.services.step4_synthesis.step4_synthesis_service import run_step4_synthesis
 
         # Progress callback to update run status
         def update_progress(stage: str, message: str):

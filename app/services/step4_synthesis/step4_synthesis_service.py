@@ -8,7 +8,7 @@ Provides unified synthesis logic that can be called from:
 This ensures the same code path is used regardless of invocation method.
 
 Usage:
-    from app.services.step4_synthesis_service import run_step4_synthesis
+    from app.services.step4_synthesis.step4_synthesis_service import run_step4_synthesis
 
     # Synchronous call
     result = run_step4_synthesis(case_id)
@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 
 from model_config import ModelConfig
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
-from app.services.qc_entity_storage import make_question_storage, make_conclusion_storage
+from app.services.step4_synthesis.qc_entity_storage import make_question_storage, make_conclusion_storage
 from app.utils.llm_utils import get_llm_client
 
 logger = logging.getLogger(__name__)
@@ -613,9 +613,9 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
     """
     Run Q&C unified extraction - SAME code as step4_run_all.py.
     """
-    from app.services.question_analyzer import QuestionAnalyzer
-    from app.services.conclusion_analyzer import ConclusionAnalyzer
-    from app.services.question_conclusion_linker import QuestionConclusionLinker
+    from app.services.step4_synthesis.question_analyzer import QuestionAnalyzer
+    from app.services.step4_synthesis.conclusion_analyzer import ConclusionAnalyzer
+    from app.services.step4_synthesis.question_conclusion_linker import QuestionConclusionLinker
 
     try:
         case = Document.query.get_or_404(case_id)
@@ -714,7 +714,7 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         session_id = str(uuid.uuid4())
 
         # Store questions + conclusions via the shared row builders (identical to
-        # entity_graph_service's; see app/services/qc_entity_storage.py).
+        # entity_graph_service's; see app/services/step4_synthesis/qc_entity_storage.py).
         for question in questions:
             db.session.add(make_question_storage(case_id, session_id, question))
 
@@ -904,7 +904,7 @@ def _run_rich_analysis(case_id: int, llm_client) -> dict:
         provisions = synthesizer._load_provisions(case_id)
 
         # Run rich analysis via RichAnalyzer (label-based prompts)
-        from app.services.rich_analysis import RichAnalyzer
+        from app.services.step4_synthesis.rich_analysis import RichAnalyzer
         analyzer = RichAnalyzer()
         llm_traces = []
 

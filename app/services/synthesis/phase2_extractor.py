@@ -30,9 +30,9 @@ from app.services.provision.universal_provision_detector import UniversalProvisi
 from app.services.provision.provision_grouper import ProvisionGrouper
 from app.services.provision.provision_group_validator import ProvisionGroupValidator
 from app.services.provision.code_provision_linker import CodeProvisionLinker
-from app.services.question_analyzer import QuestionAnalyzer
-from app.services.conclusion_analyzer import ConclusionAnalyzer
-from app.services.question_conclusion_linker import QuestionConclusionLinker
+from app.services.step4_synthesis.question_analyzer import QuestionAnalyzer
+from app.services.step4_synthesis.conclusion_analyzer import ConclusionAnalyzer
+from app.services.step4_synthesis.question_conclusion_linker import QuestionConclusionLinker
 from app.services.case_analysis.transformation_classifier import TransformationClassifier
 from app.services.entity.entity_grounding_service import EntityGroundingService
 # Rich analysis is handled by CaseSynthesizer._run_rich_analysis()

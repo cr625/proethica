@@ -16,12 +16,12 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
-from app.services.qc_entity_storage import make_question_storage, make_conclusion_storage
+from app.services.step4_synthesis.qc_entity_storage import make_question_storage, make_conclusion_storage
 from app.utils.llm_utils import get_llm_client
 
-from app.services.question_analyzer import QuestionAnalyzer
-from app.services.conclusion_analyzer import ConclusionAnalyzer
-from app.services.question_conclusion_linker import QuestionConclusionLinker
+from app.services.step4_synthesis.question_analyzer import QuestionAnalyzer
+from app.services.step4_synthesis.conclusion_analyzer import ConclusionAnalyzer
+from app.services.step4_synthesis.question_conclusion_linker import QuestionConclusionLinker
 
 logger = logging.getLogger(__name__)
 
@@ -332,7 +332,7 @@ def build_qc_flow(case_id: int) -> dict:
 
     Returns dict with questions, conclusions, links, metadata, and success flag.
     """
-    from app.services.step4_data_helpers import (
+    from app.services.step4_synthesis.step4_data_helpers import (
         _classify_conclusion_type, _count_conclusion_types,
     )
 
@@ -436,7 +436,7 @@ def extract_questions_conclusions(
     from app.routes.scenario_pipeline.step4.config import (
         STEP4_POWERFUL_MODEL,
     )
-    from app.services.step4_data_helpers import (
+    from app.services.step4_synthesis.step4_data_helpers import (
         get_all_case_entities, _count_conclusion_types_from_list,
     )
 
@@ -525,7 +525,7 @@ def extract_questions_conclusions(
         )
         db.session.add(question_extraction_prompt)
 
-    # Store questions via the shared row builder (see app/services/qc_entity_storage.py;
+    # Store questions via the shared row builder (see app/services/step4_synthesis/qc_entity_storage.py;
     # identical to step4_synthesis_service's).
     for question in questions:
         db.session.add(make_question_storage(case_id, session_id, question))
@@ -553,7 +553,7 @@ def extract_questions_conclusions(
         )
         db.session.add(conclusion_extraction_prompt)
 
-    # Store conclusions via the shared row builder (see app/services/qc_entity_storage.py).
+    # Store conclusions via the shared row builder (see app/services/step4_synthesis/qc_entity_storage.py).
     for conclusion in conclusions:
         db.session.add(make_conclusion_storage(case_id, session_id, conclusion))
 

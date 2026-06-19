@@ -365,7 +365,7 @@ STEP4_PHASES = {
     'questions': {
         'name': 'Questions',
         'description': 'Board and analytical question extraction',
-        'service_file': 'app/services/question_analyzer.py',
+        'service_file': 'app/services/step4_synthesis/question_analyzer.py',
         'color': '#3b82f6',
         'prompts': [
             {'name': 'Board Question Extraction', 'method': '_create_board_extraction_prompt'},
@@ -375,7 +375,7 @@ STEP4_PHASES = {
     'conclusions': {
         'name': 'Conclusions',
         'description': 'Board and analytical conclusion extraction with Q-C linking',
-        'service_file': 'app/services/conclusion_analyzer.py',
+        'service_file': 'app/services/step4_synthesis/conclusion_analyzer.py',
         'color': '#10b981',
         'prompts': [
             {'name': 'Board Conclusion Extraction', 'method': '_create_board_extraction_prompt'},

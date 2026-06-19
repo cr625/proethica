@@ -26,7 +26,7 @@ from app.domains import DomainConfig, get_domain_config
 from model_config import ModelConfig
 
 # Data models (extracted to separate module for modularity)
-from app.services.case_synthesis_models import (  # noqa: F401 -- re-exported for backward compatibility
+from app.services.step4_synthesis.case_synthesis_models import (  # noqa: F401 -- re-exported for backward compatibility
     EntitySummary, EntityFoundation, TimelineEvent, ScenarioSeeds,
     CaseNarrative, LLMTrace, CausalNormativeLink, QuestionEmergenceAnalysis,
     ResolutionPatternAnalysis, TransformationAnalysis, CaseSynthesisModel,
@@ -113,7 +113,7 @@ class CaseSynthesizer(NarrativeConstructionMixin, Phase2ExtractionMixin):
     def _get_rich_analyzer(self):
         """Lazy-load RichAnalyzer, sharing the LLM client."""
         if self._rich_analyzer is None:
-            from app.services.rich_analysis import RichAnalyzer
+            from app.services.step4_synthesis.rich_analysis import RichAnalyzer
             self._rich_analyzer = RichAnalyzer(llm_client=self.llm_client)
         return self._rich_analyzer
 
