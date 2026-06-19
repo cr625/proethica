@@ -179,8 +179,13 @@ class AutoCommitService:
                     if class_uri and class_uri not in entity_classes[entity_type]:
                         entity_classes[entity_type].append(class_uri)
 
-            # 3. Generate case .ttl file with individuals
-            ttl_file = self._generate_case_ttl(case_id, entities, results)
+            # 3. The canonical case TTL is written downstream by the OntServe
+            # versioned writer (commit_case_versioned -> _write_case_ttl_fresh),
+            # which builds a fresh graph and OVERWRITES the file. Generating the
+            # lean transient TTL eagerly here would just be clobbered, so defer it
+            # to the fallback in _sync_to_ontserve (non-versioned, or a
+            # versioned-commit failure), where it is actually consumed.
+            ttl_file = str(self.ontologies_dir / f"proethica-case-{case_id}.ttl")
 
             # 4. Update precedent features with entity_classes
             self._update_precedent_features(case_id, entity_classes)
@@ -188,8 +193,9 @@ class AutoCommitService:
             # 5. Mark entities as committed
             self._mark_entities_committed(entities)
 
-            # 6. Sync to OntServe database for visualization/MCP
-            self._sync_to_ontserve(case_id)
+            # 6. Sync to OntServe database for visualization/MCP (writes the final
+            # TTL; entities/results let the fallback build the lean TTL if needed).
+            self._sync_to_ontserve(case_id, entities, results)
 
             # Compile summary
             summary = CommitSummary(
@@ -932,12 +938,22 @@ class AutoCommitService:
             logger.error(f"Error marking entities as committed: {e}")
             db.session.rollback()
 
-    def _sync_to_ontserve(self, case_id: int):
+    def _sync_to_ontserve(
+        self,
+        case_id: int,
+        entities: Optional[List[TemporaryRDFStorage]] = None,
+        results: Optional[List[EntityCommitResult]] = None,
+    ):
         """
         Sync the case TTL file to OntServe's database for visualization and MCP.
 
         For versioned commits, also stores version history in OntServe concepts table.
         Calls OntServe scripts via subprocess to register/update the case ontology.
+
+        ``entities``/``results`` are the per-entity commit results from
+        commit_case_entities; they are used only to build the lean fallback TTL when
+        the versioned writer did not persist it. The temporal path calls this
+        without them (it wrote its own TTL beforehand).
         """
         from app.services.ontserve_commit_service import OntServeCommitService
 
@@ -952,13 +968,16 @@ class AutoCommitService:
             # final TTL and syncs disk->DB itself.
             if versioned:
                 try:
-                    entities = TemporaryRDFStorage.query.filter_by(
+                    # NOTE: a distinct name from the `entities` parameter (the commit
+                    # results) -- this is the published-entity set for the versioned
+                    # writer, not the lean-TTL fallback input.
+                    published_entities = TemporaryRDFStorage.query.filter_by(
                         case_id=case_id,
                         is_published=True
                     ).all()
 
-                    if entities:
-                        entity_ids = [e.id for e in entities]
+                    if published_entities:
+                        entity_ids = [e.id for e in published_entities]
                         result = commit_service.commit_case_versioned(case_id, entity_ids)
                         if result.get('success'):
                             logger.info(f"Versioned commit to OntServe DB: v{result.get('new_version')}, "
@@ -976,6 +995,14 @@ class AutoCommitService:
             if not versioned_refresh_done:
                 logger.info(f"Syncing case {case_id} TTL to OntServe...")
                 case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+                # Lean fallback TTL: the versioned writer did not persist it (non-
+                # versioned mode, or the versioned commit failed). Build it now from
+                # the commit results -- deferred from commit_case_entities, where the
+                # versioned path would have clobbered it. The temporal path calls
+                # _sync_to_ontserve() without results (it wrote its own TTL above),
+                # so only (re)generate when results are supplied.
+                if entities is not None and results is not None:
+                    self._generate_case_ttl(case_id, entities, results)
                 try:
                     from app.services.extraction.edge_materialization import materialize_edges_on_ttl
                     materialize_edges_on_ttl(case_id, case_file)
