@@ -438,9 +438,9 @@ def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int,
     do not match the noun-phrase Action/Event individuals by string, and the old
     `_safe_id` URIs were both lossy (50-char truncation) and wrong-namespace, so the
     OWL-Time triples silently dangled. The committed individuals are resolved
-    post-commit by embedding in
-    ``app/services/extraction/temporal_relation_edges.apply_temporal_relation_edges``
-    (mirroring the causal-edge appliers), which writes the proeth:fromEntity /
+    post-commit by embedding in the data-driven edge framework
+    (``edge_spec.materialize_edge_family`` over the ``temporal_relation_edges`` spec),
+    which writes the proeth:fromEntity /
     proeth:toEntity object edges and the time:* triple onto real individuals. So this
     converter emits only the clean labels + metadata that resolver consumes.
 

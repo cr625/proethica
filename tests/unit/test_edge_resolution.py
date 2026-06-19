@@ -1,15 +1,13 @@
-"""Unit tests for the resource-edge applier helpers (resource_edges.py).
+"""Unit tests for the shared edge-resolution primitives (edge_resolution.py).
 
-The full apply_resource_edges path needs the DB (temporary_rdf_storage) and the
-embedding service, and is exercised end-to-end by the case-15 commit. These tests
-lock the pure / mockable logic: the Agent candidate pool, the batched LLM
-multi-select mapping, and provenance idempotency.
+These lock the pure / mockable logic the data-driven edge framework relies on: the
+Agent candidate pool, the batched LLM multi-select mapping, and PROV-O idempotency.
+The helpers were consolidated here from the (now-deleted) per-family appliers; the
+full materialize_edge_family path is exercised end-to-end by the case-15 commit and
+by tests/unit/test_edge_spec_equivalence.py under a mocked resolver.
 """
 from rdflib import Graph, Namespace, RDF, RDFS, Literal
 
-from app.services.extraction import resource_edges as re_
-# _agent_pool was consolidated into edge_resolution (re-exported by resource_edges);
-# patch _embed on its real home so _agent_pool (which reads edge_resolution._embed) sees it.
 from app.services.extraction import edge_resolution as er
 
 CORE = Namespace("http://proethica.org/ontology/core#")
@@ -39,7 +37,7 @@ def test_agent_pool_includes_label_and_facet(monkeypatch):
 
     monkeypatch.setattr(er, "_embed", fake_embed)
     g = _agent_graph()
-    pool = re_._agent_pool(g, None)
+    pool = er._agent_pool(g, None)
     iris = {iri for iri, _t, _e in pool}
     assert CASE["Agent_Engineer_B"] in iris
     assert CASE["Agent_Owner"] in iris
@@ -77,35 +75,52 @@ def _items():
 def test_llm_select_multi_maps_arrays_and_empty():
     """Multi-select: an array of numbers -> list of IRIs; [] / 'none' -> empty."""
     client = _FakeClient('{"1": [1, 2], "2": []}')
-    out = re_._llm_select_multi(_items(), client=client, model="x")
+    out = er._llm_select_multi(_items(), client=client, model="x")
     assert out["1"] == [CASE["Agent_Engineer_B"], CASE["Agent_Engineer_A"]]
     assert out["2"] == []
 
 
 def test_llm_select_multi_tolerates_bad_choices():
     """Out-of-range / unparseable / bare-number / 'none' values never raise."""
-    out = re_._llm_select_multi(_items(), client=_FakeClient('{"1": 1, "2": "none"}'), model="x")
+    out = er._llm_select_multi(_items(), client=_FakeClient('{"1": 1, "2": "none"}'), model="x")
     assert out["1"] == [CASE["Agent_Engineer_B"]]   # bare number coerced to [number]
     assert out["2"] == []
-    out2 = re_._llm_select_multi(_items(), client=_FakeClient('{"1": [9, "x"], "2": [1]}'), model="x")
+    out2 = er._llm_select_multi(_items(), client=_FakeClient('{"1": [9, "x"], "2": [1]}'), model="x")
     assert out2["1"] == []                           # 9 out of range, "x" unparseable
     assert out2["2"] == [CASE["Agent_Engineer_B"]]
 
 
 def test_llm_select_multi_none_without_streaming_client():
     # a client without messages.stream -> None (caller falls back to embedding)
-    assert re_._llm_select_multi(_items(), client=object(), model="x") is None
+    assert er._llm_select_multi(_items(), client=object(), model="x") is None
 
 
-def test_emit_prov_idempotent():
-    """The resource-edge prov node is deterministic from (subj, availableTo, obj); a
-    second emission must not duplicate the node or multi-value its fields."""
+def test_emit_edge_prov_idempotent_and_property_scoped():
+    """emit_edge_prov is deterministic from (prefix, prop, subj, obj); a second emission
+    must not duplicate the node or multi-value its fields, and two different properties
+    between the same pair get distinct nodes."""
     g = Graph()
     s, o = CASE["NSPE_Code"], CASE["Agent_Engineer_B"]
-    re_._emit_prov(g, 15, s, o, "Engineer B and Engineer A")
-    re_._emit_prov(g, 15, s, o, "Engineer B and Engineer A")
+    args = (g, 15, "resource_edge_provenance_", "availableTo", s, o,
+            "Engineer B and Engineer A", "Resource edge (availableTo)", "comment")
+    er.emit_edge_prov(*args)
+    er.emit_edge_prov(*args)
     provs = [x for x in g.subjects(RDF.type, PROV.Derivation) if "resource_edge_provenance" in str(x)]
     assert len(provs) == 1, provs
     assert len(list(g.objects(provs[0], PROV.value))) == 1
     assert (provs[0], PROV.wasDerivedFrom, s) in g
     assert (provs[0], PROV.wasDerivedFrom, o) in g
+    # A different property between the same pair is a distinct node.
+    er.emit_edge_prov(g, 15, "resource_edge_provenance_", "otherProp", s, o,
+                      "desc", "label", "comment")
+    assert len([x for x in g.subjects(RDF.type, PROV.Derivation)
+                if "resource_edge_provenance" in str(x)]) == 2
+
+
+def test_emit_edge_prov_omits_value_when_desc_empty():
+    """An empty desc yields no prov:value triple (matches the historical emitter)."""
+    g = Graph()
+    er.emit_edge_prov(g, 15, "state_affects_provenance_", "affects",
+                      CASE["State"], CASE["Agent_Owner"], "", "State edge (affects)", "comment")
+    prov = next(iter(g.subjects(RDF.type, PROV.Derivation)))
+    assert list(g.objects(prov, PROV.value)) == []

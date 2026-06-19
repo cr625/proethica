@@ -1,29 +1,27 @@
-"""Unit tests for the fluent-transition applier (fluent_edges.py) and the converter
-emission that feeds it.
+"""Unit tests for the fluent-transition family spec (edge_spec._FLUENT_SPEC) and the
+converter emission that feeds it.
 
-The full apply_fluent_edges path needs the DB (temporary_rdf_storage) + the embedding
-service, and is exercised end-to-end by the case-15 commit. These tests lock the mockable
-logic: the two fluent specs, the guard-registry coverage (Action/Event union -> State), the
-per-property prompt wording, the multi-select mapping, provenance idempotency, and the
-rdf_converter emission of initiates / terminates / temporalExtent / hasTime.
+The Action/Event initiates|terminates State edges are materialised by the data-driven
+framework; these tests lock the family DATA (the two predicates, the union subject pool
+guard, the per-predicate prompt wording) and the rdf_converter emission of initiates /
+terminates / temporalExtent that the framework reads. The full materialize_edge_family
+path is exercised by tests/unit/test_edge_spec_equivalence.py under a mocked resolver.
 """
-from rdflib import Graph, Namespace, RDF, RDFS
+from rdflib import Namespace
 
-from app.services.extraction import fluent_edges as fe_
-from app.services.extraction import resource_edges as re_
+from app.services.extraction import edge_spec as es
 from app.services.extraction.rpo_edges import ALL_EDGE_RANGE
 from app.services.temporal_dynamics.utils.rdf_converter import (
     convert_action_to_rdf, convert_event_to_rdf,
 )
 
 CORE = Namespace("http://proethica.org/ontology/core#")
-PROV = Namespace("http://www.w3.org/ns/prov#")
 CASE = Namespace("http://proethica.org/ontology/case/15#")
 
 
 def _items():
     return [
-        {"id": 1, "subj": CASE["Event_Risk_Discovery"], "desc": "Public Safety Risk; Project Suspended",
+        {"id": 1, "desc": "Public Safety Risk; Project Suspended",
          "subj_label": "Risk Discovery",
          "shortlist": [(CASE["Public_Safety_Risk"], "Public Safety Risk", 0.9),
                        (CASE["Project_Suspended"], "Project Suspended", 0.85),
@@ -31,21 +29,8 @@ def _items():
     ]
 
 
-class _FakeStream:
-    def __init__(self, text): self._text = text
-    def __enter__(self): return self
-    def __exit__(self, *a): return False
-    @property
-    def text_stream(self): return [self._text]
-
-
-class _FakeClient:
-    def __init__(self, text):
-        self.messages = type("M", (), {"stream": lambda _self, **kw: _FakeStream(text)})()
-
-
 def test_specs_are_initiates_and_terminates():
-    props = [p for p, _ in fe_._FLUENT_SPECS]
+    props = [p.prop for p in es._FLUENT_SPEC.predicates]
     assert props == ["initiates", "terminates"]
 
 
@@ -59,33 +44,13 @@ def test_fluent_edges_guarded_as_happening_to_state():
 
 
 def test_prompt_wording_distinguishes_initiates_from_terminates():
-    p_init = fe_._build_fluent_prompt("initiates")(_items())
+    by_prop = {p.prop: p for p in es._FLUENT_SPEC.predicates}
+    p_init = es._fluent_prompt_factory(by_prop["initiates"], es._FLUENT_SPEC)(_items())
     assert "INITIATES" in p_init
     assert "candidate states" in p_init.lower()
     assert "Public Safety Risk" in p_init  # the state text is included verbatim
-    p_term = fe_._build_fluent_prompt("terminates")(_items())
+    p_term = es._fluent_prompt_factory(by_prop["terminates"], es._FLUENT_SPEC)(_items())
     assert "TERMINATES" in p_term
-
-
-def test_multi_select_maps_chosen_states():
-    client = _FakeClient('{"1": [1, 2]}')  # both real states, not the unrelated one
-    out = re_._llm_select_multi(_items(), client=client, model="x",
-                                prompt_builder=fe_._build_fluent_prompt("initiates"))
-    assert out["1"] == [CASE["Public_Safety_Risk"], CASE["Project_Suspended"]]
-
-
-def test_emit_prov_idempotent_and_property_scoped():
-    g = Graph()
-    s, o = CASE["Event_Risk_Discovery"], CASE["Public_Safety_Risk"]
-    fe_._emit_prov(g, 15, "initiates", s, o, "Public Safety Risk")
-    fe_._emit_prov(g, 15, "initiates", s, o, "Public Safety Risk")
-    provs = [x for x in g.subjects(RDF.type, PROV.Derivation)
-             if "fluent_edge_provenance" in str(x) and "initiates" in str(x)]
-    assert len(provs) == 1, provs
-    assert len(list(g.objects(provs[0], PROV.value))) == 1
-    fe_._emit_prov(g, 15, "terminates", s, o, "Public Safety Risk")
-    allp = [x for x in g.subjects(RDF.type, PROV.Derivation) if "fluent_edge_provenance" in str(x)]
-    assert len(allp) == 2
 
 
 def test_converter_emits_fluent_and_extent_fields():

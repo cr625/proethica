@@ -51,7 +51,7 @@ from app.services.extraction.state_edges import (
     emit_edge_prov,
     remove_edge_prov,
 )
-from app.services.extraction.resource_edges import _agent_pool, _llm_select_multi
+from app.services.extraction.edge_resolution import _agent_pool, _llm_select_multi
 
 logger = logging.getLogger(__name__)
 
