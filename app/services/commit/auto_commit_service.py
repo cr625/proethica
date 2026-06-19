@@ -955,7 +955,7 @@ class AutoCommitService:
         the versioned writer did not persist it. The temporal path calls this
         without them (it wrote its own TTL beforehand).
         """
-        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.services.commit.ontserve_commit_service import OntServeCommitService
 
         versioned = getattr(self, '_versioned_commit', True)
         versioned_refresh_done = False

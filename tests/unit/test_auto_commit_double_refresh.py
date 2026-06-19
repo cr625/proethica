@@ -17,9 +17,9 @@ from pathlib import Path
 @pytest.fixture
 def auto_commit_service():
     """Create AutoCommitService with mocked dependencies."""
-    with patch('app.services.auto_commit_service.db'), \
-         patch('app.services.auto_commit_service.TemporaryRDFStorage'):
-        from app.services.auto_commit_service import AutoCommitService
+    with patch('app.services.commit.auto_commit_service.db'), \
+         patch('app.services.commit.auto_commit_service.TemporaryRDFStorage'):
+        from app.services.commit.auto_commit_service import AutoCommitService
         service = AutoCommitService.__new__(AutoCommitService)
         service._versioned_commit = True
         # __new__ bypasses __init__, so attributes the real __init__ sets must be provided
@@ -37,7 +37,7 @@ class TestDoubleRefreshFix:
     falls back to the in-process commit_service._sync_ontology_to_db (never both)."""
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_versioned_success_skips_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
         """commit_case_versioned succeeds -> the fallback _sync_ontology_to_db is skipped."""
         mock_base_path.return_value = Path("/fake/OntServe")
@@ -47,9 +47,9 @@ class TestDoubleRefreshFix:
             'success': True, 'new_version': 2, 'versions_superseded': 1
         }
 
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+        with patch('app.services.commit.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
             mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1), MagicMock(id=2)]
-            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+            with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                        return_value=mock_commit_service):
                 auto_commit_service._versioned_commit = True
                 auto_commit_service._sync_to_ontserve(7)
@@ -59,7 +59,7 @@ class TestDoubleRefreshFix:
         mock_commit_service._sync_ontology_to_db.assert_not_called()
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_versioned_failure_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
         """commit_case_versioned returns success=False -> fallback _sync_ontology_to_db runs."""
         mock_base_path.return_value = Path("/fake/OntServe")
@@ -68,9 +68,9 @@ class TestDoubleRefreshFix:
         mock_commit_service.commit_case_versioned.return_value = {'success': False, 'error': 'DB connection failed'}
         mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
 
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+        with patch('app.services.commit.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
             mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1)]
-            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+            with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                        return_value=mock_commit_service):
                 auto_commit_service._versioned_commit = True
                 auto_commit_service._sync_to_ontserve(7)
@@ -78,7 +78,7 @@ class TestDoubleRefreshFix:
         mock_commit_service._sync_ontology_to_db.assert_called_once()
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_versioned_commit_exception_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
         """commit_case_versioned raises -> the inner handler falls back to _sync_ontology_to_db."""
         mock_base_path.return_value = Path("/fake/OntServe")
@@ -87,9 +87,9 @@ class TestDoubleRefreshFix:
         mock_commit_service.commit_case_versioned.side_effect = Exception("versioned commit boom")
         mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
 
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+        with patch('app.services.commit.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
             mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1)]
-            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+            with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                        return_value=mock_commit_service):
                 auto_commit_service._versioned_commit = True
                 auto_commit_service._sync_to_ontserve(7)
@@ -97,7 +97,7 @@ class TestDoubleRefreshFix:
         mock_commit_service._sync_ontology_to_db.assert_called_once()
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_non_versioned_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
         """Non-versioned commits go straight to the in-process _sync_ontology_to_db."""
         mock_base_path.return_value = Path("/fake/OntServe")
@@ -105,7 +105,7 @@ class TestDoubleRefreshFix:
         mock_commit_service = MagicMock()
         mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
 
-        with patch('app.services.ontserve_commit_service.OntServeCommitService',
+        with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                    return_value=mock_commit_service):
             auto_commit_service._versioned_commit = False
             auto_commit_service._sync_to_ontserve(7)
@@ -114,7 +114,7 @@ class TestDoubleRefreshFix:
         mock_commit_service.commit_case_versioned.assert_not_called()
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_no_entities_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
         """No published entities -> versioned commit is skipped, fallback _sync_ontology_to_db runs."""
         mock_base_path.return_value = Path("/fake/OntServe")
@@ -122,9 +122,9 @@ class TestDoubleRefreshFix:
         mock_commit_service = MagicMock()
         mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
 
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+        with patch('app.services.commit.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
             mock_rdf.query.filter_by.return_value.all.return_value = []
-            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+            with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                        return_value=mock_commit_service):
                 auto_commit_service._versioned_commit = True
                 auto_commit_service._sync_to_ontserve(7)
@@ -140,7 +140,7 @@ class TestLazyTransientTtl:
     overwrites it. _sync_to_ontserve takes entities/results to build it on demand."""
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_versioned_success_skips_transient_ttl(self, mock_base_path, mock_materialize, auto_commit_service):
         """Versioned commit succeeds -> the lean transient TTL is NOT generated."""
         mock_base_path.return_value = Path("/fake/OntServe")
@@ -150,9 +150,9 @@ class TestLazyTransientTtl:
         mock_commit_service.commit_case_versioned.return_value = {
             'success': True, 'new_version': 2, 'versions_superseded': 1
         }
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+        with patch('app.services.commit.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
             mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1)]
-            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+            with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                        return_value=mock_commit_service):
                 auto_commit_service._versioned_commit = True
                 auto_commit_service._sync_to_ontserve(7, entities=[MagicMock()], results=[MagicMock()])
@@ -160,7 +160,7 @@ class TestLazyTransientTtl:
         auto_commit_service._generate_case_ttl.assert_not_called()
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_versioned_failure_builds_transient_ttl(self, mock_base_path, mock_materialize, auto_commit_service):
         """Versioned commit fails -> the fallback builds the lean transient TTL before sync."""
         mock_base_path.return_value = Path("/fake/OntServe")
@@ -170,9 +170,9 @@ class TestLazyTransientTtl:
         mock_commit_service.commit_case_versioned.return_value = {'success': False, 'error': 'boom'}
         mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
         entities, results = [MagicMock()], [MagicMock()]
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+        with patch('app.services.commit.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
             mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1)]
-            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+            with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                        return_value=mock_commit_service):
                 auto_commit_service._versioned_commit = True
                 auto_commit_service._sync_to_ontserve(7, entities=entities, results=results)
@@ -181,7 +181,7 @@ class TestLazyTransientTtl:
         mock_commit_service._sync_ontology_to_db.assert_called_once()
 
     @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    @patch('app.services.commit.auto_commit_service.get_ontserve_base_path')
     def test_temporal_path_no_results_skips_regeneration(self, mock_base_path, mock_materialize, auto_commit_service):
         """The temporal path calls _sync_to_ontserve() without results (it wrote its
         own TTL); the fallback must not try to regenerate from missing results."""
@@ -190,7 +190,7 @@ class TestLazyTransientTtl:
 
         mock_commit_service = MagicMock()
         mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
-        with patch('app.services.ontserve_commit_service.OntServeCommitService',
+        with patch('app.services.commit.ontserve_commit_service.OntServeCommitService',
                    return_value=mock_commit_service):
             auto_commit_service._versioned_commit = False
             auto_commit_service._sync_to_ontserve(7)  # no entities/results

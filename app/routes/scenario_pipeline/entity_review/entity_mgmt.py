@@ -125,7 +125,7 @@ def register_entity_mgmt_routes(bp):
         """Commit selected RDF entities to OntServe permanent storage."""
         try:
             # Import the new commit service
-            from app.services.ontserve_commit_service import OntServeCommitService
+            from app.services.commit.ontserve_commit_service import OntServeCommitService
 
             data = request.get_json() if request.is_json else request.form
             force = data.get('force', False)
@@ -213,7 +213,7 @@ def register_entity_mgmt_routes(bp):
     def get_commit_status(case_id):
         """Get the commit status for a case."""
         try:
-            from app.services.ontserve_commit_service import OntServeCommitService
+            from app.services.commit.ontserve_commit_service import OntServeCommitService
 
             commit_service = OntServeCommitService()
             status = commit_service.get_commit_status(case_id)

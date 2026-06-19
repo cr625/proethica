@@ -235,7 +235,7 @@ class TestCheckDuplicateContract:
 
     def _service(self, *, embedding_row=None):
         """Bare AutoCommitService with a stubbed embedding tier (no DB/model)."""
-        from app.services.auto_commit_service import AutoCommitService
+        from app.services.commit.auto_commit_service import AutoCommitService
         svc = object.__new__(AutoCommitService)
         svc._versioned_commit = True
         svc._ontserve_classes_cache = dict(self.CACHE)

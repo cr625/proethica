@@ -134,7 +134,7 @@ def register_entity_mgmt_routes(bp):
     def commit_step4_entities(case_id):
         """Commit Step 4 entities to OntServe."""
         try:
-            from app.services.auto_commit_service import AutoCommitService
+            from app.services.commit.auto_commit_service import AutoCommitService
 
             case = Document.query.get_or_404(case_id)
             logger.info(f"Committing Step 4 entities for case {case_id}")

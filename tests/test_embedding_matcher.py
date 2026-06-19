@@ -21,7 +21,7 @@ def _make_service(cache_entries: Optional[Dict[str, Dict]] = None):
 
     Skips Flask app and DB setup so the tests run in plain pytest.
     """
-    from app.services.auto_commit_service import AutoCommitService
+    from app.services.commit.auto_commit_service import AutoCommitService
     service = object.__new__(AutoCommitService)
     service._versioned_commit = True
     service._ontserve_classes_cache = (
@@ -53,7 +53,7 @@ def _patch_pgvector(query_vec: List[float], sql_row, captured: Dict[str, Any]):
         patch("app.services.embedding.embedding_service.EmbeddingService")
     )
     engine_patch = stack.enter_context(
-        patch("app.services.auto_commit_service.create_engine")
+        patch("app.services.commit.auto_commit_service.create_engine")
     )
 
     # candidate-side embedding
@@ -229,7 +229,7 @@ class TestCheckEmbeddingDuplicate:
 
     def test_all_nine_dtuple_types_have_markers(self):
         """Each D-tuple component (singular and plural) maps to a marker."""
-        from app.services.auto_commit_service import _semantic_type_markers
+        from app.services.commit.auto_commit_service import _semantic_type_markers
         for sing, plural, expected in [
             ('role', 'roles', 'Role'),
             ('principle', 'principles', 'Principle'),
@@ -264,7 +264,7 @@ class TestCheckEmbeddingDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.auto_commit_service.create_engine")
+                patch("app.services.commit.auto_commit_service.create_engine")
             )
             mock_es = MagicMock()
             mock_es._get_local_embedding.return_value = [0.1] * 384
@@ -321,7 +321,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.auto_commit_service.create_engine")
+                patch("app.services.commit.auto_commit_service.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -339,7 +339,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.auto_commit_service.create_engine")
+                patch("app.services.commit.auto_commit_service.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -364,7 +364,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.auto_commit_service.create_engine")
+                patch("app.services.commit.auto_commit_service.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -386,7 +386,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.auto_commit_service.create_engine")
+                patch("app.services.commit.auto_commit_service.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -404,7 +404,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.auto_commit_service.create_engine")
+                patch("app.services.commit.auto_commit_service.create_engine")
             )
             mock_es = MagicMock()
             mock_es._get_local_embedding.return_value = [0.1] * 384

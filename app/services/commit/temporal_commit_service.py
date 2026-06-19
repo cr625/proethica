@@ -10,7 +10,7 @@ from typing import Dict, Any
 from datetime import datetime
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
-from app.services.ontserve_commit_service import OntServeCommitService
+from app.services.commit.ontserve_commit_service import OntServeCommitService
 
 logger = logging.getLogger(__name__)
 

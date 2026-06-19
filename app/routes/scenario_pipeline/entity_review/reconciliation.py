@@ -383,7 +383,7 @@ def register_reconciliation_routes(bp):
         are auto-applied at commit time.
         Logs commit to provenance.
         """
-        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.services.commit.ontserve_commit_service import OntServeCommitService
         from app.models.reconciliation_run import ReconciliationRun
         from app.models.provenance import ProvenanceActivity, ProvenanceAgent
 
@@ -476,7 +476,7 @@ def register_reconciliation_routes(bp):
     @auth_required_for_write
     def reconcile_uncommit(case_id):
         """Reverse a commit: remove entities from OntServe, reset is_published."""
-        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.services.commit.ontserve_commit_service import OntServeCommitService
         from app.models.provenance import ProvenanceActivity, ProvenanceAgent
 
         published_count = TemporaryRDFStorage.query.filter_by(

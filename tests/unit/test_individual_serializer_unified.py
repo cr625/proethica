@@ -21,7 +21,7 @@ import types
 from rdflib import Graph, Namespace, RDF, RDFS, OWL, Literal, URIRef
 from rdflib.namespace import SKOS, XSD
 
-from app.services.ontserve_commit_service import OntServeCommitService
+from app.services.commit.ontserve_commit_service import OntServeCommitService
 
 PROV_NS = Namespace('http://proethica.org/provenance#')
 

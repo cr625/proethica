@@ -183,7 +183,7 @@ def register_ontserve_ops_routes(bp):
     def commit_temporal_entities(case_id):
         """Commit all temporal dynamics entities to OntServe."""
         try:
-            from app.services.temporal_commit_service import TemporalCommitService
+            from app.services.commit.temporal_commit_service import TemporalCommitService
 
             commit_service = TemporalCommitService()
             result = commit_service.commit_temporal_entities(case_id)
@@ -498,7 +498,7 @@ def register_ontserve_ops_routes(bp):
         generates case TTL file, and updates precedent features for Jaccard calculation.
         """
         try:
-            from app.services.auto_commit_service import AutoCommitService
+            from app.services.commit.auto_commit_service import AutoCommitService
 
             data = request.get_json() or {}
             force = data.get('force', False)
@@ -554,7 +554,7 @@ def register_ontserve_ops_routes(bp):
         Returns information about entity matching status and Jaccard readiness.
         """
         try:
-            from app.services.auto_commit_service import AutoCommitService
+            from app.services.commit.auto_commit_service import AutoCommitService
 
             auto_commit_service = AutoCommitService()
             status = auto_commit_service.get_commit_status(case_id)
@@ -584,7 +584,7 @@ def register_ontserve_ops_routes(bp):
         has already been committed to OntServe.
         """
         try:
-            from app.services.auto_commit_service import AutoCommitService
+            from app.services.commit.auto_commit_service import AutoCommitService
 
             data = request.get_json() or {}
             reset_committed = data.get('reset_committed', True)

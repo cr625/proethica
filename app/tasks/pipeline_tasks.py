@@ -749,7 +749,7 @@ def run_full_pipeline_task(self, case_id: int, config: dict = None,
     # Clean up previous OntServe data for this case before re-extraction
     if commit_to_ontserve:
         try:
-            from app.services.ontserve_commit_service import OntServeCommitService
+            from app.services.commit.ontserve_commit_service import OntServeCommitService
             svc = OntServeCommitService()
             ur = svc.uncommit_case(case_id)
             logger.info(f"[Task {self.request.id}] Pre-extraction uncommit: "
@@ -1211,7 +1211,7 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
     db.session.commit()
 
     try:
-        from app.services.ontserve_commit_service import OntServeCommitService
+        from app.services.commit.ontserve_commit_service import OntServeCommitService
         from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
         # Get all unpublished entity IDs
