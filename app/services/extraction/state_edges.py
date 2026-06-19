@@ -31,12 +31,32 @@ are logged with their best similarity (no silent drops).
 from __future__ import annotations
 
 import logging
-import math
-import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
-from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib import Graph, Literal, Namespace, URIRef
+
+# The embedding / graph / shortlist / LLM-select / provenance primitives now live in
+# the shared edge_resolution module (moved verbatim, de-duplicated across the appliers).
+# Re-imported here so the historical state_edges import surface is preserved: sibling
+# appliers, time_anchor (_safe_frag), and the unit tests import these names off
+# state_edges, and that keeps resolving to the one shared implementation.
+from app.services.extraction.edge_resolution import (  # noqa: F401  (re-exported)
+    _candidate_pool,
+    _cosine,
+    _embed,
+    _embedding_service,
+    _individuals_in_category,
+    _label,
+    _lit,
+    _llm_select as _llm_select_generic,
+    _norm,
+    _resolve,
+    _safe_frag,
+    _shortlist,
+    emit_edge_prov,
+    remove_edge_prov,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,96 +97,6 @@ _PROP_SEMANTICS = {
 }
 
 
-# --- embedding helpers -----------------------------------------------------
-
-def _embedding_service():
-    from app.services.embedding_service import EmbeddingService
-    return EmbeddingService.get_instance()
-
-
-def _embed(svc, text: str) -> Optional[List[float]]:
-    text = (text or "").strip()
-    if not text:
-        return None
-    try:
-        return svc.get_embedding(text)
-    except Exception as e:  # never raise out of an applier
-        logger.warning("state_edges: embedding failed for %r: %s", text[:60], e)
-        return None
-
-
-def _cosine(a: List[float], b: List[float]) -> float:
-    if not a or not b:
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(y * y for y in b))
-    return dot / (na * nb) if na and nb else 0.0
-
-
-def _norm(s: str) -> str:
-    return re.sub(r"\s+", " ", (s or "").lower().replace("_", " ").replace("-", " ")).strip()
-
-
-# --- graph helpers (mirror rpo_edges / defeasibility_pipeline) -------------
-
-def _individuals_in_category(g: Graph, category: str) -> List[URIRef]:
-    return [s for s, _, _ in g.triples((None, PROETH.conceptCategory, Literal(category)))]
-
-
-def _label(g: Graph, ind: URIRef) -> str:
-    for o in g.objects(ind, RDFS.label):
-        return str(o)
-    return str(ind).split("#")[-1]
-
-
-def _lit(g: Graph, ind: URIRef, name: str) -> str:
-    for o in g.objects(ind, PROETH[name]):
-        return str(o)
-    return ""
-
-
-def _candidate_pool(g: Graph, svc, category: str, extra_fields: List[str]):
-    """[(iri, text, embedding)] for every individual of a core category, using its
-    label plus a few narrative fields as the matchable text."""
-    pool = []
-    for ind in _individuals_in_category(g, category):
-        text = _label(g, ind)
-        for f in extra_fields:
-            v = _lit(g, ind, f)
-            if v:
-                text += " . " + v
-        ev = _embed(svc, text)
-        if ev:
-            pool.append((ind, text, ev))
-    return pool
-
-
-def _resolve(svc, description: str, pool, threshold: float) -> Tuple[Optional[URIRef], float]:
-    qv = _embed(svc, description)
-    if not qv or not pool:
-        return None, 0.0
-    best, best_sim = None, -1.0
-    for iri, _t, ev in pool:
-        sim = _cosine(qv, ev)
-        if sim > best_sim:
-            best, best_sim = iri, sim
-    if best is not None and best_sim >= threshold:
-        return best, best_sim
-    return None, best_sim
-
-
-def _shortlist(svc, description: str, pool, floor: float, k: int):
-    """Top-k (iri, label, sim) candidates above `floor`, best first. The cheap
-    embedding pre-filter that keeps the LLM confirm prompt small."""
-    qv = _embed(svc, description)
-    if not qv or not pool:
-        return []
-    scored = sorted(((iri, txt, _cosine(qv, ev)) for iri, txt, ev in pool),
-                    key=lambda x: -x[2])
-    return [(iri, txt, sim) for iri, txt, sim in scored[:k] if sim >= floor]
-
-
 # --- batched LLM confirm/select (the hybrid precision layer) ----------------
 
 def _build_select_prompt(items: List[Dict[str, Any]]) -> str:
@@ -194,56 +124,16 @@ def _build_select_prompt(items: List[Dict[str, Any]]) -> str:
 
 
 def _llm_select(items: List[Dict[str, Any]], client=None, model=None):
-    """Map each item id -> chosen candidate IRI (or None) via one LLM call.
+    """Map each item id -> chosen candidate IRI (or None) via one batched LLM call.
     Returns the selection dict, or None if the LLM is unavailable / the call fails
-    (the caller then falls back to the embedding threshold)."""
-    if not items:
-        return {}
-    try:
-        if client is None:
-            from app.utils.llm_utils import get_llm_client
-            client = get_llm_client()
-        if model is None:
-            # Constrained pick-from-shortlist task: the fast tier (Haiku) is the
-            # right fit; a heavier model adds nothing over a small selection prompt.
-            from model_config import ModelConfig
-            model = ModelConfig.get_claude_model("fast")
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.warning("state_edges: no Anthropic streaming client; embedding fallback")
-            return None
-        prompt = _build_select_prompt(items)
-        chunks: List[str] = []
-        with client.messages.stream(
-            model=model, max_tokens=4096, temperature=0.0,
-            system=("You select the single matching entity for each request, "
-                    "respecting the relation's direction and polarity. Output strict JSON only."),
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for t in stream.text_stream:
-                chunks.append(t)
-        from app.utils.llm_utils import extract_json_from_response
-        data = extract_json_from_response("".join(chunks))
-        if not isinstance(data, dict):
-            return None
-        by_id = {str(it["id"]): it for it in items}
-        out: Dict[str, Any] = {}
-        for k, v in data.items():
-            it = by_id.get(str(k))
-            if it is None:
-                continue
-            if isinstance(v, str) and v.strip().lower() in ("none", "0", ""):
-                out[str(k)] = None
-                continue
-            try:
-                n = int(v)
-            except (TypeError, ValueError):
-                out[str(k)] = None
-                continue
-            out[str(k)] = it["shortlist"][n - 1][0] if 1 <= n <= len(it["shortlist"]) else None
-        return out
-    except Exception as e:
-        logger.warning("state_edges: LLM select failed (%s); embedding fallback", e)
-        return None
+    (the caller then falls back to the embedding threshold).
+
+    Thin wrapper over the shared single-select driver, supplying the state-specific
+    direction/polarity prompt builder and the fast model tier (the constrained
+    pick-from-shortlist task fits the fast tier). Identical behaviour to the previous
+    inline implementation."""
+    return _llm_select_generic(items, _build_select_prompt, client=client, model=model,
+                               model_tier="fast")
 
 
 # --- temp_rdf (DB) linkage read --------------------------------------------
@@ -295,43 +185,8 @@ def _state_linkage_from_db(case_id: int):
 
 
 # --- provenance (idempotent, mirrors defeasibility/relationship prov) -------
-
-def _safe_frag(iri) -> str:
-    return re.sub(r"[^A-Za-z0-9_]", "_", str(iri).split("#")[-1])
-
-
-def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
-                   desc: str, label: str, comment: str):
-    """Shared PROV-O Derivation emitter for a materialised (subj, prop, obj) edge --
-    the single home for the provenance-node shape the edge-applier family used to
-    copy-paste eight times (rule of three). ``prefix`` is the LITERAL provenance-IRI
-    prefix the family uses (e.g. ``"state_edge_provenance_"``); the node IRI is
-    ``case#<prefix><safe_frag(subj)>_<prop>_<safe_frag(obj)>`` -- byte-identical to the
-    pre-consolidation scheme, and idempotent. The per-family ``label``/``comment`` stay
-    local config and are passed through; only the node-shape logic is centralised.
-    Returns the node IRI."""
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns[prefix + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
-    if (prov_iri, RDF.type, PROV.Derivation) in g:
-        return prov_iri
-    g.add((prov_iri, RDF.type, PROV.Derivation))
-    g.add((prov_iri, PROV.wasDerivedFrom, subj))
-    g.add((prov_iri, PROV.wasDerivedFrom, obj))
-    g.add((prov_iri, RDFS.label, Literal(label)))
-    if desc:
-        g.add((prov_iri, PROV.value, Literal(str(desc))))
-    g.add((prov_iri, RDFS.comment, Literal(comment)))
-    return prov_iri
-
-
-def remove_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj) -> None:
-    """Remove the PROV-O node ``emit_edge_prov`` minted for (subj, prop, obj), so a
-    dropped edge leaves no orphan derivation node. Same IRI scheme as emit_edge_prov."""
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
-    prov_iri = case_ns[prefix + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
-    for t in list(g.triples((prov_iri, None, None))):
-        g.remove(t)
-
+# emit_edge_prov / remove_edge_prov / _safe_frag now live in edge_resolution and are
+# re-imported above; only the state-specific label/comment wrapper stays here.
 
 def _emit_prov(g: Graph, case_id: int, subj, prop: str, obj, desc: str) -> None:
     emit_edge_prov(g, case_id, "state_edge_provenance_", prop, subj, obj, desc,

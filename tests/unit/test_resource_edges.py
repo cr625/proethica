@@ -8,6 +8,9 @@ multi-select mapping, and provenance idempotency.
 from rdflib import Graph, Namespace, RDF, RDFS, Literal
 
 from app.services.extraction import resource_edges as re_
+# _agent_pool was consolidated into edge_resolution (re-exported by resource_edges);
+# patch _embed on its real home so _agent_pool (which reads edge_resolution._embed) sees it.
+from app.services.extraction import edge_resolution as er
 
 CORE = Namespace("http://proethica.org/ontology/core#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
@@ -34,7 +37,7 @@ def test_agent_pool_includes_label_and_facet(monkeypatch):
         seen[text] = True
         return [1.0, 0.0]
 
-    monkeypatch.setattr(re_, "_embed", fake_embed)
+    monkeypatch.setattr(er, "_embed", fake_embed)
     g = _agent_graph()
     pool = re_._agent_pool(g, None)
     iris = {iri for iri, _t, _e in pool}

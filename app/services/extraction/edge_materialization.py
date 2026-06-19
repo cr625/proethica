@@ -28,6 +28,21 @@ from typing import Any, Dict
 logger = logging.getLogger(__name__)
 
 
+def _run_family(results: Dict[str, Any], key: str, case_id: int, ttl_path) -> None:
+    """Run one data-driven edge family from the registry (by spec name) at its place
+    in the ordered pipeline, recording its result under ``key`` (best-effort: a
+    failure is logged and stored, never raised). The six migrated families
+    (resource / state-affects / participant / fluent / obligation / temporal-relation)
+    share one framework; the spec for ``key`` carries all the per-family data."""
+    try:
+        from app.services.extraction.edge_spec import EDGE_REGISTRY, materialize_edge_family
+        spec = next(s for s in EDGE_REGISTRY if s.name == key)
+        results[key] = materialize_edge_family(case_id, ttl_path, spec, write_back=True)
+    except Exception as e:
+        logger.exception("materialize: %s applier failed for case %s", key, case_id)
+        results[key] = {"error": str(e)}
+
+
 def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     """Run all three edge appliers over a just-written case TTL (in place).
 
@@ -69,27 +84,13 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # `used_by` field becomes Resource proeth-core:availableTo Agent edges, naming
     # the case actor(s) that use each resource. Mirrors the state-edge applier
     # (embedding shortlist + batched LLM multi-select, prov:Derivation).
-    try:
-        from app.services.extraction.resource_edges import apply_resource_edges
-        results["resource_edges"] = apply_resource_edges(
-            case_id=case_id, ttl_path=ttl_path, write_back=True,
-        )
-    except Exception as e:
-        logger.exception("materialize: resource-edge applier failed for case %s", case_id)
-        results["resource_edges"] = {"error": str(e)}
+    _run_family(results, "resource_edges", case_id, ttl_path)
 
     # 2c. State-affects edges (DB-driven, embedding-resolved): the state
     # `affectedParties` list becomes State proeth-core:affects Agent edges, naming
     # the case actor(s) a state bears on. Mirrors the resource-edge applier
     # (embedding shortlist + batched LLM multi-select, prov:Derivation).
-    try:
-        from app.services.extraction.state_affects_edges import apply_state_affects_edges
-        results["state_affects_edges"] = apply_state_affects_edges(
-            case_id=case_id, ttl_path=ttl_path, write_back=True,
-        )
-    except Exception as e:
-        logger.exception("materialize: state-affects applier failed for case %s", case_id)
-        results["state_affects_edges"] = {"error": str(e)}
+    _run_family(results, "state_affects_edges", case_id, ttl_path)
 
     # 2d. Participant edges (DB-driven, embedding-resolved): the Pass-2 component
     # 'who' fields (obligation obligatedParty / constraint constrainedEntity /
@@ -99,14 +100,7 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # Mirrors the state-affects applier (embedding shortlist + batched LLM select,
     # prov:Derivation). Range Agent is OWL-DL-safe; the unified guard validates the
     # component subject.
-    try:
-        from app.services.extraction.participant_edges import apply_participant_edges
-        results["participant_edges"] = apply_participant_edges(
-            case_id=case_id, ttl_path=ttl_path, write_back=True,
-        )
-    except Exception as e:
-        logger.exception("materialize: participant-edge applier failed for case %s", case_id)
-        results["participant_edges"] = {"error": str(e)}
+    _run_family(results, "participant_edges", case_id, ttl_path)
 
     # 2e. Fluent-transition edges (DB-driven, embedding-resolved): the Step-3 temporal
     # happenings' initiates / terminates State labels become Action/Event -> State edges
@@ -114,14 +108,7 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # the fluent as the middle term between the temporal and normative components. Mirrors
     # the state-affects / participant appliers (embedding shortlist + batched LLM select,
     # prov:Derivation). No-op for cases with no committed temporal individuals.
-    try:
-        from app.services.extraction.fluent_edges import apply_fluent_edges
-        results["fluent_edges"] = apply_fluent_edges(
-            case_id=case_id, ttl_path=ttl_path, write_back=True,
-        )
-    except Exception as e:
-        logger.exception("materialize: fluent-edge applier failed for case %s", case_id)
-        results["fluent_edges"] = {"error": str(e)}
+    _run_family(results, "fluent_edges", case_id, ttl_path)
 
     # 2f. OWL-Time anchors (deterministic): mint a time:Instant / time:ProperInterval
     # individual per happening (from its proeth:temporalExtent) and link via time:hasTime.
@@ -144,14 +131,7 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # 50-char truncation, legacy namespace) dangled silently. Range is union(Action,
     # Event); the unified guard validates both endpoints, dropping any phrasing
     # mis-resolved to a State. No-op for cases with no committed temporal relations.
-    try:
-        from app.services.extraction.temporal_relation_edges import apply_temporal_relation_edges
-        results["temporal_relation_edges"] = apply_temporal_relation_edges(
-            case_id=case_id, ttl_path=ttl_path, write_back=True,
-        )
-    except Exception as e:
-        logger.exception("materialize: temporal-relation applier failed for case %s", case_id)
-        results["temporal_relation_edges"] = {"error": str(e)}
+    _run_family(results, "temporal_relation_edges", case_id, ttl_path)
 
     # 2g. Action normative-engagement edges (DB-driven, embedding-resolved): the Step-3
     # Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels
@@ -161,14 +141,7 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # begun by fluent_edges (Action -> State) + state_edges (State -> O/Cs). Mirrors the
     # fluent applier; range Obligation/Principle is among the nine disjoint categories, so
     # the unified guard validates both endpoints. No-op for cases with no Action individuals.
-    try:
-        from app.services.extraction.obligation_edges import apply_obligation_edges
-        results["obligation_edges"] = apply_obligation_edges(
-            case_id=case_id, ttl_path=ttl_path, write_back=True,
-        )
-    except Exception as e:
-        logger.exception("materialize: obligation-edge applier failed for case %s", case_id)
-        results["obligation_edges"] = {"error": str(e)}
+    _run_family(results, "obligation_edges", case_id, ttl_path)
 
     # 2h. Causal-chain endpoint edges (DB-driven, embedding-resolved): the Step-3 causal
     # analysis' cause / effect labels become CausalChain -> Action/Event edges and the

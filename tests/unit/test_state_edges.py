@@ -8,6 +8,10 @@ resolution, and provenance idempotency.
 from rdflib import Graph, Namespace, RDF, RDFS, Literal
 
 from app.services.extraction import state_edges as se
+# The embedding / shortlist / resolve primitives were consolidated into
+# edge_resolution (re-exported by state_edges). Patch _embed on its real home so the
+# functions under test (which read edge_resolution._embed) see the stub.
+from app.services.extraction import edge_resolution as er
 
 CORE = Namespace("http://proethica.org/ontology/core#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
@@ -29,7 +33,7 @@ def test_resolve_picks_best_above_threshold(monkeypatch):
         # query close to the first candidate
         "obligation to commission a review of related work": [0.96, 0.28],
     }
-    monkeypatch.setattr(se, "_embed", lambda svc, t: vecs.get(t))
+    monkeypatch.setattr(er, "_embed", lambda svc, t: vecs.get(t))
     pool = [
         (CASE["Obl_Review"], "commission independent review", vecs["commission independent review"]),
         (CASE["Obl_Notify"], "notify affected parties", vecs["notify affected parties"]),
@@ -37,7 +41,7 @@ def test_resolve_picks_best_above_threshold(monkeypatch):
     tgt, sim = se._resolve(None, "obligation to commission a review of related work", pool, 0.45)
     assert tgt == CASE["Obl_Review"], (tgt, sim)
     # An unrelated query (orthogonal) clears nothing -> None, still no exception.
-    monkeypatch.setattr(se, "_embed", lambda svc, t: [0.0, 0.0, 1.0] if "unrelated" in t else None)
+    monkeypatch.setattr(er, "_embed", lambda svc, t: [0.0, 0.0, 1.0] if "unrelated" in t else None)
     pool2 = [(CASE["X"], "x", [1.0, 0.0, 0.0])]
     tgt2, sim2 = se._resolve(None, "totally unrelated thing", pool2, 0.45)
     assert tgt2 is None
@@ -45,7 +49,7 @@ def test_resolve_picks_best_above_threshold(monkeypatch):
 
 def test_shortlist_topk_above_floor(monkeypatch):
     vecs = {"q": [1.0, 0.0], "a": [0.99, 0.1], "b": [0.6, 0.8], "c": [0.0, 1.0]}
-    monkeypatch.setattr(se, "_embed", lambda svc, t: vecs.get(t))
+    monkeypatch.setattr(er, "_embed", lambda svc, t: vecs.get(t))
     pool = [(CASE["A"], "a", vecs["a"]), (CASE["B"], "b", vecs["b"]), (CASE["C"], "c", vecs["c"])]
     sl = se._shortlist(None, "q", pool, floor=0.5, k=2)
     assert [iri for iri, _l, _s in sl] == [CASE["A"], CASE["B"]]  # top-2 above floor, best first

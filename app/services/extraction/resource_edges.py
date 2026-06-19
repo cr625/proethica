@@ -38,17 +38,24 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
-from rdflib import Graph, Namespace, RDF, URIRef
+from rdflib import Graph, Namespace, URIRef
 
-# Reuse the stable embedding/graph primitives from the state-edge applier (the
-# established template for embedding-resolved appliers) instead of duplicating
-# them. Only the resource-specific logic (Agent pool, used_by read, multi-select
-# LLM, provenance, the apply driver) lives here.
-from app.services.extraction.state_edges import (
+# The embedding/graph/Agent-pool/multi-select/provenance primitives now live in the
+# shared edge_resolution module (moved verbatim, de-duplicated). Re-imported here so
+# the historical resource_edges import surface is preserved: the sibling appliers
+# (state_affects / participant / fluent / obligation / temporal_relation / causal) and
+# the unit tests import _agent_pool / _llm_select_multi off resource_edges, and that
+# keeps resolving to the one shared implementation. Only the resource-specific logic
+# (used_by read, provenance label, the apply driver) lives here.
+from app.services.extraction.edge_resolution import (  # noqa: F401  (re-exported)
+    AGENT_CLASS,
+    _agent_pool,
+    _build_multi_select_prompt,
     _embed,
     _embedding_service,
     _individuals_in_category,
     _label,
+    _llm_select_multi,
     _norm,
     _shortlist,
     emit_edge_prov,
@@ -60,7 +67,6 @@ CORE = Namespace("http://proethica.org/ontology/core#")
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 
-AGENT_CLASS = CORE.Agent
 AVAILABLE_TO = "availableTo"  # proeth-core property local name
 
 # Resolution thresholds. The candidate pool is the case's Agents (typically 2-5),
@@ -74,24 +80,7 @@ SHORTLIST_FLOOR = 0.30
 SHORTLIST_K = 8
 
 
-# --- candidate pool: the case Agents ---------------------------------------
-
-def _agent_pool(g: Graph, svc) -> List:
-    """[(agent_iri, text, embedding)] for every proeth-core:Agent individual, using
-    its label plus the labels of the Role facets it bears as matchable text. The
-    facet labels let a descriptive `used_by` ("the peer reviewer") still resolve."""
-    pool = []
-    for ind in g.subjects(RDF.type, AGENT_CLASS):
-        text = _label(g, ind)
-        for facet in g.objects(ind, CORE.hasRole):
-            fl = _label(g, facet)
-            if fl:
-                text += " . " + fl
-        ev = _embed(svc, text)
-        if ev:
-            pool.append((ind, text, ev))
-    return pool
-
+# --- candidate pool: the case Agents (_agent_pool now in edge_resolution) ---
 
 # --- used_by read from temporary_rdf_storage (DB) --------------------------
 
@@ -130,105 +119,8 @@ def _resource_usage_from_db(case_id: int) -> List[Dict[str, str]]:
     return out
 
 
-# --- batched multi-select LLM (the hybrid precision layer) ------------------
-
-def _build_multi_select_prompt(items: List[Dict[str, Any]]) -> str:
-    blocks = []
-    for it in items:
-        cands = "; ".join(
-            f"{i + 1}) {lbl[:90]}" for i, (iri, lbl, sim) in enumerate(it["shortlist"])
-        )
-        blocks.append(
-            f"[{it['id']}] resource: \"{(it.get('resource_label') or '')[:120]}\"\n"
-            f"  used_by text: \"{(it['desc'] or '')[:220]}\"\n"
-            f"  candidate agents: {cands}"
-        )
-    return (
-        "Each REQUEST gives the `used_by` text of a professional resource (a code, "
-        "precedent, standard, or agreement) in an engineering-ethics case, plus the "
-        "candidate AGENTS in that case.\n"
-        "For each request, choose ALL candidate agents that the text identifies as "
-        "USERS of the resource (the parties who rely on, invoke, or are governed by "
-        "it). A `used_by` text may name several agents, one, or none.\n"
-        "Choose NONE (an empty list) when the user is an institution or analyst NOT "
-        "among the candidates (e.g. 'NSPE Board of Ethical Review'), when the text is "
-        "a generic class rather than a specific case actor (e.g. 'clients and "
-        "engineers in design-build contexts'), or when an agent is merely mentioned "
-        "as the SUBJECT being analyzed rather than a user of the resource.\n\n"
-        "REQUESTS:\n" + "\n\n".join(blocks) +
-        "\n\nOUTPUT strict JSON only, one entry per request id, each value a JSON "
-        "array of the chosen candidate numbers (use [] for none): "
-        "{\"<id>\": [<n>, ...], ...}"
-    )
-
-
-def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None,
-                      prompt_builder=None):
-    """Map each item id -> list of chosen Agent IRIs via one LLM call. Returns the
-    selection dict, or None if the LLM is unavailable / the call fails (the caller
-    then falls back to the embedding threshold). `prompt_builder` lets a sibling
-    applier (e.g. state_affects_edges) supply its own request wording while reusing
-    the streaming + JSON-parse + index-mapping logic here."""
-    if not items:
-        return {}
-    try:
-        if client is None:
-            from app.utils.llm_utils import get_llm_client
-            client = get_llm_client()
-        if model is None:
-            # This is subtler than a constrained pick: a used_by value can be a
-            # narrative sentence naming several actors (the user as grammatical
-            # subject plus others mentioned as objects/affected parties), and the
-            # resolver must pick the USER. The fast tier (Haiku) mis-attributed to
-            # the wrong actor on such text, so use the default tier (Sonnet) which
-            # reads subject-vs-object reliably. Cheap because the prompt is small.
-            from model_config import ModelConfig
-            model = ModelConfig.get_claude_model("default")
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.warning("resource_edges: no Anthropic streaming client; embedding fallback")
-            return None
-        prompt = (prompt_builder or _build_multi_select_prompt)(items)
-        chunks: List[str] = []
-        with client.messages.stream(
-            model=model, max_tokens=4096, temperature=0.0,
-            system=("You select all matching agents for each request, distinguishing "
-                    "users of a resource from institutions, generic classes, and "
-                    "agents merely analyzed. Output strict JSON only."),
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for t in stream.text_stream:
-                chunks.append(t)
-        from app.utils.llm_utils import extract_json_from_response
-        data = extract_json_from_response("".join(chunks))
-        if not isinstance(data, dict):
-            return None
-        by_id = {str(it["id"]): it for it in items}
-        out: Dict[str, List[URIRef]] = {}
-        for k, v in data.items():
-            it = by_id.get(str(k))
-            if it is None:
-                continue
-            chosen: List[URIRef] = []
-            # Accept a list of numbers; tolerate a bare number or "none"/"".
-            if isinstance(v, str):
-                v = [] if v.strip().lower() in ("none", "", "0") else [v]
-            if not isinstance(v, list):
-                v = [v]
-            for n in v:
-                try:
-                    idx = int(n)
-                except (TypeError, ValueError):
-                    continue
-                if 1 <= idx <= len(it["shortlist"]):
-                    iri = it["shortlist"][idx - 1][0]
-                    if iri not in chosen:
-                        chosen.append(iri)
-            out[str(k)] = chosen
-        return out
-    except Exception as e:
-        logger.warning("resource_edges: LLM select failed (%s); embedding fallback", e)
-        return None
-
+# --- batched multi-select LLM: _build_multi_select_prompt + _llm_select_multi
+# now live in edge_resolution (re-imported above as the shared default builder). ---
 
 # --- provenance (idempotent, mirrors state/defeasibility prov) --------------
 
