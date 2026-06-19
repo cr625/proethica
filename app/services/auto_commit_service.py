@@ -38,43 +38,14 @@ CONFIDENCE_NEW_CLASS = 0.75    # Below this, treat as new class
 
 # Minimum cosine similarity for embedding-based duplicate detection.
 # Maps to the rubric MEDIUM band lower bound (ICCBR paper Section 3.3).
-EMBEDDING_MATCH_MIN = 0.70
-
-
-# D-tuple semantic types -> URI-substring marker for class URIs.
-# ProEthica class URIs use the singular form (FaithfulAgentObligation),
-# so plural inputs collapse to the same marker.
-_SEMANTIC_TYPE_TO_MARKERS: Dict[str, List[str]] = {
-    'role':         ['Role'],
-    'roles':        ['Role'],
-    'principle':    ['Principle'],
-    'principles':   ['Principle'],
-    'obligation':   ['Obligation'],
-    'obligations':  ['Obligation'],
-    'state':        ['State'],
-    'states':       ['State'],
-    'resource':     ['Resource'],
-    'resources':    ['Resource'],
-    'action':       ['Action'],
-    'actions':      ['Action'],
-    'event':        ['Event'],
-    'events':       ['Event'],
-    'capability':   ['Capability'],
-    'capabilities': ['Capability'],
-    'constraint':   ['Constraint'],
-    'constraints':  ['Constraint'],
-}
-
-
-def _semantic_type_markers(entity_type: Optional[str]) -> List[str]:
-    """URI-substring marker(s) for a D-tuple semantic type.
-
-    Falls back to title-cased input for types outside the nine
-    D-tuple components.
-    """
-    if not entity_type:
-        return []
-    return _SEMANTIC_TYPE_TO_MARKERS.get(entity_type.lower(), [entity_type.title()])
+# Re-exported from the shared matcher so the threshold lives in ONE place
+# (matcher unification 2026-06). Kept as a module name for backward references.
+from app.services.extraction.entity_matcher import MEDIUM_BAND_MIN as EMBEDDING_MATCH_MIN  # noqa: E402
+from app.services.extraction.entity_matcher import (  # noqa: E402
+    CandidateRecord,
+    EntityMatcher,
+    semantic_type_markers as _semantic_type_markers,
+)
 
 
 @dataclass
@@ -393,6 +364,21 @@ class AutoCommitService:
         Returns ``(uri, confidence)`` or ``None``. Confidence is 1.0 for
         exact label, 0.87 for substring, and the cosine score for the
         embedding path.
+
+        Matcher unification 2026-06: the category guard markers
+        (``_semantic_type_markers``), the embedding threshold
+        (``EMBEDDING_MATCH_MIN`` == ``entity_matcher.MEDIUM_BAND_MIN``) and the
+        embedding tier + bands are now sourced from ``entity_matcher`` (the
+        embedding fallback runs through ``EntityMatcher.match``). The exact and
+        substring tiers are kept INLINE with the original ``lower().strip()``
+        normalization rather than routed through ``EntityMatcher.match``:
+        BEHAVIOR-PRESERVING NOTE -- the matcher uses
+        ``entity_matcher.normalize_label`` which additionally drops a trailing
+        parenthetical and collapses whitespace. Over the live data this would
+        flip at least one decision (a candidate "... (X)" whose paren-stripped
+        form equals the existing class "NSPE Code of Ethics" would newly
+        exact-match), so the parenthetical-preserving normalization is retained
+        here and only the embedding tier / guard / bands are unified.
         """
         # Load OntServe classes if not cached
         if self._ontserve_classes_cache is None:
@@ -432,25 +418,62 @@ class AutoCommitService:
                 logger.info(f"Found partial label match for '{label}': {uri}")
                 return uri, 0.87
 
-        # Embedding-based similarity fallback
+        # Embedding-based similarity fallback, via the shared cascade. The
+        # pgvector query (with the URI-marker filter, LIMIT 1, ivfflat.probes)
+        # stays here as the injected embedding_search; EntityMatcher applies the
+        # MEDIUM floor and the bands. The deterministic tiers above already ran,
+        # so the matcher is given an empty corpus and only its embedding tier
+        # fires. The injected search already SQL-filters by marker, so the
+        # matcher's defensive category guard (URI-marker, chain_resolver=None) is
+        # a redundant no-op on the returned row -- behavior identical to the old
+        # single-row threshold check.
         return self._check_embedding_duplicate(label, definition, entity_type)
 
     def _check_embedding_duplicate(
         self, label: str, definition: str, entity_type: str
     ) -> Optional[Tuple[str, float]]:
-        """Query OntServe via pgvector for the nearest cosine match.
+        """Nearest pgvector cosine match via the shared cascade.
 
-        Embeds 'label: definition' with all-MiniLM-L6-v2 and runs a single
-        cosine query against ``ontology_entities.embedding`` (vector(384)
-        with an IVFFlat cosine index already in place). The candidate's
-        semantic type narrows the search to URIs containing the matching
-        marker ('Obligation', 'Capability', etc.). Returns (uri, cosine)
-        when the top match meets EMBEDDING_MATCH_MIN; otherwise None.
+        Preserves the original ``(label, definition, entity_type) ->
+        (uri, cosine) | None`` contract. The pgvector query lives in the
+        injected ``_embedding_search``; ``EntityMatcher`` (embedding-only, empty
+        corpus) applies the MEDIUM floor (== EMBEDDING_MATCH_MIN) and the rubric
+        bands. The injected search already SQL-filters by the URI marker, so the
+        matcher's defensive URI-marker guard (chain_resolver=None) is a redundant
+        no-op on the returned row -- identical to the old single-row threshold
+        check.
 
         Rubric bands (ICCBR paper Section 3.3):
           HIGH   cosine >= 0.85       -> caller applies auto-link logic
           MEDIUM 0.70 <= c < 0.85     -> caller applies review-flag logic
           below  0.70                  -> None (novel class)
+        """
+        matcher = EntityMatcher(embedding_search=self._embedding_search)
+        result = matcher.match(
+            label, entity_type, corpus=[], candidate_definition=definition,
+        )
+        if result is None:
+            return None
+        return result.uri, result.score
+
+    def _embedding_search(
+        self, label: str, definition: Optional[str], entity_type: Optional[str]
+    ) -> List[Tuple[str, str, float]]:
+        """Injected embedding tier for EntityMatcher: pgvector nearest cosine.
+
+        Embeds 'label: definition' with all-MiniLM-L6-v2 and runs a single
+        cosine query against ``ontology_entities.embedding`` (vector(384)
+        with an IVFFlat cosine index already in place). The candidate's
+        semantic type narrows the search to URIs containing the matching
+        marker ('Obligation', 'Capability', etc.). Returns a best-first list of
+        ``(uri, label, cosine)`` (here at most one row, mirroring the original
+        ``LIMIT 1`` single-candidate behavior); the matcher applies the MEDIUM
+        floor (== EMBEDDING_MATCH_MIN) and the rubric bands.
+
+        Rubric bands (ICCBR paper Section 3.3):
+          HIGH   cosine >= 0.85       -> caller applies auto-link logic
+          MEDIUM 0.70 <= c < 0.85     -> caller applies review-flag logic
+          below  0.70                  -> dropped by the matcher (novel class)
         """
         try:
             from app.services.embedding_service import EmbeddingService
@@ -493,23 +516,20 @@ class AutoCommitService:
                 row = conn.execute(sql, params).fetchone()
 
             if row is None:
-                return None
+                return []
             cosine = float(row.cosine)
-            if cosine < EMBEDDING_MATCH_MIN:
-                return None
-
             logger.info(
-                "Embedding match: '%s' (%s) -> %s (cosine=%.3f)",
+                "Embedding candidate: '%s' (%s) -> %s (cosine=%.3f)",
                 label, entity_type, row.uri, cosine,
             )
-            return row.uri, cosine
+            return [(row.uri, row.label, cosine)]
 
         except Exception as e:
             from app.utils.dev_guard import fail_loud_in_dev
             fail_loud_in_dev(e, "Embedding duplicate check failed -- a swallowed error reads as "
                                 "'no match' and mints a new (possibly duplicate) class")
             logger.warning("Embedding duplicate check failed: %s", e)
-            return None
+            return []
 
     def _load_ontserve_classes(self):
         """Load OntServe classes from database for duplicate checking."""

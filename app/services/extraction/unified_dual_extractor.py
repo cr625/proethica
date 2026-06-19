@@ -1838,13 +1838,24 @@ class UnifiedDualExtractor:
             return
 
         from app.services.extraction.category_resolver import resolve_core_category
+        from app.services.extraction.entity_matcher import category_compatible
         chain_cat = resolve_core_category(matched_ref)
         if not chain_cat:
             # Chain category unknown (class not in the curated tiers); cannot
             # prove a conflict, so leave the match in place.
             return
 
-        if chain_cat == candidate_cat:
+        # Compatibility decided by the shared guard. The control flow above
+        # already mirrors category_compatible's chain path (early-return-keep on
+        # an unresolved chain), so feed it the already-resolved chain category
+        # via a constant resolver: it then compares chain_cat against this
+        # concept_type's marker, which for the nine D-tuple types is exactly the
+        # old ``chain_cat == candidate_cat`` test (CONCEPT_TYPE_TO_CORE_CATEGORY
+        # values are the marker tokens). Behavior-preserving; normalization +
+        # comparison now live in entity_matcher.
+        if category_compatible(
+            self.concept_type, matched_ref, chain_resolver=lambda _ref: chain_cat,
+        ):
             return
 
         logger.warning(
@@ -1929,6 +1940,22 @@ class UnifiedDualExtractor:
         match decisions.  Overriding with substring matching collapses
         legitimate specializations (e.g. 'Design Engineer Role' would
         falsely match 'Engineer Role').
+
+        BEHAVIOR-PRESERVING NOTE (matcher unification 2026-06): faithful
+        unification through the shared ``entity_matcher.normalize_label`` is NOT
+        possible here without changing commit decisions, so the old inline
+        normalization is intentionally retained.  Two divergences:
+          1. This site folds '_' and '-' to spaces; ``normalize_label`` does not.
+          2. ``normalize_label`` ALSO drops a trailing parenthetical and
+             collapses internal whitespace; this site does NOT.
+        681 candidate labels in the corpus carry a trailing '(...)' while no
+        existing OntServe class label does, so routing the candidate side
+        through ``normalize_label`` would drop that suffix and let
+        "Foo Role (Present Case)" newly exact-match an existing "Foo Role",
+        flipping a commit decision.  The separator fold IS shared with the
+        ``_reject_cross_category_match`` pre-clean below.  Decision preserved;
+        do not re-route through ``normalize_label``.  See the equivalence test
+        ``test_labels_match_*`` in tests/extraction/test_matcher_unification.py.
         """
         norm1 = label1.lower().replace('_', ' ').replace('-', ' ').strip()
         norm2 = label2.lower().replace('_', ' ').replace('-', ' ').strip()

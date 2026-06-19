@@ -547,10 +547,20 @@ Return ONLY valid JSON:
         return SequenceMatcher(None, norm_a, norm_b).ratio()
 
     def _normalize_label(self, label: str) -> str:
-        """Normalize a label for comparison."""
-        label = label.lower().strip()
-        label = PAREN_SUFFIX_RE.sub('', label)
-        return label.strip()
+        """Normalize a label for comparison.
+
+        Routed through the shared ``entity_matcher.normalize_label`` (matcher
+        unification 2026-06). The shared normalizer applies the SAME
+        lowercase+strip and trailing-parenthetical drop this used to do inline
+        (its paren regex is byte-identical to the local PAREN_SUFFIX_RE) and
+        additionally collapses internal whitespace runs. Whitespace-collapse is a
+        no-op over the corpus -- zero temporary_rdf_storage labels contain
+        internal multi-whitespace -- so the auto-mode exact-match merge decision
+        is unchanged. Behavior-preserving for both the auto-mode exact merge and
+        the review-mode SequenceMatcher path.
+        """
+        from app.services.extraction.entity_matcher import normalize_label
+        return normalize_label(label)
 
     def _pick_preferred_label(self, label_a: str, label_b: str) -> str:
         """Pick the preferred label -- shorter and without parenthetical suffixes."""
