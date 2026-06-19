@@ -160,10 +160,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// Add any JavaScript for the examples dashboard here
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('LangExtract Examples dashboard loaded');
-});
-</script>
+<script src="{{ url_for('static', filename='js/prompt_builder/examples.js') }}"></script>
 {% endblock %}

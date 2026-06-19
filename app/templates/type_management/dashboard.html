@@ -321,12 +321,5 @@
 
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-refresh dashboard every 30 seconds
-    setTimeout(function() {
-        location.reload();
-    }, 30000);
-});
-</script>
+<script src="{{ url_for('static', filename='js/type_management/dashboard.js') }}"></script>
 {% endblock %}
