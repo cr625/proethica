@@ -24,43 +24,26 @@ entities that merely reference precedent practice (e.g. "Engineer L BER Preceden
 """
 from __future__ import annotations
 
-import re
 from typing import Callable, List, Tuple, TypeVar
 
-# Precedent-citation markers anywhere in a label or supporting quote:
-#   BER [Case] [No.] NN-N -> "BER 07-6", "BER Case 19-3", "BER Case No. 00-5"
-#   Case [No.] NN-N       -> "Case 04-11", "Case No. 92-1"
-#   Doe                   -> placeholder party from a cited precedent
-# The optional "No." token was added 2026-06-18 after a clean-labeled phantom
-# ("Public Works Director", attested only by "BER Case No. 00-5 centered on ...")
-# slipped the "Case NN-N"-only pattern when the clean-label rule below began testing quotes.
-PRECEDENT_REF_RE = re.compile(
-    r"\bBER\s+(?:Case\s+)?(?:No\.?\s+)?\d{2}-\d{1,2}\b"
-    r"|\bCase\s+(?:No\.?\s+)?\d{2}-\d{1,2}\b"
-    r"|\bDoe\b",
-    re.IGNORECASE,
-)
-
-# Generic precedent PLACEHOLDER label: the WHOLE label is just the precedent phrase with no
-# present-case content (e.g. "BER Case Precedent", "Precedent Reference"). The case-15 run-54
-# baseline minted "BER Case Precedent" as a Resource -- a meta-reference to the citation
-# mechanism, not a resource in the case. This is anchored to the full label so it does NOT
-# touch legitimate present-case entities that merely mention precedent (e.g. "Engineer L BER
-# Precedent Synthesis"), which the bare-"BER" exclusion above deliberately preserves.
-# The trailing concept-type head noun (Resource/State/Role/...) is tolerated because the D4
-# label-generality reinforcement appends the concept type to every label, which turned the
-# placeholder into "BER Case Precedent Resource" and slipped this end-anchored pattern (the
-# case-8 Section-C pilot, 2026-06-18). Still anchored, so it only matches a bare placeholder
-# plus its head noun, never a label carrying present-case content.
-_CONCEPT_HEAD_NOUNS = (
-    r"Resource|State|Role|Principle|Obligation|Constraint|Capability|Action|Event"
-)
-GENERIC_PRECEDENT_RE = re.compile(
-    r"^\s*(?:BER\s+)?(?:Case\s+)?Precedent"
-    r"(?:\s+(?:Reference|Case))?"
-    rf"(?:\s+(?:{_CONCEPT_HEAD_NOUNS})s?)?"
-    r"\s*$",
-    re.IGNORECASE,
+# Actor/case-number patterns now live in one shared home (app.services.extraction.text_patterns);
+# imported here under the same names so the rest of this module is unchanged. Their rationale:
+#   PRECEDENT_REF_RE    - citation marker anywhere in a label/quote (BER [Case] [No.] NN-N |
+#                         Case [No.] NN-N | Doe). The optional "No." token was added 2026-06-18
+#                         after a clean-labeled phantom ("Public Works Director", attested only by
+#                         "BER Case No. 00-5 centered on ...") slipped the "Case NN-N"-only pattern
+#                         once the clean-label rule below began testing quotes.
+#   GENERIC_PRECEDENT_RE - whole-label generic precedent PLACEHOLDER ("BER Case Precedent",
+#                         "Precedent Reference"). End-anchored so it does NOT touch present-case
+#                         entities that merely mention precedent (e.g. "Engineer L BER Precedent
+#                         Synthesis"); tolerates a trailing concept-type head noun that the D4
+#                         generality reinforcement appends ("BER Case Precedent Resource").
+#   _ENGINEER_LETTER_RE - a present-case engineer letter ("Engineer A"); used for the foreign-actor
+#                         rule below.
+from app.services.extraction.text_patterns import (
+    PRECEDENT_REF_RE,
+    GENERIC_PRECEDENT_RE,
+    _ENGINEER_LETTER_RE,
 )
 
 T = TypeVar("T")
@@ -120,7 +103,7 @@ def is_precedent_entity(
 # the only precedent-bearing section) is foreign. This applies to EVERY concept type including
 # norms: an actor-specific precedent obligation ("Engineer A Bird Species Written Report") is a
 # phantom, not a transferable abstract norm (which carries no actor letter and is untouched here).
-_ENGINEER_LETTER_RE = re.compile(r"\bEngineers?\s+([A-Z])\b")
+# _ENGINEER_LETTER_RE is imported from text_patterns (see the header import block).
 
 
 def present_case_actor_letters(text: str | None) -> frozenset:

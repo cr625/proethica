@@ -24,10 +24,12 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from app.services.extraction.cited_provisions_apply import normalize, load_canonical
+from app.services.extraction.rules import Rule, RuleSet
 
 logger = logging.getLogger(__name__)
 
@@ -59,33 +61,74 @@ CATEGORY_NOTES = {
 }
 
 
+@dataclass(frozen=True)
+class _CitationCtx:
+    """The normalized views of a non-resolvable citation that the category rules inspect.
+
+    ``s`` is the stripped raw text (case preserved); ``low`` is its lowercase form; ``low_sp``
+    additionally collapses hyphen/underscore runs to a single space. NOTE: because ``low_sp``
+    has no hyphens, a hyphen-bearing pattern (``\\b\\d{2}-\\d``) can only ever match against the
+    OTHER views -- this quirk is part of the preserved precedence (e.g. bare "92-1" -> other)."""
+    s: str
+    low: str
+    low_sp: str
+
+
+# The unmapped-citation category cascade as a classifying rule set (see
+# app.services.extraction.rules). Declaration order IS the precedence: modern-section >
+# BER-precedent > external-law > pre-2007-numbered > synthesized-label > generic-NSPE. Each
+# rule's payload is the category it assigns; classify() resolves "is this a modern leaf?"
+# first (returning None) and otherwise delegates to RULESET.classify(ctx, default=...). The
+# branch predicates and their byte-identical regexes are unchanged from the prior cascade.
+CITATION_RULES: RuleSet[_CitationCtx] = RuleSet("citation_provenance", [
+    Rule("modern_section_no_leaf",
+         "modern I/II/III section-level citation that did not resolve to a leaf",
+         lambda c: bool(re.match(r"^(i{1,3}|iv|v)\.\d", c.low)),
+         payload="modern_section_no_leaf"),
+    Rule("ber_cross_case_precedent",
+         "cites another BER case as precedent ('BER', 'Case ... N', or 'NN-N')",
+         lambda c: bool(re.search(r"\bber\b", c.low_sp) or re.search(r"\bcase\b.*\d", c.low_sp)
+                        or re.search(r"\b\d{2}-\d", c.low_sp)),
+         payload="ber_cross_case_precedent"),
+    Rule("external_law_or_regulation",
+         "external statute/regulation keyword (Brooks Act, EPA, model law, ...)",
+         lambda c: any(k in c.low_sp for k in ["brooks act", "epa ", "model law", "state law",
+                                               "registration law", "federal register", "qbs"]),
+         payload="external_law_or_regulation"),
+    Rule("nspe_pre_2007_numbered",
+         "pre-2007 NSPE Canon/Rule/Section numbered vocabulary",
+         lambda c: bool(re.search(r"section[\s_\-]*\d", c.low) or "canon" in c.low_sp
+                        or re.search(r"rule[\s_\-]*\d", c.low)
+                        or re.search(r"^\d+(\([a-z]\))?$", c.s)
+                        or c.low.startswith("section ")),
+         payload="nspe_pre_2007_numbered"),
+    Rule("synthesized_standard_label",
+         "a synthesized standard/framework/norm label, not a literal code citation",
+         lambda c: bool(re.search(r"(standard|framework|norm|obligation|distinction|clause|"
+                                  r"policy|requirement|directive)", c.low_sp)),
+         payload="synthesized_standard_label"),
+    Rule("generic_nspe_no_leaf",
+         "generic reference to the NSPE Code with no specific section leaf",
+         lambda c: "nspe" in c.low_sp or "code of ethics" in c.low_sp
+                   or "rules of professional conduct" in c.low_sp,
+         payload="generic_nspe_no_leaf"),
+])
+
+
 def classify(raw: str, canonical_norms: set) -> Optional[str]:
-    """Return None if the citation resolves to a modern leaf; else a category."""
+    """Return None if the citation resolves to a modern leaf; else a category.
+
+    Resolution is checked first (``normalize(raw)`` in the canonical set -> None). Otherwise
+    the category is the payload of the first matching CITATION_RULES rule, defaulting to
+    ``other_unmapped`` when none match. Backed by CITATION_RULES so the cascade is one
+    inspectable registry; precedence and the per-branch predicates are unchanged."""
     if normalize(raw) in canonical_norms:
         return None
     s = (raw or "").strip()
     low = s.lower()
     low_sp = re.sub(r"[-_]+", " ", low)  # treat hyphen/underscore as space
-    # Modern I/II/III section-level citation that did not resolve to a leaf.
-    if re.match(r"^(i{1,3}|iv|v)\.\d", low):
-        return "modern_section_no_leaf"
-    if (re.search(r"\bber\b", low_sp) or re.search(r"\bcase\b.*\d", low_sp)
-            or re.search(r"\b\d{2}-\d", low_sp)):
-        return "ber_cross_case_precedent"
-    if any(k in low_sp for k in ["brooks act", "epa ", "model law", "state law",
-                                 "registration law", "federal register", "qbs"]):
-        return "external_law_or_regulation"
-    if (re.search(r"section[\s_\-]*\d", low) or "canon" in low_sp
-            or re.search(r"rule[\s_\-]*\d", low)
-            or re.search(r"^\d+(\([a-z]\))?$", s)
-            or low.startswith("section ")):
-        return "nspe_pre_2007_numbered"
-    if re.search(r"(standard|framework|norm|obligation|distinction|clause|"
-                 r"policy|requirement|directive)", low_sp):
-        return "synthesized_standard_label"
-    if "nspe" in low_sp or "code of ethics" in low_sp or "rules of professional conduct" in low_sp:
-        return "generic_nspe_no_leaf"
-    return "other_unmapped"
+    return CITATION_RULES.classify(_CitationCtx(s=s, low=low, low_sp=low_sp),
+                                   default="other_unmapped")
 
 
 def apply_citation_provenance(

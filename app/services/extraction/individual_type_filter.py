@@ -33,6 +33,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
+from app.services.extraction.rules import Rule
+
 logger = logging.getLogger(__name__)
 
 # Generic type words stripped before comparing an individual label to its class:
@@ -103,6 +105,24 @@ def self_instance_flag(label: str, class_ref: str) -> bool:
     return False
 
 
+@dataclass(frozen=True)
+class _SelfInstanceCtx:
+    """The (label, declared-class) pair the Tier-1 self-instance rule inspects."""
+    label: str
+    class_ref: str
+
+
+# Tier-1 deterministic check as a named, inspectable Rule (see app.services.extraction.rules).
+# It is the single component-agnostic signal that a TYPE was emitted as an INDIVIDUAL: the
+# label, after generic type words are stripped, names the same concept as its declared class.
+# A match here (with no concrete instance marker) is the CLEAR DROP in _triage.
+SELF_INSTANCE_RULE: Rule[_SelfInstanceCtx] = Rule(
+    "self_instance",
+    "individual label equals its declared class after stripping generic type words",
+    lambda c: self_instance_flag(c.label, c.class_ref),
+)
+
+
 def _has_marker(label: str, marker: Optional[str]) -> bool:
     return bool(marker) and re.search(marker, _norm(label)) is not None
 
@@ -123,7 +143,7 @@ def compute_flags(individuals: List[Dict[str, Any]], marker: Optional[str]) -> L
     for it in individuals:
         label = it.get("label") or it.get("identifier") or ""
         out.append({
-            "self_instance": self_instance_flag(label, _class_ref(it)),
+            "self_instance": SELF_INSTANCE_RULE.test(_SelfInstanceCtx(label, _class_ref(it))),
             "marker": _has_marker(label, marker),
         })
     return out

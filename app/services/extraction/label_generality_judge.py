@@ -16,15 +16,17 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from app.services.extraction.rules import Rule, RuleSet
+# Case-specific actor + case/precedent-number markers that must NOT appear in a class label now
+# live in the shared text_patterns home (imported under the same names). They are intentionally
+# DISTINCT from precedent_filter's patterns -- broader actor set, different number handling -- so
+# they are not merged; text_patterns only gives the actor/case-number notions one location.
+from app.services.extraction.text_patterns import _ACTOR_RE, _CASENUM_RE
 
 COMPONENT_HEADS = {
     "Obligation", "Principle", "State", "Constraint", "Capability",
     "Role", "Resource", "Action", "Event",
 }
 
-# Case-specific markers that must NOT appear in a class label.
-_ACTOR_RE = re.compile(r"\b(Engineer|Client|Owner|Firm|Company|Contractor|Supplier)\s*[A-Z]\b|\bDoe\b")
-_CASENUM_RE = re.compile(r"\bBER\b|\bCase\b|\d{2,4}-\d{1,3}|\b\d{2}-\d\b")
 _CONNECTOR_RE = re.compile(r"\bvs\.?\b|\band\b|\bfor\b|\bof\b", re.I)
 
 
