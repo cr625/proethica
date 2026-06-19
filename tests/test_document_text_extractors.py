@@ -55,7 +55,7 @@ def test_embedding_service_wrapper_delegates(tmp_path):
     """EmbeddingService._extract_text is a thin instance-method wrapper that
     does not touch instance state, so it delegates correctly even with a dummy
     self (avoids loading the embedding model)."""
-    from app.services.embedding_service import EmbeddingService
+    from app.services.embedding.embedding_service import EmbeddingService
 
     p = tmp_path / "doc.txt"
     p.write_text("delegated", encoding="utf-8")

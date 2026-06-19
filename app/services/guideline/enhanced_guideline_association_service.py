@@ -19,7 +19,7 @@ from app import db
 from app.models.scenario import Scenario
 from app.models import Document
 from app.models.entity_triple import EntityTriple
-from app.services.embedding_service import EmbeddingService
+from app.services.embedding.embedding_service import EmbeddingService
 from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)

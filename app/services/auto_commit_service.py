@@ -482,7 +482,7 @@ class AutoCommitService:
           below  0.70                  -> dropped by the matcher (novel class)
         """
         try:
-            from app.services.embedding_service import EmbeddingService
+            from app.services.embedding.embedding_service import EmbeddingService
             embedding_service = EmbeddingService.get_instance()
 
             candidate_text = f"{label}: {definition}" if definition else label

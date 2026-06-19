@@ -16,7 +16,7 @@ from app import db
 from app.models import Document, DocumentChunk
 from app.models.document import PROCESSING_STATUS
 from app.models.world import World
-from app.services.embedding_service import EmbeddingService
+from app.services.embedding.embedding_service import EmbeddingService
 
 # Set up logging
 logger = logging.getLogger(__name__)

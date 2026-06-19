@@ -283,7 +283,7 @@ def refresh_band_index(case_id: int) -> int:
     number of rows written. Called at commit time after edge materialization."""
     from app.models import db
     from app.models.defeasibility_band_index import DefeasibilityBandIndex
-    from app.services.embedding_service import EmbeddingService
+    from app.services.embedding.embedding_service import EmbeddingService
 
     DefeasibilityBandIndex.query.filter_by(case_id=case_id).delete()
 
@@ -347,7 +347,7 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
 
     from app.models import Document
     from app.models.defeasibility_band_index import DefeasibilityBandIndex
-    from app.services.embedding_service import EmbeddingService
+    from app.services.embedding.embedding_service import EmbeddingService
 
     candidates = DefeasibilityBandIndex.query.filter(
         DefeasibilityBandIndex.case_id != anchor_case_id

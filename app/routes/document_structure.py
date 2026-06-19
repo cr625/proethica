@@ -13,7 +13,7 @@ from app.models import Document
 from app.models.scenario import Scenario
 from app.models.document_section import DocumentSection
 from app.models.section_term_link import SectionTermLink
-from app.services.section_embedding_service import SectionEmbeddingService
+from app.services.embedding.section_embedding_service import SectionEmbeddingService
 from app.services.guideline_section_service import GuidelineSectionService 
 from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
 from app.services.structure_triple_formatter import StructureTripleFormatter

@@ -22,7 +22,7 @@ from app import db
 from app.models import Document
 from app.models.document_section import DocumentSection
 from app.services.mcp_client import MCPClient
-from app.services.section_embedding_service import SectionEmbeddingService
+from app.services.embedding.section_embedding_service import SectionEmbeddingService
 from app.utils.llm_utils import get_llm_client
 from app.utils.nltk_verification import verify_nltk_resources
 

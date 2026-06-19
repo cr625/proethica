@@ -536,7 +536,7 @@ class EmbeddingService:
         from app.models import Document, DocumentChunk
 
         # Helper cosine (shared pure-Python implementation)
-        from app.services.similarity_utils import cosine_similarity_list as cosine
+        from app.services.embedding.similarity_utils import cosine_similarity_list as cosine
 
         # Prefer local 384-dim embedding (matches embedding_384)
         try:

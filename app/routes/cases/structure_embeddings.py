@@ -173,7 +173,7 @@ def register_structure_embedding_routes(bp):
     @auth_required_for_write
     def generate_case_embeddings(id):
         """Generate or regenerate embeddings for a case's sections."""
-        from app.services.section_embedding_service import SectionEmbeddingService
+        from app.services.embedding.section_embedding_service import SectionEmbeddingService
 
         case = Document.query.get_or_404(id)
 

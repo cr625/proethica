@@ -43,7 +43,7 @@ AGENT_CLASS = CORE.Agent
 # --- embedding helpers (moved verbatim from state_edges) -------------------
 
 def _embedding_service():
-    from app.services.embedding_service import EmbeddingService
+    from app.services.embedding.embedding_service import EmbeddingService
     return EmbeddingService.get_instance()
 
 

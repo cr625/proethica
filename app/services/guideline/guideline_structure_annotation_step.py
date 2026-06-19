@@ -13,7 +13,7 @@ from datetime import datetime
 
 from app.models import db
 from app.models.guideline_section import GuidelineSection
-from app.services.section_embedding_service import SectionEmbeddingService
+from app.services.embedding.section_embedding_service import SectionEmbeddingService
 
 logger = logging.getLogger(__name__)
 

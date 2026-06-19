@@ -50,7 +50,7 @@ def _patch_pgvector(query_vec: List[float], sql_row, captured: Dict[str, Any]):
 
     stack = ExitStack()
     es_patch = stack.enter_context(
-        patch("app.services.embedding_service.EmbeddingService")
+        patch("app.services.embedding.embedding_service.EmbeddingService")
     )
     engine_patch = stack.enter_context(
         patch("app.services.auto_commit_service.create_engine")
@@ -171,7 +171,7 @@ class TestCheckEmbeddingDuplicate:
         service = _make_service()
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             mock_es = MagicMock()
             mock_es._get_local_embedding.side_effect = RuntimeError("boom")
@@ -188,7 +188,7 @@ class TestCheckEmbeddingDuplicate:
         service = _make_service()
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             mock_es = MagicMock()
             mock_es._get_local_embedding.side_effect = RuntimeError("boom")
@@ -261,7 +261,7 @@ class TestCheckEmbeddingDuplicate:
         from contextlib import ExitStack
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
                 patch("app.services.auto_commit_service.create_engine")
@@ -318,7 +318,7 @@ class TestCheckDuplicate:
         from contextlib import ExitStack
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
                 patch("app.services.auto_commit_service.create_engine")
@@ -336,7 +336,7 @@ class TestCheckDuplicate:
         from contextlib import ExitStack
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
                 patch("app.services.auto_commit_service.create_engine")
@@ -361,7 +361,7 @@ class TestCheckDuplicate:
         from contextlib import ExitStack
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
                 patch("app.services.auto_commit_service.create_engine")
@@ -383,7 +383,7 @@ class TestCheckDuplicate:
         from contextlib import ExitStack
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
                 patch("app.services.auto_commit_service.create_engine")
@@ -401,7 +401,7 @@ class TestCheckDuplicate:
         from contextlib import ExitStack
         with ExitStack() as stack:
             es_patch = stack.enter_context(
-                patch("app.services.embedding_service.EmbeddingService")
+                patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
                 patch("app.services.auto_commit_service.create_engine")

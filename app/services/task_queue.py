@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from app import db
 from app.models.document import Document, PROCESSING_STATUS, PROCESSING_PHASES
-from app.services.embedding_service import EmbeddingService
+from app.services.embedding.embedding_service import EmbeddingService
 
 # Set up logging
 logger = logging.getLogger(__name__)
