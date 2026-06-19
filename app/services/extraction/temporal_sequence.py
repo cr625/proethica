@@ -24,8 +24,9 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import List
 
+from .edge_extractor_base import StreamingEdgeExtractor
 from .schemas import TemporalSequenceResult
 
 logger = logging.getLogger(__name__)
@@ -91,22 +92,24 @@ def build_user_prompt(case_id: int, entries: List[TemporalEntryContext]) -> str:
     return "\n".join(lines)
 
 
-class TemporalSequenceExtractor:
-    """LLM-backed chronological-permutation extractor."""
+class TemporalSequenceExtractor(StreamingEdgeExtractor):
+    """LLM-backed chronological-permutation extractor.
 
-    def __init__(
-        self,
-        llm_client: Any = None,
-        model: Optional[str] = None,
-        temperature: float = 0.1,
-        max_tokens: int = 8192,
-    ):
-        self._llm_client = llm_client
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.last_prompt: Optional[str] = None
-        self.last_raw_response: Optional[str] = None
+    LLM plumbing lives in `StreamingEdgeExtractor`; this class supplies the
+    system prompt, the default (non-powerful) model tier, and the permutation
+    parse/validation below.
+    """
+
+    log_label = "TemporalSequence"
+    default_max_tokens = 8192
+
+    def _default_model(self) -> str:
+        # Chronological ordering runs on the default tier, not the powerful one.
+        from model_config import ModelConfig
+        return ModelConfig.get_default_model()
+
+    def _system_prompt(self) -> str:
+        return SYSTEM_PROMPT
 
     # ------------------------------------------------------------------
     # Public API
@@ -123,7 +126,7 @@ class TemporalSequenceExtractor:
         user_prompt = build_user_prompt(case_id, entries)
         self.last_prompt = user_prompt
 
-        raw = self._call_llm(user_prompt)
+        raw = self._stream_llm(user_prompt)
         self.last_raw_response = raw
         if not raw:
             raise RuntimeError(
@@ -137,59 +140,6 @@ class TemporalSequenceExtractor:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
-
-    def _get_client(self):
-        if self._llm_client is not None:
-            return self._llm_client
-        from app.utils.llm_utils import get_llm_client
-        self._llm_client = get_llm_client()
-        return self._llm_client
-
-    def _resolve_model(self) -> str:
-        if self.model:
-            return self.model
-        from model_config import ModelConfig
-        return ModelConfig.get_default_model()
-
-    def _call_llm(self, user_prompt: str) -> Optional[str]:
-        client = self._get_client()
-        model = self._resolve_model()
-
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.error(
-                "TemporalSequenceExtractor requires an Anthropic streaming client; got %s",
-                type(client).__name__,
-            )
-            return None
-
-        try:
-            chunks: List[str] = []
-            with client.messages.stream(
-                model=model,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_prompt}],
-            ) as stream:
-                for text in stream.text_stream:
-                    chunks.append(text)
-                final_msg = stream.get_final_message()
-            stop_reason = getattr(final_msg, "stop_reason", None)
-            usage = getattr(final_msg, "usage", None)
-            if usage:
-                logger.info(
-                    "TemporalSequence stream complete: %d in / %d out, stop=%s",
-                    usage.input_tokens, usage.output_tokens, stop_reason,
-                )
-            if stop_reason == "max_tokens":
-                logger.warning(
-                    "TemporalSequence hit max_tokens (%d); response may be truncated",
-                    self.max_tokens,
-                )
-            return "".join(chunks)
-        except Exception as e:
-            logger.error("Anthropic temporal-sequence stream failed: %s", e)
-            return None
 
     @staticmethod
     def _parse(raw: str) -> TemporalSequenceResult:
