@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 
 from model_config import ModelConfig
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
+from app.services.qc_entity_storage import make_question_storage, make_conclusion_storage
 from app.utils.llm_utils import get_llm_client
 
 logger = logging.getLogger(__name__)
@@ -712,52 +713,13 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         # Store everything
         session_id = str(uuid.uuid4())
 
-        # Store questions
+        # Store questions + conclusions via the shared row builders (identical to
+        # entity_graph_service's; see app/services/qc_entity_storage.py).
         for question in questions:
-            rdf_entity = TemporaryRDFStorage(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type='ethical_question',
-                storage_type='individual',
-                entity_type='questions',
-                entity_label=f"Question_{question['question_number']}",
-                entity_definition=question['question_text'],
-                rdf_json_ld={
-                    '@type': 'proeth-case:EthicalQuestion',
-                    'questionNumber': question['question_number'],
-                    'questionText': question['question_text'],
-                    'questionType': question.get('question_type', 'unknown'),
-                    'mentionedEntities': question.get('mentioned_entities', {}),
-                    'relatedProvisions': question.get('related_provisions', []),
-                    'extractionReasoning': question.get('extraction_reasoning', '')
-                },
-                is_selected=True
-            )
-            db.session.add(rdf_entity)
+            db.session.add(make_question_storage(case_id, session_id, question))
 
-        # Store conclusions
         for conclusion in conclusions:
-            rdf_entity = TemporaryRDFStorage(
-                case_id=case_id,
-                extraction_session_id=session_id,
-                extraction_type='ethical_conclusion',
-                storage_type='individual',
-                entity_type='conclusions',
-                entity_label=f"Conclusion_{conclusion['conclusion_number']}",
-                entity_definition=conclusion['conclusion_text'],
-                rdf_json_ld={
-                    '@type': 'proeth-case:EthicalConclusion',
-                    'conclusionNumber': conclusion['conclusion_number'],
-                    'conclusionText': conclusion['conclusion_text'],
-                    'conclusionType': conclusion.get('conclusion_type', 'unknown'),
-                    'mentionedEntities': conclusion.get('mentioned_entities', {}),
-                    'citedProvisions': conclusion.get('cited_provisions', []),
-                    'answersQuestions': conclusion.get('answers_questions', []),
-                    'extractionReasoning': conclusion.get('extraction_reasoning', '')
-                },
-                is_selected=True
-            )
-            db.session.add(rdf_entity)
+            db.session.add(make_conclusion_storage(case_id, session_id, conclusion))
 
         db.session.commit()
         logger.info(f"[Step4Synthesis] Stored {len(questions)} questions and {len(conclusions)} conclusions")

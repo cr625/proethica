@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
+from app.services.qc_entity_storage import make_question_storage, make_conclusion_storage
 from app.utils.llm_utils import get_llm_client
 
 from app.services.question_analyzer import QuestionAnalyzer
@@ -524,28 +525,10 @@ def extract_questions_conclusions(
         )
         db.session.add(question_extraction_prompt)
 
-    # Store questions
+    # Store questions via the shared row builder (see app/services/qc_entity_storage.py;
+    # identical to step4_synthesis_service's).
     for question in questions:
-        rdf_entity = TemporaryRDFStorage(
-            case_id=case_id,
-            extraction_session_id=session_id,
-            extraction_type='ethical_question',
-            storage_type='individual',
-            entity_type='questions',
-            entity_label=f"Question_{question['question_number']}",
-            entity_definition=question['question_text'],
-            rdf_json_ld={
-                '@type': 'proeth-case:EthicalQuestion',
-                'questionNumber': question['question_number'],
-                'questionText': question['question_text'],
-                'questionType': question.get('question_type', 'unknown'),
-                'mentionedEntities': question.get('mentioned_entities', {}),
-                'relatedProvisions': question.get('related_provisions', []),
-                'extractionReasoning': question.get('extraction_reasoning', '')
-            },
-            is_selected=True
-        )
-        db.session.add(rdf_entity)
+        db.session.add(make_question_storage(case_id, session_id, question))
 
     # Store ExtractionPrompt for conclusions (Step 4c)
     conclusion_prompt_response = conclusion_analyzer.get_last_prompt_and_response()
@@ -570,29 +553,9 @@ def extract_questions_conclusions(
         )
         db.session.add(conclusion_extraction_prompt)
 
-    # Store conclusions
+    # Store conclusions via the shared row builder (see app/services/qc_entity_storage.py).
     for conclusion in conclusions:
-        rdf_entity = TemporaryRDFStorage(
-            case_id=case_id,
-            extraction_session_id=session_id,
-            extraction_type='ethical_conclusion',
-            storage_type='individual',
-            entity_type='conclusions',
-            entity_label=f"Conclusion_{conclusion['conclusion_number']}",
-            entity_definition=conclusion['conclusion_text'],
-            rdf_json_ld={
-                '@type': 'proeth-case:EthicalConclusion',
-                'conclusionNumber': conclusion['conclusion_number'],
-                'conclusionText': conclusion['conclusion_text'],
-                'conclusionType': conclusion.get('conclusion_type', 'unknown'),
-                'mentionedEntities': conclusion.get('mentioned_entities', {}),
-                'citedProvisions': conclusion.get('cited_provisions', []),
-                'answersQuestions': conclusion.get('answers_questions', []),
-                'extractionReasoning': conclusion.get('extraction_reasoning', '')
-            },
-            is_selected=True
-        )
-        db.session.add(rdf_entity)
+        db.session.add(make_conclusion_storage(case_id, session_id, conclusion))
 
     db.session.commit()
 
