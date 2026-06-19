@@ -333,13 +333,13 @@ GUIDELINE_CONCEPTS = {
     'provision_structure': {
         'name': 'Provision Structure',
         'description': 'Extract hierarchical provision structure (canons, rules, sections)',
-        'service_file': 'app/services/guideline_structure_annotation_step.py',
+        'service_file': 'app/services/guideline/guideline_structure_annotation_step.py',
         'color': '#f97316'
     },
     'provision_concepts': {
         'name': 'Provision Concepts',
         'description': 'Identify principles, obligations, and constraints each provision establishes',
-        'service_file': 'app/services/guideline_concept_integration_service.py',
+        'service_file': 'app/services/guideline/guideline_concept_integration_service.py',
         'color': '#fd7e14'
     },
     'provision_linkage': {

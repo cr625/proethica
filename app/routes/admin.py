@@ -28,7 +28,7 @@ from app.models.ontology import Ontology
 from app.models.entity_triple import EntityTriple
 from app.models.document_section import DocumentSection
 from app.models.deconstructed_case import DeconstructedCase
-from app.services.guideline_triple_cleanup_service import get_guideline_triple_cleanup_service
+from app.services.guideline.guideline_triple_cleanup_service import get_guideline_triple_cleanup_service
 from app import db, create_app
 import traceback
 

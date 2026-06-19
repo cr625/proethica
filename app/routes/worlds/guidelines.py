@@ -11,7 +11,7 @@ from app import db
 from app.models.world import World
 from app.models.ontology import Ontology
 from app.models import Document
-from app.services.guideline_concept_integration_service import GuidelineConceptIntegrationService
+from app.services.guideline.guideline_concept_integration_service import GuidelineConceptIntegrationService
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def register_guideline_routes(bp):
         world = World.query.get_or_404(id)
 
         from app.models.guideline import Guideline
-        from app.services.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
+        from app.services.guideline.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
 
         guideline = Guideline.query.get_or_404(document_id)
 
@@ -445,7 +445,7 @@ def register_guideline_routes(bp):
 
                 # Process guideline structure extraction
                 try:
-                    from app.services.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
+                    from app.services.guideline.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
                     structure_annotator = GuidelineStructureAnnotationStep()
                     result = structure_annotator.process(guideline)
 

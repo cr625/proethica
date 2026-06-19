@@ -217,7 +217,7 @@ class BackgroundTaskQueue:
                         
                         # Extract guideline sections
                         try:
-                            from app.services.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
+                            from app.services.guideline.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
                             
                             # Create Guideline record if it doesn't exist
                             from app.models.guideline import Guideline
@@ -373,7 +373,7 @@ class BackgroundTaskQueue:
                 logger.info(f"Set processing status to 'processing' for document {document_id}")
                 
                 # Import the enhanced service
-                from app.services.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
+                from app.services.guideline.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
                 enhanced_service = EnhancedGuidelineAssociationService()
                 
                 # Update progress: Starting analysis (30%)

@@ -41,7 +41,7 @@ def main():
                 
                 # Test enhanced service
                 print("\n🧪 Testing Enhanced Service...")
-                from app.services.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
+                from app.services.guideline.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
                 
                 service = EnhancedGuidelineAssociationService()
                 
