@@ -713,19 +713,8 @@ class EmbeddingService:
         from app import db
         from app.models import Document, DocumentChunk
 
-        # Helper cosine
-        def cosine(a: List[float], b: List[float]) -> float:
-            if not a or not b:
-                return 0.0
-            n = min(len(a), len(b))
-            if n == 0:
-                return 0.0
-            dot = sum(a[i] * b[i] for i in range(n))
-            na = sum(a[i] * a[i] for i in range(n)) ** 0.5
-            nb = sum(b[i] * b[i] for i in range(n)) ** 0.5
-            if na == 0 or nb == 0:
-                return 0.0
-            return dot / (na * nb)
+        # Helper cosine (shared pure-Python implementation)
+        from app.services.similarity_utils import cosine_similarity_list as cosine
 
         # Prefer local 384-dim embedding (matches embedding_384)
         try:

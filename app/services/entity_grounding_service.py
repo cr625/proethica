@@ -432,17 +432,8 @@ class EntityGroundingService:
 
     def _cosine_similarity(self, a: List[float], b: List[float]) -> float:
         """Calculate cosine similarity between two vectors."""
-        if not a or not b:
-            return 0.0
-
-        dot_product = sum(x * y for x, y in zip(a, b))
-        norm_a = sum(x * x for x in a) ** 0.5
-        norm_b = sum(x * x for x in b) ** 0.5
-
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-
-        return dot_product / (norm_a * norm_b)
+        from app.services.similarity_utils import cosine_similarity_list
+        return cosine_similarity_list(a, b)
 
     def _is_word_boundary(self, text: str, start: int, end: int) -> bool:
         """Check if match is at word boundaries."""

@@ -8,7 +8,7 @@ from flask import render_template, jsonify
 from model_config import ModelConfig
 from app.models import Document
 from app.services.scenario_generation.timeline_constructor import TimelineConstructor
-from app.services.direct_llm_service import DirectLLMService
+from app.services.llm.manager import LLMManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def view_timeline(case_id):
         timeline = constructor.build_timeline(case_id)
 
         # Enhance timeline with LLM-generated descriptions
-        llm_service = DirectLLMService()
+        llm_service = LLMManager(model=ModelConfig.get_claude_model("default"))
         enhanced_timeline = _enhance_timeline_with_llm(
             timeline,
             case,
@@ -94,14 +94,12 @@ Elements: {', '.join(element_summary)}
 Generate a narrative description:"""
 
         try:
-            narrative_response = llm_service.generate_completion(
-                prompt=narrative_prompt,
-                provider='claude',
-                model=ModelConfig.get_claude_model("default"),
+            narrative_response = llm_service.complete(
+                messages=[{"role": "user", "content": narrative_prompt}],
                 max_tokens=150,
                 temperature=0.7
             )
-            narrative = narrative_response.get('content', '').strip()
+            narrative = (narrative_response.text or '').strip()
         except Exception as e:
             logger.warning(f"LLM enhancement failed for entry {entry.sequence_number}: {e}")
             narrative = f"At {entry.timepoint}, {len(entry.elements)} event(s) occurred."
