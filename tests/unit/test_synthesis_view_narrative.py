@@ -24,6 +24,19 @@ import pytest
 from app.services.validation.synthesis_view_builder import SynthesisViewBuilder
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _app_context():
+    """get_narrative_view touches db.session / current_app for its non-mocked
+    auxiliary lookups (e.g. _fetch_class_definitions) even with ExtractionPrompt
+    mocked, so these tests need a Flask app context. Pushed once per module."""
+    from app import create_app
+    app = create_app()
+    ctx = app.app_context()
+    ctx.push()
+    yield
+    ctx.pop()
+
+
 def _make_character(label, is_main=True):
     return {
         'label': label,
@@ -77,7 +90,7 @@ def _build_view(characters, tensions, opening_context=''):
     fake_query.first.return_value = fake_prompt
 
     with patch(
-        'app.services.validation.synthesis_view_builder.ExtractionPrompt'
+        'app.services.validation.synthesis_view_builder.narrative_view.ExtractionPrompt'
     ) as mock_ep:
         mock_ep.query = fake_query
         mock_ep.created_at = MagicMock()

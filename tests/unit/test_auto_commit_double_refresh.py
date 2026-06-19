@@ -1,10 +1,12 @@
 """
-Unit tests for auto_commit_service._sync_to_ontserve double-refresh fix.
+Unit tests for auto_commit_service._sync_to_ontserve (the "sync exactly once" fix).
 
-Verifies that:
-- When commit_case_versioned succeeds, the subprocess refresh is skipped
-- When commit_case_versioned fails, the subprocess refresh runs as fallback
-- Non-versioned commits always run the subprocess refresh
+_sync_to_ontserve syncs a case ontology to OntServe exactly once: versioned commits
+sync via commit_case_versioned (which materializes edges + syncs disk->DB itself);
+every other path (versioned-commit failure/exception, no published entities, or
+non-versioned) falls back to the in-process commit_service._sync_ontology_to_db.
+Earlier versions shelled out to a subprocess refresh; that was replaced by the
+in-process call, so these assert on _sync_ontology_to_db, not subprocess.run.
 """
 
 import pytest
@@ -30,11 +32,14 @@ def auto_commit_service():
 
 
 class TestDoubleRefreshFix:
-    """Test that _sync_to_ontserve doesn't run refresh twice."""
+    """_sync_to_ontserve must sync the case ontology to OntServe exactly once:
+    versioned-commit success syncs inside commit_case_versioned; every other path
+    falls back to the in-process commit_service._sync_ontology_to_db (never both)."""
 
+    @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
     @patch('app.services.auto_commit_service.get_ontserve_base_path')
-    def test_versioned_success_skips_subprocess(self, mock_base_path, auto_commit_service):
-        """When commit_case_versioned succeeds, subprocess refresh is skipped."""
+    def test_versioned_success_skips_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
+        """commit_case_versioned succeeds -> the fallback _sync_ontology_to_db is skipped."""
         mock_base_path.return_value = Path("/fake/OntServe")
 
         mock_commit_service = MagicMock()
@@ -42,96 +47,90 @@ class TestDoubleRefreshFix:
             'success': True, 'new_version': 2, 'versions_superseded': 1
         }
 
-        mock_entities = MagicMock()
-        mock_entities.__iter__ = MagicMock(return_value=iter([MagicMock(id=1), MagicMock(id=2)]))
-        mock_entities.__bool__ = MagicMock(return_value=True)
-
         with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
-            mock_rdf.query.filter_by.return_value.all.return_value = mock_entities
+            mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1), MagicMock(id=2)]
             with patch('app.services.ontserve_commit_service.OntServeCommitService',
                        return_value=mock_commit_service):
-                with patch('subprocess.run') as mock_subprocess:
-                    auto_commit_service._versioned_commit = True
-                    auto_commit_service._sync_to_ontserve(7)
+                auto_commit_service._versioned_commit = True
+                auto_commit_service._sync_to_ontserve(7)
 
-                    mock_commit_service.commit_case_versioned.assert_called_once()
-                    # subprocess should NOT have been called (versioned refresh already done)
-                    mock_subprocess.assert_not_called()
+        mock_commit_service.commit_case_versioned.assert_called_once()
+        # versioned commit already synced -> no second (fallback) sync
+        mock_commit_service._sync_ontology_to_db.assert_not_called()
 
+    @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
     @patch('app.services.auto_commit_service.get_ontserve_base_path')
-    def test_versioned_failure_runs_subprocess_fallback(self, mock_base_path, auto_commit_service):
-        """When commit_case_versioned fails, subprocess refresh runs as fallback."""
+    def test_versioned_failure_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
+        """commit_case_versioned returns success=False -> fallback _sync_ontology_to_db runs."""
         mock_base_path.return_value = Path("/fake/OntServe")
 
         mock_commit_service = MagicMock()
-        mock_commit_service.commit_case_versioned.return_value = {
-            'success': False, 'error': 'DB connection failed'
-        }
-
-        mock_entities = MagicMock()
-        mock_entities.__iter__ = MagicMock(return_value=iter([MagicMock(id=1)]))
-        mock_entities.__bool__ = MagicMock(return_value=True)
-
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
-            mock_rdf.query.filter_by.return_value.all.return_value = mock_entities
-            with patch('app.services.ontserve_commit_service.OntServeCommitService',
-                       return_value=mock_commit_service):
-                with patch('subprocess.run') as mock_subprocess:
-                    mock_subprocess.return_value = MagicMock(returncode=0)
-                    auto_commit_service._versioned_commit = True
-                    auto_commit_service._sync_to_ontserve(7)
-
-                    # subprocess SHOULD run as fallback
-                    mock_subprocess.assert_called_once()
-
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
-    def test_versioned_exception_runs_subprocess_fallback(self, mock_base_path, auto_commit_service):
-        """When commit_case_versioned raises, subprocess refresh runs as fallback."""
-        mock_base_path.return_value = Path("/fake/OntServe")
+        mock_commit_service.commit_case_versioned.return_value = {'success': False, 'error': 'DB connection failed'}
+        mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
 
         with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
             mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1)]
             with patch('app.services.ontserve_commit_service.OntServeCommitService',
-                       side_effect=Exception("Import error")):
-                with patch('subprocess.run') as mock_subprocess:
-                    mock_subprocess.return_value = MagicMock(returncode=0)
-                    auto_commit_service._versioned_commit = True
-                    auto_commit_service._sync_to_ontserve(7)
-
-                    # subprocess SHOULD run as fallback
-                    mock_subprocess.assert_called_once()
-
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
-    def test_non_versioned_always_runs_subprocess(self, mock_base_path, auto_commit_service):
-        """Non-versioned commits always use subprocess refresh."""
-        mock_base_path.return_value = Path("/fake/OntServe")
-
-        with patch('subprocess.run') as mock_subprocess:
-            mock_subprocess.return_value = MagicMock(returncode=0)
-            auto_commit_service._versioned_commit = False
-            auto_commit_service._sync_to_ontserve(7)
-
-            # subprocess SHOULD run (no versioned commit path)
-            mock_subprocess.assert_called_once()
-            # Verify it called the refresh script with the right case name
-            call_args = mock_subprocess.call_args[0][0]
-            assert "refresh_entity_extraction.py" in call_args[1]
-            assert "proethica-case-7" in call_args[2]
-
-    @patch('app.services.auto_commit_service.get_ontserve_base_path')
-    def test_no_entities_still_runs_subprocess(self, mock_base_path, auto_commit_service):
-        """When no published entities found, subprocess still runs for TTL sync."""
-        mock_base_path.return_value = Path("/fake/OntServe")
-
-        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
-            mock_rdf.query.filter_by.return_value.all.return_value = []
-            with patch('subprocess.run') as mock_subprocess:
-                mock_subprocess.return_value = MagicMock(returncode=0)
+                       return_value=mock_commit_service):
                 auto_commit_service._versioned_commit = True
                 auto_commit_service._sync_to_ontserve(7)
 
-                # subprocess SHOULD run (no entities means versioned commit was skipped)
-                mock_subprocess.assert_called_once()
+        mock_commit_service._sync_ontology_to_db.assert_called_once()
+
+    @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
+    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    def test_versioned_commit_exception_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
+        """commit_case_versioned raises -> the inner handler falls back to _sync_ontology_to_db."""
+        mock_base_path.return_value = Path("/fake/OntServe")
+
+        mock_commit_service = MagicMock()
+        mock_commit_service.commit_case_versioned.side_effect = Exception("versioned commit boom")
+        mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
+
+        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+            mock_rdf.query.filter_by.return_value.all.return_value = [MagicMock(id=1)]
+            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+                       return_value=mock_commit_service):
+                auto_commit_service._versioned_commit = True
+                auto_commit_service._sync_to_ontserve(7)
+
+        mock_commit_service._sync_ontology_to_db.assert_called_once()
+
+    @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
+    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    def test_non_versioned_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
+        """Non-versioned commits go straight to the in-process _sync_ontology_to_db."""
+        mock_base_path.return_value = Path("/fake/OntServe")
+
+        mock_commit_service = MagicMock()
+        mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
+
+        with patch('app.services.ontserve_commit_service.OntServeCommitService',
+                   return_value=mock_commit_service):
+            auto_commit_service._versioned_commit = False
+            auto_commit_service._sync_to_ontserve(7)
+
+        mock_commit_service._sync_ontology_to_db.assert_called_once()
+        mock_commit_service.commit_case_versioned.assert_not_called()
+
+    @patch('app.services.extraction.edge_materialization.materialize_edges_on_ttl')
+    @patch('app.services.auto_commit_service.get_ontserve_base_path')
+    def test_no_entities_runs_fallback_sync(self, mock_base_path, mock_materialize, auto_commit_service):
+        """No published entities -> versioned commit is skipped, fallback _sync_ontology_to_db runs."""
+        mock_base_path.return_value = Path("/fake/OntServe")
+
+        mock_commit_service = MagicMock()
+        mock_commit_service._sync_ontology_to_db.return_value = {'success': True}
+
+        with patch('app.services.auto_commit_service.TemporaryRDFStorage') as mock_rdf:
+            mock_rdf.query.filter_by.return_value.all.return_value = []
+            with patch('app.services.ontserve_commit_service.OntServeCommitService',
+                       return_value=mock_commit_service):
+                auto_commit_service._versioned_commit = True
+                auto_commit_service._sync_to_ontserve(7)
+
+        mock_commit_service._sync_ontology_to_db.assert_called_once()
+        mock_commit_service.commit_case_versioned.assert_not_called()
 
 
 class TestMCPClientSharedTransport:
