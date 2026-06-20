@@ -1,0 +1,41 @@
+.tag-filter-link {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.tag-filter-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+.case-title-link:hover {
+    text-decoration: underline !important;
+}
+.case-title-link .bi-chevron-right {
+    transition: transform 0.15s;
+}
+.case-title-link:hover .bi-chevron-right {
+    transform: translateX(2px);
+}
+.pipeline-link {
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+.pipeline-link:hover {
+    opacity: 1;
+}
+/* Compact view: hide expanded content, tighten spacing */
+.compact-view .case-expanded-content {
+    display: none;
+}
+.compact-view .case-card {
+    margin-bottom: 0 !important;
+}
+.compact-view .case-card .card-header {
+    border-bottom: 0;
+}
+.compact-view .col-12.mb-3 {
+    margin-bottom: 0.25rem !important;
+}
+/* Compact view: hide the tag/similar bar */
+.compact-view .case-tags-bar {
+    display: none;
+}

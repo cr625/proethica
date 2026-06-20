@@ -3,26 +3,7 @@
 {% block title %}Pending Precedents - ProEthica{% endblock %}
 
 {% block styles %}
-<style>
-    .url-card {
-        font-size: 0.9rem;
-    }
-    .url-text {
-        font-family: monospace;
-        font-size: 0.8rem;
-        word-break: break-all;
-    }
-    .stat-card {
-        text-align: center;
-    }
-    .stat-number {
-        font-size: 2rem;
-        font-weight: bold;
-    }
-    .source-badge {
-        font-size: 0.75rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pending_precedents.css') }}">
 {% endblock %}
 
 {% block content %}

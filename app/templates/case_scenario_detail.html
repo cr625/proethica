@@ -3,73 +3,7 @@
 {% block title %}Scenario: {{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block styles %}
-<style>
-    .timeline {
-        position: relative;
-        padding-left: 30px;
-    }
-
-    .timeline-item {
-        position: relative;
-        margin-bottom: 30px;
-    }
-
-    .timeline-marker {
-        position: absolute;
-        left: -30px;
-        width: 15px;
-        height: 15px;
-        border-radius: 50%;
-        border: 3px solid #fff;
-        box-shadow: 0 0 0 3px #007bff;
-    }
-
-    .timeline-marker.bg-warning {
-        background-color: #ffc107;
-        box-shadow: 0 0 0 3px #ffc107;
-    }
-
-    .timeline-marker.bg-info {
-        background-color: #17a2b8;
-        box-shadow: 0 0 0 3px #17a2b8;
-    }
-
-    .timeline-item:not(:last-child):before {
-        content: '';
-        position: absolute;
-        left: -23px;
-        top: 15px;
-        height: calc(100% + 15px);
-        width: 2px;
-        background-color: #007bff;
-    }
-
-    .timeline-content {
-        padding: 15px;
-        border-radius: 5px;
-        background-color: #f8f9fa;
-        border-left: 3px solid #007bff;
-    }
-
-    .timeline-content-decision {
-        border-left: 3px solid #ffc107;
-        background-color: #fff8e1;
-    }
-
-    .timeline-content-event {
-        border-left: 3px solid #17a2b8;
-        background-color: #e8f4f8;
-    }
-
-    .category-card {
-        transition: transform 0.2s ease;
-    }
-
-    .category-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/case_scenario_detail.css') }}">
 {% endblock %}
 
 {% block content %}

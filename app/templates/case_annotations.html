@@ -288,37 +288,7 @@
 
 {% block styles %}
 {{ super() }}
-<style>
-    .case-content-preview {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    }
-
-    .text-highlight {
-        display: inline-block;
-        max-width: 100%;
-        word-wrap: break-word;
-    }
-
-    .table td {
-        vertical-align: middle;
-    }
-
-    .badge {
-        font-size: 0.75em;
-    }
-
-    .progress {
-        font-size: 0.7em;
-    }
-
-    .btn-group .btn {
-        margin-right: 2px;
-    }
-
-    .btn-group .btn:last-child {
-        margin-right: 0;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/case_annotations.css') }}">
 {% endblock %}
 
 {% block scripts %}
