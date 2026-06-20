@@ -212,9 +212,12 @@ def create_app(config_name=None):
     from app.routes.scenario_pipeline.interactive_builder import init_csrf_exemption as init_scenario_csrf_exemption
     init_scenario_csrf_exemption(app)
     
-    # Exempt specific case routes from CSRF protection
-    from app.routes.cases import init_cases_csrf_exemption
-    init_cases_csrf_exemption(app)
+    # Note: the former init_cases_csrf_exemption was dead code (it passed endpoint
+    # name strings to csrf.exempt, which matches by the view's module-qualified
+    # name, so the exemptions never fired). Neither route needs exemption anyway:
+    # generate_case_embeddings submits a csrf_token via its form, and
+    # clear_scenario has no caller. Removed 2026-06-20. The pipeline exemption
+    # below uses the correct object form.
     from app.routes.cases.pipeline import init_pipeline_csrf_exemption as init_cases_pipeline_csrf
     init_cases_pipeline_csrf(app)
     from app.routes.provenance import init_provenance_csrf_exemption
