@@ -1,0 +1,1842 @@
+const currentCaseId = window.STEP4.caseId;
+let isProcessing = false;
+
+// Warn user if they try to navigate away during processing
+window.addEventListener('beforeunload', function(e) {
+    if (isProcessing) {
+        e.preventDefault();
+        e.returnValue = 'Processing is in progress. If you leave, the extraction may be incomplete and you may need to clear and re-run Step 4.';
+        return e.returnValue;
+    }
+});
+
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+// Clear Step 4 data (Phase 2-4 extractions)
+function clearStep4Data() {
+    if (!confirm('Clear all Step 4 extractions (provisions, questions, conclusions, decision points)? Phase 1 entities will be preserved.')) {
+        return;
+    }
+
+    const button = document.getElementById('clear-step4-btn');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
+
+    fetch(`/scenario_pipeline/case/${currentCaseId}/clear_step4`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reset all UI elements
+            resetStep4UI();
+            document.getElementById('synthesis-progress-text').textContent = data.message || 'Step 4 cleared successfully';
+        } else {
+            alert('Error: ' + (data.error || 'Failed to clear'));
+        }
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-trash"></i> Clear Step 4';
+    })
+    .catch(error => {
+        console.error('Clear error:', error);
+        alert('Error clearing Step 4 data');
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-trash"></i> Clear Step 4';
+    });
+}
+
+// Reset Step 4 UI to initial state
+function resetStep4UI() {
+    // Reset phase indicators
+    ['phase2-indicator', 'phase3-indicator', 'phase4-indicator'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('phase-complete', 'phase-active');
+        }
+    });
+
+    // Reset counts
+    ['provisionsCount', 'precedentsCount', 'questionsCount', 'conclusionsCount'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+    });
+
+    // Reset Phase 3 stage badges
+    ['step-e1', 'step-e2', 'step-e3', 'step-align', 'step-llm'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['e1Result', 'e2Result', 'e3Result', 'alignResult', 'llmResult'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide prompt/result sections
+    document.querySelectorAll('.prompt-preview, .results-preview').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    // Hide Phase 3 specific elements
+    const decisionResults = document.getElementById('decisionPointsResults');
+    if (decisionResults) decisionResults.style.display = 'none';
+    const phase3ProvLink = document.getElementById('phase3ProvenanceLink');
+    if (phase3ProvLink) phase3ProvLink.style.display = 'none';
+
+    // Reset Phase 3 streaming messages
+    if (typeof phase3StreamingMessages !== 'undefined') {
+        phase3StreamingMessages = [];
+    }
+
+    // Reset Phase 4 stage badges
+    ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['stage41Result', 'stage42Result', 'stage43Result', 'stage44Result'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide Phase 4 results
+    const phase4Results = document.getElementById('phase4Results');
+    if (phase4Results) phase4Results.style.display = 'none';
+
+    // Reset Phase 4 streaming messages
+    if (typeof phase4StreamingMessages !== 'undefined') {
+        phase4StreamingMessages = [];
+    }
+
+    // Reset synthesis button
+    const synthBtn = document.getElementById('run-complete-synthesis-btn');
+    if (synthBtn) {
+        synthBtn.classList.remove('btn-success');
+        synthBtn.classList.add('btn-primary');
+        synthBtn.innerHTML = '<i class="bi bi-play-circle"></i> Run Complete Synthesis';
+    }
+
+    // Reset all Phase 2 buttons to their original state
+    const phase2Buttons = [
+        { id: 'extractProvisionsBtn', color: 'secondary', label: 'Extract' },
+        { id: 'extractPrecedentsBtn', color: 'dark', label: 'Extract' },
+        { id: 'extractQuestionsBtn', color: 'warning', label: 'Extract' },
+        { id: 'extractConclusionsBtn', color: 'success', label: 'Extract' },
+        { id: 'extractTransformationBtn', color: 'secondary', label: 'Classify' },
+        { id: 'extractRich_analysisBtn', color: 'info', label: 'Analyze' }
+    ];
+    phase2Buttons.forEach(({ id, color, label }) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('btn-outline-secondary', 'btn-success', 'btn-outline-success');
+            btn.classList.add(`btn-outline-${color}`);
+            btn.innerHTML = `<i class="bi bi-play-fill"></i> ${label}`;
+        }
+    });
+
+    // Reset Phase 3 button to disabled state (requires Phase 2 completion)
+    const phase3Btn = document.getElementById('extractDecisionSynthesisBtn');
+    if (phase3Btn) {
+        phase3Btn.disabled = true;
+        phase3Btn.classList.remove('btn-success', 'btn-outline-success', 'btn-outline-primary');
+        phase3Btn.classList.add('btn-outline-secondary');
+        phase3Btn.innerHTML = '<i class="bi bi-lock-fill"></i> Synthesize';
+        phase3Btn.title = 'Complete Phase 2 first';
+    }
+
+    // Reset Phase 2 indicator
+    const phase2Indicator = document.getElementById('phase2-indicator');
+    if (phase2Indicator) {
+        phase2Indicator.classList.remove('phase-complete');
+    }
+
+    // Reset substep dots
+    ['p2-provisions', 'p2-questions', 'p2-conclusions', 'p2-transformation', 'p2-rich'].forEach(id => {
+        const dot = document.getElementById(id);
+        if (dot) {
+            dot.classList.remove('active', 'complete');
+        }
+    });
+
+    // Reset transformation type badge
+    const transformType = document.getElementById('transformationType');
+    if (transformType) transformType.textContent = 'Not classified';
+
+    // Clear entity list card contents
+    const emptyMessages = {
+        'provisionsEntityList': 'No provisions extracted yet.',
+        'precedentsEntityList': 'No precedent cases extracted yet.',
+        'questionsEntityList': 'No questions or conclusions extracted yet.',
+        'rich_analysisEntityList': 'No analysis entities extracted yet.'
+    };
+    Object.entries(emptyMessages).forEach(([id, msg]) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="text-muted small">' + msg + '</div>';
+    });
+
+    // Clear transformation detail
+    const transformDetail = document.getElementById('transformationDetail');
+    if (transformDetail) transformDetail.innerHTML = '';
+
+    // Clear decision points list
+    const dpList = document.getElementById('decisionPointsList');
+    if (dpList) dpList.innerHTML = '';
+
+    // Hide synthesis progress area
+    const synthStream = document.getElementById('synthesisStreamStatus');
+    if (synthStream) { synthStream.style.display = 'none'; synthStream.innerHTML = ''; }
+
+    // Reset streaming message trackers
+    Object.keys(streamingMessages).forEach(key => {
+        streamingMessages[key] = [];
+    });
+}
+
+// Individual task extraction
+function extractTask(taskType) {
+    // Map qc_unified to questions DOM elements (since they share the section)
+    const domTaskType = taskType === 'qc_unified' ? 'questions' : taskType;
+
+    const button = document.getElementById(`extract${capitalizeFirst(domTaskType)}Btn`);
+    const streamStatus = document.getElementById(`${domTaskType}StreamStatus`);
+
+    // Use streaming for Phase 2 tasks (shows real-time progress)
+    const useStreaming = ['provisions', 'precedents', 'qc_unified', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
+    if (useStreaming.includes(taskType)) {
+        extractTaskStreaming(taskType, button, streamStatus);
+        return;
+    }
+
+    // All Phase 2 tasks use streaming; Phase 3/4 have dedicated handlers
+    console.error('extractTask called for non-streaming task:', taskType);
+}
+
+function handleTaskResults(taskType, data) {
+    switch(taskType) {
+        case 'decision_synthesis':
+            handleDecisionSynthesisResults(data);
+            break;
+        case 'narrative':
+            handleNarrativeResults(data);
+            break;
+    }
+}
+
+function handleDecisionSynthesisResults(data) {
+    if (data.result) {
+        document.getElementById('e1Result').textContent = data.result.e1_decision_relevant + ' decision-relevant';
+        document.getElementById('e2Result').textContent = data.result.e2_action_sets + ' action sets';
+        document.getElementById('e3Result').textContent = data.result.e3_candidates + ' candidates';
+        document.getElementById('llmResult').textContent = data.result.canonical_count + ' decision pts';
+
+        // Update step badges to success
+        ['step-e1', 'step-e2', 'step-e3', 'step-llm'].forEach(id => {
+            document.getElementById(id).classList.remove('bg-secondary');
+            document.getElementById(id).classList.add('bg-success');
+        });
+    }
+
+    if (data.llm_trace) {
+        document.getElementById('decisionSynthesisPromptSection').style.display = 'block';
+        document.getElementById('decisionSynthesisPromptText').textContent = data.llm_trace.prompt;
+        document.getElementById('decisionSynthesisResultsContent').innerHTML =
+            `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.llm_trace.response)}</pre>`;
+    }
+}
+
+function handleNarrativeResults(data) {
+    if (data.narrative) {
+        if (data.narrative.case_summary) {
+            document.getElementById('case-summary-area').style.display = 'block';
+            document.getElementById('case-summary-text').textContent = data.narrative.case_summary;
+        }
+
+        if (data.narrative.timeline && data.narrative.timeline.length > 0) {
+            document.getElementById('timeline-preview').style.display = 'block';
+            document.getElementById('timeline-events').innerHTML = data.narrative.timeline.map(e =>
+                `<div class="d-flex mb-2">
+                    <span class="badge bg-secondary me-2">${e.sequence}</span>
+                    <span><strong>${e.phase_label}:</strong> ${e.description}</span>
+                </div>`
+            ).join('');
+        }
+    }
+
+    if (data.llm_trace) {
+        document.getElementById('narrativePromptSection').style.display = 'block';
+        document.getElementById('narrativePromptText').textContent = data.llm_trace.prompt;
+        document.getElementById('narrativeResultsContent').innerHTML =
+            `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapeHtml(data.llm_trace.response)}</pre>`;
+    }
+}
+
+function updateCountBadges(taskType, result) {
+    if (!result) return;
+
+    switch(taskType) {
+        case 'provisions':
+            document.getElementById('provisionsCount').textContent = result.count || 0;
+            break;
+        case 'precedents':
+            document.getElementById('precedentsCount').textContent = result.count || 0;
+            break;
+        case 'questions':
+            document.getElementById('questionsCount').textContent = result.count || 0;
+            break;
+        case 'conclusions':
+            document.getElementById('conclusionsCount').textContent = result.count || 0;
+            break;
+        case 'transformation':
+            document.getElementById('transformationType').textContent = result.type || 'classified';
+            // Populate detail section dynamically
+            var detailDiv = document.getElementById('transformationDetail');
+            if (!detailDiv) {
+                detailDiv = document.createElement('div');
+                detailDiv.id = 'transformationDetail';
+                detailDiv.className = 'mt-1';
+                var stepContent = document.querySelector('#transformationSection .step-content');
+                if (stepContent) stepContent.appendChild(detailDiv);
+            }
+            var detailHtml = '';
+            if (result.pattern) {
+                detailHtml += '<p class="small mb-2">' + escapeHtml(result.pattern) + '</p>';
+            }
+            if (result.reasoning) {
+                detailHtml += '<details class="small"><summary class="text-muted" style="cursor: pointer;">Reasoning</summary>'
+                    + '<p class="text-muted mt-1 mb-0">' + escapeHtml(result.reasoning) + '</p></details>';
+            }
+            if (detailHtml) detailDiv.innerHTML = detailHtml;
+            break;
+    }
+}
+
+function capitalizeFirst(str) {
+    // Handle underscored names like rich_analysis -> RichAnalysis
+    return str.split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Streaming extraction with real-time progress
+function extractTaskStreaming(taskType, button, streamStatus) {
+    // Reset streaming messages for this task
+    streamingMessages[taskType] = [];
+
+    // Disable button and show loading
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
+    }
+
+    // Update substep dot to active
+    updateSubstepDot(taskType, 'active');
+
+    // Show streaming status area
+    if (streamStatus) {
+        streamStatus.style.display = 'block';
+        streamStatus.innerHTML = '<div class="alert alert-info py-2 mb-2"><i class="bi bi-hourglass-split me-1"></i> Starting extraction...</div>';
+    }
+
+    // Use streaming endpoint
+    fetch(`/scenario_pipeline/case/${currentCaseId}/extract_${taskType}_stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    if (button) {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                        button.classList.add('btn-outline-secondary');
+                    }
+                    return;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            handleStreamingExtraction(taskType, data, streamStatus);
+                        } catch (e) {
+                            console.log('Parse error:', line);
+                        }
+                    }
+                });
+
+                processStream();
+            });
+        }
+
+        processStream();
+    })
+    .catch(error => {
+        console.error('Streaming error:', error);
+        if (streamStatus) {
+            streamStatus.innerHTML = `<div class="alert alert-danger py-2 mb-2">Error: ${error.message}</div>`;
+        }
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
+        }
+    });
+}
+
+// Handle streaming extraction events -- progress messages and completion
+function handleStreamingExtraction(taskType, data, streamStatus) {
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!streamingMessages[taskType].includes(msg)) {
+                streamingMessages[taskType].push(msg);
+            }
+        });
+    }
+
+    // Show live progress in streamStatus area
+    if (streamStatus && data.stage !== 'COMPLETE') {
+        let html = '<div class="alert alert-info mb-2 py-2">';
+        html += '<strong><i class="bi bi-gear-fill me-1"></i> Processing:</strong>';
+        html += '<div class="streaming-messages mt-2" style="max-height: 150px; overflow-y: auto;">';
+        streamingMessages[taskType].forEach((msg, idx) => {
+            const isLatest = idx === streamingMessages[taskType].length - 1;
+            html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
+                <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-primary' : 'check-circle text-success'} me-1"></i>
+                ${escapeHtml(msg)}
+            </div>`;
+        });
+        html += '</div>';
+        if (data.progress) {
+            html += `<div class="progress mt-2" style="height: 6px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
+            </div>`;
+        }
+        html += '</div>';
+        streamStatus.innerHTML = html;
+    }
+
+    // On completion: update badges, dots, and reload entity summaries
+    if (data.stage === 'COMPLETE' && data.result) {
+        if (taskType === 'qc_unified') {
+            const qEl = document.getElementById('questionsCount');
+            const cEl = document.getElementById('conclusionsCount');
+            if (qEl) qEl.textContent = data.result.questions || 0;
+            if (cEl) cEl.textContent = data.result.conclusions || 0;
+        } else if (taskType !== 'rich_analysis') {
+            const countEl = document.getElementById(`${taskType}Count`);
+            if (countEl) countEl.textContent = data.result.count || 0;
+        }
+
+        updateSubstepDot(taskType, 'complete');
+
+        if (taskType === 'rich_analysis') {
+            const phase2Indicator = document.getElementById('phase2-indicator');
+            if (phase2Indicator) phase2Indicator.classList.add('phase-complete');
+            enablePhase3();
+        }
+
+        // Show completion status briefly, then reload to show entity summaries
+        if (streamStatus) {
+            streamStatus.innerHTML = '<div class="alert alert-success py-2 mb-2"><i class="bi bi-check-circle-fill me-1"></i> Extraction complete. Refreshing...</div>';
+            // Reload page after short delay to show server-rendered entity summaries
+            setTimeout(() => location.reload(), 800);
+        }
+    }
+
+    // Handle errors
+    if (data.error && streamStatus) {
+        streamStatus.innerHTML = `<div class="alert alert-danger py-2 mb-2"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? escapeHtml(data.messages[0]) : 'Error occurred'}</div>`;
+    }
+}
+
+// Streaming messages for complete synthesis
+let completeSynthMessages = [];
+
+// Clear all entity lists, badges, and indicators before reprocessing
+function clearEntityLists() {
+    // Clear entity list contents
+    ['provisionsEntityList', 'precedentsEntityList', 'questionsEntityList', 'rich_analysisEntityList'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Extracting...</div>';
+    });
+
+    // Reset count badges
+    ['provisionsCount', 'precedentsCount', 'questionsCount', 'conclusionsCount'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = '...';
+    });
+
+    // Reset transformation display
+    var typeEl = document.getElementById('transformationType');
+    if (typeEl) typeEl.textContent = '...';
+    var detailEl = document.getElementById('transformationDetail');
+    if (detailEl) detailEl.innerHTML = '';
+
+    // Hide Phase 3 results
+    var dp = document.getElementById('decisionPointsResults');
+    if (dp) dp.style.display = 'none';
+    var dpList = document.getElementById('decisionPointsList');
+    if (dpList) dpList.innerHTML = '';
+    var p3Prov = document.getElementById('phase3ProvenanceLink');
+    if (p3Prov) p3Prov.style.display = 'none';
+
+    // Hide Phase 4 results
+    var p4 = document.getElementById('phase4Results');
+    if (p4) p4.style.display = 'none';
+
+    // Reset all substep dots
+    ['provisions', 'precedents', 'questions', 'conclusions', 'transformation', 'rich_analysis'].forEach(function(t) {
+        updateSubstepDot(t, '');
+    });
+
+    // Reset phase indicators
+    ['phase2-indicator', 'phase3-indicator', 'phase4-indicator'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('phase-complete', 'phase-active');
+        }
+    });
+
+    // Reset Phase 3 stage badges
+    ['step-e1', 'step-e2', 'step-e3', 'step-align', 'step-llm'].forEach(function(id) {
+        var badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['e1Result', 'e2Result', 'e3Result', 'alignResult', 'llmResult'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = '<span class="text-muted">-</span>';
+    });
+}
+
+// Handle SSE events from complete synthesis stream
+function handleCompleteSynthesisEvent(data) {
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(function(msg) {
+            completeSynthMessages.push(msg);
+        });
+    }
+
+    // Clear UI on clearing stage
+    if (data.clear_ui) {
+        clearEntityLists();
+    }
+
+    // Update substep dots
+    if (data.active_dots) {
+        data.active_dots.forEach(function(d) { updateSubstepDot(d, 'active'); });
+    }
+    if (data.completed_dot) {
+        updateSubstepDot(data.completed_dot, 'complete');
+    }
+    if (data.completed_dots) {
+        data.completed_dots.forEach(function(d) { updateSubstepDot(d, 'complete'); });
+    }
+
+    // Update phase indicators
+    if (data.active_phase) {
+        var phaseEl = document.getElementById(data.active_phase + '-indicator');
+        if (phaseEl) phaseEl.classList.add('phase-active');
+    }
+    if (data.completed_phase) {
+        var phaseEl = document.getElementById(data.completed_phase + '-indicator');
+        if (phaseEl) {
+            phaseEl.classList.remove('phase-active');
+            phaseEl.classList.add('phase-complete');
+        }
+    }
+
+    // Update count badges and refresh card content from results
+    if (data.result && !data.error) {
+        switch (data.stage) {
+            case 'PROVISIONS_DONE':
+                var pc = document.getElementById('provisionsCount');
+                if (pc) pc.textContent = data.result.provisions_count || 0;
+                refreshPhase2Cards('code_provision_reference');
+                break;
+            case 'PRECEDENTS_DONE':
+                var prc = document.getElementById('precedentsCount');
+                if (prc) prc.textContent = data.result.precedents_count || 0;
+                refreshPhase2Cards('precedent_case_reference');
+                break;
+            case 'QC_DONE':
+                var qc = document.getElementById('questionsCount');
+                if (qc) qc.textContent = data.result.questions_count || 0;
+                var cc = document.getElementById('conclusionsCount');
+                if (cc) cc.textContent = data.result.conclusions_count || 0;
+                refreshPhase2Cards('ethical_question');
+                break;
+            case 'TRANSFORMATION_DONE':
+                var tt = document.getElementById('transformationType');
+                if (tt) tt.textContent = data.result.transformation_type || 'classified';
+                break;
+            case 'RICH_DONE':
+                // Mark Phase 2 complete
+                var p2 = document.getElementById('phase2-indicator');
+                if (p2) p2.classList.add('phase-complete');
+                refreshPhase2Cards('causal_normative_link');
+                break;
+        }
+    }
+
+    // Update progress display
+    updateSynthesisProgressDisplay(data);
+
+    // Handle completion
+    if (data.stage === 'COMPLETE') {
+        isProcessing = false;
+        ['phase2-indicator', 'phase3-indicator', 'phase4-indicator'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('phase-complete');
+        });
+        var button = document.getElementById('run-complete-synthesis-btn');
+        button.innerHTML = '<i class="bi bi-check-circle"></i> Synthesis Complete';
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-success');
+        document.getElementById('synthesis-progress-text').textContent = 'Complete! Refreshing page...';
+        setTimeout(function() { window.location.reload(); }, 1500);
+    }
+
+    // Handle errors
+    if (data.error) {
+        isProcessing = false;
+        var button = document.getElementById('run-complete-synthesis-btn');
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
+        document.getElementById('synthesis-progress-text').textContent = data.messages ? data.messages[0] : 'Error';
+    }
+}
+
+// Fetch Phase 2 entities from server and refresh card content
+function refreshPhase2Cards(triggerType) {
+    fetch('/scenario_pipeline/case/' + currentCaseId + '/step4/phase2_entities_json')
+        .then(function(resp) { return resp.json(); })
+        .then(function(entities) {
+            // Provisions
+            var provList = document.getElementById('provisionsEntityList');
+            var provs = entities['code_provision_reference'] || [];
+            if (provList && provs.length > 0) {
+                provList.innerHTML = provs.map(function(e) {
+                    var def = e.definition || '';
+                    if (def.length > 150) def = def.substring(0, 150) + '...';
+                    return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                        (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                }).join('');
+            }
+
+            // Precedents
+            var precList = document.getElementById('precedentsEntityList');
+            var precs = entities['precedent_case_reference'] || [];
+            if (precList && precs.length > 0) {
+                precList.innerHTML = precs.map(function(e) {
+                    var rdf = e.rdf || {};
+                    var citationType = rdf.citationType || '';
+                    var badgeClass = citationType === 'supporting' ? 'success' : citationType === 'distinguishing' ? 'warning' : 'info';
+                    var html = '<div class="entity-summary-item"><div><strong><i class="bi bi-journal-bookmark me-1"></i>' + escapeHtml(e.label) + '</strong>';
+                    if (citationType) html += ' <span class="badge bg-' + badgeClass + ' ms-1">' + escapeHtml(citationType) + '</span>';
+                    html += '</div>';
+                    if (rdf.principleEstablished) html += '<small class="text-muted d-block mt-1">' + escapeHtml(rdf.principleEstablished) + '</small>';
+                    html += '</div>';
+                    return html;
+                }).join('');
+            }
+
+            // Questions & Conclusions
+            var qcList = document.getElementById('questionsEntityList');
+            var questions = entities['ethical_question'] || [];
+            var conclusions = entities['ethical_conclusion'] || [];
+            if (qcList && (questions.length > 0 || conclusions.length > 0)) {
+                var html = '';
+                if (questions.length > 0) {
+                    html += '<div class="mb-2"><small class="text-muted fw-semibold">Questions (' + questions.length + ')</small></div>';
+                    html += questions.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                if (conclusions.length > 0) {
+                    html += '<div class="mb-2 mt-3"><small class="text-muted fw-semibold">Conclusions (' + conclusions.length + ')</small></div>';
+                    html += conclusions.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                qcList.innerHTML = html;
+            }
+
+            // Rich Analysis (causal links, question emergence, resolution patterns)
+            var richList = document.getElementById('rich_analysisEntityList');
+            var causal = entities['causal_normative_link'] || [];
+            var emergence = entities['question_emergence'] || [];
+            var resolution = entities['resolution_pattern'] || [];
+            if (richList && (causal.length > 0 || emergence.length > 0 || resolution.length > 0)) {
+                var html = '';
+                if (causal.length > 0) {
+                    html += '<div class="mb-2"><small class="text-muted fw-semibold">Causal-Normative Links (' + causal.length + ')</small></div>';
+                    html += causal.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                if (emergence.length > 0) {
+                    html += '<div class="mb-2 mt-3"><small class="text-muted fw-semibold">Question Emergence (' + emergence.length + ')</small></div>';
+                    html += emergence.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                if (resolution.length > 0) {
+                    html += '<div class="mb-2 mt-3"><small class="text-muted fw-semibold">Resolution Patterns (' + resolution.length + ')</small></div>';
+                    html += resolution.map(function(e) {
+                        var def = e.definition || '';
+                        if (def.length > 150) def = def.substring(0, 150) + '...';
+                        return '<div class="entity-summary-item"><strong>' + escapeHtml(e.label) + '</strong>' +
+                            (def ? '<small class="text-muted d-block">' + escapeHtml(def) + '</small>' : '') + '</div>';
+                    }).join('');
+                }
+                richList.innerHTML = html;
+            }
+        })
+        .catch(function(err) {
+            console.warn('Failed to refresh phase 2 cards:', err);
+        });
+}
+
+// Update the streaming progress display area
+function updateSynthesisProgressDisplay(data) {
+    var synthStatus = document.getElementById('synthesisStreamStatus');
+    if (!synthStatus) return;
+
+    var html = '<div class="alert alert-primary mb-0 py-2">';
+    html += '<div class="d-flex justify-content-between align-items-center mb-2">';
+    html += '<strong><i class="bi bi-gear-fill me-1"></i> Complete Synthesis</strong>';
+    if (data.progress !== undefined) {
+        html += '<span class="badge bg-primary">' + data.progress + '%</span>';
+    }
+    html += '</div>';
+
+    // Progress bar
+    if (data.progress !== undefined) {
+        html += '<div class="progress mb-2" style="height: 6px;">';
+        html += '<div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ' + data.progress + '%"></div>';
+        html += '</div>';
+    }
+
+    // Message log (scrollable)
+    html += '<div class="streaming-messages" style="max-height: 200px; overflow-y: auto; font-size: 0.85em;">';
+    completeSynthMessages.forEach(function(msg, idx) {
+        var isLatest = idx === completeSynthMessages.length - 1;
+        if (isLatest) {
+            html += '<div class="mb-1 fw-bold"><i class="bi bi-arrow-right-circle-fill text-primary me-1"></i>' + escapeHtml(msg) + '</div>';
+        } else {
+            html += '<div class="mb-1 text-muted"><i class="bi bi-check-circle text-success me-1"></i>' + escapeHtml(msg) + '</div>';
+        }
+    });
+    html += '</div></div>';
+
+    synthStatus.innerHTML = html;
+
+    // Auto-scroll to bottom
+    var messagesDiv = synthStatus.querySelector('.streaming-messages');
+    if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// runCompleteSynthesis removed -- dispatch is now handled by the pipeline dashboard.
+async function runCompleteSynthesis() {
+    window.location.href = `/cases/${currentCaseId}/pipeline`;
+    return;
+    var button = document.getElementById('run-complete-synthesis-btn');
+    var progressText = document.getElementById('synthesis-progress-text');
+
+    isProcessing = true;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running Complete Synthesis...';
+    progressText.textContent = 'Starting synthesis pipeline...';
+
+    // Reset message accumulator
+    completeSynthMessages = [];
+
+    // Show streaming status area in pipeline overview card
+    var synthStatus = document.getElementById('synthesisStreamStatus');
+    if (synthStatus) {
+        synthStatus.style.display = 'block';
+        synthStatus.innerHTML = '<div class="alert alert-primary py-2"><i class="bi bi-hourglass-split me-1"></i> Connecting...</div>';
+    }
+
+    try {
+        var response = await fetch('/scenario_pipeline/case/' + currentCaseId + '/run_complete_synthesis_stream', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+        }
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+
+        while (true) {
+            var chunk = await reader.read();
+            if (chunk.done) break;
+
+            buffer += decoder.decode(chunk.value, { stream: true });
+            var lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i];
+                if (line.startsWith('data: ')) {
+                    try {
+                        var eventData = JSON.parse(line.substring(6));
+                        handleCompleteSynthesisEvent(eventData);
+                    } catch (e) {
+                        console.log('SSE parse error:', line);
+                    }
+                }
+            }
+        }
+
+        // Stream ended without COMPLETE event
+        if (isProcessing) {
+            isProcessing = false;
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run Synthesis';
+        }
+
+    } catch (error) {
+        isProcessing = false;
+        console.error('Synthesis stream error:', error);
+        progressText.textContent = 'Error: ' + error.message;
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Retry';
+        if (synthStatus) {
+            synthStatus.innerHTML = '<div class="alert alert-danger py-3"><h5 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Connection Failed</h5><p class="mb-0">' + escapeHtml(error.message) + '</p></div>';
+        }
+    }
+}
+
+// Phase 3 streaming messages accumulator
+let phase3StreamingMessages = [];
+
+// Run Phase 3 Decision Point Synthesis with SSE streaming
+async function runPhase3Synthesis() {
+    const button = document.getElementById('extractDecisionSynthesisBtn');
+    const promptSection = document.getElementById('decisionSynthesisPromptSection');
+    const promptText = document.getElementById('decisionSynthesisPromptText');
+
+    // Disable button and show loading
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Synthesizing...';
+
+    // Reset streaming messages
+    phase3StreamingMessages = [];
+
+    // Show prompt section with initial state
+    promptSection.style.display = 'block';
+    promptText.innerHTML = '<div class="alert alert-info py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Starting Phase 3 synthesis...</strong></div>';
+
+    // Reset stage badges
+    ['step-e1', 'step-e2', 'step-e3', 'step-align', 'step-llm'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['e1Result', 'e2Result', 'e3Result', 'alignResult', 'llmResult'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide previous results
+    document.getElementById('decisionPointsResults').style.display = 'none';
+    document.getElementById('phase3ProvenanceLink').style.display = 'none';
+
+    // Use streaming endpoint
+    fetch(`/scenario_pipeline/case/${currentCaseId}/synthesize_phase3_stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-outline-success');
+                    return;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            handlePhase3StreamingData(data);
+                        } catch (e) {
+                            console.log('Parse error:', line);
+                        }
+                    }
+                });
+
+                processStream();
+            });
+        }
+
+        processStream();
+    })
+    .catch(error => {
+        console.error('Phase 3 streaming error:', error);
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> Error: ${error.message}</div>`;
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-play-fill"></i> Synthesize';
+    });
+}
+
+// Handle Phase 3 streaming data with blue box pattern
+function handlePhase3StreamingData(data) {
+    const promptSection = document.getElementById('decisionSynthesisPromptSection');
+    const promptText = document.getElementById('decisionSynthesisPromptText');
+
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!phase3StreamingMessages.includes(msg)) {
+                phase3StreamingMessages.push(msg);
+            }
+        });
+    }
+
+    // Build streaming messages display (blue box)
+    let html = '<div class="alert alert-info mb-2 py-2">';
+    html += '<strong><i class="bi bi-gear-fill me-1"></i> Phase 3: Decision Point Synthesis</strong>';
+    html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
+
+    phase3StreamingMessages.forEach((msg, idx) => {
+        const isLatest = idx === phase3StreamingMessages.length - 1;
+        html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
+            <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-primary' : 'check-circle text-success'} me-1"></i>
+            ${escapeHtml(msg)}
+        </div>`;
+    });
+
+    html += '</div>';
+
+    // Add progress bar
+    if (data.progress) {
+        html += `<div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
+        </div>`;
+    }
+
+    html += '</div>';
+    promptText.innerHTML = html;
+
+    // Auto-scroll
+    const messagesDiv = promptText.querySelector('.streaming-messages');
+    if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Update stage badges
+    if (data.stage) {
+        if (data.stage.includes('E1')) {
+            document.getElementById('step-e1').className = 'badge bg-primary mb-1';
+            if (data.e1_result) document.getElementById('e1Result').textContent = data.e1_result;
+        }
+        if (data.stage.includes('E1_DONE')) {
+            document.getElementById('step-e1').className = 'badge bg-success mb-1';
+        }
+        if (data.stage.includes('E2')) {
+            document.getElementById('step-e2').className = 'badge bg-primary mb-1';
+            if (data.e2_result) document.getElementById('e2Result').textContent = data.e2_result;
+        }
+        if (data.stage.includes('E2_DONE')) {
+            document.getElementById('step-e2').className = 'badge bg-success mb-1';
+        }
+        if (data.stage.includes('E3')) {
+            document.getElementById('step-e3').className = 'badge bg-primary mb-1';
+            if (data.e3_result) document.getElementById('e3Result').textContent = data.e3_result;
+        }
+        if (data.stage.includes('3_1_DONE')) {
+            document.getElementById('step-e3').className = 'badge bg-success mb-1';
+            // e3_result is sent with this stage
+            if (data.e3_result) document.getElementById('e3Result').textContent = data.e3_result;
+        }
+        // Handle LLM fallback when E3 produces 0 candidates
+        if (data.stage === 'E3_LLM_FALLBACK') {
+            document.getElementById('step-e3').className = 'badge bg-warning mb-1';
+            document.getElementById('e3Result').textContent = '0 candidates';
+            // Mark align as skipped
+            document.getElementById('step-align').className = 'badge bg-secondary mb-1';
+            document.getElementById('alignResult').textContent = 'skipped';
+            // Mark LLM as active (fallback mode)
+            document.getElementById('step-llm').className = 'badge bg-primary mb-1';
+            document.getElementById('llmResult').textContent = 'fallback...';
+        }
+        if (data.stage === 'E3_LLM_FALLBACK_DONE') {
+            document.getElementById('step-llm').className = 'badge bg-success mb-1';
+            document.getElementById('llmResult').textContent = 'fallback complete';
+        }
+        if (data.stage.includes('3_2')) {
+            document.getElementById('step-align').className = 'badge bg-primary mb-1';
+            if (data.alignment_result) document.getElementById('alignResult').textContent = data.alignment_result;
+        }
+        if (data.stage.includes('3_2_DONE')) {
+            document.getElementById('step-align').className = 'badge bg-success mb-1';
+        }
+        if (data.stage.includes('3_3')) {
+            document.getElementById('step-llm').className = 'badge bg-primary mb-1';
+            if (data.llm_result) document.getElementById('llmResult').textContent = data.llm_result;
+        }
+        if (data.stage.includes('3_3_DONE')) {
+            document.getElementById('step-llm').className = 'badge bg-success mb-1';
+        }
+    }
+
+    // Handle completion
+    if (data.stage === 'COMPLETE') {
+        // Update LLM result with final count if using fallback
+        if (data.used_llm_fallback && data.canonical_count) {
+            document.getElementById('llmResult').textContent = `${data.canonical_count} decision points`;
+        }
+
+        // Show decision points
+        if (data.canonical_decision_points && data.canonical_decision_points.length > 0) {
+            const resultsDiv = document.getElementById('decisionPointsResults');
+            const listDiv = document.getElementById('decisionPointsList');
+            resultsDiv.style.display = 'block';
+
+            let dpHtml = '<div class="list-group">';
+            data.canonical_decision_points.forEach((dp, i) => {
+                const alignScore = (dp.qc_alignment_score * 100).toFixed(0);
+                const alignBadge = dp.qc_alignment_score > 0.5 ? 'bg-success' : 'bg-secondary';
+                dpHtml += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${dp.focus_id}: ${escapeHtml(dp.description || '')}</strong>
+                                <br><small class="text-muted">${escapeHtml(dp.decision_question || '')}</small>
+                            </div>
+                            <span class="badge ${alignBadge}">${alignScore}% aligned</span>
+                        </div>
+                        ${dp.toulmin ? `
+                            <div class="mt-2 small">
+                                <strong>Toulmin:</strong>
+                                <span class="text-muted">DATA: ${escapeHtml(dp.toulmin.data_summary || '-')}</span>
+                            </div>
+                        ` : ''}
+                        ${dp.addresses_questions && dp.addresses_questions.filter(q => q).length > 0 ? `
+                            <div class="mt-1 small text-primary">
+                                Addresses: ${dp.addresses_questions.filter(q => q).join(', ')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            dpHtml += '</div>';
+            listDiv.innerHTML = dpHtml;
+        }
+
+        // Show provenance link (prompt/response viewable on provenance page)
+        const provLink = document.getElementById('phase3ProvenanceLink');
+        if (provLink) provLink.style.display = 'block';
+
+        // Update phase indicator
+        const phase3Indicator = document.getElementById('phase3-indicator');
+        if (phase3Indicator) phase3Indicator.classList.add('phase-complete');
+
+        // Enable Phase 4 now that Phase 3 is complete
+        enablePhase4();
+
+        // Change button to Re-run (in case stream done event doesn't fire)
+        const button = document.getElementById('extractDecisionSynthesisBtn');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+            button.classList.remove('btn-outline-primary');
+            button.classList.add('btn-outline-success');
+        }
+    }
+
+    // Handle errors
+    if (data.error) {
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? data.messages[0] : 'Error'}</div>`;
+    }
+}
+
+// =============================================================================
+// PHASE 4: NARRATIVE CONSTRUCTION
+// =============================================================================
+
+// Phase 4 streaming messages accumulator
+let phase4StreamingMessages = [];
+
+// Run Phase 4 Narrative Construction with SSE streaming
+async function runPhase4Narrative() {
+    console.log('[Phase 4] Starting Narrative Construction for case:', currentCaseId);
+
+    const button = document.getElementById('extractNarrativeBtn');
+    const promptSection = document.getElementById('narrativePromptSection');
+    const promptText = document.getElementById('narrativePromptText');
+
+    // Disable button and show loading
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Constructing...';
+
+    // Reset streaming messages
+    phase4StreamingMessages = [];
+
+    // Show prompt section with initial state
+    promptSection.style.display = 'block';
+    promptText.innerHTML = '<div class="alert alert-secondary py-2"><i class="bi bi-hourglass-split me-1"></i> <strong>Starting Phase 4: Narrative Construction...</strong></div>';
+
+    // Reset stage badges
+    ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-secondary mb-1';
+    });
+    ['stage41Result', 'stage42Result', 'stage43Result', 'stage44Result'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Clear previous result values
+    ['phase4Characters', 'phase4Events', 'phase4Conflicts', 'phase4Fluents'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+    });
+
+    // Hide previous results
+    document.getElementById('phase4Results').style.display = 'none';
+
+    console.log('[Phase 4] Calling streaming endpoint...');
+
+    // Use streaming endpoint
+    fetch(`/scenario_pipeline/case/${currentCaseId}/construct_phase4_stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => {
+        console.log('[Phase 4] Response received:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function processStream() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    console.log('[Phase 4] Stream complete');
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                    button.classList.remove('btn-outline-dark');
+                    button.classList.add('btn-outline-success');
+                    return;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            console.log('[Phase 4] SSE data:', data.stage, data.progress);
+                            handlePhase4StreamingData(data);
+                        } catch (e) {
+                            console.log('[Phase 4] Parse error:', line);
+                        }
+                    }
+                });
+
+                processStream();
+            });
+        }
+
+        console.log('[Phase 4] Starting stream processing...');
+        processStream();
+    })
+    .catch(error => {
+        console.error('[Phase 4] Streaming error:', error);
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> Error: ${error.message}</div>`;
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
+    });
+}
+
+// Handle Phase 4 streaming data
+function handlePhase4StreamingData(data) {
+    const promptSection = document.getElementById('narrativePromptSection');
+    const promptText = document.getElementById('narrativePromptText');
+
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!phase4StreamingMessages.includes(msg)) {
+                phase4StreamingMessages.push(msg);
+            }
+        });
+    }
+
+    // Build streaming messages display (dark/gray box for Phase 4)
+    let html = '<div class="alert alert-secondary mb-2 py-2">';
+    html += '<strong><i class="bi bi-book me-1"></i> Phase 4: Narrative Construction</strong>';
+    html += '<div class="streaming-messages mt-2" style="max-height: 200px; overflow-y: auto;">';
+
+    phase4StreamingMessages.forEach((msg, idx) => {
+        const isLatest = idx === phase4StreamingMessages.length - 1;
+        html += `<div class="mb-1 ${isLatest ? 'fw-bold' : 'text-muted small'}">
+            <i class="bi bi-${isLatest ? 'arrow-right-circle-fill text-dark' : 'check-circle text-success'} me-1"></i>
+            ${escapeHtml(msg)}
+        </div>`;
+    });
+
+    html += '</div>';
+
+    // Add progress bar
+    if (data.progress) {
+        html += `<div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar bg-dark progress-bar-striped progress-bar-animated" style="width: ${data.progress}%"></div>
+        </div>`;
+    }
+
+    html += '</div>';
+    promptText.innerHTML = html;
+
+    // Auto-scroll
+    const messagesDiv = promptText.querySelector('.streaming-messages');
+    if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Update stage badges based on stage
+    if (data.stage) {
+        if (data.stage.includes('4_1')) {
+            document.getElementById('step-4-1').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_1_DONE') && data.stage_4_1_result) {
+            document.getElementById('step-4-1').className = 'badge bg-success mb-1';
+            const r = data.stage_4_1_result;
+            document.getElementById('stage41Result').textContent = `${r.characters || 0} chars`;
+        }
+        if (data.stage.includes('4_2')) {
+            document.getElementById('step-4-2').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_2_DONE') && data.stage_4_2_result) {
+            document.getElementById('step-4-2').className = 'badge bg-success mb-1';
+            const r = data.stage_4_2_result;
+            document.getElementById('stage42Result').textContent = `${r.events_count || 0} events`;
+        }
+        if (data.stage.includes('4_3')) {
+            document.getElementById('step-4-3').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_3_DONE') && data.stage_4_3_result) {
+            document.getElementById('step-4-3').className = 'badge bg-success mb-1';
+            const r = data.stage_4_3_result;
+            document.getElementById('stage43Result').textContent = `${r.branches_count || 0} branches`;
+        }
+        if (data.stage.includes('4_4')) {
+            document.getElementById('step-4-4').className = 'badge bg-dark mb-1';
+        }
+        if (data.stage.includes('4_4_DONE') && data.stage_4_4_result) {
+            document.getElementById('step-4-4').className = 'badge bg-success mb-1';
+            const r = data.stage_4_4_result;
+            document.getElementById('stage44Result').textContent = `${r.key_takeaways_count || 0} takeaways`;
+        }
+    }
+
+    // Handle completion
+    if (data.stage === 'COMPLETE' && data.result) {
+        const resultsDiv = document.getElementById('phase4Results');
+        resultsDiv.style.display = 'block';
+
+        // Update narrative elements summary
+        if (data.result.summary && data.result.summary.narrative_elements) {
+            const ne = data.result.summary.narrative_elements;
+            document.getElementById('phase4Characters').textContent = ne.characters || 0;
+            document.getElementById('phase4Events').textContent = ne.events || 0;
+            document.getElementById('phase4Conflicts').textContent = ne.conflicts || 0;
+            document.getElementById('phase4Decisions').textContent = ne.decision_moments || 0;
+        }
+
+        // Update timeline preview
+        if (data.result.timeline_preview) {
+            document.getElementById('phase4TimelinePreview').textContent = data.result.timeline_preview;
+        }
+
+        // Update scenario opening
+        if (data.result.opening_context) {
+            document.getElementById('phase4OpeningContext').textContent = data.result.opening_context;
+        }
+
+        // Update key takeaways
+        if (data.result.key_takeaways && data.result.key_takeaways.length > 0) {
+            const takeawaysUl = document.getElementById('phase4Takeaways');
+            takeawaysUl.innerHTML = data.result.key_takeaways.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+        }
+
+        // Update phase indicator
+        const phase4Indicator = document.getElementById('phase4-indicator');
+        if (phase4Indicator) phase4Indicator.classList.add('phase-complete');
+
+        // Change button to Re-run
+        const button = document.getElementById('extractNarrativeBtn');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+            button.classList.remove('btn-outline-dark');
+            button.classList.add('btn-outline-success');
+        }
+    }
+
+    // Handle errors
+    if (data.error) {
+        promptText.innerHTML = `<div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle me-1"></i> ${data.messages ? data.messages[0] : 'Error'}</div>`;
+    }
+}
+
+// Handle streaming data updates
+function handleStreamingData(data) {
+    const progressText = document.getElementById('synthesis-progress-text');
+
+    // Update progress text
+    if (data.messages && data.messages.length > 0) {
+        progressText.textContent = data.messages[data.messages.length - 1];
+    }
+
+    // Update top-level phase indicators (the 1-2-3-4 boxes)
+    if (data.stage) {
+        if (data.stage === 'PHASE_2_INDICATOR' || data.stage.startsWith('PART_A') || data.stage.startsWith('PART_B') ||
+            data.stage.startsWith('PART_C') || data.stage.includes('TRANSFORMATION') || data.stage.includes('RICH')) {
+            setPhaseActive('phase2-indicator');
+        } else if (data.stage === 'PHASE_3_INDICATOR' || data.stage.includes('DECISION')) {
+            setPhaseActive('phase3-indicator');
+            setPhaseComplete('phase2-indicator');
+        } else if (data.stage === 'PHASE_4_INDICATOR' || data.stage.includes('NARRATIVE')) {
+            setPhaseActive('phase4-indicator');
+            setPhaseComplete('phase3-indicator');
+        } else if (data.stage === 'COMPLETE') {
+            setPhaseComplete('phase4-indicator');
+        }
+    }
+
+    // Update individual task indicators based on stage
+    if (data.stage) {
+        if (data.stage.startsWith('PART_A')) {
+            updatePhaseIndicator('provisions');
+            updatePromptSection('provisions', data);
+        } else if (data.stage.startsWith('PART_B')) {
+            updatePhaseIndicator('questions');
+            updatePromptSection('questions', data);
+        } else if (data.stage.startsWith('PART_C') || data.stage.startsWith('PART_D') || data.stage.includes('TRANSFORMATION')) {
+            updatePhaseIndicator('transformation');
+            updatePromptSection('transformation', data);
+        } else if (data.stage.includes('RICH') || data.stage.includes('ANALYSIS')) {
+            updatePhaseIndicator('rich_analysis');
+        } else if (data.stage.includes('DECISION')) {
+            updatePhaseIndicator('decision_synthesis');
+        } else if (data.stage.includes('NARRATIVE')) {
+            updatePhaseIndicator('narrative');
+        }
+    }
+
+    // Update counts when complete
+    if (data.stage === 'PART_A_COMPLETE' && data.result) {
+        document.getElementById('provisionsCount').textContent = data.result.provision_count || 0;
+        markTaskComplete('provisions');
+    } else if (data.stage === 'PART_B_COMPLETE' && data.result) {
+        document.getElementById('questionsCount').textContent = data.result.question_count || 0;
+        document.getElementById('conclusionsCount').textContent = data.result.conclusion_count || 0;
+        markTaskComplete('questions');
+        markTaskComplete('conclusions');
+    } else if (data.stage === 'PART_D_COMPLETE' || data.stage === 'TRANSFORMATION_COMPLETE') {
+        if (data.result && data.result.transformation_type) {
+            document.getElementById('transformationType').textContent = data.result.transformation_type;
+        } else if (data.messages && data.messages.length > 0) {
+            // Run-all sends type in messages: "Transformation: stalemate"
+            var match = data.messages[0].match(/Transformation:\s*(\w+)/);
+            if (match) document.getElementById('transformationType').textContent = match[1];
+        }
+        markTaskComplete('transformation');
+    } else if (data.stage === 'COMPLETE') {
+        // Final completion
+        markTaskComplete('rich_analysis');
+        markTaskComplete('decision_synthesis');
+        markTaskComplete('narrative');
+    }
+
+    // Show LLM traces
+    if (data.llm_trace) {
+        showLLMTrace(data.stage, data.llm_trace);
+    }
+}
+
+// Track streaming messages per task
+const streamingMessages = {
+    provisions: [],
+    questions: [],
+    conclusions: [],
+    transformation: [],
+    rich_analysis: [],
+    decision_synthesis: [],
+    narrative: []
+};
+
+// Update stream status area with run-all progress messages
+function updatePromptSection(taskType, data) {
+    const streamStatus = document.getElementById(`${taskType}StreamStatus`);
+    if (!streamStatus) return;
+
+    streamStatus.style.display = 'block';
+
+    // Accumulate messages
+    if (data.messages) {
+        data.messages.forEach(msg => {
+            if (!streamingMessages[taskType].includes(msg)) {
+                streamingMessages[taskType].push(msg);
+            }
+        });
+    }
+
+    // Show latest message as a compact status line
+    const latest = streamingMessages[taskType][streamingMessages[taskType].length - 1];
+    if (latest) {
+        streamStatus.innerHTML = `<div class="alert alert-info py-2 mb-2 small">
+            <i class="bi bi-gear-fill me-1"></i> ${escapeHtml(latest)}
+        </div>`;
+    }
+}
+
+// LLM traces for Phase 2 tasks are available in the Provenance view
+function showLLMTrace(stage, trace) {
+    // No-op: prompt/response details shown in provenance, not inline
+}
+
+// Mark a task button as complete (shows Re-run)
+function markTaskComplete(taskType) {
+    const button = document.getElementById(`extract${capitalizeFirst(taskType)}Btn`);
+    if (button) {
+        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+        button.classList.add('btn-outline-secondary');
+        button.classList.remove('btn-outline-warning', 'btn-outline-success', 'btn-outline-info', 'btn-outline-primary', 'btn-outline-dark');
+    }
+}
+
+async function runSingleTask(taskType) {
+    return new Promise((resolve, reject) => {
+        const endpoints = {
+            'provisions': 'extract_provisions',
+            'questions': 'extract_questions',
+            'conclusions': 'extract_conclusions',
+            'qc_unified': 'extract_qc_unified',  // Q + C + Link atomically
+            'transformation': 'extract_transformation',
+            'rich_analysis': 'extract_rich_analysis',
+            'decision_synthesis': 'extract_decision_synthesis',
+            'narrative': 'extract_narrative'
+        };
+
+        fetch(`/scenario_pipeline/case/${currentCaseId}/${endpoints[taskType]}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update UI with results
+                handleTaskResults(taskType, data);
+                updateCountBadges(taskType, data.result);
+
+                // Mark button as done
+                const button = document.getElementById(`extract${capitalizeFirst(taskType)}Btn`);
+                if (button) {
+                    button.innerHTML = '<i class="bi bi-check-circle"></i> Done';
+                    button.classList.add('btn-success');
+                }
+
+                resolve(data);
+            } else {
+                reject(new Error(data.error || 'Task failed'));
+            }
+        })
+        .catch(reject);
+    });
+}
+
+// Set a phase indicator to active (with animation)
+function setPhaseActive(phaseId) {
+    const indicator = document.getElementById(phaseId);
+    if (indicator) {
+        // Remove complete state, add active state
+        indicator.classList.remove('phase-complete');
+        indicator.classList.add('phase-active');
+    }
+}
+
+// Set a phase indicator to complete
+function setPhaseComplete(phaseId) {
+    const indicator = document.getElementById(phaseId);
+    if (indicator) {
+        // Remove active state, add complete state
+        indicator.classList.remove('phase-active');
+        indicator.classList.add('phase-complete');
+    }
+}
+
+function updatePhaseIndicator(currentTask) {
+    const phaseMap = {
+        'provisions': 'phase2',
+        'questions': 'phase2',
+        'conclusions': 'phase2',
+        'transformation': 'phase2',
+        'rich_analysis': 'phase2',
+        'decision_synthesis': 'phase3',
+        'narrative': 'phase4'
+    };
+
+    const phase = phaseMap[currentTask];
+
+    // Remove active from all except phase 1 (always complete)
+    ['phase2', 'phase3', 'phase4'].forEach(p => {
+        const indicator = document.getElementById(`${p}-indicator`);
+        if (indicator) {
+            indicator.classList.remove('phase-active');
+        }
+    });
+
+    // Set current phase as active
+    const currentIndicator = document.getElementById(`${phase}-indicator`);
+    if (currentIndicator) {
+        currentIndicator.classList.add('phase-active');
+    }
+}
+
+// Load saved prompts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSavedPrompts();
+    loadPhase3Results();
+    loadPhase4Results();
+});
+
+// Load persisted Phase 4 narrative construction results
+function loadPhase4Results() {
+    if (window.STEP4.hasPhase4Data) {
+    const phase4Data = window.STEP4.phase4Data;
+
+    if (phase4Data) {
+        displayPhase4Data(phase4Data);
+    }
+    } else {
+    // Fallback: fetch from API if not in template context
+    loadSavedPhase4Results();
+    }
+}
+
+// Display Phase 4 data (handles various data structures)
+function displayPhase4Data(data) {
+    // Show the results section
+    const resultsDiv = document.getElementById('phase4Results');
+    if (resultsDiv) resultsDiv.style.display = 'block';
+
+    // Extract counts from various possible structures
+    let charCount = 0, eventCount = 0, conflictCount = 0, fluentCount = 0;
+
+    // Handle narrative_elements structure
+    if (data.narrative_elements) {
+        const ne = data.narrative_elements;
+        charCount = Array.isArray(ne.characters) ? ne.characters.length : (ne.characters || 0);
+        conflictCount = Array.isArray(ne.conflicts) ? ne.conflicts.length : (ne.conflicts || 0);
+    }
+
+    // Handle direct arrays (from streaming result)
+    if (data.characters) charCount = Array.isArray(data.characters) ? data.characters.length : data.characters;
+    if (data.conflicts) conflictCount = Array.isArray(data.conflicts) ? data.conflicts.length : data.conflicts;
+
+    // Handle timeline (full structure from to_dict())
+    if (data.timeline) {
+        if (Array.isArray(data.timeline)) {
+            eventCount = data.timeline.length;
+        } else {
+            if (data.timeline.events) {
+                eventCount = data.timeline.events.length;
+            }
+            if (data.timeline.initial_fluents) {
+                fluentCount = data.timeline.initial_fluents.length;
+            }
+        }
+    }
+
+    // Update counts in summary
+    document.getElementById('phase4Characters').textContent = charCount;
+    document.getElementById('phase4Events').textContent = eventCount;
+    document.getElementById('phase4Conflicts').textContent = conflictCount;
+    document.getElementById('phase4Fluents').textContent = fluentCount;
+
+    // Update stage result placeholders
+    document.getElementById('stage41Result').textContent = `${charCount} chars`;
+    document.getElementById('stage42Result').textContent = `${eventCount} events`;
+    document.getElementById('stage43Result').textContent = `${conflictCount} conflicts`;
+    document.getElementById('stage44Result').textContent = `${fluentCount} fluents`;
+
+    // Mark Phase 4 stage badges as complete
+    ['step-4-1', 'step-4-2', 'step-4-3', 'step-4-4'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) badge.className = 'badge bg-success mb-1';
+    });
+
+    // Update phase indicator
+    const phase4Indicator = document.getElementById('phase4-indicator');
+    if (phase4Indicator) phase4Indicator.classList.add('phase-complete');
+
+    // Change button to Re-run
+    const button = document.getElementById('extractNarrativeBtn');
+    if (button) {
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+        button.classList.remove('btn-outline-secondary', 'btn-outline-dark');
+        button.classList.add('btn-outline-success');
+        button.title = '';
+    }
+
+    console.log('Phase 4 results displayed');
+}
+
+function loadPhase3Results() {
+    fetch(`/scenario_pipeline/case/${currentCaseId}/phase3_results`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.canonical_decision_points && data.canonical_decision_points.length > 0) {
+                // Display decision points
+                const resultsDiv = document.getElementById('decisionPointsResults');
+                const listDiv = document.getElementById('decisionPointsList');
+                resultsDiv.style.display = 'block';
+
+                let dpHtml = '<div class="list-group">';
+                data.canonical_decision_points.forEach((dp, i) => {
+                    const alignScore = ((dp.qc_alignment_score || 0) * 100).toFixed(0);
+                    const alignBadge = (dp.qc_alignment_score || 0) > 0.5 ? 'bg-success' : 'bg-secondary';
+                    dpHtml += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${dp.focus_id || 'DP' + (i+1)}: ${escapeHtml(dp.description || '')}</strong>
+                                    <br><small class="text-muted">${escapeHtml(dp.decision_question || '')}</small>
+                                </div>
+                                <span class="badge ${alignBadge}">${alignScore}% aligned</span>
+                            </div>
+                            ${dp.toulmin ? `
+                                <div class="mt-2 small">
+                                    <strong>Toulmin:</strong>
+                                    <span class="text-muted">DATA: ${escapeHtml(dp.toulmin.data_summary || '-')}</span>
+                                </div>
+                            ` : ''}
+                            ${dp.addresses_questions && dp.addresses_questions.filter(q => q).length > 0 ? `
+                                <div class="mt-1 small text-primary">
+                                    Addresses: ${dp.addresses_questions.filter(q => q).join(', ')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                dpHtml += '</div>';
+                listDiv.innerHTML = dpHtml;
+
+                // Update button to Re-run
+                const button = document.getElementById('extractDecisionSynthesisBtn');
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-outline-success');
+                }
+
+                // Populate E1-E3 and LLM badges if data available
+                if (data.e1_obligations > 0 || data.e1_decision_relevant > 0) {
+                    document.getElementById('step-e1').className = 'badge bg-success mb-1';
+                    document.getElementById('e1Result').textContent = `${data.e1_obligations} obligations`;
+                }
+                if (data.e2_action_sets > 0) {
+                    document.getElementById('step-e2').className = 'badge bg-success mb-1';
+                    document.getElementById('e2Result').textContent = `${data.e2_action_sets} action sets`;
+                }
+                if (data.e3_candidates > 0) {
+                    document.getElementById('step-e3').className = 'badge bg-success mb-1';
+                    document.getElementById('e3Result').textContent = `${data.e3_candidates} candidates`;
+                }
+                if (data.high_alignment_count !== undefined) {
+                    document.getElementById('step-align').className = 'badge bg-success mb-1';
+                    document.getElementById('alignResult').textContent = `${data.high_alignment_count} aligned`;
+                }
+                if (data.canonical_count > 0) {
+                    document.getElementById('step-llm').className = 'badge bg-success mb-1';
+                    document.getElementById('llmResult').textContent = `${data.canonical_count} decision pts`;
+                }
+
+                // Show provenance link (prompt/response viewable on provenance page)
+                const provLink = document.getElementById('phase3ProvenanceLink');
+                if (provLink) provLink.style.display = 'block';
+
+                // Mark phase indicator as complete
+                const phase3Indicator = document.getElementById('phase3-indicator');
+                if (phase3Indicator) phase3Indicator.classList.add('phase-complete');
+
+                // Enable Phase 4 now that Phase 3 is complete
+                enablePhase4();
+
+                console.log(`Loaded ${data.canonical_decision_points.length} Phase 3 decision points`);
+            }
+        })
+        .catch(error => console.log('No saved Phase 3 results:', error));
+}
+
+// Enable Phase 3 button when Phase 2 is complete
+function enablePhase3() {
+    const phase3Btn = document.getElementById('extractDecisionSynthesisBtn');
+    if (phase3Btn) {
+        phase3Btn.disabled = false;
+        phase3Btn.classList.remove('btn-outline-secondary');
+        phase3Btn.classList.add('btn-outline-primary');
+        phase3Btn.innerHTML = '<i class="bi bi-play-fill"></i> Synthesize';
+        phase3Btn.title = '';
+    }
+}
+
+// Enable Phase 4 button when Phase 3 is complete
+function enablePhase4() {
+    const phase4Btn = document.getElementById('extractNarrativeBtn');
+    if (phase4Btn) {
+        phase4Btn.disabled = false;
+        phase4Btn.classList.remove('btn-outline-secondary');
+        phase4Btn.classList.add('btn-outline-dark');
+        phase4Btn.innerHTML = '<i class="bi bi-play-fill"></i> Construct';
+        phase4Btn.title = '';
+    }
+}
+
+// Load saved Phase 4 results via API
+function loadSavedPhase4Results() {
+    fetch(`/scenario_pipeline/case/${currentCaseId}/get_phase4_data`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.has_phase4 && data.result) {
+                displayPhase4Data(data.result);
+            }
+        })
+        .catch(error => console.log('No saved Phase 4 results:', error));
+}
+
+// Update Phase 2 substep progress dots
+function updateSubstepDot(taskType, status) {
+    const dotMapping = {
+        'provisions': 'p2-provisions',
+        'precedents': 'p2-precedents',
+        'questions': 'p2-questions',
+        'conclusions': 'p2-conclusions',
+        'transformation': 'p2-transformation',
+        'rich_analysis': 'p2-rich'
+    };
+    const dotId = dotMapping[taskType];
+    if (dotId) {
+        const dot = document.getElementById(dotId);
+        if (dot) {
+            dot.classList.remove('active', 'complete');
+            if (status === 'active') {
+                dot.classList.add('active');
+            } else if (status === 'complete') {
+                dot.classList.add('complete');
+            }
+        }
+    }
+}
+
+function loadSavedPrompts() {
+    const tasks = ['provisions', 'precedents', 'questions', 'conclusions', 'transformation', 'rich_analysis'];
+    const completedTasks = new Set();
+
+    // Track completed tasks and update phase2 indicator when core tasks complete
+    // Core tasks: transformation (2D) and rich_analysis (2E) indicate Phase 2 is done
+    function checkPhase2Complete() {
+        const coreTasks = ['transformation', 'rich_analysis'];
+        const coreComplete = coreTasks.every(t => completedTasks.has(t));
+        if (coreComplete) {
+            const phase2Indicator = document.getElementById('phase2-indicator');
+            if (phase2Indicator) {
+                phase2Indicator.classList.add('phase-complete');
+            }
+            // Enable Phase 3 now that Phase 2 is complete
+            enablePhase3();
+            console.log('Phase 2 (Analytical Extraction) complete - Phase 3 unlocked');
+        }
+    }
+
+    tasks.forEach(task => {
+        fetch(`/scenario_pipeline/case/${currentCaseId}/get_saved_step4_prompt?task_type=${task}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.prompt_text) {
+                    // Mark button as done with Re-run styling
+                    const button = document.getElementById(`extract${capitalizeFirst(task)}Btn`);
+                    if (button) {
+                        button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Re-run';
+                        button.classList.remove('btn-secondary', 'btn-warning', 'btn-success', 'btn-info');
+                        button.classList.add('btn-outline-success');
+                    }
+
+                    // Track this task as complete and update substep dot
+                    completedTasks.add(task);
+                    updateSubstepDot(task, 'complete');
+                    checkPhase2Complete();
+                }
+            })
+            .catch(error => console.log(`No saved prompt for ${task}`));
+    });
+}
+
+// Commit functionality moved to /step4/entities page
