@@ -114,7 +114,7 @@ class TestPrecedentFinderPage:
         doc = _create_case_document(test_world.id, 'Case 23-4: Test Case',
                                     case_number='23-4')
 
-        with patch('app.routes.precedents._find_precedents_for_case') as mock_find:
+        with patch('app.routes.precedents.find_routes._find_precedents_for_case') as mock_find:
             mock_find.return_value = {
                 'success': True,
                 'source_case_id': doc.id,
@@ -148,7 +148,7 @@ class TestApiFindPrecedents:
         doc = _create_case_document(test_world.id, 'Case 23-4: Test Case',
                                     case_number='23-4')
 
-        with patch('app.routes.precedents._find_precedents_for_case') as mock_find:
+        with patch('app.routes.precedents.find_routes._find_precedents_for_case') as mock_find:
             mock_find.return_value = {
                 'success': True,
                 'source_case_id': doc.id,
@@ -170,7 +170,7 @@ class TestApiFindPrecedents:
         doc = _create_case_document(test_world.id, 'Case 23-4: Test Case',
                                     case_number='23-4')
 
-        with patch('app.routes.precedents._find_precedents_for_case') as mock_find:
+        with patch('app.routes.precedents.find_routes._find_precedents_for_case') as mock_find:
             mock_find.return_value = {'success': True, 'count': 0, 'precedents': []}
             response = client.get(
                 f'/cases/precedents/api/find?case_id={doc.id}&limit=5&min_score=0.5'

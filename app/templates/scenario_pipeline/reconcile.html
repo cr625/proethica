@@ -1,0 +1,236 @@
+{% extends "scenario_pipeline/base_step.html" %}
+
+{% block step_title %}Reconcile{% endblock %}
+{% block step_header %}Reconcile{% endblock %}
+{% block step_subtitle %}Review near-duplicates and resolve entity conflicts{% endblock %}
+{% block step_info %}Between Steps 3 and 4{% endblock %}
+
+{% block step_styles %}
+<style>
+    .reconcile-card {
+        border: 1px solid #e3e6f0;
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+    .reconcile-card .card-header {
+        background-color: #f8f9fc;
+        border-bottom: 1px solid #e3e6f0;
+        padding: 1rem 1.5rem;
+    }
+    .reconcile-card .card-body {
+        padding: 1.5rem;
+    }
+    .candidate-row {
+        border: 1px solid #e3e6f0;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        background: #fff;
+    }
+    .candidate-row:hover {
+        background: #f8f9fc;
+    }
+    .candidate-row.resolved {
+        opacity: 0.5;
+        background: #f0fdf4;
+    }
+    .entity-label {
+        font-weight: 500;
+        font-size: 0.95rem;
+    }
+    .entity-def {
+        font-size: 0.82rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+        line-height: 1.4;
+    }
+    .concept-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+    }
+    .type-breakdown-table {
+        font-size: 0.85rem;
+    }
+    .type-breakdown-table td, .type-breakdown-table th {
+        padding: 0.3rem 0.6rem;
+    }
+    .llm-reason {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-style: italic;
+        padding: 0.4rem 0.6rem;
+        background: #f8f9fc;
+        border-radius: 0.25rem;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block step_content %}
+
+{# Concept type color map for badges -- used by JS too #}
+{% set concept_colors = {
+    'roles': '#4e73df',
+    'states': '#6f42c1',
+    'resources': '#20c9a6',
+    'principles': '#fd7e14',
+    'obligations': '#e74a3b',
+    'capabilities': '#36b9cc',
+    'constraints': '#858796'
+} %}
+
+{# Inject stored reconciliation run data for JS access #}
+{% if existing_run %}
+<script>
+    window.STORED_RUN = {
+        id: {{ existing_run.id }},
+        candidates: {{ existing_run.candidates_json | tojson }},
+        auto_merged: {{ existing_run.auto_merged }},
+        errors: {{ existing_run.errors_json | tojson }},
+        decisions: {{ existing_decisions | tojson }}
+    };
+    window.IS_COMMITTED = {{ 'true' if (published_count > 0 and unpublished_count == 0) else 'false' }};
+</script>
+{% endif %}
+
+{# Summary Card #}
+<div class="reconcile-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Entity Summary</h5>
+        {% if published_count > 0 %}
+        <span class="badge bg-success">Committed</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="row text-center mb-3">
+            <div class="col-md-3">
+                <div class="fs-3 fw-bold text-primary" id="totalCount">{{ unpublished_count + published_count }}</div>
+                <div class="text-muted">Total Entities</div>
+            </div>
+            <div class="col-md-3">
+                <div class="fs-3 fw-bold text-info" id="classCount">{{ class_count }}</div>
+                <div class="text-muted">Classes (pending)</div>
+            </div>
+            <div class="col-md-3">
+                <div class="fs-3 fw-bold text-info" id="individualCount">{{ individual_count }}</div>
+                <div class="text-muted">Individuals (pending)</div>
+            </div>
+            <div class="col-md-3">
+                <div class="fs-3 fw-bold text-success">{{ published_count }}</div>
+                <div class="text-muted">Committed</div>
+            </div>
+        </div>
+
+        {# Concept type breakdown #}
+        {% if type_breakdown %}
+        <table class="table table-sm type-breakdown-table mb-0">
+            <thead>
+                <tr>
+                    <th>Concept Type</th>
+                    <th class="text-center">Classes</th>
+                    <th class="text-center">Individuals</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set ns = namespace(current_type='', class_count=0, ind_count=0, rows=[]) %}
+                {% for etype, stype, cnt in type_breakdown %}
+                    {% if etype != ns.current_type and ns.current_type %}
+                        {% set _ = ns.rows.append((ns.current_type, ns.class_count, ns.ind_count)) %}
+                        {% set ns.class_count = 0 %}
+                        {% set ns.ind_count = 0 %}
+                    {% endif %}
+                    {% set ns.current_type = etype %}
+                    {% if stype == 'class' %}
+                        {% set ns.class_count = cnt %}
+                    {% elif stype == 'individual' %}
+                        {% set ns.ind_count = cnt %}
+                    {% endif %}
+                {% endfor %}
+                {% if ns.current_type %}
+                    {% set _ = ns.rows.append((ns.current_type, ns.class_count, ns.ind_count)) %}
+                {% endif %}
+                {% for etype, ccnt, icnt in ns.rows %}
+                <tr>
+                    <td>
+                        <span class="badge concept-badge" style="background-color: {{ concept_colors.get(etype, '#858796') }};">
+                            {{ etype|replace('_', ' ')|title }}
+                        </span>
+                    </td>
+                    <td class="text-center">{{ ccnt if ccnt else '-' }}</td>
+                    <td class="text-center">{{ icnt if icnt else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+
+{# Reconciliation Section -- hidden after commit, interactive before #}
+{% if unpublished_count > 0 or not existing_run %}
+<div class="reconcile-card" id="reconcileCard">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-people me-2"></i>Entity Reconciliation</h5>
+        <span id="reconcileStatus" class="text-muted small"></span>
+    </div>
+    <div class="card-body">
+        <div id="reconcileInitial">
+            <p class="text-muted mb-3">
+                Runs three-phase deduplication: groups entities by concept type, auto-merges exact label matches,
+                then uses LLM analysis to identify near-duplicate candidates for review.
+            </p>
+            <button id="reconcileBtn" class="btn btn-primary" onclick="runReconciliation()">
+                <i class="bi bi-search me-1"></i> Run Reconciliation
+            </button>
+        </div>
+        <div id="reconcileProgress" style="display: none;">
+            <div class="d-flex align-items-center gap-2">
+                <span class="spinner-border spinner-border-sm text-primary"></span>
+                <span>Running reconciliation (grouping, exact-match merges, LLM analysis)...</span>
+            </div>
+        </div>
+        <div id="reconcileResults" style="display: none;"></div>
+    </div>
+</div>
+{% elif existing_run %}
+{# Post-commit summary: read-only reconciliation results #}
+<div class="reconcile-card" id="reconcileCard">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-people me-2"></i>Entity Reconciliation</h5>
+        <span class="badge bg-success">Completed</span>
+    </div>
+    <div class="card-body">
+        {% set merge_count = existing_decisions.values()|selectattr('decision', 'equalto', 'merge')|list|length %}
+        {% set separate_count = existing_decisions.values()|selectattr('decision', 'equalto', 'keep_separate')|list|length %}
+        {% set unresolved_count = existing_decisions.values()|rejectattr('decision', 'equalto', 'merge')|rejectattr('decision', 'equalto', 'keep_separate')|list|length %}
+        <div class="text-muted">
+            <i class="bi bi-check-circle me-1 text-success"></i>
+            Reconciliation complete:
+            {{ existing_run.auto_merged }} auto-merged,
+            {{ merge_count }} manually merged,
+            {{ (existing_run.candidates_json|length) - merge_count }} kept separate.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Navigation: Proceed to Step 4 when reconciliation has been run #}
+{% if existing_run %}
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+    <a href="{{ url_for('step4.step4_synthesis', case_id=case.id) }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-arrow-right me-1"></i>Proceed to Step 4
+    </a>
+</div>
+{% endif %}
+
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    window.RECONCILE = { reconcileRunUrl: "{{ url_for("entity_review.reconcile_run", case_id=case.id) }}", reconcileMergeUrl: "{{ url_for("entity_review.reconcile_merge", case_id=case.id) }}", reconcileUnmergeUrl: "{{ url_for("entity_review.reconcile_unmerge", case_id=case.id) }}", reconcileKeepSeparateUrl: "{{ url_for("entity_review.reconcile_keep_separate", case_id=case.id) }}", reconcileUndoKeepSeparateUrl: "{{ url_for("entity_review.reconcile_undo_keep_separate", case_id=case.id) }}" };
+</script>
+<script src="{{ url_for('static', filename='js/scenario_pipeline/reconcile.js') }}"></script>
+{% endblock %}

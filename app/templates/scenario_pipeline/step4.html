@@ -1,0 +1,803 @@
+{% extends "scenario_pipeline/base_step.html" %}
+
+{% block step_title %}Step 4: Case Synthesis{% endblock %}
+{% block step_header %}Step 4: Case Synthesis{% endblock %}
+{% block step_subtitle %}Build a coherent case model from extracted entities{% endblock %}
+
+{% block step_content %}
+
+<!-- Synthesis Pipeline Overview -->
+<div class="card mb-4 border-primary">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-diagram-3-fill"></i> Four-Phase Synthesis Pipeline
+        </h5>
+    </div>
+    <div class="card-body">
+        {% set p2_done = pipeline_status.step4.phase2_complete if pipeline_status and pipeline_status.step4 else false %}
+        {% set p3_done = pipeline_status.step4.phase3_complete if pipeline_status and pipeline_status.step4 else false %}
+        {% set p4_done = pipeline_status.step4.phase4_complete if pipeline_status and pipeline_status.step4 else false %}
+        <div class="phase-row text-center">
+            <div class="phase-col">
+                <div id="phase1-indicator" class="phase-indicator phase-complete">
+                    <span class="phase-number">1</span>
+                    <div class="phase-label">Entity Foundation</div>
+                    <small class="text-muted">Passes 1-3</small>
+                </div>
+            </div>
+            <div class="phase-col">
+                <div id="phase2-indicator" class="phase-indicator{% if p2_done %} phase-complete{% endif %}">
+                    <span class="phase-number">2</span>
+                    <div class="phase-label">Analytical Extraction</div>
+                    <small class="text-muted">2A-2E</small>
+                    <div class="phase2-progress mt-1">
+                        <div class="d-flex justify-content-center gap-1">
+                            <span id="p2-provisions" class="substep-dot" title="2A: Provisions"></span>
+                            <span id="p2-precedents" class="substep-dot" title="2B: Precedents"></span>
+                            <span id="p2-questions" class="substep-dot" title="2C: Questions"></span>
+                            <span id="p2-conclusions" class="substep-dot" title="2C: Conclusions"></span>
+                            <span id="p2-transformation" class="substep-dot" title="2D: Transformation"></span>
+                            <span id="p2-rich" class="substep-dot" title="2E: Rich Analysis"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="phase-col">
+                <div id="phase3-indicator" class="phase-indicator{% if p3_done %} phase-complete{% endif %}">
+                    <span class="phase-number">3</span>
+                    <div class="phase-label">Decision Synthesis</div>
+                    <small class="text-muted">E1-E3 + LLM</small>
+                </div>
+            </div>
+            <div class="phase-col">
+                <div id="phase4-indicator" class="phase-indicator{% if p4_done %} phase-complete{% endif %}">
+                    <span class="phase-number">4</span>
+                    <div class="phase-label">Narrative</div>
+                    <small class="text-muted">Timeline + Scenario</small>
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="text-center">
+            {% if current_user.is_authenticated %}
+            {% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
+            <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}" class="btn {% if step4_complete %}btn-success{% else %}btn-primary{% endif %} btn-lg">
+                <i class="bi bi-{% if step4_complete %}arrow-clockwise{% else %}play-circle{% endif %}"></i> {% if step4_complete %}Re-run via Pipeline{% else %}Run via Pipeline Dashboard{% endif %}
+            </a>
+            {% if step4_complete %}
+            <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg ms-2">
+                <i class="bi bi-eye"></i> Review Results
+            </a>
+            {% endif %}
+            <button type="button" id="clear-step4-btn" class="btn btn-outline-danger btn-lg ms-2 {% if not step4_complete %}d-none{% endif %}" onclick="clearStep4Data()">
+                <i class="bi bi-trash"></i> Clear Step 4
+            </button>
+            {% else %}
+            <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='{{ url_for('auth.login') }}';">
+                <i class="bi bi-lock-fill"></i> Login to Run Synthesis
+            </button>
+            {% endif %}
+            <div id="synthesis-progress-text" class="mt-2 text-muted"></div>
+        </div>
+
+        <!-- Synthesis streaming progress (populated during complete synthesis run) -->
+        <div id="synthesisStreamStatus" class="mt-3" style="display: none;"></div>
+    </div>
+</div>
+
+<!-- Phase 1: Entity Foundation (Display only - no extraction) -->
+<div class="card mb-4" id="phase1-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <span class="badge bg-success me-2">Phase 1</span> Entity Foundation
+        </h5>
+        <span id="phase1-status" class="badge bg-success">{{ entities_summary.total }} entities</span>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h6 class="text-muted">Pass 1: Contextual Framework</h6>
+                <ul class="list-unstyled">
+                    <li><span class="badge bg-primary me-1">{{ entities_summary.roles }}</span> Roles</li>
+                    <li><span class="badge bg-info me-1">{{ entities_summary.states }}</span> States</li>
+                    <li><span class="badge bg-secondary me-1">{{ entities_summary.resources }}</span> Resources</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted">Pass 2: Normative Requirements</h6>
+                <ul class="list-unstyled">
+                    <li><span class="badge bg-purple me-1">{{ entities_summary.principles }}</span> Principles</li>
+                    <li><span class="badge bg-warning text-dark me-1">{{ entities_summary.obligations }}</span> Obligations</li>
+                    <li><span class="badge bg-danger me-1">{{ entities_summary.constraints }}</span> Constraints</li>
+                    <li><span class="badge bg-success me-1">{{ entities_summary.capabilities }}</span> Capabilities</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted">Pass 3: Temporal Dynamics</h6>
+                <ul class="list-unstyled">
+                    <li><span class="badge bg-dark me-1">{{ entities_summary.temporal_dynamics }}</span> Temporal Dynamics</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phase 2: Analytical Extraction - Individual Tasks -->
+<div class="card mb-4" id="phase2-card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <span class="badge bg-secondary me-2">Phase 2</span> Analytical Extraction
+        </h5>
+    </div>
+    <div class="card-body">
+        <!-- 2A: Code Provisions -->
+        <div class="extractor-section mb-4" id="provisionsSection">
+            <div class="step-card border-secondary">
+                <div class="step-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-file-text text-secondary"></i> 2A: Code Provisions
+                            <span id="provisionsCount" class="badge bg-secondary ms-2">{{ synthesis_status.provisions_count or 0 }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-secondary btn-sm" onclick="extractTask('provisions')" id="extractProvisionsBtn">
+                            <i class="bi bi-play-fill"></i> Extract
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM detect</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> algorithmic linking</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Case text + Phase 1 entities</small>
+                    </div>
+                    <div id="provisionsStreamStatus" style="display: none;"></div>
+                    <div id="provisionsEntityList">
+                    {% set prov_entities = phase2_entities.get('code_provision_reference', []) %}
+                    {% if prov_entities %}
+                        {% for e in prov_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="text-muted small">No provisions extracted yet.</div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2B: Precedent Case References -->
+        <div class="extractor-section mb-4" id="precedentsSection">
+            <div class="step-card border-dark">
+                <div class="step-header bg-dark bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-journal-bookmark text-dark"></i> 2B: Precedent Cases
+                            <span id="precedentsCount" class="badge bg-dark ms-2">{{ synthesis_status.precedents_count or 0 }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-dark btn-sm" onclick="extractTask('precedents')" id="extractPrecedentsBtn">
+                            <i class="bi bi-play-fill"></i> Extract
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM extraction</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Case text</small>
+                    </div>
+                    <div id="precedentsStreamStatus" style="display: none;"></div>
+                    <div id="precedentsEntityList">
+                    {% set prec_entities = phase2_entities.get('precedent_case_reference', []) %}
+                    {% if prec_entities %}
+                        {% for e in prec_entities %}
+                        <div class="entity-summary-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    {% if e.rdf.get('resolved') and e.rdf.get('internalCaseId') %}
+                                    <a href="{{ url_for('cases.view_case', id=e.rdf.internalCaseId) }}" class="fw-semibold text-decoration-none">
+                                        <i class="bi bi-journal-bookmark me-1"></i>{{ e.label }}
+                                    </a>
+                                    {% else %}
+                                    <strong><i class="bi bi-journal-bookmark me-1"></i>{{ e.label }}</strong>
+                                    {% endif %}
+                                    {% if e.rdf.get('citationType') %}
+                                    <span class="badge bg-{{ 'success' if e.rdf.citationType == 'supporting' else 'warning' if e.rdf.citationType == 'distinguishing' else 'info' }} ms-1">{{ e.rdf.citationType }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if e.rdf.get('resolved') %}
+                                <span class="badge bg-secondary"><i class="bi bi-link-45deg"></i> linked</span>
+                                {% endif %}
+                            </div>
+                            {% if e.rdf.get('principleEstablished') %}
+                            <small class="text-muted d-block mt-1">{{ e.rdf.principleEstablished }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="text-muted small">No precedent cases extracted yet.</div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2C: Questions & Conclusions -->
+        <div class="extractor-section mb-4" id="questionsSection">
+            <div class="step-card border-warning">
+                <div class="step-header bg-warning bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-question-circle text-warning"></i> 2C: Questions & Conclusions
+                            <span id="questionsCount" class="badge bg-warning text-dark ms-2">{{ synthesis_status.questions_count or 0 }}</span>
+                            <span id="conclusionsCount" class="badge bg-success ms-1">{{ synthesis_status.conclusions_count or 0 }}</span>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-warning btn-sm" onclick="extractTask('qc_unified')" id="extractQuestionsBtn">
+                            <i class="bi bi-play-fill"></i> Extract Q&C
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> Board text parsed</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM analytical Q&C</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM Q-C linking</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Case text + 2A provisions</small>
+                    </div>
+                    <div id="questionsStreamStatus" style="display: none;"></div>
+                    <div id="questionsEntityList">
+                    {% set q_entities = phase2_entities.get('ethical_question', []) %}
+                    {% set c_entities = phase2_entities.get('ethical_conclusion', []) %}
+                    {% if q_entities or c_entities %}
+                        {% if q_entities %}
+                        <div class="mb-2"><small class="text-muted fw-semibold">Questions ({{ q_entities|length }})</small></div>
+                        {% for e in q_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                        {% if c_entities %}
+                        <div class="mb-2 mt-3"><small class="text-muted fw-semibold">Conclusions ({{ c_entities|length }})</small></div>
+                        {% for e in c_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    {% else %}
+                    <div class="text-muted small">No questions or conclusions extracted yet.</div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2D: Transformation Classification -->
+        <div class="extractor-section mb-4" id="transformationSection">
+            <div class="step-card border-purple">
+                <div class="step-header bg-purple-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">
+                                <i class="bi bi-shuffle text-purple"></i> 2D: Transformation Classification
+                                <a href="{{ url_for('tools.references') }}#transformation" class="ms-1" title="Marchais-Roubelat & Roubelat (2015)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
+                            </h6>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span id="transformationType" class="badge bg-purple" style="font-size: 0.85em;">{{ synthesis_status.transformation_type or 'Not classified' }}</span>
+                            {% if synthesis_status.transformation_detail and synthesis_status.transformation_detail.confidence %}
+                            <span class="badge bg-secondary" style="font-size: 0.75em;">{{ (synthesis_status.transformation_detail.confidence * 100)|int }}%</span>
+                            {% endif %}
+                            {% if current_user.is_authenticated %}
+                            <button class="btn btn-outline-secondary btn-sm" onclick="extractTask('transformation')" id="extractTransformationBtn">
+                                <i class="bi bi-play-fill"></i> Classify
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM classification</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + 2C Q&C</small>
+                    </div>
+                    <div id="transformationStreamStatus" style="display: none;"></div>
+                    {% if synthesis_status.transformation_detail and synthesis_status.transformation_detail.pattern_description %}
+                    <div id="transformationDetail" class="mt-1">
+                        <p class="small mb-2">{{ synthesis_status.transformation_detail.pattern_description }}</p>
+                        {% if synthesis_status.transformation_detail.reasoning %}
+                        <details class="small">
+                            <summary class="text-muted" style="cursor: pointer;">Reasoning</summary>
+                            <p class="text-muted mt-1 mb-0">{{ synthesis_status.transformation_detail.reasoning }}</p>
+                        </details>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2E: Rich Analysis -->
+        <div class="extractor-section mb-4" id="rich_analysisSection">
+            <div class="step-card border-info">
+                <div class="step-header bg-info bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-diagram-3 text-info"></i> 2E: Rich Analysis
+                            <a href="{{ url_for('tools.references') }}#nine-component" class="ms-1" title="Berreby et al. (2017), McLaren (2003), Harris et al. (2018)" target="_blank"><i class="bi bi-info-circle text-muted"></i></a>
+                            <small class="text-muted">(Causal Links, Question Emergence, Resolution Patterns)</small>
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-info btn-sm" onclick="extractTask('rich_analysis')" id="extractRich_analysisBtn">
+                            <i class="bi bi-play-fill"></i> Analyze
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM batched analysis</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> label-to-URI resolution</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + 2C Q&C + 2A provisions</small>
+                    </div>
+                    <div id="rich_analysisStreamStatus" style="display: none;"></div>
+                    <div id="rich_analysisEntityList">
+                    {% set cl_entities = phase2_entities.get('causal_normative_link', []) %}
+                    {% set qe_entities = phase2_entities.get('question_emergence', []) %}
+                    {% set rp_entities = phase2_entities.get('resolution_pattern', []) %}
+                    {% if cl_entities or qe_entities or rp_entities %}
+                        {% if cl_entities %}
+                        <div class="mb-2"><small class="text-muted fw-semibold">Causal-Normative Links ({{ cl_entities|length }})</small></div>
+                        {% for e in cl_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                        {% if qe_entities %}
+                        <div class="mb-2 mt-3"><small class="text-muted fw-semibold">Question Emergence ({{ qe_entities|length }})</small></div>
+                        {% for e in qe_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                        {% if rp_entities %}
+                        <div class="mb-2 mt-3"><small class="text-muted fw-semibold">Resolution Patterns ({{ rp_entities|length }})</small></div>
+                        {% for e in rp_entities %}
+                        <div class="entity-summary-item">
+                            <strong>{{ e.label }}</strong>
+                            {% if e.definition %}
+                            <small class="text-muted d-block">{{ e.definition[:150] }}{% if e.definition|length > 150 %}...{% endif %}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    {% else %}
+                    <div class="text-muted small">No analysis entities extracted yet.</div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phase 3: Decision Point Synthesis -->
+<div class="card mb-4" id="phase3-card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <span class="badge bg-secondary me-2">Phase 3</span> Decision Point Synthesis
+            <a href="{{ url_for('tools.references') }}#argument-mining" class="text-muted ms-2" title="Toulmin (1958), Jones (1991), Harris et al. (2018)" target="_blank">
+                <i class="bi bi-info-circle"></i>
+            </a>
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="extractor-section" id="decisionSynthesisSection">
+            <div class="step-card border-primary">
+                <div class="step-header bg-primary bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-bullseye text-primary"></i> Decision Point Synthesis (E1-E3 + Q&C Alignment + LLM)
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-secondary btn-sm" onclick="runPhase3Synthesis()" id="extractDecisionSynthesisBtn" disabled title="Complete Phase 2 first">
+                            <i class="bi bi-lock-fill"></i> Synthesize
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> E1-E3 algorithmic</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> Q&C scoring</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM refinement</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + 2C Q&C + 2E rich analysis</small>
+                    </div>
+
+                    <!-- Synthesis Pipeline Stages -->
+                    <div class="row text-center small mb-3" id="algorithmicSteps">
+                        <div class="col border-end">
+                            <span id="step-e1" class="badge bg-secondary mb-1">E1</span><br>
+                            <small>Obligation Coverage</small><br>
+                            <span id="e1Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-e2" class="badge bg-secondary mb-1">E2</span><br>
+                            <small>Action Mapping</small><br>
+                            <span id="e2Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-e3" class="badge bg-secondary mb-1">E3</span><br>
+                            <small>Composition</small><br>
+                            <span id="e3Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-align" class="badge bg-secondary mb-1">Q&C</span><br>
+                            <small>Alignment</small><br>
+                            <span id="alignResult" class="text-muted">-</span>
+                        </div>
+                        <div class="col">
+                            <span id="step-llm" class="badge bg-secondary mb-1">LLM</span><br>
+                            <small>Refinement</small><br>
+                            <span id="llmResult" class="text-muted">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Streaming Progress (blue box like other phases) -->
+                    <div class="prompt-preview mb-3" id="decisionSynthesisPromptSection" style="display: none;">
+                        <div class="prompt-text" id="decisionSynthesisPromptText"></div>
+                    </div>
+
+                    <!-- Decision Points Results -->
+                    <div id="decisionPointsResults" style="display: none;">
+                        <h6 class="mt-3"><i class="bi bi-diagram-3 text-success"></i> Decision Points</h6>
+                        <div id="decisionPointsList" class="mb-3"></div>
+                    </div>
+
+                    <!-- Provenance link (prompt/response details viewable on provenance page) -->
+                    <div id="phase3ProvenanceLink" class="mt-2" style="display: none;">
+                        <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=4) }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-diagram-3 me-1"></i> View Prompt & Provenance
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phase 4: Narrative Construction -->
+<div class="card mb-4" id="phase4-card">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">
+            <span class="badge bg-secondary me-2">Phase 4</span> Narrative Construction
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="extractor-section" id="narrativeSection">
+            <div class="step-card border-dark">
+                <div class="step-header bg-dark bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-book text-dark"></i> Narrative Elements (Event Calculus + Scenario Seeds)
+                        </h6>
+                        {% if current_user.is_authenticated %}
+                        <button class="btn btn-outline-secondary btn-sm" onclick="runPhase4Narrative()" id="extractNarrativeBtn" disabled title="Complete Phase 3 first">
+                            <i class="bi bi-lock-fill"></i> Construct
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-content">
+                    <div class="pipeline-lineage mb-2">
+                        <span class="badge bg-light text-dark border"><i class="bi bi-cpu"></i> algorithmic base</span>
+                        <span class="badge bg-light text-dark border"><i class="bi bi-chat-dots"></i> LLM enhancement</span>
+                        <span class="pipeline-arrow"><i class="bi bi-arrow-left"></i></span>
+                        <small class="text-muted">Phase 1 entities + Phase 3 decision points</small>
+                    </div>
+
+                    <!-- Phase 4 Pipeline Stages -->
+                    <div class="row text-center small mb-3" id="phase4Steps">
+                        <div class="col border-end">
+                            <span id="step-4-1" class="badge bg-secondary mb-1">4.1</span><br>
+                            <small>Characters</small><br>
+                            <span id="stage41Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-4-2" class="badge bg-secondary mb-1">4.2</span><br>
+                            <small>Timeline</small><br>
+                            <span id="stage42Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col border-end">
+                            <span id="step-4-3" class="badge bg-secondary mb-1">4.3</span><br>
+                            <small>Conflicts</small><br>
+                            <span id="stage43Result" class="text-muted">-</span>
+                        </div>
+                        <div class="col">
+                            <span id="step-4-4" class="badge bg-secondary mb-1">4.4</span><br>
+                            <small>Decisions</small><br>
+                            <span id="stage44Result" class="text-muted">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Streaming Progress -->
+                    <div class="prompt-preview mb-3" id="narrativePromptSection" style="display: none;">
+                        <div class="prompt-text" id="narrativePromptText"></div>
+                    </div>
+
+                    <!-- Phase 4 Results (Summary) -->
+                    <div id="phase4Results" style="display: none;">
+                        <div class="alert alert-success mb-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    <strong>Narrative Construction Complete</strong>
+                                    <div class="small mt-1">
+                                        <span id="phase4Characters">-</span> characters,
+                                        <span id="phase4Events">-</span> events,
+                                        <span id="phase4Conflicts">-</span> conflicts,
+                                        <span id="phase4Fluents">-</span> fluents
+                                    </div>
+                                </div>
+                                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}#narrative" class="btn btn-success btn-sm">
+                                    <i class="bi bi-eye"></i> View Narrative
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Navigation -->
+{% set step4_complete = pipeline_status.step4.complete if pipeline_status else false %}
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+    <a href="{{ url_for('step4.step4_entities', case_id=case.id) }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-list-check"></i> Review Entities & Commit
+    </a>
+    {% if step4_complete %}
+    <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-outline-secondary btn-lg">
+        <i class="bi bi-eye"></i> View Synthesis
+    </a>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .phase-row {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .phase-col {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .phase-indicator {
+        padding: 1rem 0.75rem;
+        border-radius: 0.5rem;
+        background-color: #f8f9fa;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .phase-indicator.phase-complete {
+        background-color: #d4edda;
+        border-color: #28a745;
+    }
+
+    .phase-indicator.phase-active {
+        background-color: #cce5ff;
+        border-color: #007bff;
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+    }
+
+    .phase-number {
+        display: inline-block;
+        width: 2rem;
+        height: 2rem;
+        line-height: 2rem;
+        text-align: center;
+        border-radius: 50%;
+        background-color: #6c757d;
+        color: white;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .phase-complete .phase-number {
+        background-color: #28a745;
+    }
+
+    .phase-active .phase-number {
+        background-color: #007bff;
+    }
+
+    /* Phase 2 substep progress dots */
+    .substep-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #dee2e6;
+        transition: all 0.3s ease;
+    }
+
+    .substep-dot.complete {
+        background-color: #28a745;
+    }
+
+    .substep-dot.active {
+        background-color: #007bff;
+        animation: dotPulse 1s infinite;
+    }
+
+    @keyframes dotPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.3); }
+    }
+
+    .extractor-section .step-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .extractor-section .step-header {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .extractor-section .step-content {
+        padding: 1rem;
+    }
+
+    .pipeline-lineage {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        font-size: 0.78rem;
+    }
+
+    .pipeline-lineage .badge {
+        font-weight: 400;
+        font-size: 0.72rem;
+        padding: 0.2em 0.5em;
+    }
+
+    .pipeline-lineage .badge i {
+        font-size: 0.7rem;
+    }
+
+    .pipeline-arrow {
+        color: #999;
+        font-size: 0.7rem;
+        margin: 0 0.15rem;
+    }
+
+    .prompt-preview {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .prompt-text {
+        font-size: 0.9rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .prompt-text-content {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: white;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid #dee2e6;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .results-preview {
+        background-color: #f0fff4;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #d4edda;
+    }
+
+    .bg-purple {
+        background-color: #6f42c1 !important;
+    }
+
+    .text-purple {
+        color: #6f42c1 !important;
+    }
+
+    .border-purple {
+        border-color: #6f42c1 !important;
+    }
+
+    .bg-purple-light {
+        background-color: #e9ddff !important;
+    }
+
+    .commit-status {
+        padding: 1rem;
+        border-radius: 0.375rem;
+    }
+    .commit-status.success {
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+    }
+    .commit-status.error {
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+    }
+    .entity-summary-item {
+        padding: 0.4rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .entity-summary-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+    window.STEP4 = { caseId: {{ case.id }}, hasPhase4Data: {% if phase4_data %}true{% else %}false{% endif %}, phase4Data: {% if phase4_data %}{{ phase4_data | tojson | safe }}{% else %}null{% endif %} };
+</script>
+<script src="{{ url_for('static', filename='js/scenario_pipeline/step4.js') }}"></script>
+{% endblock %}

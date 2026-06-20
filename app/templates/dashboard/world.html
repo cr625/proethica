@@ -218,17 +218,7 @@
 </div>
 
 <script>
-function analyzeGuideline(guidelineId) {
-    // This would trigger guideline analysis
-    alert('Guideline analysis would be triggered for ID: ' + guidelineId);
-    // TODO: Implement actual analysis trigger
-}
-
-function runAnalysis() {
-    // This would run complete world analysis
-    alert('World analysis would be triggered for world: {{ world.id }}');
-    // TODO: Implement world analysis trigger
-}
-
+    window.DASHBOARD_WORLD = { worldId: {{ world.id }} };
 </script>
+<script src="{{ url_for('static', filename='js/dashboard/world.js') }}"></script>
 {% endblock %}

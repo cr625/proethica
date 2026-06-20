@@ -1,0 +1,945 @@
+{% extends "base.html" %}
+
+{% block title %}Entity Review - Case {{ case.id }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* Enhanced styling for entity review page */
+    .entity-section-header {
+        border-left: 4px solid;
+        padding-left: 15px;
+        margin-bottom: 20px;
+    }
+
+    .classes-section .entity-section-header {
+        border-left-color: #007bff;
+    }
+
+    .individuals-section .entity-section-header {
+        border-left-color: #17a2b8;
+    }
+
+    .section-icon-circle {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card.border-primary {
+        border-width: 2px;
+    }
+
+    .card.border-info {
+        border-width: 2px;
+    }
+
+    /* Hover effects for entity rows */
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,123,255,0.05);
+    }
+
+    .card.border-info .table-hover tbody tr:hover {
+        background-color: rgba(23,162,184,0.05);
+    }
+
+    /* Visual indicators for entity types */
+    .entity-type-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+
+    .entity-type-class {
+        background-color: #007bff;
+    }
+
+    .entity-type-individual {
+        background-color: #17a2b8;
+    }
+
+    /* Section separators */
+    .ontology-section-divider {
+        border: 0;
+        height: 2px;
+        background: linear-gradient(to right, transparent, #dee2e6, transparent);
+        margin: 40px 0;
+    }
+
+    /* Property editing preparation */
+    .property-item {
+        transition: background-color 0.2s;
+        padding: 2px 4px;
+        border-radius: 3px;
+        position: relative;
+    }
+
+    .property-item:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+
+    .property-name {
+        color: #495057;
+        font-weight: 600;
+    }
+
+    .property-value {
+        color: #212529;
+    }
+
+    .property-value.text-info {
+        color: #17a2b8 !important;
+    }
+
+    /* Future edit button placeholder */
+    .property-edit-btn {
+        display: none; /* Hidden for now */
+        position: absolute;
+        right: 0;
+        top: 2px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        line-height: 1;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .property-item:hover .property-edit-btn {
+        /* Will be enabled when edit functionality is added */
+        /* display: inline-block; */
+    }
+
+    /* Editable property styling (for future) */
+    .property-item.editing {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 4px 6px;
+    }
+
+    .property-item.editing input,
+    .property-item.editing textarea {
+        background: white;
+        border: 1px solid #ced4da;
+        padding: 2px 6px;
+        font-size: 0.85rem;
+        width: 100%;
+    }
+
+    /* RDF-style formatting */
+    .rdf-properties {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .rdf-triple {
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
+
+    /* Match status styling */
+    .match-status-badge {
+        cursor: pointer;
+        transition: all 0.15s ease;
+        padding: 0.35em 0.65em;
+        font-size: 0.85em;
+        border: 1px solid transparent;
+    }
+
+    .match-status-badge:hover {
+        transform: scale(1.08);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .match-linked {
+        --bs-badge-color: #155724;
+        background-color: #d4edda !important;
+        color: #155724 !important;
+        border-color: #28a745 !important;
+    }
+
+    .match-review {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+        border-color: #d39e00 !important;
+    }
+
+    .match-new {
+        background-color: #6c757d !important;
+        color: #fff !important;
+        border-color: #545b62 !important;
+    }
+
+    .match-new i,
+    .match-new .bi {
+        color: #fff !important;
+    }
+
+    .match-confidence-bar {
+        height: 4px;
+        border-radius: 2px;
+        margin-top: 4px;
+        background-color: #e9ecef;
+    }
+
+    .match-confidence-fill {
+        height: 100%;
+        border-radius: 2px;
+    }
+
+    .confidence-high { background-color: #28a745; }
+    .confidence-medium { background-color: #ffc107; }
+    .confidence-low { background-color: #dc3545; }
+
+    /* Concept colors applied via inline styles from concept_colors dict */
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Top Menu Bar -->
+            <div class="bg-light border rounded p-3 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex gap-2 align-items-center">
+                        <!-- Back to Overview -->
+                        <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Overview
+                        </a>
+
+                        <!-- Facts/Discussion Toggle (for facts and discussion sections only) -->
+                        {% if section_type in ['facts', 'discussion'] %}
+                        <div class="btn-group" role="group" aria-label="Section toggle">
+                            {# Smart URLs: complete -> review, incomplete -> extraction #}
+                            {% set step1_done = pipeline_status.step1.complete if pipeline_status else false %}
+                            {% set facts_url = url_for('entity_review.review_case_entities', case_id=case.id, section_type='facts') if step1_done else url_for('cases.case_pipeline', case_id=case.id) %}
+                            {% set discussion_url = url_for('entity_review.review_case_entities', case_id=case.id, section_type='discussion') if step1_done else url_for('cases.case_pipeline', case_id=case.id) %}
+
+                            {# Facts button - always clickable, goes to review if complete, extraction if not #}
+                            <a href="{{ facts_url }}"
+                               class="btn btn-sm {% if section_type == 'facts' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                Facts
+                                {% if step1_done %}<i class="bi bi-check-sm"></i>{% endif %}
+                            </a>
+                            {# Discussion button - independently accessible based on its own completion status #}
+                            <a href="{{ discussion_url }}"
+                               class="btn btn-sm {% if section_type == 'discussion' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                Discussion
+                                {% if step1_done %}<i class="bi bi-check-sm"></i>{% endif %}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        {% if current_user.is_authenticated %}
+                        <!-- Re-run Extraction (with ?force=1 to bypass redirect) -->
+                        {% if section_type == 'discussion' %}
+                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-info" title="Re-run extraction">
+                            <i class="bi bi-arrow-repeat"></i> Re-run Extraction
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
+                           class="btn btn-sm btn-outline-info" title="Re-run extraction">
+                            <i class="bi bi-arrow-repeat"></i> Re-run Extraction
+                        </a>
+                        {% endif %}
+                        {% endif %}
+                        <a href="{{ url_for('provenance.case_provenance', case_id=case.id, step=1) }}"
+                           class="btn btn-sm btn-outline-secondary" title="View provenance (opens in new tab)" target="_blank">
+                            <i class="bi bi-diagram-3"></i> Provenance <i class="bi bi-box-arrow-up-right" style="font-size: 0.7em;"></i>
+                        </a>
+                        <span class="badge bg-info" title="Entities will be published to OntServe from Step 4 Review">
+                            <i class="bi bi-info-circle"></i> Draft
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pass Information Header -->
+            <div class="bg-primary bg-gradient text-white rounded p-3 mb-3">
+                <div class="row align-items-center">
+                    <div class="col-12">
+                        <h2 class="mb-1">
+                            <i class="bi bi-layers"></i> PASS 1: Contextual Framework
+                            {% if section_label %}
+                            <span class="badge bg-primary">{{ section_label }} Section</span>
+                            {% endif %}
+                        </h2>
+                        <p class="mb-0">Case {{ case.id }}: {{ case.title }}</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Entity Type Counts -->
+            <div class="row mb-3">
+                <!-- Roles -->
+                <div class="col-md-4 mb-2">
+                    <div class="card" style="border-color: #0d6efd;">
+                        <div class="card-body">
+                            <h5 class="card-title" style="color: #0d6efd;">
+                                <span class="badge" style="background-color: #0d6efd; font-size: 0.65em; vertical-align: middle;">R</span> Roles
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- States -->
+                <div class="col-md-4 mb-2">
+                    <div class="card" style="border-color: #6f42c1;">
+                        <div class="card-body">
+                            <h5 class="card-title" style="color: #6f42c1;">
+                                <span class="badge" style="background-color: #6f42c1; font-size: 0.65em; vertical-align: middle;">S</span> States
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resources -->
+                <div class="col-md-4 mb-2">
+                    <div class="card" style="border-color: #20c997;">
+                        <div class="card-body">
+                            <h5 class="card-title" style="color: #20c997;">
+                                <span class="badge" style="background-color: #20c997; font-size: 0.65em; vertical-align: middle;">Rs</span> Resources
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Question→Conclusion Links (only for Conclusions section) -->
+                {% if section_type == 'conclusions' and question_conclusion_links is defined %}
+                <div class="col-md-12 mb-2">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">
+                                <i class="bi bi-link-45deg"></i> Question→Conclusion Relationships
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-12">
+                                    <div class="fs-3 fw-bold">{{ question_conclusion_links|length }}</div>
+                                    <small class="text-muted">Linked Q→C Pairs</small>
+                                </div>
+                            </div>
+                            {% if question_conclusion_links %}
+                            <div class="mt-3">
+                                <h6 class="text-muted mb-2">Mapped Relationships:</h6>
+                                <div class="list-group">
+                                    {% for link in question_conclusion_links %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex w-100 justify-content-between align-items-start">
+                                            <h6 class="mb-1 text-primary">
+                                                <i class="bi bi-{{ link.question_number }}-circle"></i>
+                                                Question {{ link.question_number }}
+                                            </h6>
+                                            <small class="badge bg-success">{{ (link.confidence * 100)|round(0) }}% confidence</small>
+                                        </div>
+                                        <p class="mb-1 small"><strong>Q:</strong> {{ link.question_text[:150] }}{% if link.question_text|length > 150 %}...{% endif %}</p>
+                                        <p class="mb-1 small text-success"><strong>A:</strong> {{ link.conclusion_text[:150] }}{% if link.conclusion_text|length > 150 %}...{% endif %}</p>
+                                        <small class="text-muted">{{ link.reasoning }}</small>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+
+            <!-- RDF Entities Section -->
+            {% if rdf_data and rdf_data.total_rdf_entities > 0 %}
+
+            <!-- Section Header with Clear Separation -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <hr class="my-4">
+                    <h2 class="mb-3">Extracted Ontology Entities</h2>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>{{ rdf_data.total_rdf_entities }} RDF entities extracted</strong> organized by concept type
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONCEPT TYPE PANELS -->
+            {% for concept_type, type_data in rdf_data.by_type.items() %}
+            {% if type_data.classes or type_data.individuals or type_data.relationships %}
+            <div class="row mb-5">
+                <div class="col-12">
+                    <!-- Panel Header for {{ concept_type|title }} -->
+                    {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
+                    <div class="card" style="border-left: 5px solid {{ concept_colors.get(concept_type, '#dee2e6') }};">
+                        <div class="card-header">
+                            <h4 class="mb-0">
+                                {% set concept_abbrevs = {'roles': 'R', 'states': 'S', 'resources': 'Rs', 'principles': 'P', 'obligations': 'O', 'constraints': 'Cs', 'capabilities': 'Ca', 'actions': 'A', 'events': 'E'} %}
+                                <span class="badge" style="background-color: {{ concept_colors.get(concept_type, '#dee2e6') }}; font-size: 0.6em; vertical-align: middle;">{{ concept_abbrevs.get(concept_type, '?') }}</span>
+                                {{ concept_type|title }}
+                            </h4>
+                        </div>
+                        <div class="card-body">
+
+            <!-- CLASSES SUB-SECTION -->
+            <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-diagram-2"></i> {{ concept_type|title }} Classes
+                        </h5>
+                        <span class="badge bg-secondary">{{ type_data.classes|length if type_data.classes else 0 }}</span>
+                    </div>
+                            {% if type_data.classes %}
+                            {% include "scenario_pipeline/_class_cards.html" %}
+                            {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle"></i>
+                                No new {{ concept_type }} classes were identified in this section.
+                                {% if type_data.relationships %}
+                                All {{ concept_type }} references point to entities already extracted from previous sections.
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+            </div>
+
+            <!-- INDIVIDUALS SUB-SECTION -->
+            <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-person"></i> {{ concept_type|title }} Individuals
+                        </h5>
+                        <span class="badge bg-secondary">{{ type_data.individuals|length if type_data.individuals else 0 }}</span>
+                    </div>
+
+                    {# Show message if individuals exist but no new classes were extracted #}
+                    {% if type_data.individuals and not type_data.classes %}
+                    <div class="alert alert-light border mb-3">
+                        <i class="bi bi-info-circle text-info"></i>
+                        <strong>No new {{ concept_type }} classes were discovered</strong> - the {{ type_data.individuals|length }} individual(s) below reference existing classes from the ontology.
+                    </div>
+                    {% endif %}
+
+            {% if type_data.individuals %}
+                            {% include "scenario_pipeline/_individual_cards.html" %}
+            {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle"></i>
+                                No new {{ concept_type }} individuals were identified in this section.
+                                {% if type_data.relationships %}
+                                All {{ concept_type }} references point to entities already extracted from previous sections.
+                                {% endif %}
+                            </div>
+            {% endif %}
+            </div>
+
+            <!-- RELATIONSHIPS SUB-SECTION (Cross-section entity references) -->
+            {% if type_data.relationships %}
+            <div class="row mb-5">
+                <div class="col-12">
+                    <h5 class="mb-3">{{ concept_type|title }} Cross-Section References</h5>
+                    <div class="card border-secondary shadow-sm">
+                        <div class="card-header bg-secondary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-link"></i>
+                                        Entities Referenced from Other Sections
+                                    </h6>
+                                    <small>These entities were extracted from other sections and referenced in this section</small>
+                                </div>
+                                <span class="badge bg-light text-dark">{{ type_data.relationships|length }} References</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th width="3%"></th>
+                                            <th width="30%">Entity Referenced</th>
+                                            <th width="15%">Source Section</th>
+                                            <th width="50%">Reference Context</th>
+                                            <th width="2%">Info</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for rel in type_data.relationships %}
+                                        <tr>
+                                            <td class="text-center">
+                                                {% if rel.is_published %}
+                                                <span class="badge bg-success rounded-circle p-1" title="Published to OntServe">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </span>
+                                                {% else %}
+                                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle delete-entity-btn p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        data-entity-id="{{ rel.id }}"
+                                                        data-entity-label="{{ rel.entity_label }}"
+                                                        title="Remove this entity">
+                                                    <i class="bi bi-x" style="font-size: 14px;"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ rel.entity_label }}</strong>
+                                                <br/>
+                                                <small class="text-muted">{{ rel.entity_type or 'EntityReference' }}</small>
+                                            </td>
+                                            <td>
+                                                {% if rel.rdf_json_ld and rel.rdf_json_ld.sourceSection %}
+                                                    <span class="badge bg-info">{{ rel.rdf_json_ld.sourceSection | title }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    {% if rel.rdf_json_ld %}
+                                                        {% if rel.rdf_json_ld.mentionText %}
+                                                            <strong>Mentioned as:</strong> "{{ rel.rdf_json_ld.mentionText }}"<br/>
+                                                        {% endif %}
+                                                        {% if rel.rdf_json_ld.confidence %}
+                                                            <strong>Confidence:</strong> {{ "%.0f"|format(rel.rdf_json_ld.confidence * 100) }}%
+                                                        {% endif %}
+                                                    {% else %}
+                                                        {{ rel.entity_definition or '-' }}
+                                                    {% endif %}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-info" type="button"
+                                                        data-bs-toggle="collapse"
+                                                        data-bs-target="#rel-details-{{ rel.id }}"
+                                                        title="Show full details">
+                                                    <i class="fas fa-info-circle"></i> Details
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse" id="rel-details-{{ rel.id }}">
+                                            <td colspan="5" class="bg-light">
+                                                <div class="p-2">
+                                                    <strong>Full Details:</strong>
+                                                    <pre class="mb-0" style="font-size: 0.8rem;">{{ rel.rdf_json_ld | tojson(indent=2) if rel.rdf_json_ld else 'No additional details' }}</pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+                        </div> <!-- End card-body -->
+                    </div> <!-- End card -->
+                </div> <!-- End col-12 -->
+            </div> <!-- End row for concept type panel -->
+            {% else %}
+            <!-- Empty state: No entities extracted for this concept type -->
+            <div class="row mb-5">
+                <div class="col-12">
+                    {% set concept_colors = {'roles': '#0d6efd', 'states': '#6f42c1', 'resources': '#20c997', 'principles': '#fd7e14', 'obligations': '#dc3545', 'constraints': '#6c757d', 'capabilities': '#0dcaf0', 'actions': '#198754', 'events': '#ffc107'} %}
+                    <div class="card" style="border-left: 5px solid {{ concept_colors.get(concept_type, '#dee2e6') }};">
+                        <div class="card-header">
+                            <h4 class="mb-0">
+                                {% set concept_abbrevs = {'roles': 'R', 'states': 'S', 'resources': 'Rs', 'principles': 'P', 'obligations': 'O', 'constraints': 'Cs', 'capabilities': 'Ca', 'actions': 'A', 'events': 'E'} %}
+                                <span class="badge" style="background-color: {{ concept_colors.get(concept_type, '#dee2e6') }}; font-size: 0.6em; vertical-align: middle;">{{ concept_abbrevs.get(concept_type, '?') }}</span>
+                                {{ concept_type|title }}
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>No new {{ concept_type }} were extracted for this section.</strong>
+                                <p class="mb-0 mt-2">The extraction did not find any {{ concept_type }} to add. This typically means the case text doesn't contain relevant {{ concept_type }} for this section, or extraction hasn't been run yet.</p>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %} <!-- End if type_data.classes or type_data.individuals or type_data.relationships -->
+            {% endfor %} <!-- End for concept_type loop -->
+
+            <!-- End of RDF Entities Section -->
+            <hr class="my-4">
+            {% endif %}
+
+            {% if section_data and (not rdf_data or rdf_data.total_rdf_entities == 0) %}
+            <!-- Legacy Format Notice -->
+            <div class="alert alert-warning mb-4">
+                <h4><i class="fas fa-exclamation-triangle"></i> Legacy Format Detected</h4>
+                <p>These entities were extracted using the old format. To see the enhanced display with all properties:</p>
+                <ol>
+                    <li>Clear all entities using the "Clear All Entities" button above</li>
+                    <li>Go back to <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}">Step 1</a></li>
+                    <li>Click "Extract Roles Only" to re-extract with the new format</li>
+                </ol>
+                <p>The new format will show:</p>
+                <ul>
+                    <li><strong>Classes</strong>: New professional role types with distinguishing features, scope, and qualifications</li>
+                    <li><strong>Individuals</strong>: Specific people with attributes, relationships, and case involvement</li>
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if not section_data and (not rdf_data or rdf_data.total_rdf_entities == 0) %}
+            <!-- No entities found -->
+            <div class="alert alert-info">
+                <h4>No Extracted Entities Found</h4>
+                <p>No entities have been extracted for this case yet. Try:</p>
+                <ul>
+                    <li>Go to <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}">Step 1</a> and extract roles, states, or resources individually</li>
+                    <li>Run the complete entity extraction pass</li>
+                    <li>Check the console logs for any extraction errors</li>
+                </ul>
+            </div>
+            {% else %}
+
+            <!-- Entity Sections (Old Format - only show if no RDF data) -->
+            {% if not rdf_data or rdf_data.total_rdf_entities == 0 %}
+            {% for section_type, section in section_data.items() %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4>{{ section.info.label }}</h4>
+                            <p class="mb-0 text-muted">{{ section.info.description }}</p>
+                        </div>
+                        <div>
+                            <span class="badge badge-primary">{{ section.count }} entities</span>
+                            <span class="badge badge-success">{{ section.selected_count }} selected</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if section.entities %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th width="5%">
+                                        <input type="checkbox" class="section-select-all"
+                                               data-section="{{ section_type }}">
+                                    </th>
+                                    <th>Label</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Confidence</th>
+                                    <th>Session</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entity in section.entities %}
+                                <tr data-entity-id="{{ entity.id }}">
+                                    <td>
+                                        <input type="checkbox" class="entity-select"
+                                               data-entity-id="{{ entity.id }}"
+                                               {% if entity.concept_data.get('selected', False) %}checked{% endif %}>
+                                    </td>
+                                    <td>
+                                        <strong>{{ entity.concept_data.get('label', 'Unknown') }}</strong>
+                                        {% if entity.concept_data.get('category') == 'Role' %}
+                                            <span class="badge badge-primary badge-sm ms-1">Role Class</span>
+                                        {% elif entity.concept_data.get('category') == 'Individual' %}
+                                            <span class="badge badge-info badge-sm ms-1">Individual</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-secondary">
+                                            {{ entity.concept_data.get('category', 'Unknown') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ entity.concept_data.get('description', '')[:100] }}
+                                        {% if entity.concept_data.get('description', '') | length > 100 %}...{% endif %}
+                                    </td>
+                                    <td>
+                                        {% set confidence = entity.concept_data.get('confidence', 0.8) %}
+                                        <span class="badge {% if confidence > 0.8 %}badge-success{% elif confidence > 0.6 %}badge-warning{% else %}badge-danger{% endif %}">
+                                            {{ "%.2f" | format(confidence) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ entity.session_id[-8:] }}</small>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary edit-entity"
+                                                data-entity-id="{{ entity.id }}">
+                                            Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No entities in this section.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- Edit Entity Modal -->
+<div class="modal fade" id="editEntityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Entity</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editEntityForm">
+                    <input type="hidden" id="editEntityId">
+                    <div class="form-group">
+                        <label for="editLabel">Label</label>
+                        <input type="text" class="form-control" id="editLabel" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDescription">Description</label>
+                        <textarea class="form-control" id="editDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editReviewNotes">Review Notes</label>
+                        <textarea class="form-control" id="editReviewNotes" rows="2"
+                                  placeholder="Add any review notes or modifications..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEntityBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Match Details Modal -->
+<div class="modal fade" id="matchDetailsModal" tabindex="-1" aria-labelledby="matchDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="matchDetailsModalLabel">
+                    <i class="bi bi-link-45deg"></i> Entity Match Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="matchEntityId">
+
+                <!-- Entity Label -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Entity</label>
+                    <div class="form-control-plaintext fs-5" id="matchEntityLabel">-</div>
+                </div>
+
+                <!-- Current Match Status -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <strong>Current Match</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Matched Class</label>
+                                <div id="matchedClassLabel" class="fw-bold">-</div>
+                                <small id="matchedClassUri" class="text-muted">-</small>
+                            </div>
+                            <div class="col-md-6" id="matchConfidenceSection">
+                                <label class="form-label text-muted small">Confidence</label>
+                                <div id="matchConfidenceValue" class="fw-bold">-</div>
+                                <div class="progress" style="height: 8px;">
+                                    <div id="matchConfidenceBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3" id="matchMethodStatusRow">
+                            <div class="col-md-6" id="matchMethodSection">
+                                <label class="form-label text-muted small">Match Method</label>
+                                <div id="matchMethodValue">-</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Status</label>
+                                <div id="matchStatusBadge">-</div>
+                            </div>
+                        </div>
+                        <div class="row mt-3" id="matchReasoningSection">
+                            <div class="col-12">
+                                <label class="form-label text-muted small">Reasoning</label>
+                                <div id="matchReasoningValue" class="small bg-light p-2 rounded">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Override Section -->
+                {% if current_user.is_authenticated %}
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <strong>Manual Override</strong>
+                        <small class="text-muted ms-2">(Admin only)</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                Search for Alternative Match
+                            </label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="searchMatchInput"
+                                       placeholder="Search OntServe classes...">
+                                <button class="btn btn-outline-secondary" type="button" id="searchMatchBtn">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                            </div>
+                            <small class="text-muted">An override must stay within the same core component (Role to Role, Obligation to Obligation, etc.); cross-category matches are rejected.</small>
+                        </div>
+                        <div id="searchResults" class="mb-3" style="max-height: 200px; overflow-y: auto; display: none;">
+                            <!-- Search results will be populated here -->
+                        </div>
+                        <div class="d-flex gap-2" id="matchActionButtons">
+                            <button type="button" class="btn btn-outline-success" id="confirmMatchBtn" disabled>
+                                <i class="bi bi-check-circle"></i> Confirm Current Match
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <a href="{{ url_for('auth.login') }}">Login</a> to manually adjust entity matches.
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                {% if current_user.is_authenticated %}
+                <button type="button" class="btn btn-primary" id="saveMatchBtn" disabled>
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.ENTITY_REVIEW = { caseId: {{ case.id }}, isAuthenticated: {{ 'true' if current_user.is_authenticated else 'false' }}, loginUrl: "{{ url_for('auth.login') }}" };
+</script>
+<script src="{{ url_for('static', filename='js/scenario_pipeline/entity_review.js') }}"></script>
+
+<!-- Login Required Modal -->
+<div class="modal fade" id="loginRequiredModal" tabindex="-1" aria-labelledby="loginRequiredModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="loginRequiredModalLabel">
+                    <i class="bi bi-lock"></i> Login Required
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You need to be logged in to modify entities.</p>
+                <p class="text-muted small mb-0">Logging in allows you to remove, edit, and manage extracted entities.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="{{ url_for('auth.login', next=request.full_path) }}" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wizard Navigation Bar -->
+<div class="bg-light border rounded p-4 mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h6 class="mb-1">
+                <i class="bi bi-layers"></i> Pass 1: Contextual Framework
+                {% if section_label %} - {{ section_label }}{% endif %}
+            </h6>
+            <small class="text-muted">Review extracted entities, then continue to the next step</small>
+        </div>
+        <div class="d-flex gap-2">
+            {% if section_type == 'discussion' %}
+                {# Smart URL: go to review if Step 2 already complete, extraction if not #}
+                {% set step2_done = pipeline_status.step2.complete if pipeline_status else false %}
+                {% if step2_done %}
+                <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id, section_type='facts') }}"
+                   class="btn btn-primary btn-lg">
+                    Continue to Normative Requirements <i class="bi bi-arrow-right"></i>
+                </a>
+                {% else %}
+                <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
+                   class="btn btn-primary btn-lg">
+                    Continue to Normative Requirements <i class="bi bi-arrow-right"></i>
+                </a>
+                {% endif %}
+            {% else %}
+                {# Smart URL: go to review if discussion extracted, extraction if not #}
+                {% set discussion_extracted = pipeline_status.step1.discussion_complete if pipeline_status else false %}
+                {% if discussion_extracted %}
+                <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id, section_type='discussion') }}"
+                   class="btn btn-primary btn-lg">
+                    Continue to Discussion Review <i class="bi bi-arrow-right"></i>
+                </a>
+                {% else %}
+                <a href="{{ url_for('cases.case_pipeline', case_id=case.id) }}"
+                   class="btn btn-primary btn-lg">
+                    Continue to Discussion Extraction <i class="bi bi-arrow-right"></i>
+                </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

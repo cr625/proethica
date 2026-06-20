@@ -80,7 +80,7 @@ def register_reconciliation_routes(bp):
                 }
 
         return render_template(
-            'scenarios/reconcile.html',
+            'scenario_pipeline/reconcile.html',
             case=case_doc,
             pipeline_status=pipeline_status,
             unpublished_count=unpublished_count,

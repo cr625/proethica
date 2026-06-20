@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% from 'macros/_scenario_widgets.html' import obligation_chips %}
+
+{% block title %}Interactive Exploration - {{ case.title }}{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scenario-traversal.css') }}">
+<style>
+    .pipeline-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Pipeline header -->
+<div class="pipeline-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="bi bi-signpost-split"></i> Interactive Exploration
+                </h1>
+                <p class="mb-0 lead">{{ case.title }}</p>
+            </div>
+            <div class="col-md-4 text-md-end pe-md-4">
+                <div class="mb-1">
+                    <span class="fs-3 fw-bold">
+                        Decision {{ current_decision.decision_index + 1 }}
+                        <span class="fw-normal opacity-75">of {{ current_decision.total_decisions }}</span>
+                    </span>
+                </div>
+                <a href="{{ url_for('cases.view_case', id=case.id) }}" class="text-white-50 text-decoration-none small">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Case
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid px-lg-5">
+    <div class="row">
+
+        {# ============================================================
+           LEFT COLUMN: Decision Card
+           ============================================================ #}
+        <div class="col-lg-8 col-xl-8">
+            <div class="decision-area-wrapper" id="decision-area">
+                <div class="decision-card" style="view-transition-name: decision-card;">
+
+                    {# Decision Maker Chip #}
+                    {% if enriched_context.decision_maker and enriched_context.decision_maker.label %}
+                    {% set dm = enriched_context.decision_maker %}
+                    <div class="decision-maker-chip"
+                         tabindex="0"
+                         data-bs-toggle="popover"
+                         data-bs-trigger="focus"
+                         data-bs-html="true"
+                         data-bs-placement="bottom"
+                         data-bs-content="<div>
+                             {% if dm.role_type %}<span class='badge bg-secondary mb-1'>{{ dm.role_type }}</span><br>{% endif %}
+                             {% if dm.professional_position %}<strong>{{ dm.professional_position }}</strong><br>{% endif %}
+                             {% if dm.ethical_stance %}<em class='text-muted small'>{{ dm.ethical_stance }}</em>{% endif %}
+                         </div>">
+                        <span class="dm-icon"><i class="bi bi-person-fill"></i></span>
+                        <span class="dm-name">{{ dm.label }}</span>
+                        {% if dm.professional_position %}
+                        <span class="dm-position">{{ dm.professional_position }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {# Context Block #}
+                    {% if current_decision.context %}
+                    <div class="context-block card-body bg-light border-bottom">
+                        <p class="mb-0 text-muted">{{ current_decision.context }}</p>
+                    </div>
+                    {% endif %}
+
+                    <div class="card-body">
+                        {# Question #}
+                        <div class="question-text mb-3">
+                            {{ current_decision.decision_point.question }}
+                        </div>
+
+                        {# Obligation/Constraint Chips with tension connectors #}
+                        <div class="mb-3">
+                        {{ obligation_chips(enriched_context.enriched_obligations) }}
+                        </div>
+
+                        {# Option Cards #}
+                        <form method="POST"
+                              action="{{ url_for('step5.make_choice', case_id=case.id, session_uuid=session.session_uuid) }}"
+                              id="choice-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="option_index" id="selected-option-index" value="">
+                            <input type="hidden" name="time_spent_seconds" id="time-spent" value="0">
+
+                            <div class="mb-3">
+                                {% for option in current_decision.options %}
+                                <div class="option-card"
+                                     data-option-index="{{ loop.index0 }}"
+                                     role="button"
+                                     tabindex="0">
+                                    <div class="d-flex align-items-center">
+                                        <div class="option-radio me-3">
+                                            <i class="bi bi-circle option-unselected"></i>
+                                            <i class="bi bi-check-circle-fill option-selected d-none text-primary"></i>
+                                        </div>
+                                        <div class="option-label fw-medium">{{ option.label }}</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            {# Submit Strip #}
+                            <button type="submit" class="option-submit-strip" id="submit-choice" disabled>
+                                <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ============================================================
+           RIGHT COLUMN: Decision History
+           ============================================================ #}
+        <div class="col-lg-4 col-xl-4">
+            <div class="timeline-sidebar" id="timeline-sidebar">
+                <div class="timeline-sidebar-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-signpost-split me-1"></i> Your Decisions
+                    </h6>
+                    <span class="badge bg-secondary">
+                        {{ current_decision.decision_index + 1 }}/{{ current_decision.total_decisions }}
+                    </span>
+                </div>
+
+                <div class="timeline-sidebar-body">
+                    <div class="sidebar-timeline">
+                        {# -- Completed decisions: show what the user chose -- #}
+                        {% for choice in previous_choices %}
+                        <div class="stl-node stl-decision stl-completed">
+                            <div class="stl-marker stl-marker-decision">
+                                <i class="bi bi-check-lg"></i>
+                            </div>
+                            <div class="stl-content">
+                                <div class="stl-decision-label">
+                                    Decision {{ choice.decision_point_index + 1 }}
+                                </div>
+                                <div class="stl-choice-made">
+                                    <i class="bi bi-arrow-return-right me-1"></i>{{ choice.chosen_option_label }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {# -- Current active decision -- #}
+                        <div class="stl-node stl-decision stl-active">
+                            <div class="stl-marker stl-marker-decision">
+                                <i class="bi bi-signpost-split"></i>
+                            </div>
+                            <div class="stl-content">
+                                <div class="stl-decision-label">
+                                    Decision {{ current_decision.decision_index + 1 }}
+                                </div>
+                                <div class="stl-decision-detail">
+                                    Awaiting your choice...
+                                </div>
+                            </div>
+                        </div>
+
+                        {# -- Future decisions: just numbered placeholders -- #}
+                        {% for dp in decision_points %}
+                        {% if dp.index > current_decision.decision_index %}
+                        <div class="stl-node stl-decision stl-future">
+                            <div class="stl-marker stl-marker-decision">
+                                <span class="stl-dp-number">{{ dp.index + 1 }}</span>
+                            </div>
+                            <div class="stl-content">
+                                <div class="stl-decision-label">
+                                    Decision {{ dp.index + 1 }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
+<script>
+    window.STEP5_TRAVERSAL = { ontserveWebUrl: '{{ ontserve_web_url }}', entityLookup: {% if entity_lookup_by_label %}{
+        {% for label, entity in entity_lookup_by_label.items() %}
+        "{{ label|e }}": {
+            label: "{{ (entity.label or '')|e }}",
+            definition: "{{ (entity.definition or '')|e|replace('\n', ' ')|replace('\r', '') }}",
+            entityType: "{{ (entity.extraction_type or entity.entity_type or '')|e }}",
+            source: "{{ (entity.source or 'case')|e }}",
+            sourcePass: {{ entity.source_pass or 'null' }},
+            uri: "{{ (entity.uri or '')|e }}",
+            aliasTypes: {{ (entity.alias_types or [])|tojson }},
+            ontologyTarget: "{{ (entity.ontology_target or '')|e }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    }{% else %}null{% endif %}, provisions: {% if enriched_context.provisions %}[
+                {% for prov in enriched_context.provisions %}
+                { label: "{{ prov.label|e }}", definition: "{{ (prov.definition or '')|e|replace('\n', ' ')|replace('\r', '') }}" }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ]{% else %}null{% endif %} };
+</script>
+<script src="{{ url_for('static', filename='js/scenario_pipeline/step5_traversal.js') }}"></script>
+{% endblock %}

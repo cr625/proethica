@@ -323,41 +323,7 @@
 </div>
 
 <script>
-function cancelEdit() {
-    // Reset form or navigate back
-    window.location.href = '{{ url_for("type_management.concept_list") }}';
-}
-
-function quickApprove() {
-    if (confirm('Approve this concept with its current type mapping?')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ url_for("type_management.update_concept_type", concept_id=concept.id) }}';
-        
-        // Keep current type
-        const typeInput = document.createElement('input');
-        typeInput.type = 'hidden';
-        typeInput.name = 'new_type';
-        typeInput.value = '{{ concept.object_literal }}';
-        form.appendChild(typeInput);
-        
-        // Mark as approved
-        const statusInput = document.createElement('input');
-        statusInput.type = 'hidden';
-        statusInput.name = 'review_status';
-        statusInput.value = 'approved';
-        form.appendChild(statusInput);
-        
-        // Add quick approval note
-        const notesInput = document.createElement('input');
-        notesInput.type = 'hidden';
-        notesInput.name = 'notes';
-        notesInput.value = 'Quick approved via concept detail page';
-        form.appendChild(notesInput);
-        
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
+    window.CONCEPT_DETAIL = { conceptListUrl: "{{ url_for("type_management.concept_list") }}", updateConceptTypeUrl: "{{ url_for("type_management.update_concept_type", concept_id=concept.id) }}", objectLiteral: "{{ concept.object_literal }}" };
 </script>
+<script src="{{ url_for('static', filename='js/type_management/concept_detail.js') }}"></script>
 {% endblock %}

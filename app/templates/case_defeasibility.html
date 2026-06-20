@@ -157,10 +157,7 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    if (typeof bootstrap === 'undefined' || typeof initializePopovers !== 'function') return;
-    var container = document.getElementById('defeasibility-content');
-    if (container) initializePopovers(container, '{{ ontserve_web_url }}');
-  });
+    window.CASE_DEFEASIBILITY = { ontserveWebUrl: "{{ ontserve_web_url }}" };
 </script>
+<script src="{{ url_for('static', filename='js/cases/case_defeasibility.js') }}"></script>
 {% endblock %}

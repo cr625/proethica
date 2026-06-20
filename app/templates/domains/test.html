@@ -120,25 +120,7 @@
 </div>
 
 <script>
-function reloadDomains() {
-    fetch('{{ url_for("domains.api_reload_domains") }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            alert('Domain configurations reloaded successfully!');
-            location.reload();
-        } else {
-            alert('Error reloading domains: ' + data.message);
-        }
-    })
-    .catch(error => {
-        alert('Error: ' + error);
-    });
-}
+    window.DOMAINS_TEST = { reloadUrl: '{{ url_for("domains.api_reload_domains") }}' };
 </script>
+<script src="{{ url_for('static', filename='js/domains/test.js') }}"></script>
 {% endblock %}
