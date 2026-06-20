@@ -6,65 +6,7 @@
 {% block step_info %}Between Steps 3 and 4{% endblock %}
 
 {% block step_styles %}
-<style>
-    .reconcile-card {
-        border: 1px solid #e3e6f0;
-        border-radius: 0.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-    }
-    .reconcile-card .card-header {
-        background-color: #f8f9fc;
-        border-bottom: 1px solid #e3e6f0;
-        padding: 1rem 1.5rem;
-    }
-    .reconcile-card .card-body {
-        padding: 1.5rem;
-    }
-    .candidate-row {
-        border: 1px solid #e3e6f0;
-        border-radius: 0.375rem;
-        padding: 1rem;
-        margin-bottom: 0.75rem;
-        background: #fff;
-    }
-    .candidate-row:hover {
-        background: #f8f9fc;
-    }
-    .candidate-row.resolved {
-        opacity: 0.5;
-        background: #f0fdf4;
-    }
-    .entity-label {
-        font-weight: 500;
-        font-size: 0.95rem;
-    }
-    .entity-def {
-        font-size: 0.82rem;
-        color: #6c757d;
-        margin-top: 0.25rem;
-        line-height: 1.4;
-    }
-    .concept-badge {
-        font-size: 0.7rem;
-        padding: 0.15rem 0.4rem;
-    }
-    .type-breakdown-table {
-        font-size: 0.85rem;
-    }
-    .type-breakdown-table td, .type-breakdown-table th {
-        padding: 0.3rem 0.6rem;
-    }
-    .llm-reason {
-        font-size: 0.8rem;
-        color: #6c757d;
-        font-style: italic;
-        padding: 0.4rem 0.6rem;
-        background: #f8f9fc;
-        border-radius: 0.25rem;
-        margin-top: 0.5rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scenario_pipeline/reconcile.css') }}">
 {% endblock %}
 
 {% block step_content %}

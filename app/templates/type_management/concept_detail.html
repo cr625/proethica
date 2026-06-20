@@ -3,44 +3,7 @@
 {% block title %}{{ concept.subject_label or 'Concept' }} - Type Management{% endblock %}
 
 {% block styles %}
-<style>
-    .confidence-bar {
-        height: 8px;
-        border-radius: 4px;
-        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
-        position: relative;
-    }
-    
-    .confidence-indicator {
-        width: 3px;
-        height: 12px;
-        background: #000;
-        position: absolute;
-        top: -2px;
-    }
-    
-    .metadata-card {
-        border-left: 4px solid #007bff;
-    }
-    
-    .review-card {
-        border-left: 4px solid #ffc107;
-    }
-    
-    .triple-card {
-        border-left: 4px solid #28a745;
-    }
-    
-    .similar-concept-card {
-        transition: transform 0.2s;
-        cursor: pointer;
-    }
-    
-    .similar-concept-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/type_management/concept_detail.css') }}">
 {% endblock %}
 
 {% block content %}

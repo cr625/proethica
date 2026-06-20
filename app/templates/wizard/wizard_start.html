@@ -3,41 +3,7 @@
 {% block title %}Ethical Decision Wizard - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block styles %}
-<style>
-    .wizard-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    
-    .wizard-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-    }
-    
-    .session-card {
-        border-left: 4px solid #007bff;
-    }
-    
-    .session-card.in-progress {
-        border-left-color: #28a745;
-    }
-    
-    .session-card.completed {
-        border-left-color: #6c757d;
-    }
-    
-    .feature-icon {
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, #007bff, #0056b3);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 24px;
-        margin: 0 auto 15px;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/wizard/wizard_start.css') }}">
 {% endblock %}
 
 {% block content %}

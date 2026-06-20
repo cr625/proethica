@@ -3,42 +3,7 @@
 {% block title %}Type Review Dashboard - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block styles %}
-<style>
-    .confidence-bar {
-        height: 6px;
-        border-radius: 3px;
-        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
-        position: relative;
-    }
-    
-    .confidence-indicator {
-        width: 2px;
-        height: 10px;
-        background: #000;
-        position: absolute;
-        top: -2px;
-    }
-    
-    .type-mapping-card {
-        transition: transform 0.2s;
-    }
-    
-    .type-mapping-card:hover {
-        transform: translateY(-2px);
-    }
-    
-    .needs-review {
-        border-left: 4px solid #ffc107;
-    }
-    
-    .low-confidence {
-        border-left: 4px solid #dc3545;
-    }
-    
-    .high-confidence {
-        border-left: 4px solid #28a745;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/type_management/dashboard.css') }}">
 {% endblock %}
 
 {% block content %}

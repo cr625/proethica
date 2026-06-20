@@ -3,56 +3,7 @@
 {% block title %}Similar Cases - ProEthica{% endblock %}
 
 {% block styles %}
-<style>
-    .precedent-card {
-        transition: all 0.2s ease;
-    }
-    .precedent-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    .score-bar {
-        height: 6px;
-        background: #e9ecef;
-        border-radius: 3px;
-        overflow: hidden;
-    }
-    .score-fill {
-        height: 100%;
-        border-radius: 3px;
-    }
-    .method-badge {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-    }
-    .component-row {
-        display: flex;
-        align-items: center;
-        margin-bottom: 0.25rem;
-    }
-    .component-label {
-        width: 120px;
-        font-size: 0.8rem;
-    }
-    .component-bar {
-        flex: 1;
-        margin: 0 8px;
-    }
-    .component-value {
-        width: 45px;
-        text-align: right;
-        font-size: 0.8rem;
-        font-family: monospace;
-    }
-    .dtuple-row .component-label {
-        width: 80px;
-    }
-    .dtuple-row .score-bar {
-        height: 4px;
-    }
-    .dtuple-row .component-value {
-        font-size: 0.7rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/precedents.css') }}">
 {% endblock %}
 
 {% block content %}

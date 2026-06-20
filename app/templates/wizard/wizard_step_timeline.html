@@ -3,72 +3,7 @@
 {% block title %}Step {{ step_number }} - {{ scenario.name }}{% endblock %}
 
 {% block styles %}
-<style>
-    .wizard-progress {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        margin-bottom: 30px;
-        border-radius: 15px;
-    }
-    
-    .progress-step {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 35px;
-        height: 35px;
-        border-radius: 50%;
-        font-weight: bold;
-        margin: 0 3px;
-        font-size: 14px;
-    }
-    
-    .progress-step.completed {
-        background-color: rgba(255,255,255,0.3);
-        color: white;
-    }
-    
-    .progress-step.current {
-        background-color: white;
-        color: #667eea;
-    }
-    
-    .progress-step.pending {
-        background-color: rgba(255,255,255,0.1);
-        color: rgba(255,255,255,0.7);
-    }
-
-    .step-card {
-        border: none;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border-radius: 15px;
-        overflow: hidden;
-    }
-
-    .option-card {
-        border: 2px solid #e9ecef;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .option-card:hover {
-        border-color: #007bff;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,123,255,0.1);
-    }
-
-    .option-card.selected {
-        border-color: #28a745;
-        background-color: rgba(40, 167, 69, 0.05);
-    }
-
-    .nspe-badge {
-        font-size: 0.75em;
-        padding: 0.25em 0.5em;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/wizard/wizard_step_timeline.css') }}">
 {% endblock %}
 
 {% block content %}

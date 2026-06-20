@@ -302,68 +302,7 @@
 {% endblock %}
 
 {% block step_styles %}
-<style>
-    .nav-tabs .nav-link {
-        color: #5a5c69;
-    }
-
-    .nav-tabs .nav-link.active {
-        font-weight: 600;
-        border-bottom: 2px solid #f6c23e;
-    }
-
-    .nav-tabs .nav-link:hover:not(.active) {
-        border-color: transparent;
-        background-color: #f8f9fc;
-    }
-
-    /* Decision Wizard Styles */
-    .decision-nav-btn {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        padding: 0;
-        font-weight: 600;
-    }
-
-    .decision-nav-btn.active {
-        background-color: #f6c23e;
-        border-color: #f6c23e;
-        color: #212529;
-    }
-
-    .decision-header {
-        border-bottom: 2px solid #f6c23e;
-    }
-
-    .decision-question {
-        border-left: 4px solid #f6c23e;
-    }
-
-    .decision-question .lead {
-        font-size: 1.1rem;
-        line-height: 1.7;
-    }
-
-    .option-card {
-        transition: all 0.2s ease;
-    }
-
-    .option-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.1);
-    }
-
-    /* Smooth transitions for decision panels */
-    .decision-panel {
-        animation: fadeIn 0.3s ease-in-out;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateX(20px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scenario_pipeline/step5_decisions.css') }}">
 {% endblock %}
 
 {% block step_scripts %}

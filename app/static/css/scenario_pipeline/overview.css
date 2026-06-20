@@ -1,0 +1,91 @@
+    .section-highlight {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .llm-formatted {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border-left: 3px solid #17a2b8;
+    }
+
+    .llm-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+
+    .section-content h6 {
+        color: #6c757d;
+        font-weight: 600;
+    }
+
+    .case-detail-format {
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .case-questions,
+    .case-conclusions {
+        margin-bottom: 0;
+        padding-left: 1.2rem;
+        list-style-type: decimal;
+    }
+
+    .case-questions li,
+    .case-conclusions li {
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    .case-questions li:last-child,
+    .case-conclusions li:last-child {
+        margin-bottom: 0;
+    }
+
+    /* Match the exact styling from case detail page */
+    .case-detail-format ol {
+        counter-reset: item;
+    }
+
+    .case-detail-format ol>li {
+        display: block;
+        margin-bottom: 0.75rem;
+        position: relative;
+        padding-left: 0;
+    }
+
+    .case-detail-format ol>li:before {
+        content: counter(item, decimal) ".";
+        counter-increment: item;
+        font-weight: 500;
+        color: #495057;
+        margin-right: 0.5rem;
+        display: inline-block;
+        width: 1.5em;
+    }
+
+    .alert-secondary {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+        color: #6c757d;
+    }

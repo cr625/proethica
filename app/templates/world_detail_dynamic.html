@@ -3,78 +3,7 @@
 {% block title %}{{ world.name }} - ProEthica{% endblock %}
 
 {% block styles %}
-<style>
-    .entity-card {
-        margin-bottom: 15px;
-    }
-
-    .entity-list {
-        max-height: 300px;
-        overflow-y: auto;
-    }
-
-    .nav-tabs .nav-item .nav-link {
-        color: #495057;
-    }
-
-    .nav-tabs .nav-item .nav-link.active {
-        font-weight: bold;
-        color: #007bff;
-    }
-
-    .tab-pane {
-        padding: 20px 0;
-    }
-
-    .entities-tab-content {
-        min-height: 300px;
-    }
-
-    .entity-item {
-        margin-bottom: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        transition: all 0.3s ease;
-    }
-    .entity-item:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .entity-item .card-header {
-        font-weight: 500;
-        background-color: #f8f9fa;
-    }
-    .entity-item .card-body {
-        padding: 10px 15px;
-    }
-    .empty-tab-message {
-        padding: 50px 0;
-        text-align: center;
-        color: #6c757d;
-    }
-
-    .tab-roles { border-color: #28a745 !important; }
-    .tab-roles.active { background-color: #28a74510 !important; }
-
-    .tab-conditions { border-color: #dc3545 !important; }
-    .tab-conditions.active { background-color: #dc354510 !important; }
-
-    .tab-events { border-color: #ffc107 !important; }
-    .tab-events.active { background-color: #ffc10710 !important; }
-
-    .tab-capabilities { border-color: #17a2b8 !important; }
-    .tab-capabilities.active { background-color: #17a2b810 !important; }
-
-    .tab-resources { border-color: #6610f2 !important; }
-    .tab-resources.active { background-color: #6610f210 !important; }
-
-    .tab-actions { border-color: #fd7e14 !important; }
-    .tab-actions.active { background-color: #fd7e1410 !important; }
-
-    .entity-type-description {
-        font-size: 0.875rem;
-        color: #6c757d;
-        margin-bottom: 1rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/world_detail_dynamic.css') }}">
 {% endblock %}
 
 {% block content %}

@@ -1,0 +1,157 @@
+    .nav-tabs .nav-link {
+        color: #5a5c69;
+    }
+
+    .nav-tabs .nav-link.active {
+        font-weight: 600;
+        border-bottom: 2px solid #4e73df;
+    }
+
+    .nav-tabs .nav-link:hover:not(.active) {
+        border-color: transparent;
+        background-color: #f8f9fc;
+    }
+
+    /* Timeline Styles */
+    .timeline-container {
+        position: relative;
+        padding-left: 40px;
+    }
+
+    .timeline-container::before {
+        content: '';
+        position: absolute;
+        left: 19px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(to bottom, #dee2e6 0%, #4e73df 50%, #1cc88a 100%);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 25px;
+        padding-left: 30px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -30px;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: #858796;
+        z-index: 1;
+    }
+
+    .timeline-action .timeline-marker {
+        border-color: #36b9cc;
+        color: #36b9cc;
+    }
+
+    .timeline-decision .timeline-marker {
+        border-color: #f6c23e;
+        color: #f6c23e;
+        background: #fff8e1;
+    }
+
+    .timeline-outcome .timeline-marker {
+        border-color: #1cc88a;
+        color: #1cc88a;
+        background: #e8f8f5;
+    }
+
+    .timeline-content {
+        background: white;
+        border: 1px solid #e3e6f0;
+        border-radius: 0.5rem;
+        padding: 15px;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+
+    .timeline-decision .timeline-content {
+        border-left: 4px solid #f6c23e;
+    }
+
+    .timeline-outcome .timeline-content {
+        border-left: 4px solid #1cc88a;
+    }
+
+    .timeline-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .timeline-sequence {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #4e73df;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .timeline-label {
+        font-size: 1rem;
+        margin-bottom: 5px;
+    }
+
+    .timeline-description {
+        color: #5a5c69;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .timeline-entities {
+        margin-top: 8px;
+    }
+
+    /* Legend Styles */
+    .timeline-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .legend-marker {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 2px solid;
+    }
+
+    .legend-action {
+        border-color: #36b9cc;
+        color: #36b9cc;
+    }
+
+    .legend-event {
+        border-color: #858796;
+        color: #858796;
+    }
+
+    .legend-decision {
+        border-color: #f6c23e;
+        color: #f6c23e;
+    }
+
+    .legend-outcome {
+        border-color: #1cc88a;
+        color: #1cc88a;
+    }

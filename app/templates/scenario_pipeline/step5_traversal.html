@@ -7,14 +7,7 @@
 {{ super() }}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/scenario-traversal.css') }}">
-<style>
-    .pipeline-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem 0;
-        margin-bottom: 2rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scenario_pipeline/step5_traversal.css') }}">
 {% endblock %}
 
 {% block content %}

@@ -3,25 +3,7 @@
 {% block title %}Structure - {{ case.title }}{% endblock %}
 
 {% block styles %}
-<style>
-    .section-card {
-        transition: all 0.2s ease;
-    }
-    .section-card:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .section-content {
-        max-height: 300px;
-        overflow-y: auto;
-        font-size: 0.9rem;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-        padding: 1rem;
-    }
-    .embed-badge {
-        font-size: 0.75rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/case_structure.css') }}">
 {% endblock %}
 
 {% block content %}
