@@ -8,6 +8,7 @@ allowing prompt editing through the web UI.
 from datetime import datetime
 from jinja2 import Template
 from app.models import db
+from app.concept_meta import CONCEPT_COLORS as _BASE_CONCEPT_COLORS
 
 
 class ExtractionPromptTemplate(db.Model):
@@ -415,16 +416,8 @@ STEP4_PHASES = {
 }
 
 CONCEPT_COLORS = {
-    # Steps 1-3 concepts
-    'roles': '#0d6efd',
-    'states': '#6f42c1',
-    'resources': '#20c997',
-    'principles': '#fd7e14',
-    'obligations': '#dc3545',
-    'constraints': '#6c757d',
-    'capabilities': '#0dcaf0',
-    'actions': '#198754',
-    'events': '#ffc107',
+    # Steps 1-3 concepts (roles..events) -- single source: app/concept_meta.py
+    **_BASE_CONCEPT_COLORS,
     # Step 4 entities - matches docs/concepts/color-scheme.md
     'provisions': '#6c757d',         # Gray (same as Constraints)
     'questions': '#0dcaf0',          # Cyan (same as Capabilities)
