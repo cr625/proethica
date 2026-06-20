@@ -1,0 +1,40 @@
+    .concept-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .concept-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .confidence-bar {
+        height: 4px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        position: relative;
+    }
+    
+    .confidence-indicator {
+        width: 2px;
+        height: 8px;
+        background: #000;
+        position: absolute;
+        top: -2px;
+    }
+    
+    .needs-review-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .batch-select {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+    
+    .concept-card.selected {
+        border: 2px solid #007bff;
+        background-color: #f8f9fa;
+    }

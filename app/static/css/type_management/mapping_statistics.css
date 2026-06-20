@@ -1,0 +1,23 @@
+    .stat-card {
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .mapping-row {
+        border-left: 3px solid #007bff;
+        background: #f8f9fa;
+        transition: background-color 0.2s;
+    }
+    
+    .mapping-row:hover {
+        background: #e9ecef;
+    }
+    
+    .accuracy-chart {
+        height: 300px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
