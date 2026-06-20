@@ -1,0 +1,31 @@
+  .guideline-content {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .guideline-content h1,
+  .guideline-content h2,
+  .guideline-content h3,
+  .guideline-content h4,
+  .guideline-content h5,
+  .guideline-content h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .guideline-content p {
+    margin-bottom: 1rem;
+  }
+
+  .guideline-content ul,
+  .guideline-content ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+  }
+
+  .guideline-content blockquote {
+    border-left: 4px solid #ccc;
+    padding-left: 1rem;
+    margin-left: 0;
+    color: #666;
+  }
