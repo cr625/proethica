@@ -37,8 +37,43 @@ def pytest_addoption(parser):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def base_url(request):
-    return request.config.getoption("--base-url").rstrip("/")
+def live_server(request):
+    """Boot the Flask app in a background thread on an ephemeral port.
+
+    Used only when no external --base-url is supplied, so the e2e suite is
+    self-contained (`pytest tests/e2e/ -m e2e`) instead of requiring a manually
+    started server. Still needs the app's runtime deps (PostgreSQL, the OntServe
+    MCP server); if the app cannot boot, the e2e tests are skipped rather than
+    erroring.
+    """
+    if request.config.getoption("--base-url"):
+        yield None  # external server provided; do not boot one
+        return
+    import threading
+    from werkzeug.serving import make_server
+    try:
+        from app import create_app
+        app = create_app()
+        srv = make_server("127.0.0.1", 0, app, threaded=True)
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"live_server unavailable (app could not boot): {exc}")
+        return
+    thread = threading.Thread(target=srv.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{srv.server_port}"
+    finally:
+        srv.shutdown()
+        thread.join(timeout=5)
+
+
+@pytest.fixture(scope="session")
+def base_url(request, live_server):
+    """External --base-url if given, else the in-process live_server."""
+    url = request.config.getoption("--base-url") or live_server
+    if not url:
+        pytest.skip("no --base-url and live_server could not start")
+    return url.rstrip("/")
 
 
 @pytest.fixture(scope="session")
