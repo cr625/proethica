@@ -32,6 +32,13 @@ PAGES = [
     ("step4", f"/scenario_pipeline/case/{CASE_ID}/step4"),
     ("step4_entities", f"/scenario_pipeline/case/{CASE_ID}/step4/entities"),
     ("step5", f"/scenario_pipeline/case/{CASE_ID}/step5"),
+    # Tier C: additional externalized pages (precedents/graph/provenance/reconcile/world).
+    ("precedents", "/cases/precedents/"),
+    ("similarity_network", "/cases/precedents/network"),
+    ("lineage_graph", "/cases/precedents/lineage"),
+    ("provenance", f"/scenario_pipeline/case/{CASE_ID}/provenance"),
+    ("reconcile", f"/scenario_pipeline/case/{CASE_ID}/reconcile"),
+    ("world_detail", "/worlds/1"),
 ]
 
 # Console substrings that are known-benign and not actionable. Keep this TIGHT --
