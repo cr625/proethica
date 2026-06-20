@@ -34,21 +34,16 @@ TYPE_TO_PASS = {
     'code_provision_reference': 4, 'ethical_question': 4, 'ethical_conclusion': 4
 }
 
-# Entity type colors - matches docs/reference/color-scheme.md
+# Entity type colors - matches docs/reference/color-scheme.md.
+# The nine concept colours come from the canonical map (app/concept_meta.py);
+# the extra keys below are synthesis/temporal node types specific to this graph.
+from app.concept_meta import CONCEPT_COLORS
 TYPE_COLORS = {
-    'roles': '#0d6efd',              # Blue - Pass 1 Context
-    'states': '#6f42c1',             # Purple - Pass 1 Context
-    'resources': '#20c997',          # Teal - Pass 1 Context
-    'principles': '#fd7e14',         # Orange - Pass 2 Normative
-    'obligations': '#dc3545',        # Red - Pass 2 Normative
-    'constraints': '#6c757d',        # Gray - Pass 2 Normative
-    'capabilities': '#0dcaf0',       # Cyan - Pass 2 Normative
+    **CONCEPT_COLORS,
     'temporal_dynamics_enhanced': '#14b8a6',  # Teal - Pass 3 Temporal
-    'actions': '#198754',            # Green - Pass 3 Temporal
-    'events': '#ffc107',             # Yellow - Pass 3 Temporal
-    'code_provision_reference': '#6c757d',  # Gray - Step 4 Synthesis
-    'ethical_question': '#0dcaf0',   # Cyan - Step 4 Synthesis
-    'ethical_conclusion': '#198754'  # Green - Step 4 Synthesis
+    'code_provision_reference': '#6c757d',     # Gray - Step 4 Synthesis
+    'ethical_question': '#0dcaf0',             # Cyan - Step 4 Synthesis
+    'ethical_conclusion': '#198754',           # Green - Step 4 Synthesis
 }
 
 
