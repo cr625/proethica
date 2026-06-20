@@ -80,7 +80,7 @@ def step5_scenario_generation(case_id):
         curated_count = len(curated_decision_points) if curated_decision_points else 0
 
         return render_template(
-            'scenarios/step5.html',
+            'scenario_pipeline/step5.html',
             case=case,
             eligibility=eligibility,
             entity_counts=entity_counts,
@@ -636,7 +636,7 @@ def narrative_overview(case_id):
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
         return render_template(
-            'scenarios/step5_narrative.html',
+            'scenario_pipeline/step5_narrative.html',
             case=case,
             has_phase4=phase4_data is not None,
             phase4_data=phase4_data,
@@ -681,7 +681,7 @@ def enhanced_timeline(case_id):
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
         return render_template(
-            'scenarios/step5_timeline.html',
+            'scenario_pipeline/step5_timeline.html',
             case=case,
             has_phase4=phase4_data is not None,
             timeline=timeline,
@@ -802,7 +802,7 @@ def decision_wizard(case_id):
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
         return render_template(
-            'scenarios/step5_decisions.html',
+            'scenario_pipeline/step5_decisions.html',
             case=case,
             has_phase4=phase4_data is not None,
             seeds=seeds,

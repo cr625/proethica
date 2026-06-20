@@ -1,4 +1,4 @@
-{% extends "scenarios/base_step.html" %}
+{% extends "scenario_pipeline/base_step.html" %}
 
 {% block step_title %}Step 5: Decision Analysis{% endblock %}
 {% block step_header %}Step 5: Decision Analysis{% endblock %}
@@ -10,7 +10,7 @@
 
 {% block step_content %}
 
-{% with active_tab='decisions' %}{% include 'scenarios/_step5_tab_nav.html' %}{% endwith %}
+{% with active_tab='decisions' %}{% include 'scenario_pipeline/_step5_tab_nav.html' %}{% endwith %}
 
 {% if not has_phase4 %}
 <!-- No Phase 4 Data Alert -->
@@ -370,5 +370,5 @@
 <script>
     window.STEP5_DECISIONS = { totalDecisions: {{ decision_points|length if decision_points else 0 }} };
 </script>
-<script src="{{ url_for('static', filename='js/scenarios/step5_decisions.js') }}"></script>
+<script src="{{ url_for('static', filename='js/scenario_pipeline/step5_decisions.js') }}"></script>
 {% endblock %}

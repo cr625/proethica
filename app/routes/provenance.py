@@ -243,7 +243,7 @@ def case_provenance(case_id):
     initial_section = request.args.get('section')
     initial_concept = request.args.get('concept')
 
-    return render_template('scenarios/provenance.html',
+    return render_template('scenario_pipeline/provenance.html',
                            case=document,
                            initial_step=initial_step,
                            initial_section=initial_section,

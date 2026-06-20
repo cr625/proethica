@@ -42,7 +42,7 @@ def view_timeline(case_id):
         )
 
         return render_template(
-            'scenarios/timeline_viewer.html',
+            'scenario_pipeline/timeline_viewer.html',
             case=case,
             timeline=enhanced_timeline,
             phases=timeline.phases

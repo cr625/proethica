@@ -33,7 +33,7 @@ def register_review_view_routes(bp):
             entities_summary = get_entities_summary(case_id)
 
             return render_template(
-                'scenarios/entity_review_all.html',
+                'scenario_pipeline/entity_review_all.html',
                 case=case_doc,
                 entities_summary=entities_summary
             )
@@ -303,7 +303,7 @@ def register_review_view_routes(bp):
             changed_entity_uris = get_changed_entity_uris(case_id)
 
             return render_template(
-                'scenarios/entity_review.html',
+                'scenario_pipeline/entity_review.html',
                 case=case_doc,
                 section_data=section_data,
                 total_entities=total_entities,
@@ -412,7 +412,7 @@ def register_review_view_routes(bp):
             changed_entity_uris = get_changed_entity_uris(case_id)
 
             # Return the entity review page for Pass 2
-            return render_template('scenarios/entity_review_pass2.html',
+            return render_template('scenario_pipeline/entity_review_pass2.html',
                                  case=case_doc,
                                  rdf_data=rdf_data,
                                  section_data={},  # Empty for new RDF format
@@ -463,7 +463,7 @@ def register_review_view_routes(bp):
             )
 
             return render_template(
-                'scenarios/session_review.html',
+                'scenario_pipeline/session_review.html',
                 case=case_doc,
                 entities=entities,
                 session_summary=session_summary,

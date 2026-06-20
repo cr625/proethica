@@ -135,7 +135,7 @@ def register_interactive_routes(bp):
             ontserve_web_url = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
 
             return render_template(
-                'scenarios/step5_traversal.html',
+                'scenario_pipeline/step5_traversal.html',
                 case=case,
                 session=session,
                 current_decision=current_decision,
@@ -246,7 +246,7 @@ def register_interactive_routes(bp):
         pipeline_status = PipelineStatusService.get_step_status(case_id)
 
         return render_template(
-            'scenarios/step5_summary.html',
+            'scenario_pipeline/step5_summary.html',
             case=case,
             session=session,
             choices_summary=choices_summary,
@@ -282,7 +282,7 @@ def register_interactive_routes(bp):
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
             return render_template(
-                'scenarios/step5_branching_analysis.html',
+                'scenario_pipeline/step5_branching_analysis.html',
                 case=case,
                 session=session,
                 analysis=analysis,
@@ -312,7 +312,7 @@ def register_interactive_routes(bp):
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
             return render_template(
-                'scenarios/step5_sessions.html',
+                'scenario_pipeline/step5_sessions.html',
                 case=case,
                 sessions=sessions,
                 current_step=5,

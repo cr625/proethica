@@ -1,4 +1,4 @@
-{% extends "scenarios/base_step.html" %}
+{% extends "scenario_pipeline/base_step.html" %}
 
 {% block step_title %}Reconcile{% endblock %}
 {% block step_header %}Reconcile{% endblock %}
@@ -232,5 +232,5 @@
 <script>
     window.RECONCILE = { reconcileRunUrl: "{{ url_for("entity_review.reconcile_run", case_id=case.id) }}", reconcileMergeUrl: "{{ url_for("entity_review.reconcile_merge", case_id=case.id) }}", reconcileUnmergeUrl: "{{ url_for("entity_review.reconcile_unmerge", case_id=case.id) }}", reconcileKeepSeparateUrl: "{{ url_for("entity_review.reconcile_keep_separate", case_id=case.id) }}", reconcileUndoKeepSeparateUrl: "{{ url_for("entity_review.reconcile_undo_keep_separate", case_id=case.id) }}" };
 </script>
-<script src="{{ url_for('static', filename='js/scenarios/reconcile.js') }}"></script>
+<script src="{{ url_for('static', filename='js/scenario_pipeline/reconcile.js') }}"></script>
 {% endblock %}

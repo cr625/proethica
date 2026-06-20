@@ -403,7 +403,7 @@ def step1(case_id):
             'pipeline_status': pipeline_status
         }
         
-        return render_template('scenarios/overview.html', **context)
+        return render_template('scenario_pipeline/overview.html', **context)
         
     except Exception as e:
         logger.error(f"Error loading step 1 for case {case_id}: {str(e)}")

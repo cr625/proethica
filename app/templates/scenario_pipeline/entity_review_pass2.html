@@ -396,7 +396,7 @@
                     <span class="badge bg-secondary">{{ type_data.classes|length if type_data.classes else 0 }}</span>
                 </div>
                 {% if type_data.classes %}
-                {% include "scenarios/_class_cards.html" %}
+                {% include "scenario_pipeline/_class_cards.html" %}
                 {% else %}
                 <div class="alert alert-info mb-0">
                     <i class="bi bi-info-circle"></i>
@@ -423,7 +423,7 @@
                 {% endif %}
 
                 {% if type_data.individuals %}
-                {% include "scenarios/_individual_cards.html" %}
+                {% include "scenario_pipeline/_individual_cards.html" %}
                 {% else %}
                 <div class="alert alert-info mb-0">
                     <i class="bi bi-info-circle"></i>
@@ -714,7 +714,7 @@
 <script>
     window.ENTITY_REVIEW_PASS2 = { caseId: {{ case.id }}, sectionType: {{ section_type | tojson if section_type else 'null' }}, isAuthenticated: {{ 'true' if current_user.is_authenticated else 'false' }}, loginUrl: "{{ url_for('auth.login') }}" };
 </script>
-<script src="{{ url_for('static', filename='js/scenarios/entity_review_pass2.js') }}"></script>
+<script src="{{ url_for('static', filename='js/scenario_pipeline/entity_review_pass2.js') }}"></script>
 
 <!-- Login Required Modal -->
 <div class="modal fade" id="loginRequiredModal" tabindex="-1" aria-labelledby="loginRequiredModalLabel" aria-hidden="true">

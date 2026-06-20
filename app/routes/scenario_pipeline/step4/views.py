@@ -64,7 +64,7 @@ def register_view_routes(bp):
             phase2_entities = _load_phase2_entity_summaries(case_id)
 
             return render_template(
-                'scenarios/step4.html',
+                'scenario_pipeline/step4.html',
                 case=case,
                 entities_summary=entities_summary,
                 synthesis_status=synthesis_status,
@@ -167,7 +167,7 @@ def register_view_routes(bp):
             pipeline_status = PipelineStatusService.get_step_status(case_id)
 
             return render_template(
-                'scenarios/step4_decision_points.html',
+                'scenario_pipeline/step4_decision_points.html',
                 case=case,
                 current_step=4,
                 step_title='Step 4E: Decision Points',
