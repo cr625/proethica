@@ -72,19 +72,14 @@ PIPELINE_STRUCTURE = {
 }
 
 
+# The nine concept colours come from the canonical map (app/concept_meta.py);
+# the extra keys below are provenance-timeline-specific.
+from app.concept_meta import CONCEPT_COLORS
 ENTITY_COLORS = {
-    'roles': '#0d6efd',       # Blue
-    'states': '#6f42c1',      # Purple
-    'resources': '#20c997',   # Teal
-    'principles': '#fd7e14',  # Orange
-    'obligations': '#dc3545', # Red
-    'constraints': '#6c757d', # Gray
-    'capabilities': '#0dcaf0',# Cyan
-    'actions': '#198754',     # Green
-    'events': '#ffc107',      # Yellow/Amber
-    'causal_chains': '#dc3545',  # Red
+    **CONCEPT_COLORS,
+    'causal_chains': '#dc3545',   # Red
     'allen_relations': '#6f42c1', # Purple
-    'timeline': '#0dcaf0'     # Cyan
+    'timeline': '#0dcaf0',        # Cyan
 }
 
 

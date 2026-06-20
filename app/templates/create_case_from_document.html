@@ -31,16 +31,7 @@
                     <div class="form-text">Supported formats: PDF, DOCX, DOC, TXT, HTML</div>
                 </div>
 
-                <!-- Pre-select Engineering world (ID=1) -->
-                <div class="mb-3">
-                    <label for="world_id" class="form-label">World</label>
-                    <select class="form-select" id="world_id" name="world_id" required>
-                        {% for world in worlds %}
-                        <option value="{{ world.id }}" {% if world.id==1 %}selected{% endif %}>{{ world.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <div class="form-text">Engineering Ethics world is pre-selected.</div>
-                </div>
+                {% include 'components/_world_select.html' %}
 
                 <div class="alert alert-info">
                     <h5><i class="bi bi-info-circle"></i> What happens next?</h5>

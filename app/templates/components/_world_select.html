@@ -1,0 +1,14 @@
+{# Engineering-world picker shared by the case-creation forms
+   (create_case_from_document.html, create_case_manual.html). The parent
+   provides `worlds` (all World rows); world id 1 (Engineering Ethics) is
+   pre-selected. #}
+                <!-- Pre-select Engineering world (ID=1) -->
+                <div class="mb-3">
+                    <label for="world_id" class="form-label">World</label>
+                    <select class="form-select" id="world_id" name="world_id" required>
+                        {% for world in worlds %}
+                        <option value="{{ world.id }}" {% if world.id==1 %}selected{% endif %}>{{ world.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Engineering Ethics world is pre-selected.</div>
+                </div>

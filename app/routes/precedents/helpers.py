@@ -27,18 +27,10 @@ MATCHING_METHODS = {
     }
 }
 
-# Entity type colors for D-tuple per-component display
-COMPONENT_COLORS = {
-    'R': '#0d6efd', 'S': '#6f42c1', 'Rs': '#20c997',
-    'P': '#fd7e14', 'O': '#dc3545', 'Cs': '#6c757d',
-    'Ca': '#0dcaf0', 'A': '#198754', 'E': '#ffc107',
-}
-
-COMPONENT_LABELS = {
-    'R': 'Roles', 'P': 'Principles', 'O': 'Obligations',
-    'S': 'States', 'Rs': 'Resources', 'A': 'Actions',
-    'E': 'Events', 'Ca': 'Capabilities', 'Cs': 'Constraints',
-}
+# Entity type colours/labels for the D-tuple per-component display
+# (abbreviation-keyed). Single source: app/concept_meta.py; re-exported here so
+# existing `from ...helpers import COMPONENT_COLORS` importers keep working.
+from app.concept_meta import COMPONENT_COLORS, COMPONENT_LABELS
 
 
 

@@ -314,7 +314,13 @@ def create_app(config_name=None):
                     logging.getLogger(__name__).warning(f"Failed to get pipeline status: {e}")
 
         return result
-    
+
+    # Canonical nine-component concept maps as template globals
+    # (single source of truth: app/concept_meta.py).
+    from app.concept_meta import CONCEPT_COLORS, CONCEPT_ABBREVS
+    app.jinja_env.globals['concept_colors'] = CONCEPT_COLORS
+    app.jinja_env.globals['concept_abbrevs'] = CONCEPT_ABBREVS
+
     # Error handlers for authentication and permissions
     @app.errorhandler(403)
     def forbidden(error):
