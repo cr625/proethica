@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadingOverlay.classList.add('hidden');
     }
 
-    // Color scales - matches docs/reference/color-scheme.md
+    // Color scales - matches docs/concepts/color-scheme.md
     const outcomeColors = {
         'ethical': '#198754',
         'unethical': '#dc3545',

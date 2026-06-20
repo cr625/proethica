@@ -220,7 +220,11 @@ document.addEventListener('DOMContentLoaded', function() {
                /^[QC]\d+$/.test(label);
     }
 
-    // Node color map
+    // Node color map. Intentionally a DISTINCT white-on-dark graph palette (NOT
+    // app/concept_meta.py): node text is white (#ffffff below), so these darker
+    // hexes give contrast, and it colors non-concept node types too. See the
+    // legend in scenario_pipeline/_review_tab_flow.html. Do not unify with
+    // concept_meta -- that would break text contrast.
     var nodeColors = {
         'provision': '#495057',
         'question': '#0dcaf0',

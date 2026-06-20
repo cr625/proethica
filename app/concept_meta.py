@@ -6,7 +6,7 @@ a service, and three templates. Consumers that need extra non-concept keys (the
 provenance timeline rows, the entity-graph synthesis nodes) or a different
 keying (by abbreviation, for the precedents D-tuple views) derive from these
 canonical maps rather than re-declaring the palette. See
-docs/reference/color-scheme.md for the documented scheme.
+docs/concepts/color-scheme.md for the documented scheme.
 
 Note: the reconciliation view (scenario_pipeline/reconcile.html) intentionally
 uses a different (legacy SB-Admin) palette and is NOT a consumer of these maps.

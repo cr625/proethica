@@ -14,7 +14,9 @@ const activityStyles = {
     'analysis': { icon: 'bi-graph-up', color: '#ec4899', label: 'Analysis' }
 };
 
-// Entity colors
+// Entity colors. Mirror of the 9 base concept colors in app/concept_meta.py
+// (CONCEPT_COLORS), the single source of truth; JS cannot import the Python map,
+// so keep these values in sync if that map changes.
 const ENTITY_COLORS = {
     'roles': '#0d6efd',
     'states': '#6f42c1',
