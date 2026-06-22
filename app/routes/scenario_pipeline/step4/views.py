@@ -370,21 +370,15 @@ def register_view_routes(bp):
                             'case_number': case_number
                         })
 
-                # Top 10 similar cases using paper weights (ICCBR 2026)
-                # Paper formula: 0.40*embedding + 0.25*provisions + 0.15*outcome + 0.10*tags + 0.10*principles
-                from app.routes.precedents import _find_precedents_for_case
-                PAPER_WEIGHTS = {
-                    'component_similarity': 0.40,
-                    'provision_overlap': 0.25,
-                    'outcome_alignment': 0.15,
-                    'tag_overlap': 0.10,
-                    'principle_overlap': 0.10,
-                }
+                # Top 10 similar cases using the dissertation's documented
+                # four-feature configuration (Chapter 3, Section 3.7), which is
+                # now the component-aware default (single source of truth in
+                # PrecedentSimilarityService.COMPONENT_AWARE_WEIGHTS).
                 from app.services.precedent.similarity_service import PrecedentSimilarityService
                 sim_svc = PrecedentSimilarityService()
                 sim_results = sim_svc.find_similar_cases(
                     case_id, limit=10, min_score=0.1,
-                    weights=PAPER_WEIGHTS, use_component_embedding=True
+                    use_component_embedding=True
                 )
                 # Enrich with citation flags and case metadata
                 source_cited_ids = set(cited_ids)

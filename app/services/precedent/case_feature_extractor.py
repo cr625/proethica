@@ -833,6 +833,49 @@ Return ONLY valid JSON in this format:
 
         return aggregated, normalized_components
 
+    def _build_tension_embedding(self, case_id: int) -> Optional[list]:
+        """
+        Build the ethical-tension signature embedding for a case (Chapter 3,
+        Section 3.7).
+
+        The signature text is the deduplicated set of conflicting-entity labels
+        from the case's recorded ethical tensions (`principle_tensions` in
+        case_precedent_features, sourced from the Step-4 institutional analysis).
+        Encoding it with the local model yields a 384-dim vector whose cosine
+        similarity to another case's signature is the `principle_overlap`
+        ranking feature. Returns None when the case has no recorded tensions.
+        """
+        row = db.session.execute(
+            text("SELECT principle_tensions FROM case_precedent_features WHERE case_id = :cid"),
+            {'cid': case_id}
+        ).fetchone()
+        if not row or not row[0]:
+            return None
+
+        import json
+        tensions = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+        if not tensions:
+            return None
+
+        labels = []
+        for t in tensions:
+            if not isinstance(t, dict):
+                continue
+            for key in ('entity1', 'entity2'):
+                value = (t.get(key) or '').strip()
+                if value:
+                    labels.append(value)
+
+        # Deduplicate, preserving first-seen order.
+        seen = set()
+        unique_labels = [l for l in labels if not (l in seen or seen.add(l))]
+        if not unique_labels:
+            return None
+
+        signature = '. '.join(unique_labels)
+        embedding = self._get_local_embedding(signature)
+        return embedding.tolist() if embedding is not None else None
+
     def extract_and_save_component_embedding(self, case_id: int) -> bool:
         """
         Generate and save component embeddings for a case.
@@ -868,6 +911,11 @@ Return ONLY valid JSON in this format:
                 emb = component_embeddings.get(comp_code)
                 params[f'emb_{comp_code}'] = emb.tolist() if emb is not None else None
 
+            # Ethical-tension signature embedding (Chapter 3, Section 3.7): the
+            # ranking feature `principle_overlap` is the cosine of these between
+            # two cases. None when the case has no recorded ethical tensions.
+            params['emb_tension'] = self._build_tension_embedding(case_id)
+
             query = text("""
                 UPDATE case_precedent_features
                 SET combined_embedding = :combined,
@@ -880,6 +928,7 @@ Return ONLY valid JSON in this format:
                     embedding_E = :emb_E,
                     embedding_Ca = :emb_Ca,
                     embedding_Cs = :emb_Cs,
+                    embedding_tension = :emb_tension,
                     extraction_method = 'component_aggregation',
                     extracted_at = :now
                 WHERE case_id = :case_id

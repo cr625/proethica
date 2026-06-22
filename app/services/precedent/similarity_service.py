@@ -65,15 +65,18 @@ class PrecedentSimilarityService:
         'principle_overlap': 0.10
     }
 
-    # Component-aware weights - uses per-component embeddings (R, P, O, S, Rs, A, E, Ca, Cs)
-    # Outcome is displayed post-retrieval but excluded from ranking,
-    # consistent with legal CBR practice (HYPO/CATO) where retrieval
-    # should surface both supporting and distinguishing cases.
-    # Principle tensions removed (always zero across all cases).
+    # Component-aware weights - the configuration documented in the dissertation
+    # (Chapter 3, Section 3.7) and evaluated in the ICCBR 2026 experiments: a
+    # per-component text embedding (0.40) plus four set-based features summing to
+    # 0.60 (provision overlap, outcome alignment, tag overlap, ethical-tension
+    # overlap). This is the single source of truth for the component-mode default,
+    # used by the live Precedents view and the cache populate alike.
     COMPONENT_AWARE_WEIGHTS = {
-        'component_similarity': 0.50,  # D-tuple 9-component weighted embedding
-        'provision_overlap': 0.30,     # NSPE Code section overlap (Jaccard)
-        'tag_overlap': 0.20,           # Subject tag overlap (Jaccard)
+        'component_similarity': 0.40,  # D-tuple 9-component weighted embedding
+        'provision_overlap': 0.25,     # NSPE Code section overlap (Jaccard)
+        'outcome_alignment': 0.15,     # board outcome agreement
+        'tag_overlap': 0.10,           # NSPE subject-tag overlap (Jaccard)
+        'principle_overlap': 0.10,     # ethical-tension overlap (cosine of tension-signature embeddings)
     }
 
     def __init__(self, llm_client=None):
@@ -199,10 +202,13 @@ class PrecedentSimilarityService:
             set(target_features.get('subject_tags', []))
         )
 
-        # Principle overlap (from Step 4 data)
-        component_scores['principle_overlap'] = self._calculate_principle_overlap(
-            source_features.get('principle_tensions', []),
-            target_features.get('principle_tensions', [])
+        # Ethical-tension overlap (Chapter 3, Section 3.7): cosine similarity
+        # between the two cases' tension-signature embeddings. Replaces the prior
+        # label-key Jaccard, which read non-existent principle1/principle2 keys
+        # and was therefore always zero.
+        component_scores['principle_overlap'] = self._calculate_tension_overlap(
+            source_features.get('embedding_tension'),
+            target_features.get('embedding_tension')
         )
 
         # Calculate weighted overall score
@@ -410,7 +416,8 @@ class PrecedentSimilarityService:
                 embedding_A,
                 embedding_E,
                 embedding_Ca,
-                embedding_Cs
+                embedding_Cs,
+                embedding_tension
             FROM case_precedent_features
             WHERE case_id = :case_id
         """)
@@ -442,6 +449,7 @@ class PrecedentSimilarityService:
             'embedding_E': self._parse_embedding(result[18]),
             'embedding_Ca': self._parse_embedding(result[19]),
             'embedding_Cs': self._parse_embedding(result[20]),
+            'embedding_tension': self._parse_embedding(result[21]),
         }
 
     def _get_all_case_ids_with_features(self) -> List[int]:
@@ -568,33 +576,19 @@ class PrecedentSimilarityService:
 
         return intersection / union
 
-    def _calculate_principle_overlap(
-        self,
-        tensions_a: List[Dict],
-        tensions_b: List[Dict]
-    ) -> float:
+    def _calculate_tension_overlap(self, emb_a, emb_b) -> float:
         """
-        Calculate similarity based on principle tensions.
+        Ethical-tension overlap (Chapter 3, Section 3.7).
 
-        Compares the principles mentioned in tensions from Step 4 analysis.
+        Cosine similarity between the two cases' tension-signature embeddings.
+        The signature is built at feature-extraction time from each case's
+        ethical tensions (the conflicting-entity labels), so cases that turn on
+        similar competing duties score higher. Negative cosines are clamped to
+        0.0, and a missing signature on either side yields 0.0.
         """
-        if not tensions_a or not tensions_b:
+        if emb_a is None or emb_b is None:
             return 0.0
-
-        # Extract principle names from tensions
-        def extract_principles(tensions):
-            principles = set()
-            for t in tensions:
-                if isinstance(t, dict):
-                    principles.add(t.get('principle1', ''))
-                    principles.add(t.get('principle2', ''))
-            principles.discard('')
-            return principles
-
-        principles_a = extract_principles(tensions_a)
-        principles_b = extract_principles(tensions_b)
-
-        return self._calculate_jaccard_similarity(principles_a, principles_b)
+        return max(0.0, self._cosine_similarity(emb_a, emb_b))
 
     # ============================================================
     # FUTURE WORK: LLM-Based Dynamic Weight Adjustment
