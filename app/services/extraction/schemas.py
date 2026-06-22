@@ -137,6 +137,22 @@ class RoleCategory(str, Enum):
 class CandidateRoleClass(BaseCandidate):
     """A new role class discovered in case text."""
     role_category: Optional[RoleCategory] = None
+    # Structured role-class attributes (Chapter 3, Section 3.3.1). Restored
+    # 2026-06-22 for dissertation fidelity; populated by the Roles prompt.
+    distinguishing_features: List[str] = Field(
+        default_factory=list,
+        description="What makes this role distinct from related roles")
+    professional_scope: Optional[str] = Field(
+        None, description="Areas of responsibility and authority")
+    typical_qualifications: List[str] = Field(
+        default_factory=list,
+        description="Required education, licensing, and experience")
+    generated_obligations: List[str] = Field(
+        default_factory=list,
+        description="Specific duties this role creates")
+    associated_virtues: List[str] = Field(
+        default_factory=list,
+        description="Virtues or qualities expected of this role")
 
 
 class RoleIndividual(BaseIndividual):
@@ -168,6 +184,16 @@ class RoleIndividual(BaseIndividual):
         default_factory=list,
         description="Employment, collaboration, client relationships"
     )
+    # Role-individual normative fields (Chapter 3, Section 3.3.1). Restored
+    # 2026-06-22 for dissertation fidelity. The role->obligation substance is
+    # also materialized as first-class R->P->O edges (hasObligation); these
+    # capture the per-individual view the chapter describes.
+    active_obligations: List[str] = Field(
+        default_factory=list,
+        description="Obligations that apply to this individual given the role")
+    ethical_tensions: List[str] = Field(
+        default_factory=list,
+        description="Tensions arising when this individual's role obligations conflict")
     case_involvement: Optional[str] = None
 
 
