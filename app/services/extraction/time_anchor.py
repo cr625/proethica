@@ -31,27 +31,43 @@ from app.services.extraction.state_edges import _safe_frag
 logger = logging.getLogger(__name__)
 
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
+CORE = Namespace("http://proethica.org/ontology/core#")
 TIME = Namespace("http://www.w3.org/2006/time#")
 
 _EXTENT_TYPE = {"interval": TIME.ProperInterval, "instant": TIME.Instant}
 
+# Happening individuals are typed to the core Action/Event classes at commit; the
+# intermediate-namespace forms are accepted defensively for older serializations.
+_HAPPENING_TYPES = (CORE.Action, CORE.Event, PROETH.Action, PROETH.Event)
+
 
 def apply_time_anchors(case_id: int, ttl_path, write_back: bool = True) -> Dict[str, Any]:
-    """Mint a time:Instant / time:ProperInterval individual for each happening carrying a
-    proeth:temporalExtent and link it via time:hasTime. Returns the count added."""
+    """Mint a time entity for EVERY happening (Action/Event individual) and link it via
+    time:hasTime, so each happening is temporally anchored (Chapter 3, Section 3.3.3).
+
+    The time entity is a time:ProperInterval when the happening's proeth:temporalExtent
+    says "interval", and a time:Instant otherwise (the default when no extent is recorded,
+    which covers the bulk of the corpus). The entity is labelled with the happening's
+    textual temporal marker when present. Idempotent: a happening that already has a
+    time:hasTime is skipped. Returns the count added."""
     ttl_path = Path(ttl_path)
     g = Graph()
     g.parse(str(ttl_path), format="turtle")
     case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
 
+    # Collect every happening individual, regardless of whether it carries an extent.
+    happenings = set()
+    for htype in _HAPPENING_TYPES:
+        happenings.update(g.subjects(RDF.type, htype))
+
     added = 0
-    for subj, ext in list(g.subject_objects(PROETH.temporalExtent)):
+    for subj in happenings:
         if (subj, TIME.hasTime, None) in g:
             continue  # idempotent
-        extent = str(ext).strip().lower()
-        ttype = _EXTENT_TYPE.get(extent)
+        ext = g.value(subj, PROETH.temporalExtent)
+        ttype = _EXTENT_TYPE.get(str(ext).strip().lower()) if ext is not None else None
         if ttype is None:
-            continue
+            ttype = TIME.Instant  # default: anchor at an instant when extent is unspecified
         tent = case_ns["time_" + _safe_frag(subj)]
         g.add((tent, RDF.type, ttype))
         marker = g.value(subj, PROETH.temporalMarker)
