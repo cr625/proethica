@@ -116,18 +116,19 @@ def outcome_align(a, b):
     return 0.5
 
 
-def principle_overlap(ta, tb):
-    if not ta or not tb:
-        return 0.0
-    def ext(t):
-        p = set()
-        for x in t:
-            if isinstance(x, dict):
-                p.add(x.get('principle1', ''))
-                p.add(x.get('principle2', ''))
-        p.discard('')
-        return p
-    return jaccard(ext(ta), ext(tb))
+def principle_overlap(emb_a, emb_b):
+    """Ethical-tension overlap (ICCBR Section 3.7): cosine similarity of the two
+    cases' tension-signature embeddings, clamped to >= 0.0, and 0.0 when either
+    signature is missing.
+
+    This matches the live PrecedentSimilarityService._calculate_tension_overlap
+    (O-1, 2026-06-22). It replaces the prior principle1/principle2 Jaccard, which
+    read keys that never existed on the entity1/entity2 tension records and so was
+    identically zero (the paper-baseline behavior, preserved at tag
+    v1.3.1-paper-baseline). Requires features.pkl to carry 'embedding_tension'
+    (regenerated against the re-extracted corpus); absent it, this returns 0.0.
+    """
+    return max(0.0, cosine_sim(emb_a, emb_b))
 
 
 def compute_raw_scores(src, tgt):
@@ -166,8 +167,8 @@ def compute_raw_scores(src, tgt):
         set(tgt.get('subject_tags', []))
     )
     princ = principle_overlap(
-        src.get('principle_tensions', []),
-        tgt.get('principle_tensions', [])
+        src.get('embedding_tension'),
+        tgt.get('embedding_tension')
     )
     set_score = (
         SET_W['provision_overlap'] * prov
