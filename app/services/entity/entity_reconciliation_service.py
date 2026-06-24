@@ -540,11 +540,18 @@ Return ONLY valid JSON:
         from app.services.extraction.core_vocab import CONCEPT_TYPE_TO_CORE_CATEGORY
         from app.services.extraction.category_resolver import resolve_core_category
         from app.services.extraction.entity_matcher import category_compatible
+        from app.services.extraction.domain_config import active_domain
 
+        cfg = active_domain()
         groups = self._group_for_canonicalization(case_id, include_published, storage_types)
+        # Renaming a class is a graph op: the identity is referenced from the class row's
+        # label+IRI AND from every individual's rdf:type (rdf_json_ld['types']). Collect
+        # {old_class_uri -> new_class_uri} as changes apply, then repoint the individuals so
+        # the committed case TTL types them to the canonical class (not the compound).
+        rename_map: Dict[str, str] = {}
         summary: Dict[str, Any] = {
             "case_id": case_id, "dry_run": dry_run,
-            "groups": 0, "entities": 0, "changed": 0,
+            "groups": 0, "entities": 0, "changed": 0, "individuals_repointed": 0,
             "by_action": {}, "changes": [], "rejected_cross_category": [],
         }
 
@@ -594,28 +601,64 @@ Return ONLY valid JSON:
                     })
                     continue
 
+                new_uri = cfg.class_iri(new_label)
                 summary["changes"].append({
                     "id": e.id, "type": extraction_type,
                     "old": e.entity_label, "new": new_label, "action": action,
+                    "old_uri": e.entity_uri, "new_uri": new_uri,
                     "externalized": d.get("externalized_context"),
                     "reason": d.get("reason", ""),
                 })
                 summary["changed"] += 1
+                if e.entity_uri and e.entity_uri != new_uri:
+                    rename_map[e.entity_uri] = new_uri
 
                 if not dry_run:
                     meta = dict(e.provenance_metadata or {})
                     meta["canonicalization"] = {
                         "original_label": e.entity_label,
+                        "original_uri": e.entity_uri,
                         "action": action,
                         "externalized_context": d.get("externalized_context"),
                         "reason": d.get("reason", ""),
                     }
                     e.provenance_metadata = meta
                     e.entity_label = new_label
+                    e.entity_uri = new_uri
 
-        if not dry_run and summary["changed"]:
+        # Propagate the class renames to every individual that types to a renamed class.
+        summary["individuals_repointed"] = self._repoint_individual_types(
+            case_id, rename_map, write=not dry_run)
+
+        if not dry_run and (summary["changed"] or summary["individuals_repointed"]):
             db.session.commit()
         return summary
+
+    def _repoint_individual_types(
+        self, case_id: int, rename_map: Dict[str, str], write: bool
+    ) -> int:
+        """Rewrite individual rdf:type references (rdf_json_ld['types']) through a
+        class-rename map {old_class_uri -> new_class_uri}, so the committed case TTL types
+        each individual to the canonical class rather than the original compound. Returns
+        the count of individual rows changed (computed even when write=False, for dry-run)."""
+        if not rename_map:
+            return 0
+        inds = (TemporaryRDFStorage.query
+                .filter_by(case_id=case_id, storage_type='individual').all())
+        changed = 0
+        for e in inds:
+            rdf = e.rdf_json_ld or {}
+            types = rdf.get('types')
+            if not isinstance(types, list) or not types:
+                continue
+            new_types = [rename_map.get(t, t) for t in types]
+            if new_types != types:
+                changed += 1
+                if write:
+                    rdf = dict(rdf)
+                    rdf['types'] = new_types
+                    e.rdf_json_ld = rdf
+        return changed
 
     def _build_canonicalize_prompt(
         self, extraction_type: str, reuse_block: str,
