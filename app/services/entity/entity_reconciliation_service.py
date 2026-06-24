@@ -539,6 +539,7 @@ Return ONLY valid JSON:
         from app.services.extraction.reference_sheet import reuse_block_for_concept
         from app.services.extraction.core_vocab import CONCEPT_TYPE_TO_CORE_CATEGORY
         from app.services.extraction.category_resolver import resolve_core_category
+        from app.services.extraction.entity_matcher import category_compatible
 
         groups = self._group_for_canonicalization(case_id, include_published, storage_types)
         summary: Dict[str, Any] = {
@@ -576,18 +577,19 @@ Return ONLY valid JSON:
                 if action not in ("reuse", "generalize") or not new_label or new_label == old_label:
                     continue
 
-                # Same-category guardrail via the authoritative curated-chain resolver
-                # (category_resolver.resolve_core_category, the same component the live
-                # matcher uses). Reject only a target that POSITIVELY resolves to a
-                # different core category (e.g. a Constraint folding into an Obligation --
-                # the deterministic sheet's job, not this pass). A novel generalized label
-                # the chain cannot place yet (resolver -> None) is trusted (the prompt
-                # already constrains the model to stay in category); the commit-time matcher
-                # is the deterministic backstop.
-                target_cat = resolve_core_category(new_label)
-                if entity_category and target_cat is not None and target_cat != entity_category:
+                # Same-category guardrail: the live matcher's consolidated guard in
+                # chain-only mode (marker_fallback=False). Rejects only a target that
+                # positively resolves to a different core category (e.g. a Constraint
+                # folding into an Obligation -- the deterministic sheet's job, not this
+                # pass); a novel in-category label the chain cannot place yet is trusted
+                # (the prompt keeps the model in category; the commit-time matcher is the
+                # deterministic backstop). Single predicate, shared with matching.py.
+                if not category_compatible(entity_category, new_label,
+                                           chain_resolver=resolve_core_category,
+                                           marker_fallback=False):
                     summary["rejected_cross_category"].append({
-                        "id": e.id, "type": extraction_type, "resolved": target_cat,
+                        "id": e.id, "type": extraction_type,
+                        "resolved": resolve_core_category(new_label),
                         "old": e.entity_label, "proposed": new_label,
                     })
                     continue

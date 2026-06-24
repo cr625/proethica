@@ -142,6 +142,7 @@ def category_compatible(
     target_uri_or_category: Optional[str],
     *,
     chain_resolver: Optional[Callable[[str], Optional[str]]] = None,
+    marker_fallback: bool = True,
 ) -> bool:
     """Whether a candidate of ``candidate_category`` may match ``target``.
 
@@ -161,6 +162,14 @@ def category_compatible(
     name; both forms are accepted by the marker check (substring) and by the
     resolver (which reduces a URI to its local name).
 
+    ``marker_fallback`` (default True, the matcher's behavior) controls what
+    happens when the chain resolver cannot place the target. With it on, an
+    unresolved target falls through to the Tier-1 marker substring guard. With it
+    OFF (chain-only mode), the resolver is the SOLE authority: an unresolved
+    target is left compatible. Chain-only fits a bare, not-yet-registered label
+    (e.g. an LLM-proposed generalization like ``EnvironmentalEngineer``, which
+    carries no ``Role`` marker substring and would be wrongly rejected by Tier 1).
+
     A candidate with no category imposes no constraint (returns True), as in the
     prior guards (empty markers => no filter).
     """
@@ -175,6 +184,8 @@ def category_compatible(
             # Compare on the marker token so plural/singular candidate input
             # ('roles' -> 'Role') lines up with the resolved core name ('Role').
             return chain_cat in cand_markers or chain_cat == candidate_category.title()
+        if not marker_fallback:
+            return True  # chain-only: an unresolvable target cannot prove a conflict
         # chain unresolved -> fall through to the marker guard (cannot prove a
         # conflict from the chain alone).
 
