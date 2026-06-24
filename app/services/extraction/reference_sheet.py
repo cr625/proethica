@@ -75,6 +75,7 @@ class ReferenceSheet:
     redirects: dict = field(default_factory=dict)   # norm -> (target, via, component)  [should_decompose]
     recipes: dict = field(default_factory=dict)     # norm -> the full do_not_mint decompose dict (role/state/obligation)
     display: dict = field(default_factory=dict)     # norm -> original human label (for prompt rendering)
+    global_rules: list = field(default_factory=list)  # cross-component hygiene rules {id, rule, scope}
     sheet_dir: str = ""
 
     @classmethod
@@ -86,6 +87,7 @@ class ReferenceSheet:
         if not files:
             raise FileNotFoundError(f"No reference-sheet YAML found in {sheet_dir!r}")
         manifest = files.get("manifest", {})
+        rs.global_rules = [r for r in (manifest.get("global_rules") or []) if isinstance(r, dict) and r.get("rule")]
 
         suppressed = set()
         for fold in (manifest.get("constraint_fold") or []):
@@ -215,6 +217,18 @@ class ReferenceSheet:
             return table.get(norm(label))
         return resolve
 
+    def _global_rules_for(self, category: str) -> list:
+        """Global hygiene rules (from manifest global_rules) that apply to this category.
+        scope is 'all' or a list of core Categories. Returns whitespace-normalized rule strings."""
+        out = []
+        for r in self.global_rules:
+            scope = r.get("scope", "all")
+            if scope == "all" or (isinstance(scope, (list, tuple)) and category in scope):
+                txt = " ".join(str(r.get("rule", "")).split())
+                if txt:
+                    out.append(txt)
+        return out
+
     def prompt_block(self, category: str) -> str:
         """Reuse-bias guidance for one core Category (Role/State/...), rendered from the sheet:
         the canonical classes to reuse, synonyms that fold into them, and compound anti-patterns to
@@ -249,10 +263,15 @@ class ReferenceSheet:
         cat_l = category.lower()
         lines = [
             f"=== REUSE THESE CANONICAL {category.upper()} CLASSES (do not mint compound variants) ===",
-            f"When a {cat_l} matches one of these, reuse the exact canonical label. Express case-specific",
-            "context (a particular tool, domain, bearer, conduct, or trigger) as a State, an edge, or a",
-            "literal on the individual; never bake it into a new class name.",
+            f"When a {cat_l} matches one of these, reuse the exact canonical label.",
         ]
+        # Global cross-component hygiene rules (declared once in the sheet manifest's global_rules;
+        # NOT hardcoded here, so a second domain swaps them with its sheet). Soft at the prompt layer;
+        # the deterministic enforcement point is the commit-time normalizer + SHACL.
+        grules = self._global_rules_for(category)
+        if grules:
+            lines.append("Rules for every class you mint:")
+            lines += [f"- {r}" for r in grules]
         if canon:
             lines.append("Canonical classes: " + "; ".join(canon))
         if synonyms:
