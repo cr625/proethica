@@ -484,6 +484,176 @@ STRICT RULES -- most pairs should be "keep_separate":
 Return ONLY valid JSON:
 {{"evaluations": [{{"pair": [id_a, id_b], "verdict": "merge"|"keep_separate", "reason": "brief explanation"}}]}}"""
 
+    # -- Phase 4: LLM label canonicalization (de-compounding) --
+
+    def _group_for_canonicalization(
+        self, case_id: int, include_published: bool,
+        storage_types: Tuple[str, ...],
+    ) -> Dict[Tuple[str, str], List[TemporaryRDFStorage]]:
+        """Group a case's entities by (extraction_type, storage_type) for canonicalization.
+
+        Unlike _group_entities (dedup), this scopes to the given storage_types and can
+        include already-published rows (for dry-run calibration). Skips temporal types.
+        """
+        q = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.storage_type.in_(list(storage_types)),
+        )
+        if not include_published:
+            q = q.filter(TemporaryRDFStorage.is_published == False)  # noqa: E712
+
+        groups: Dict[Tuple[str, str], List[TemporaryRDFStorage]] = {}
+        for e in q.all():
+            if e.extraction_type in SKIP_EXTRACTION_TYPES:
+                continue
+            groups.setdefault((e.extraction_type, e.storage_type), []).append(e)
+        return groups
+
+    def canonicalize_labels(
+        self, case_id: int, dry_run: bool = False,
+        include_published: bool = False,
+        storage_types: Tuple[str, ...] = ('class',),
+    ) -> Dict[str, Any]:
+        """LLM round-trip label canonicalization over a case's extracted entities.
+
+        Strips case-specific context the extractor baked into CLASS identity -- a particular
+        tool/technology, a named actor, a material, a jurisdiction, a code-section number --
+        which the curated reference sheet cannot pre-enumerate. This is the open-ended
+        generalization of the deterministic sheet folds: per component group the fast model
+        sees every extracted label+definition alongside the sheet's canonical classes and the
+        global hygiene rules (reference_sheet.reuse_block_for_concept), and returns for each
+        entity one of REUSE (an existing canonical class), GENERALIZE (a tool/actor-neutral
+        class, with the stripped context externalized), or KEEP. Rewrites entity_label and
+        records the original label + externalized context under
+        provenance_metadata['canonicalization'] so nothing is lost and the commit path can
+        materialize the context as a State / otherAttribute.
+
+        Scoped to ``storage_types`` (default class-level only -- class identity is what must
+        be reusable; individual-level labels legitimately carry the actor/context and are
+        handled by the deferred individual-layer hygiene). ``include_published`` re-processes
+        already-published rows (used for dry-run calibration over committed extractions).
+
+        dry_run=True computes and returns the proposed changes without writing.
+        Fails loud (no swallow) -- this is a dev-time calibration pass.
+        """
+        from app.services.extraction.reference_sheet import reuse_block_for_concept
+        from app.services.extraction.core_vocab import CONCEPT_TYPE_TO_CORE_CATEGORY
+        from app.services.extraction.category_resolver import resolve_core_category
+
+        groups = self._group_for_canonicalization(case_id, include_published, storage_types)
+        summary: Dict[str, Any] = {
+            "case_id": case_id, "dry_run": dry_run,
+            "groups": 0, "entities": 0, "changed": 0,
+            "by_action": {}, "changes": [], "rejected_cross_category": [],
+        }
+
+        for (extraction_type, storage_type), entities in groups.items():
+            if not entities:
+                continue
+            reuse_block = reuse_block_for_concept(extraction_type)
+            if not reuse_block:
+                continue  # component maps to no sheet category -> nothing to canonicalize against
+            entity_category = CONCEPT_TYPE_TO_CORE_CATEGORY.get(extraction_type)
+
+            prompt = self._build_canonicalize_prompt(extraction_type, reuse_block, entities)
+            response = self._call_llm(prompt)  # fail-loud
+            decisions = {
+                d.get("id"): d
+                for d in response.get("entities", [])
+                if isinstance(d, dict) and d.get("id") is not None
+            }
+            summary["groups"] += 1
+
+            for e in entities:
+                summary["entities"] += 1
+                d = decisions.get(e.id)
+                if not d:
+                    continue
+                action = (d.get("action") or "keep").strip().lower()
+                summary["by_action"][action] = summary["by_action"].get(action, 0) + 1
+                new_label = (d.get("canonical_label") or "").strip()
+                old_label = (e.entity_label or "").strip()
+                if action not in ("reuse", "generalize") or not new_label or new_label == old_label:
+                    continue
+
+                # Same-category guardrail via the authoritative curated-chain resolver
+                # (category_resolver.resolve_core_category, the same component the live
+                # matcher uses). Reject only a target that POSITIVELY resolves to a
+                # different core category (e.g. a Constraint folding into an Obligation --
+                # the deterministic sheet's job, not this pass). A novel generalized label
+                # the chain cannot place yet (resolver -> None) is trusted (the prompt
+                # already constrains the model to stay in category); the commit-time matcher
+                # is the deterministic backstop.
+                target_cat = resolve_core_category(new_label)
+                if entity_category and target_cat is not None and target_cat != entity_category:
+                    summary["rejected_cross_category"].append({
+                        "id": e.id, "type": extraction_type, "resolved": target_cat,
+                        "old": e.entity_label, "proposed": new_label,
+                    })
+                    continue
+
+                summary["changes"].append({
+                    "id": e.id, "type": extraction_type,
+                    "old": e.entity_label, "new": new_label, "action": action,
+                    "externalized": d.get("externalized_context"),
+                    "reason": d.get("reason", ""),
+                })
+                summary["changed"] += 1
+
+                if not dry_run:
+                    meta = dict(e.provenance_metadata or {})
+                    meta["canonicalization"] = {
+                        "original_label": e.entity_label,
+                        "action": action,
+                        "externalized_context": d.get("externalized_context"),
+                        "reason": d.get("reason", ""),
+                    }
+                    e.provenance_metadata = meta
+                    e.entity_label = new_label
+
+        if not dry_run and summary["changed"]:
+            db.session.commit()
+        return summary
+
+    def _build_canonicalize_prompt(
+        self, extraction_type: str, reuse_block: str,
+        entities: List[TemporaryRDFStorage]
+    ) -> str:
+        """Per-component prompt: reuse / generalize / keep each label, externalizing context."""
+        type_label = extraction_type.replace('_', ' ').title()
+
+        lines = []
+        for e in entities:
+            rdf = e.rdf_json_ld or {}
+            defn = (e.entity_definition or rdf.get('definition', '') or '')[:200]
+            line = f'[ID: {e.id}] "{e.entity_label or ""}"'
+            if defn:
+                line += f' -- {defn}'
+            lines.append(line)
+        entities_text = '\n'.join(lines)
+
+        return f"""You are canonicalizing the CLASS identity of {type_label} entities extracted from a SINGLE professional-ethics case. The extractor frequently bakes case-specific context (a particular tool or technology, a named actor, a specific material, a jurisdiction, a code-section number) into the class name. Case-specific context belongs on the INDIVIDUAL -- as a state, an edge, or a literal attribute -- NEVER in the reusable CLASS identity.
+
+{reuse_block}
+
+For EACH entity below choose ONE action:
+- "reuse": its concept matches one of the canonical classes above -> return that canonical class label verbatim.
+- "generalize": its label bakes case-specific context into the class identity -> return a tool/actor/instance-NEUTRAL class label and list the stripped context in externalized_context.
+- "keep": the label is already a clean, general, reusable class -> return it unchanged.
+
+STAY IN CATEGORY: a {type_label} must remain a {type_label}. Only reuse or generalize to a {type_label} class; never fold it into a different component (e.g. do not turn a Constraint into an Obligation) -- that cross-component reconciliation is handled separately.
+
+Generalize aggressively but do NOT invent a class more specific than the concept warrants, and do NOT collapse genuinely distinct concepts together. Examples:
+- "AI Technology Substitution Constraint" -> action=generalize, canonical_label="ToolSubstitutionProhibitionConstraint", externalized_context={{"tool": "AI"}}
+- "Engineer A Competence Self-Assessment Capability" -> action=generalize, canonical_label="CompetenceSelfAssessmentCapability", externalized_context={{"actor": "Engineer A"}}
+- "Confidentiality Obligation" -> action=keep
+
+Entities:
+{entities_text}
+
+Return ONLY valid JSON (one object per entity, echo the exact ID):
+{{"entities": [{{"id": <int>, "action": "reuse"|"generalize"|"keep", "canonical_label": "<class label>", "externalized_context": {{"<kind>": "<value>"}}, "reason": "<brief>"}}]}}"""
+
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """Call Haiku for dedup evaluation."""
         from model_config import ModelConfig
