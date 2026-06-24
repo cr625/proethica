@@ -653,9 +653,15 @@ def run_reconcile_task(self, run_id: int):
     try:
         from app.services.entity.entity_reconciliation_service import EntityReconciliationService
         service = EntityReconciliationService()
+        # Canonicalize class-level labels first -- de-compound case-specific context
+        # (a tool/actor/material/jurisdiction) out of class identity -- so dedup and the
+        # commit-time matcher both see clean canonical labels.
+        canon = service.canonicalize_labels(run.case_id)
         result = service.reconcile_auto(run.case_id)
 
         results = {
+            'canonicalized': canon.get('changed', 0),
+            'canon_rejected_cross_category': len(canon.get('rejected_cross_category', [])),
             'auto_merged': result.auto_merged,
             'skipped': result.skipped,
             'errors': result.errors
