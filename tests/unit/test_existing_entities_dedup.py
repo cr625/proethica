@@ -97,7 +97,26 @@ def test_format_existing_entities_has_no_duplicate_lines():
          "ontology_name": "proethica-intermediate-extended"},
     ]
     block = format_existing_entities(rows, "roles")
-    class_lines = [l for l in block.splitlines() if l.startswith("- ")]
-    assert len(class_lines) == len(set(class_lines)) == 2
     assert "=== CANONICAL ONTOLOGY CLASSES" in block
     assert "=== PREVIOUSLY EXTRACTED CLASSES" in block
+    # Scope to the inventory: format_existing_entities now prepends the reference-sheet
+    # reuse block (its own "- " lines), so count class lines from the inventory header on.
+    inventory = block.split("=== CANONICAL ONTOLOGY CLASSES", 1)[1]
+    class_lines = [l for l in inventory.splitlines() if l.startswith("- ")]
+    assert len(class_lines) == len(set(class_lines)) == 2
+
+
+def test_reuse_block_prepended_with_canonical_guidance():
+    """format_existing_entities leads with the reference-sheet reuse-bias block: the canonical
+    classes to reuse, the synonym folds, and the compound anti-patterns that reduce LLM minting
+    of context-laden classes (step 2 of the canonicalization calibration)."""
+    rows = [{"uri": CANON_URI, "label": "Stakeholder Role",
+             "ontology_name": "proethica-intermediate"}]
+    block = format_existing_entities(rows, "roles")
+    # Reuse guidance comes first, the live inventory after it.
+    assert block.index("REUSE THESE CANONICAL ROLE") < block.index("=== CANONICAL ONTOLOGY CLASSES")
+    # A known role anti-pattern is present (compound role -> canonical role).
+    assert "AI Tool Reliant Engineer -> EngineerRole" in block
+    # Constraint folds reach the constraint prompt (manifest cross-component redirect).
+    cblock = format_existing_entities([], "constraints")
+    assert "AI Tool Disclosure Constraint -> AIToolDisclosureObligation" in cblock

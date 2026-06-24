@@ -241,6 +241,7 @@ class EntityMatcher:
         *,
         embedding_search: Optional[EmbeddingSearch] = None,
         chain_resolver: Optional[Callable[[str], Optional[str]]] = None,
+        alias_resolver: Optional[Callable[[str], Optional[tuple]]] = None,
     ):
         """
         Args:
@@ -251,9 +252,17 @@ class EntityMatcher:
                 the category guard uses the authoritative chain category and
                 falls back to the URI-marker guard only when the chain is
                 unknown.
+            alias_resolver: optional curated synonym->canonical resolver, a
+                callable(label) -> (canonical_uri, canonical_label) | None, built
+                from the reference sheet (``ReferenceSheet.build_alias_resolver``).
+                When given, a curated alias deterministically reuses the canonical
+                class (it fires after exact equality and before the fuzzy tiers),
+                so a known synonym or a do-not-mint compound never reaches the
+                embedding tier or mints a new class. Omit to disable (default).
         """
         self._embedding_search = embedding_search
         self._chain_resolver = chain_resolver
+        self._alias_resolver = alias_resolver
 
     # -- guard helper --
 
@@ -276,6 +285,8 @@ class EntityMatcher:
 
         Cascade (category-guarded at every tier):
           1. exact     -> normalized label equality, score 1.0
+          1.5 alias    -> curated synonym/do-not-mint -> canonical class (reference
+             sheet), score 1.0; only when an ``alias_resolver`` is injected.
           2. substring -> normalized containment (either direction), score 0.87
           3. embedding -> delegated to the injected ``embedding_search``; the
              returned cosine is the score, gated at the MEDIUM floor.
@@ -293,6 +304,22 @@ class EntityMatcher:
                     uri=rec.uri, label=rec.label, score=EXACT_SCORE,
                     method='exact', band=band_for(EXACT_SCORE),
                 )
+
+        # Tier 1.5: curated alias (reference sheet) -> deterministic canonical reuse.
+        # A synonym or a same-category do-not-mint compound resolves to the canonical class before any
+        # fuzzy tier, so it is reused rather than minted. The guard here uses the sheet's AUTHORITATIVE
+        # component (not the IRI-marker / chain guard): the sheet curated the canonical's category, and the
+        # target class may not be in the ontology yet, so trusting the sheet is both correct and necessary.
+        if self._alias_resolver is not None and norm_cand:
+            hit = self._alias_resolver(candidate_label)
+            if hit:
+                alias_uri, alias_label, alias_component = hit
+                if (candidate_category is None or alias_component is None
+                        or normalize_label(candidate_category) == normalize_label(alias_component)):
+                    return MatchResult(
+                        uri=alias_uri, label=alias_label, score=EXACT_SCORE,
+                        method='alias', band=band_for(EXACT_SCORE),
+                    )
 
         # Tier 2: substring containment (either direction), category-gated.
         if norm_cand:

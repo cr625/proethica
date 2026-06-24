@@ -10,6 +10,8 @@ import logging
 from typing import Dict, Any, Optional, List
 from bs4 import BeautifulSoup
 
+from app.services.extraction.reference_sheet import reuse_block_for_concept
+
 logger = logging.getLogger(__name__)
 
 
@@ -399,10 +401,15 @@ def format_existing_entities(entities: List[Dict[str, Any]],
                              concept_type: str,
                              label_only_tier2: bool = False) -> str:
     """
-    Format existing ontology entities for inclusion in a prompt.
+    Format existing ontology entities (plus the canonical reuse-bias guidance) for a prompt.
 
     Shared by UnifiedDualExtractor and PromptVariableResolver to ensure
     the extraction pipeline and prompt editor produce identical prompts.
+
+    The output is the per-domain reference-sheet reuse block (canonical classes to reuse, synonyms
+    that fold into them, and compound anti-patterns to avoid) followed by the live class inventory.
+    The reuse block rides the existing ``existing_<type>_text`` variable, so a second domain needs
+    only its own reference-sheet directory -- no per-template edits. See reference_sheet.prompt_block.
 
     Entities are separated into tiers by source ontology:
       Tier 1 - Canonical (proethica-core, proethica-intermediate): hand-curated
@@ -419,6 +426,16 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     Returns:
         Formatted string for prompt inclusion
     """
+    guidance = reuse_block_for_concept(concept_type)
+    inventory = _format_entity_inventory(entities, concept_type, label_only_tier2)
+    return "\n\n".join(p for p in (guidance, inventory) if p)
+
+
+def _format_entity_inventory(entities: List[Dict[str, Any]],
+                             concept_type: str,
+                             label_only_tier2: bool = False) -> str:
+    """The live existing-class inventory (tiered by source ontology), without the reuse guidance.
+    Split out from format_existing_entities so the reuse block can be composed in front of it."""
     if not entities:
         return f"No existing {concept_type} classes found in ontology."
 

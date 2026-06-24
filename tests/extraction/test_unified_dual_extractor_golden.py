@@ -69,7 +69,15 @@ class _RecordingTemplate:
 # 1. prompt_building: _build_prompt + _format_existing_entities
 # ---------------------------------------------------------------------------
 
-def test_build_prompt_golden():
+def test_build_prompt_golden(monkeypatch):
+    # The reference-sheet reuse block is injected into existing_*_text by
+    # format_existing_entities; stub it to '' here so this golden locks the
+    # build_prompt plumbing (variable assembly + JSON suffix) rather than the
+    # evolving sheet content, which has its own focused test.
+    monkeypatch.setattr(
+        "app.services.prompt_variable_resolver.reuse_block_for_concept",
+        lambda *a, **k: "",
+    )
     tmpl = _RecordingTemplate()
     ext = _bare(
         "roles",

@@ -454,7 +454,11 @@ class AutoCommitService:
           MEDIUM 0.70 <= c < 0.85     -> caller applies review-flag logic
           below  0.70                  -> None (novel class)
         """
-        matcher = EntityMatcher(embedding_search=self._embedding_search)
+        from app.services.extraction.reference_sheet import get_sheet
+        matcher = EntityMatcher(
+            embedding_search=self._embedding_search,
+            alias_resolver=get_sheet().build_alias_resolver(),  # canonical reference-sheet reuse
+        )
         result = matcher.match(
             label, entity_type, corpus=[], candidate_definition=definition,
         )
@@ -1008,6 +1012,10 @@ class AutoCommitService:
                     materialize_edges_on_ttl(case_id, case_file)
                 except Exception as e:
                     logger.exception(f"Edge materialization failed for case {case_id}: {e}")
+                # Canonicalization: role+facet decomposition over the committed TTL. Not swallowed
+                # (dev: fail loud) so calibration surfaces any issue; idempotent (no-op once canonical).
+                from app.services.extraction.canonicalization import canonicalize_ttl
+                logger.info(f"Canonicalization for case {case_id}: {canonicalize_ttl(case_id, case_file)}")
                 sync_result = commit_service._sync_ontology_to_db(f"proethica-case-{case_id}")
                 if sync_result.get('success'):
                     logger.info(f"OntServe TTL sync successful for case {case_id}")

@@ -879,6 +879,9 @@ class OntServeCommitService:
                 self._record_edge_provenance(case_id, edge_result)
             except Exception as e:
                 logger.exception(f"Edge materialization failed for case {case_id}: {e}")
+            # Canonicalization: role+facet decomposition. Not swallowed (dev: fail loud); idempotent.
+            from app.services.extraction.canonicalization import canonicalize_ttl
+            logger.info(f"Canonicalization for case {case_id}: {canonicalize_ttl(case_id, case_file)}")
 
             # The disk TTL -> OntServe DB sync is driven by the orchestrator
             # (commit_selected_entities), which runs after this returns so the
@@ -1497,6 +1500,9 @@ class OntServeCommitService:
                         self._record_edge_provenance(case_id, edge_result)
                     except Exception as e:
                         logger.exception(f"Edge materialization failed for case {case_id}: {e}")
+                    # Canonicalization: role+facet decomposition. Not swallowed (dev: fail loud); idempotent.
+                    from app.services.extraction.canonicalization import canonicalize_ttl
+                    logger.info(f"Canonicalization for case {case_id}: {canonicalize_ttl(case_id, ttl_result['file'])}")
 
             if classes_to_commit:
                 # For classes, we still append to intermediate-extended.ttl

@@ -467,7 +467,10 @@ class TestPromptVariableResolverFormatExistingEntities:
 
         result = resolver.format_existing_entities(entities, 'roles')
 
-        entity_lines = [l for l in result.strip().split('\n') if l.startswith('- ')]
+        # Scope to the inventory: the reference-sheet reuse block prepended by
+        # format_existing_entities carries its own "- " lines.
+        inventory = result.split("=== CANONICAL ONTOLOGY CLASSES", 1)[-1]
+        entity_lines = [l for l in inventory.strip().split('\n') if l.startswith('- ')]
         assert len(entity_lines) == 30
 
 
