@@ -319,6 +319,50 @@ PIPELINE_STEPS = [
     }
 ]
 
+# Prompt-building pipeline in the prompt-editor left nav: the LLM PROMPTS a component's extraction
+# uses. This represents the prompt-building pipeline (the sequence of LLM prompts), NOT the full
+# extraction recipe -- non-LLM steps (canonicalize, commit, conform-repair) do not belong on a prompt
+# editor. A component's own DB template (the concept link itself) is its MAIN extraction prompt.
+#
+# SHARED_PROMPTS are the cross-cutting LLM prompts that are NOT a single component's main extraction:
+# the entity-cleanup passes (filter/split/merge) that run for every component, the upstream
+# preprocessing, and the DOWNSTREAM edge/synthesis passes that run after components are extracted.
+# They are grouped ONCE in a "Shared" left-nav section (organized by `phase`) -- editing one affects
+# every component. COMPONENT_PROMPTS holds any component-SPECIFIC additional prompts, shown as
+# sub-items under that component (none yet: Role's extras are all shared). `editable` = already a DB
+# template; otherwise the prompt is still hardcoded in `source` and is a candidate to migrate.
+SHARED_PROMPTS = [
+    {'key': 'discussion_segmenter', 'label': 'Discussion segmenter', 'phase': 'Preprocessing',
+     'editable': False, 'source': 'discussion_segmenter.py',
+     'note': 'Split the discussion into present-case analysis vs cited-precedent recaps'},
+    {'key': 'individual_filter', 'label': 'Individual / type filter', 'phase': 'Entity passes',
+     'editable': False, 'source': 'individual_type_filter.py',
+     'note': 'Classify each extracted item as an individual vs a type'},
+    {'key': 'splitter', 'label': 'Concept splitter', 'phase': 'Entity passes',
+     'editable': False, 'source': 'concept_splitter.py',
+     'note': 'Decompose compound labels into atomic concepts'},
+    {'key': 'merge', 'label': 'Reconciliation / merge', 'phase': 'Entity passes',
+     'editable': False, 'source': 'entity_reconciliation_service.py',
+     'note': 'Haiku semantic merge of duplicate entities'},
+    {'key': 'rpo_edges', 'label': 'R->P->O edges', 'phase': 'Downstream edges & synthesis',
+     'editable': False, 'source': 'rpo_edges.py',
+     'note': 'Role -> Principle -> Obligation dependency edges'},
+    {'key': 'defeasibility_edges', 'label': 'Defeasibility edges', 'phase': 'Downstream edges & synthesis',
+     'editable': False, 'source': 'defeasibility_edges.py',
+     'note': 'Obligation competition: competesWith / prevailsOver / defeasibleUnder'},
+    {'key': 'temporal_sequence', 'label': 'Temporal sequence', 'phase': 'Downstream edges & synthesis',
+     'editable': False, 'source': 'temporal_sequence.py',
+     'note': 'Action / Event temporal ordering edges (Step 3)'},
+    {'key': 'obligation_engagement', 'label': 'Obligation engagement', 'phase': 'Downstream edges & synthesis',
+     'editable': False, 'source': 'obligation_engagement.py',
+     'note': 'Re-classify how obligations are engaged'},
+    {'key': 'board_conclusions', 'label': 'Board conclusions', 'phase': 'Downstream edges & synthesis',
+     'editable': False, 'source': 'board_conclusions.py',
+     'note': 'Board-conclusion gap-fill (Step 4 synthesis)'},
+]
+
+COMPONENT_PROMPTS = {}  # component-specific additional prompts (none yet; main prompt = the concept link)
+
 # Guidelines extraction pipeline (separate from case extraction)
 GUIDELINE_PIPELINE_STEPS = [
     {

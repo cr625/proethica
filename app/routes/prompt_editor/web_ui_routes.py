@@ -7,7 +7,7 @@ from app.models import db
 from app.models.extraction_prompt_template import (
     ExtractionPromptTemplate, ExtractionPromptTemplateVersion,
     PIPELINE_STEPS, CONCEPT_COLORS, CONCEPT_SOURCE_FILES, STEP4_PHASES,
-    GUIDELINE_PIPELINE_STEPS, GUIDELINE_CONCEPTS
+    GUIDELINE_PIPELINE_STEPS, GUIDELINE_CONCEPTS, SHARED_PROMPTS, COMPONENT_PROMPTS
 )
 from app.models.extraction_prompt import ExtractionPrompt
 from app.models.document import Document
@@ -105,14 +105,10 @@ def register_web_ui(bp):
         from app.services.extraction.unified_dual_extractor import build_json_wrapper_suffix
         json_wrapper_suffix = build_json_wrapper_suffix(concept) if template else ''
 
-        # Recipe scaffold (Phase 1): the component's extraction as an ordered list of typed steps.
-        # Read-only for now; this prompt is the llm-prompt step in the sequence.
-        from app.services.extraction.recipe import recipe_for_concept
-        recipe = recipe_for_concept(concept)
-
         return render_template('tools/prompt_editor_detail.html',
-                              recipe=recipe,
                               template=template,
+                              shared_prompts=SHARED_PROMPTS,
+                              component_prompts=COMPONENT_PROMPTS,
                               step=step,
                               concept=concept,
                               step_info=step_info,

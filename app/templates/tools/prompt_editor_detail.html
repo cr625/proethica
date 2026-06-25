@@ -464,31 +464,6 @@ div.reference-panel {
         </div>
     </div>
 
-    {% if recipe %}
-    <!-- Recipe step-strip (Phase-1 scaffold): the component's extraction as an ordered sequence of typed
-         steps; this prompt is the llm-prompt step. Read-only for now; the interpreter + per-step provenance
-         come next. -->
-    <div class="recipe-strip mb-2 p-2 bg-light rounded border">
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="badge" style="background-color: {{ concept_color }};">{{ recipe.symbol }}</span>
-            <strong class="small">{{ recipe.component }} extraction recipe</strong>
-            <span class="text-muted small">{{ recipe.steps | length }} steps &middot; this prompt is the <code>llm-prompt</code> step</span>
-        </div>
-        <div class="d-flex align-items-stretch flex-wrap gap-1">
-            {% for s in recipe.steps %}
-            <div class="recipe-step border rounded p-2 small bg-white{% if s.is_prompt %} border-primary{% endif %}"
-                 style="width: 10rem; flex: 0 0 10rem;{% if s.is_prompt %} box-shadow: 0 0 0 2px rgba(13,110,253,.25);{% endif %}"
-                 title="{{ s.type_label }}{% if s.subtype %} ({{ s.subtype }}){% endif %} -- {{ s.note }}  [source: {{ s.source }}]">
-                <div class="text-muted" style="font-size:.62rem; text-transform:uppercase; letter-spacing:.03em;">{{ loop.index }}. {{ s.type_label }}</div>
-                <div class="fw-semibold text-truncate">{{ s.label }}{% if s.is_prompt %} <i class="bi bi-pencil-fill text-primary" style="font-size:.6rem;"></i>{% endif %}</div>
-                {% if s.subtype %}<div class="text-muted text-truncate" style="font-size:.6rem;">{{ s.subtype }}</div>{% endif %}
-            </div>
-            {% if not loop.last %}<div class="d-flex align-items-center text-muted px-1">&rarr;</div>{% endif %}
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Global Case Selector -->
     <div class="d-flex align-items-center gap-3 mb-2 p-2 bg-light rounded border">
         <label class="form-label mb-0 text-muted small fw-bold">Test Case:</label>
@@ -542,6 +517,28 @@ div.reference-panel {
                     Provisions
                 </a>
             </div>
+
+            <!-- Shared prompts: cross-cutting LLM prompts (not a single component's main extraction),
+                 grouped once and organized by phase. Read-only for now (most are still hardcoded);
+                 each is a candidate to migrate into an editable template. -->
+            {% if shared_prompts %}
+            <div class="sidebar-step">
+                <div class="sidebar-step-header" style="background: #64748b20; color: #64748b;">
+                    Shared prompts
+                </div>
+                {% for phase in ['Preprocessing', 'Entity passes', 'Downstream edges & synthesis'] %}
+                <div class="text-muted px-2 pt-1" style="font-size:.58rem; text-transform:uppercase; letter-spacing:.04em;">{{ phase }}</div>
+                {% for p in shared_prompts if p.phase == phase %}
+                <span class="sidebar-concept d-flex align-items-center" style="cursor: default; opacity: .85;"
+                      title="{{ p.note }}  [source: {{ p.source }}]{% if not p.editable %} -- hardcoded; not yet an editable template{% endif %}">
+                    <span class="sidebar-concept-dot" style="background: #64748b;"></span>
+                    {{ p.label }}
+                    {% if not p.editable %}<i class="bi bi-lock text-muted ms-auto" style="font-size:.6rem;"></i>{% endif %}
+                </span>
+                {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
 
         <!-- Center: Editor with Tabs -->
