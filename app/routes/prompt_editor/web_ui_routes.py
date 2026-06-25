@@ -105,8 +105,13 @@ def register_web_ui(bp):
         from app.services.extraction.unified_dual_extractor import build_json_wrapper_suffix
         json_wrapper_suffix = build_json_wrapper_suffix(concept) if template else ''
 
+        # Shared prompts have no case context; the page lets Preview/Test run on a sample instead.
+        from app.services.extraction.shared_prompt_samples import is_shared_prompt
+        is_shared = is_shared_prompt(concept)
+
         return render_template('tools/prompt_editor_detail.html',
                               template=template,
+                              is_shared_prompt=is_shared,
                               shared_prompts=SHARED_PROMPTS,
                               component_prompts=COMPONENT_PROMPTS,
                               step=step,

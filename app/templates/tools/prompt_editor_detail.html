@@ -805,6 +805,7 @@ div.reference-panel {
 
 <script>
 const templateId = {{ template.id if template else 'null' }};
+const IS_SHARED_PROMPT = {{ 'true' if is_shared_prompt else 'false' }};
 let originalText = document.getElementById('templateText')?.value || '';
 let hasUnsavedChanges = false;
 
@@ -973,7 +974,7 @@ async function renderPreview() {
     const status = document.getElementById('previewStatus');
     const caseStatus = document.getElementById('caseStatus');
 
-    if (!caseId) {
+    if (!caseId && !IS_SHARED_PROMPT) {
         body.innerHTML = '<div class="preview-placeholder"><p>Please select a case above first</p></div>';
         return;
     }
@@ -1009,7 +1010,7 @@ async function runTest() {
     const results = document.getElementById('testResults');
     const status = document.getElementById('testStatus');
 
-    if (!caseId) {
+    if (!caseId && !IS_SHARED_PROMPT) {
         alert('Please select a case above first');
         return;
     }

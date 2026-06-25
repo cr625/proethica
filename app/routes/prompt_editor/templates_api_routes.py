@@ -241,6 +241,26 @@ def register_templates_api(bp):
         template = ExtractionPromptTemplate.query.get_or_404(template_id)
 
         data = request.get_json()
+
+        # Shared (cross-cutting) prompts have no case context: render with a representative sample.
+        from app.services.extraction.shared_prompt_samples import shared_prompt_sample
+        sample = shared_prompt_sample(template.concept_type)
+        if sample is not None:
+            try:
+                rendered = template.render(**sample)
+                return jsonify({
+                    'success': True,
+                    'rendered_prompt': rendered,
+                    'variables_used': {k: (str(v)[:200] + '...' if len(str(v)) > 200 else str(v))
+                                       for k, v in sample.items()},
+                    'case_title': 'Sample (shared prompt)',
+                    'section_type': 'sample',
+                    'character_count': len(rendered),
+                })
+            except Exception as e:
+                logger.error(f"Error rendering shared prompt {template_id}: {e}")
+                return jsonify({'success': False, 'error': str(e)}), 500
+
         case_id = data.get('case_id')
         section_type = data.get('section_type', 'facts')
 
@@ -308,30 +328,35 @@ def register_templates_api(bp):
         template = ExtractionPromptTemplate.query.get_or_404(template_id)
 
         data = request.get_json()
+
+        # Shared (cross-cutting) prompts have no case context: run with a representative sample.
+        from app.services.extraction.shared_prompt_samples import shared_prompt_sample
+        sample = shared_prompt_sample(template.concept_type)
+
         case_id = data.get('case_id')
         section_type = data.get('section_type', 'facts')
 
-        if not case_id:
+        if sample is None and not case_id:
             return jsonify({
                 'success': False,
                 'error': 'case_id is required'
             }), 400
 
         try:
-            from app.services.prompt_variable_resolver import get_prompt_variable_resolver
-
             start_time = time.time()
 
-            # Resolve variables from case context
-            resolver = get_prompt_variable_resolver()
-            variables = resolver.resolve_variables(
-                case_id=case_id,
-                section_type=section_type,
-                concept_type=template.concept_type
-            )
-
-            # Render the template
-            rendered_prompt = template.render(**variables)
+            if sample is not None:
+                # Render with the shared prompt's sample variables
+                rendered_prompt = template.render(**sample)
+            else:
+                from app.services.prompt_variable_resolver import get_prompt_variable_resolver
+                resolver = get_prompt_variable_resolver()
+                variables = resolver.resolve_variables(
+                    case_id=case_id,
+                    section_type=section_type,
+                    concept_type=template.concept_type
+                )
+                rendered_prompt = template.render(**variables)
 
             # Call the LLM
             from app.utils.llm_utils import get_llm_client
