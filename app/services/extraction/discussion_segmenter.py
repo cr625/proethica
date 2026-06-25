@@ -133,6 +133,20 @@ def _deterministic_labels(paras: List[Paragraph]) -> Optional[List[str]]:
     return ["recap" if first_link <= p.index < cue_idx else "present" for p in paras]
 
 
+def _load_segmenter_template():
+    """Load the editable 'discussion_segmenter' prompt template (prompt editor -> Shared prompts ->
+    Discussion segmenter). A separate function so a test can inject a stub without a DB / app context.
+    Raises (no fallback) if unseeded; _llm_labels catches and returns None (the segmenter then keeps the
+    full discussion, its documented under-segment fail-safe)."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'discussion_segmenter')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'discussion_segmenter' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_discussion_segmenter_template.py")
+    return tmpl
+
+
 def _llm_labels(paras: List[Paragraph]) -> Optional[List[str]]:
     """Classify each paragraph present vs recap via one LLM call. None on any failure."""
     try:
@@ -145,16 +159,9 @@ def _llm_labels(paras: List[Paragraph]) -> Optional[List[str]]:
             f"[P{p.index}]{' (cites precedent)' if p.has_link else ''}: {p.text}"
             for p in paras
         )
-        prompt = (
-            "You are segmenting an NSPE Board of Ethical Review case discussion. Each paragraph "
-            "is labeled [P#]; some are marked '(cites precedent)'. Classify EACH paragraph as:\n"
-            "  RECAP    = it narrates the facts/actors/scenario of a CITED prior case (a precedent)\n"
-            "  PRESENT  = it analyzes the case under review (this may legitimately cite a "
-            "precedent to APPLY its holding -- that is still PRESENT)\n\n"
-            "A precedent's actors (its own 'Engineer A', 'Engineer B') belong to RECAP paragraphs. "
-            "Return ONLY a JSON object mapping each paragraph number to \"recap\" or \"present\", "
-            "e.g. {\"0\": \"recap\", \"1\": \"present\"}.\n\n" + numbered
-        )
+        # The segmentation prompt is an editable DB template (prompt editor -> Shared prompts ->
+        # Discussion segmenter). Render it with the numbered paragraph list.
+        prompt = _load_segmenter_template().render(numbered=numbered)
         text = client.messages.create(
             model=ModelConfig.get_claude_model("powerful"),
             max_tokens=1024,

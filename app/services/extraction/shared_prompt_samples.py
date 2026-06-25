@@ -48,10 +48,23 @@ def _concept_splitter_sample() -> Dict[str, object]:
     }
 
 
+def _discussion_segmenter_sample() -> Dict[str, str]:
+    """Two discussion paragraphs: a precedent recap (cites BER Case 19-3) and a present-case analysis."""
+    return {
+        'numbered': (
+            "[P0] (cites precedent): In BER Case 19-3, Engineer A chaired a boiler code committee while "
+            "Engineer B served as a paid consultant to a manufacturer whose product the committee reviewed.\n"
+            "[P1]: Turning to the present case, Engineer L must decide whether to disclose to the client a "
+            "conflict arising from a prior consulting relationship."
+        ),
+    }
+
+
 # Registry keyed by the shared prompt's concept_type (matches the seeded template row).
 _PROVIDERS: Dict[str, Callable[[], Dict]] = {
     'individual_filter': _individual_filter_sample,
     'concept_splitter': _concept_splitter_sample,
+    'discussion_segmenter': _discussion_segmenter_sample,
 }
 
 

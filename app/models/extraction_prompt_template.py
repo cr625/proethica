@@ -343,7 +343,7 @@ PIPELINE_STEPS = [
 # template; otherwise the prompt is still hardcoded in `source` and is a candidate to migrate.
 SHARED_PROMPTS = [
     {'key': 'discussion_segmenter', 'label': 'Discussion segmenter', 'phase': 'Preprocessing',
-     'editable': False, 'source': 'discussion_segmenter.py',
+     'editable': True, 'step': 0, 'concept': 'discussion_segmenter', 'source': 'discussion_segmenter.py',
      'note': 'Split the discussion into present-case analysis vs cited-precedent recaps'},
     {'key': 'individual_filter', 'label': 'Individual / type filter', 'phase': 'Entity passes',
      'editable': True, 'step': 0, 'concept': 'individual_filter', 'source': 'individual_type_filter.py',
