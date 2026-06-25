@@ -133,6 +133,8 @@ def register_templates_api(bp):
                 template.description = data['description']
             if 'variables_schema' in data:
                 template.variables_schema = data['variables_schema']
+            if 'system_prompt' in data:
+                template.system_prompt = data['system_prompt']
 
             db.session.commit()
 
@@ -248,6 +250,9 @@ def register_templates_api(bp):
         if sample is not None:
             try:
                 rendered = template.render(**sample)
+                sys_rendered = template.render_system(**sample)
+                if sys_rendered:
+                    rendered = f"[SYSTEM]\n{sys_rendered}\n\n[USER]\n{rendered}"
                 return jsonify({
                     'success': True,
                     'rendered_prompt': rendered,
@@ -288,6 +293,10 @@ def register_templates_api(bp):
             # so the preview matches what the LLM actually receives.
             from app.services.extraction.unified_dual_extractor import build_json_wrapper_suffix
             rendered += build_json_wrapper_suffix(template.concept_type)
+
+            sys_rendered = template.render_system(**variables)
+            if sys_rendered:
+                rendered = f"[SYSTEM]\n{sys_rendered}\n\n[USER]\n{rendered}"
 
             # Get case info for display
             case = Document.query.get(case_id)
@@ -347,16 +356,17 @@ def register_templates_api(bp):
 
             if sample is not None:
                 # Render with the shared prompt's sample variables
-                rendered_prompt = template.render(**sample)
+                render_vars = sample
             else:
                 from app.services.prompt_variable_resolver import get_prompt_variable_resolver
                 resolver = get_prompt_variable_resolver()
-                variables = resolver.resolve_variables(
+                render_vars = resolver.resolve_variables(
                     case_id=case_id,
                     section_type=section_type,
                     concept_type=template.concept_type
                 )
-                rendered_prompt = template.render(**variables)
+            rendered_prompt = template.render(**render_vars)
+            rendered_system = template.render_system(**render_vars)
 
             # Call the LLM
             from app.utils.llm_utils import get_llm_client
@@ -371,15 +381,15 @@ def register_templates_api(bp):
                 raise RuntimeError("No LLM client available - check API key configuration")
 
             # Call LLM using messages API
-            response = client.messages.create(
+            call_kwargs = dict(
                 model=model_name,
                 max_tokens=4000,
                 temperature=0.3,
-                messages=[{
-                    "role": "user",
-                    "content": rendered_prompt
-                }]
+                messages=[{"role": "user", "content": rendered_prompt}],
             )
+            if rendered_system:
+                call_kwargs['system'] = rendered_system
+            response = client.messages.create(**call_kwargs)
 
             # Extract text from response
             content = getattr(response, 'content', None)

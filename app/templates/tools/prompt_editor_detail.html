@@ -570,8 +570,20 @@ div.reference-panel {
             <div class="main-body">
                 <!-- Template Tab -->
                 <div class="tab-content active" id="tab-template">
-                    <textarea class="template-textarea" id="templateText"
-                              onchange="markUnsaved()" oninput="markUnsaved()">{{ template.template_text }}</textarea>
+                    <div style="display:flex; flex-direction:column; height:100%;">
+                        <label class="small text-muted mb-1" for="systemText">
+                            <i class="bi bi-gear"></i> System prompt
+                            <span style="font-size:.7rem;">(optional; sent as the LLM system message, rendered with the same variables)</span>
+                        </label>
+                        <textarea class="template-textarea" id="systemText" placeholder="(no system prompt)"
+                                  style="height: 6rem; min-height: 4rem; flex: 0 0 auto; margin-bottom: .6rem;"
+                                  onchange="markUnsaved()" oninput="markUnsaved()">{{ template.system_prompt or '' }}</textarea>
+                        <label class="small text-muted mb-1" for="templateText">
+                            <i class="bi bi-chat-text"></i> User prompt (template)
+                        </label>
+                        <textarea class="template-textarea" id="templateText" style="flex: 1 1 auto;"
+                                  onchange="markUnsaved()" oninput="markUnsaved()">{{ template.template_text }}</textarea>
+                    </div>
                 </div>
 
                 <!-- Preview Tab -->
@@ -841,6 +853,7 @@ async function saveTemplate() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 template_text: document.getElementById('templateText').value,
+                system_prompt: document.getElementById('systemText')?.value || '',
                 change_description: 'Updated via web editor'
             })
         });

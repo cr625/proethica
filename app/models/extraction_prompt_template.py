@@ -30,6 +30,7 @@ class ExtractionPromptTemplate(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     template_text = db.Column(db.Text, nullable=False)
+    system_prompt = db.Column(db.Text)  # optional LLM system message (rendered with the same variables)
 
     # Variables schema
     variables_schema = db.Column(db.JSON)
@@ -131,6 +132,15 @@ class ExtractionPromptTemplate(db.Model):
         except Exception as e:
             # Return template with error comment if rendering fails
             return f"<!-- Template render error: {e} -->\n{self.template_text}"
+
+    def render_system(self, **variables) -> str:
+        """Render the optional system prompt with the same variables (empty string if none)."""
+        if not self.system_prompt:
+            return ''
+        try:
+            return Template(self.system_prompt).render(**variables)
+        except Exception as e:
+            return f"<!-- System render error: {e} -->\n{self.system_prompt}"
 
     def save_new_version(self, new_text: str, change_description: str = None,
                          changed_by: str = 'web_editor') -> 'ExtractionPromptTemplate':

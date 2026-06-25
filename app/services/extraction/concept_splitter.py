@@ -200,9 +200,11 @@ class GeneralizedConceptSplitter:
         client = get_llm_client()
         example = self.concept_examples.get(concept_type, self.concept_examples['obligation'])
         
-        # The analysis prompt is an editable DB template (prompt editor -> Shared prompts ->
-        # Concept splitter). Render it with the component type, the few-shot example, and the concept.
-        analysis_prompt = _load_splitter_template().render(
+        # The analysis prompt + its system prompt are an editable DB template (prompt editor ->
+        # Shared prompts -> Concept splitter). Render both with the component type, the few-shot
+        # example, and the concept.
+        _splitter_tmpl = _load_splitter_template()
+        _splitter_vars = dict(
             concept_type=concept_type,
             example_compound=example['compound'],
             example_atomic=example['atomic'],
@@ -210,6 +212,8 @@ class GeneralizedConceptSplitter:
             concept_text=concept_text,
             description=description or '',
         )
+        analysis_prompt = _splitter_tmpl.render(**_splitter_vars)
+        system_prompt = _splitter_tmpl.render_system(**_splitter_vars)
 
         try:
             # Call LLM
@@ -219,7 +223,7 @@ class GeneralizedConceptSplitter:
                     model=model,
                     max_tokens=500,
                     temperature=0.1,  # Low temperature for consistent analysis
-                    system="You are an expert ontology analyst. Follow instructions exactly.",
+                    system=system_prompt,
                     messages=[{"role": "user", "content": analysis_prompt}],
                 )
                 content = response.content[0].text if hasattr(response, 'content') else str(response)
