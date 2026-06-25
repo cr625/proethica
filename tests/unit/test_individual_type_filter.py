@@ -64,9 +64,17 @@ class _Client:
         self.messages = type("M", (), {"stream": lambda _s, **kw: _Stream(text)})()
 
 
-def test_llm_judges_only_the_ambiguous_subset():
+class _StubTemplate:
+    """Stand-in for the editable DB prompt template, so the LLM-tier test needs no DB / app
+    context. The fake client ignores the prompt text, so a minimal render suffices."""
+    def render(self, **kw):
+        return "ITEMS:\n" + kw.get("items", "")
+
+
+def test_llm_judges_only_the_ambiguous_subset(monkeypatch):
     """Deterministic settles the clear self-instance; only the two ambiguous items
     reach the LLM, which keeps the artifact and drops the masquerading type."""
+    monkeypatch.setattr(f, "_load_filter_template", lambda: _StubTemplate())
     inds = [
         {"label": "Peer Review Conduct Standard Instance", "resource_class": "Peer Review Conduct Standard"},  # clear drop
         {"label": "NSPE Code of Ethics", "resource_class": "Professional Code"},                                # ambiguous -> keep

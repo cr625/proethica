@@ -336,7 +336,7 @@ SHARED_PROMPTS = [
      'editable': False, 'source': 'discussion_segmenter.py',
      'note': 'Split the discussion into present-case analysis vs cited-precedent recaps'},
     {'key': 'individual_filter', 'label': 'Individual / type filter', 'phase': 'Entity passes',
-     'editable': False, 'source': 'individual_type_filter.py',
+     'editable': True, 'step': 0, 'concept': 'individual_filter', 'source': 'individual_type_filter.py',
      'note': 'Classify each extracted item as an individual vs a type'},
     {'key': 'splitter', 'label': 'Concept splitter', 'phase': 'Entity passes',
      'editable': False, 'source': 'concept_splitter.py',

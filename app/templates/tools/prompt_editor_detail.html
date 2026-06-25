@@ -529,12 +529,21 @@ div.reference-panel {
                 {% for phase in ['Preprocessing', 'Entity passes', 'Downstream edges & synthesis'] %}
                 <div class="text-muted px-2 pt-1" style="font-size:.58rem; text-transform:uppercase; letter-spacing:.04em;">{{ phase }}</div>
                 {% for p in shared_prompts if p.phase == phase %}
-                <span class="sidebar-concept d-flex align-items-center" style="cursor: default; opacity: .85;"
-                      title="{{ p.note }}  [source: {{ p.source }}]{% if not p.editable %} -- hardcoded; not yet an editable template{% endif %}">
+                {% if p.editable %}
+                <a href="{{ url_for('prompt_editor.edit_template', step=p.step, concept=p.concept, domain=selected_domain) }}"
+                   class="sidebar-concept d-flex align-items-center {% if concept == p.concept %}active{% endif %}"
+                   title="{{ p.note }}  [source: {{ p.source }}]">
                     <span class="sidebar-concept-dot" style="background: #64748b;"></span>
                     {{ p.label }}
-                    {% if not p.editable %}<i class="bi bi-lock text-muted ms-auto" style="font-size:.6rem;"></i>{% endif %}
+                </a>
+                {% else %}
+                <span class="sidebar-concept d-flex align-items-center" style="cursor: default; opacity: .85;"
+                      title="{{ p.note }}  [source: {{ p.source }}] -- hardcoded; not yet an editable template">
+                    <span class="sidebar-concept-dot" style="background: #64748b;"></span>
+                    {{ p.label }}
+                    <i class="bi bi-lock text-muted ms-auto" style="font-size:.6rem;"></i>
                 </span>
+                {% endif %}
                 {% endfor %}
                 {% endfor %}
             </div>

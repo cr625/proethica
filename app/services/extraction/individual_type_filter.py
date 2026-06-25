@@ -163,6 +163,20 @@ def _triage(flags):
 
 # --- Tier 2: batched LLM judge over the ambiguous subset -----------------------
 
+def _load_filter_template():
+    """Load the editable 'individual_filter' prompt template (prompt editor -> Shared prompts ->
+    Individual / type filter). A separate function so a unit test can inject a stub without a DB /
+    app context. Raises (no fallback) if unseeded; _llm_classify catches and degrades to the
+    deterministic tier, which is the filter's documented best-effort path."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'individual_filter')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'individual_filter' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_individual_filter_template.py")
+    return tmpl
+
+
 def _build_prompt(individuals, flags, crit: FilterCriteria) -> str:
     blocks = []
     for i, (it, fl) in enumerate(zip(individuals, flags)):
@@ -177,16 +191,12 @@ def _build_prompt(individuals, flags, crit: FilterCriteria) -> str:
             f"    detail: \"{(it.get('definition') or it.get('used_in_context') or '')[:160]}\"\n"
             f"    signals: {'; '.join(hint) or 'none'}"
         )
-    return (
-        f"You audit extracted {crit.component} INDIVIDUALS in an engineering-ethics "
-        f"case. A {crit.component} individual must be {crit.unit} (for example "
-        f"{crit.keep_examples}). It must NOT be: {crit.drop_kinds}.\n\n"
-        "For each item output a verdict: \"keep\" if it is a genuine individual of this "
-        "kind, else \"drop\". A concrete instance marker usually means keep even when "
-        "the name resembles its class.\n\n"
-        "ITEMS:\n" + "\n\n".join(blocks) +
-        "\n\nOUTPUT strict JSON only: {\"<index>\": \"keep\"|\"drop\", ...}"
-    )
+    # The Tier-2 judge prompt is an editable DB template (prompt editor -> Shared prompts ->
+    # Individual / type filter). Render it with the per-component criteria + the item blocks rather
+    # than hardcoding the prose here.
+    return _load_filter_template().render(
+        component=crit.component, unit=crit.unit, keep_examples=crit.keep_examples,
+        drop_kinds=crit.drop_kinds, items="\n\n".join(blocks))
 
 
 def _llm_classify(individuals, flags, crit, client=None, model=None) -> Optional[Dict[int, bool]]:
