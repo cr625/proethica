@@ -476,8 +476,8 @@ div.reference-panel {
         </div>
         <div class="d-flex align-items-stretch flex-wrap gap-1">
             {% for s in recipe.steps %}
-            <div class="recipe-step border rounded px-2 py-1 small bg-white{% if s.is_prompt %} border-primary{% endif %}"
-                 style="min-width: 7.5rem; max-width: 11rem;{% if s.is_prompt %} box-shadow: 0 0 0 2px rgba(13,110,253,.25);{% endif %}"
+            <div class="recipe-step border rounded p-2 small bg-white{% if s.is_prompt %} border-primary{% endif %}"
+                 style="width: 10rem; flex: 0 0 10rem;{% if s.is_prompt %} box-shadow: 0 0 0 2px rgba(13,110,253,.25);{% endif %}"
                  title="{{ s.type_label }}{% if s.subtype %} ({{ s.subtype }}){% endif %} -- {{ s.note }}  [source: {{ s.source }}]">
                 <div class="text-muted" style="font-size:.62rem; text-transform:uppercase; letter-spacing:.03em;">{{ loop.index }}. {{ s.type_label }}</div>
                 <div class="fw-semibold text-truncate">{{ s.label }}{% if s.is_prompt %} <i class="bi bi-pencil-fill text-primary" style="font-size:.6rem;"></i>{% endif %}</div>
