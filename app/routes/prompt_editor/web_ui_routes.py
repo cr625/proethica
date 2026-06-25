@@ -105,7 +105,13 @@ def register_web_ui(bp):
         from app.services.extraction.unified_dual_extractor import build_json_wrapper_suffix
         json_wrapper_suffix = build_json_wrapper_suffix(concept) if template else ''
 
+        # Recipe scaffold (Phase 1): the component's extraction as an ordered list of typed steps.
+        # Read-only for now; this prompt is the llm-prompt step in the sequence.
+        from app.services.extraction.recipe import recipe_for_concept
+        recipe = recipe_for_concept(concept)
+
         return render_template('tools/prompt_editor_detail.html',
+                              recipe=recipe,
                               template=template,
                               step=step,
                               concept=concept,
