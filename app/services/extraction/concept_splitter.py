@@ -33,6 +33,20 @@ class SplitResult:
     split_method: str  # 'compound_detected' | 'atomic_confirmed' | 'pattern_based'
 
 
+def _load_splitter_template():
+    """Load the editable 'concept_splitter' prompt template (prompt editor -> Shared prompts ->
+    Concept splitter). A separate function so a test can inject a stub without a DB / app context.
+    Raises (no fallback) if unseeded; _llm_analyze_and_split catches and degrades to the pattern-based
+    split, the module's documented best-effort path."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'concept_splitter')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'concept_splitter' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_concept_splitter_template.py")
+    return tmpl
+
+
 class GeneralizedConceptSplitter:
     """
     LLM-powered concept splitter that can handle any concept type with 
@@ -186,41 +200,16 @@ class GeneralizedConceptSplitter:
         client = get_llm_client()
         example = self.concept_examples.get(concept_type, self.concept_examples['obligation'])
         
-        # Create analysis prompt with few-shot examples
-        analysis_prompt = f"""
-You are an expert in professional ethics ontology analysis. Your task is to determine if a concept is ATOMIC (single, indivisible) or COMPOUND (contains multiple distinct concepts that should be separated).
-
-CONCEPT TYPE: {concept_type.upper()}
-
-EXAMPLE - COMPOUND {concept_type.upper()}:
-Input: "{example['compound']}"
-Analysis: COMPOUND
-Atomic concepts: {example['atomic']}
-Reasoning: {example['reasoning']}
-
-ANALYSIS RULES:
-1. A concept is ATOMIC if it represents one cohesive, indivisible idea
-2. A concept is COMPOUND if it contains multiple distinct ideas joined by:
-   - Conjunctions (and, or)
-   - Commas separating distinct items
-   - Multiple modal verbs (shall X, must Y)
-   - Multiple action verbs with different objects
-   
-3. For {concept_type}s specifically:
-   - Each atomic {concept_type} should be independently meaningful
-   - Splitting should preserve the semantic intent of each part
-   - Avoid over-splitting (don't separate adjectives from their nouns)
-
-ANALYZE THIS CONCEPT:
-Input: "{concept_text}"
-{f'Context: {description}' if description else ''}
-
-RESPOND EXACTLY IN THIS FORMAT:
-Analysis: [ATOMIC or COMPOUND]
-Atomic concepts: ["concept1", "concept2", ...] (or just ["original"] if atomic)
-Reasoning: [Brief explanation of why it's atomic or how it should be split]
-Confidence: [0.0-1.0]
-"""
+        # The analysis prompt is an editable DB template (prompt editor -> Shared prompts ->
+        # Concept splitter). Render it with the component type, the few-shot example, and the concept.
+        analysis_prompt = _load_splitter_template().render(
+            concept_type=concept_type,
+            example_compound=example['compound'],
+            example_atomic=example['atomic'],
+            example_reasoning=example['reasoning'],
+            concept_text=concept_text,
+            description=description or '',
+        )
 
         try:
             # Call LLM

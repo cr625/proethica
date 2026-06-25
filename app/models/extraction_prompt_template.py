@@ -339,7 +339,7 @@ SHARED_PROMPTS = [
      'editable': True, 'step': 0, 'concept': 'individual_filter', 'source': 'individual_type_filter.py',
      'note': 'Classify each extracted item as an individual vs a type'},
     {'key': 'splitter', 'label': 'Concept splitter', 'phase': 'Entity passes',
-     'editable': False, 'source': 'concept_splitter.py',
+     'editable': True, 'step': 0, 'concept': 'concept_splitter', 'source': 'concept_splitter.py',
      'note': 'Decompose compound labels into atomic concepts'},
     {'key': 'merge', 'label': 'Reconciliation / merge', 'phase': 'Entity passes',
      'editable': False, 'source': 'entity_reconciliation_service.py',

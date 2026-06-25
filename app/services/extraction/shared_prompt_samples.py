@@ -35,9 +35,23 @@ def _individual_filter_sample() -> Dict[str, str]:
     }
 
 
+def _concept_splitter_sample() -> Dict[str, object]:
+    """A compound obligation to decompose, with the obligation few-shot example. example_atomic is a
+    list so it renders as the Python list literal the prompt expects."""
+    return {
+        'concept_type': 'obligation',
+        'example_compound': 'Practice only in areas of competence and disclose conflicts of interest',
+        'example_atomic': ['Practice only in areas of competence', 'Disclose conflicts of interest'],
+        'example_reasoning': 'Two distinct professional duties: competence practice and conflict disclosure',
+        'concept_text': 'Maintain confidentiality of project details and report safety violations to the proper authorities',
+        'description': '',
+    }
+
+
 # Registry keyed by the shared prompt's concept_type (matches the seeded template row).
-_PROVIDERS: Dict[str, Callable[[], Dict[str, str]]] = {
+_PROVIDERS: Dict[str, Callable[[], Dict]] = {
     'individual_filter': _individual_filter_sample,
+    'concept_splitter': _concept_splitter_sample,
 }
 
 
