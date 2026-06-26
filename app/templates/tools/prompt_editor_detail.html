@@ -472,10 +472,12 @@ div.reference-panel {
             <option value="{{ case.id }}">{{ case.title[:60] }}{% if case.title|length > 60 %}...{% endif %}</option>
             {% endfor %}
         </select>
+        {% if template_pass not in ['facts', 'discussion'] %}
         <select class="form-select form-select-sm" id="globalSectionSelect" style="width: 130px;" onchange="onSectionChange()">
             <option value="facts">Facts</option>
             <option value="discussion">Discussion</option>
         </select>
+        {% endif %}
         <span class="text-muted small" id="caseStatus"></span>
     </div>
 
@@ -495,6 +497,19 @@ div.reference-panel {
                     <span class="sidebar-concept-dot" style="background: {{ concept_colors.get(c, '#6c757d') }};"></span>
                     {{ c | replace('_', ' ') | title }}
                 </a>
+                {% elif c in split_concepts %}
+                <div class="sidebar-concept" style="font-weight:600; cursor:default;">
+                    <span class="sidebar-concept-dot" style="background: {{ concept_colors.get(c, '#6c757d') }};"></span>
+                    {{ c | title }}
+                </div>
+                {% for p in ['facts', 'discussion'] %}
+                <a href="{{ url_for('prompt_editor.edit_template', step=step_item.step, concept=c, domain=selected_domain) }}&pass={{ p }}"
+                   class="sidebar-concept d-flex align-items-center {% if c == concept and template_pass == p %}active{% endif %}"
+                   style="padding-left: 24px;">
+                    <i class="bi bi-arrow-return-right text-muted" style="font-size:.62rem;"></i>
+                    <span class="ms-1">{{ p }}</span>
+                </a>
+                {% endfor %}
                 {% else %}
                 <a href="{{ url_for('prompt_editor.edit_template', step=step_item.step, concept=c, domain=selected_domain) }}"
                    class="sidebar-concept {% if c == concept %}active{% endif %}">
@@ -818,6 +833,7 @@ div.reference-panel {
 <script>
 const templateId = {{ template.id if template else 'null' }};
 const IS_SHARED_PROMPT = {{ 'true' if is_shared_prompt else 'false' }};
+const TEMPLATE_PASS = '{{ template_pass or "all" }}';  // 'facts' | 'discussion' | 'all'
 let originalText = document.getElementById('templateText')?.value || '';
 let hasUnsavedChanges = false;
 
@@ -882,9 +898,13 @@ async function saveTemplate() {
 
 // Helper to get global case selection
 function getGlobalCase() {
+    // For a pass-split prompt (e.g. roles facts/discussion) the section is the template's pass,
+    // not the (now-hidden) dropdown; unsplit 'all' prompts still read the dropdown.
+    const passSection = (TEMPLATE_PASS === 'facts' || TEMPLATE_PASS === 'discussion') ? TEMPLATE_PASS : null;
+    const sel = document.getElementById('globalSectionSelect');
     return {
         caseId: document.getElementById('globalCaseSelect').value,
-        section: document.getElementById('globalSectionSelect').value
+        section: passSection || (sel ? sel.value : 'facts')
     };
 }
 

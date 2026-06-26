@@ -43,14 +43,20 @@ def register_web_ui(bp):
             logger.warning(f"Could not get domains: {e}")
             available_domains = ['engineering']
 
-        # Get the template for this domain (case extraction only)
-        template = ExtractionPromptTemplate.query.filter_by(
+        # Get the template for this domain + pass (case extraction only). A component split into
+        # facts/discussion passes has pass-specific rows; prefer the requested pass, else 'all', else facts.
+        pass_type = request.args.get('pass')  # 'facts' | 'discussion' | None
+        _q = ExtractionPromptTemplate.query.filter_by(
             extraction_type='case',
             step_number=step,
             concept_type=concept,
             domain=selected_domain,
             is_active=True
-        ).first()
+        )
+        template = (_q.filter_by(pass_type=pass_type).first() if pass_type else None) \
+            or _q.filter_by(pass_type='all').first() \
+            or _q.filter_by(pass_type='facts').first() \
+            or _q.first()
 
         if not template:
             # Try to find any template for this concept in this domain
@@ -109,8 +115,20 @@ def register_web_ui(bp):
         from app.services.extraction.shared_prompt_samples import is_shared_prompt
         is_shared = is_shared_prompt(concept)
 
+        # Concepts split into facts/discussion passes -> render facts/discussion sub-items in the nav.
+        split_concepts = {
+            r[0] for r in db.session.query(ExtractionPromptTemplate.concept_type).filter(
+                ExtractionPromptTemplate.extraction_type == 'case',
+                ExtractionPromptTemplate.pass_type.in_(['facts', 'discussion']),
+                ExtractionPromptTemplate.is_active.is_(True)).distinct().all()
+        }
+        template_pass = template.pass_type if template else (pass_type or 'all')
+
         return render_template('tools/prompt_editor_detail.html',
                               template=template,
+                              template_pass=template_pass,
+                              request_pass=pass_type,
+                              split_concepts=split_concepts,
                               is_shared_prompt=is_shared,
                               shared_prompts=SHARED_PROMPTS,
                               component_prompts=COMPONENT_PROMPTS,

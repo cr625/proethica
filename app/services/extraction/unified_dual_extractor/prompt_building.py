@@ -69,9 +69,14 @@ class PromptBuildingMixin:
         earlier sections (e.g. facts) are appended to the existing-entities
         list so the LLM can reference them rather than re-extracting.
         """
-        if not self.template:
+        # Load the pass-specific template (facts/discussion) when the component is split into separate
+        # per-pass prompts; get_active_template falls back to the 'all' template for unsplit components.
+        from app.models.extraction_prompt_template import ExtractionPromptTemplate
+        template = ExtractionPromptTemplate.get_active_template(
+            step_number=self.config['step'], concept_type=self.concept_type, pass_type=section_type)
+        if not template:
             raise RuntimeError(
-                f"No prompt template available for {self.concept_type}. "
+                f"No prompt template available for {self.concept_type} (pass={section_type}). "
                 f"Check extraction_prompt_templates table."
             )
 
@@ -115,7 +120,7 @@ class PromptBuildingMixin:
             'cross_concept_context': cross_context,
         }
 
-        rendered = self.template.render(**variables)
+        rendered = template.render(**variables)
 
         # Append JSON wrapper instruction so the LLM returns a dict with
         # both keys rather than a bare list.  Kept in code (not in the
