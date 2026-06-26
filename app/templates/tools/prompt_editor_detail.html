@@ -11,7 +11,7 @@
 /* Main grid container */
 div.editor-container {
     display: grid !important;
-    grid-template-columns: 160px 1fr 280px !important;
+    grid-template-columns: 220px 1fr 280px !important;
     grid-template-areas: "sidebar main reference" !important;
     gap: 10px !important;
     height: calc(100vh - 110px) !important;
@@ -22,7 +22,7 @@ div.editor-container {
 /* Responsive: narrower columns */
 @media (max-width: 1200px) {
     div.editor-container {
-        grid-template-columns: 140px 1fr 240px !important;
+        grid-template-columns: 190px 1fr 240px !important;
     }
 }
 
@@ -526,7 +526,7 @@ div.reference-panel {
                 <div class="sidebar-step-header" style="background: #64748b20; color: #64748b;">
                     Shared prompts
                 </div>
-                {% for phase in ['Preprocessing', 'Entity passes', 'Downstream edges & synthesis'] %}
+                {% for phase in ['Preprocessing', 'Entity passes', 'Synthesis & enrichment', 'Ontology edges'] %}
                 <div class="text-muted px-2 pt-1" style="font-size:.58rem; text-transform:uppercase; letter-spacing:.04em;">{{ phase }}</div>
                 {% for p in shared_prompts if p.phase == phase %}
                 {% if p.editable %}

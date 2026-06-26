@@ -220,7 +220,22 @@ E1 = "http://proethica.org/ontology/case/1#Action_Submit_Report"
 E2 = "http://proethica.org/ontology/case/1#Event_Discharge_Detected"
 
 
+class _StubTemporalTemplate:
+    """Stand-in for the editable temporal_sequence template so these tests need no DB / app context.
+    The mock client ignores the prompt text, so minimal render/render_system suffice."""
+    def render(self, **kw):
+        return "USER\n" + kw.get("items", "")
+
+    def render_system(self, **kw):
+        return "SYSTEM"
+
+
 class TestTemporalSequenceExtractor:
+    @pytest.fixture(autouse=True)
+    def _stub_template(self, monkeypatch):
+        import app.services.extraction.temporal_sequence as ts
+        monkeypatch.setattr(ts, "_load_temporal_template", lambda: _StubTemporalTemplate())
+
     def _entries(self):
         from app.services.extraction.temporal_sequence import TemporalEntryContext
         return [

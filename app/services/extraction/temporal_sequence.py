@@ -32,29 +32,9 @@ from .schemas import TemporalSequenceResult
 logger = logging.getLogger(__name__)
 
 
-SYSTEM_PROMPT = (
-    "You are an expert at reading professional ethics case narratives and "
-    "establishing the chronological order of the actions taken and events "
-    "that occurred. The case is presented as a set of Action and Event "
-    "individuals with labels, free-text temporal markers, and rich "
-    "narrative descriptions.\n\n"
-    "Your task: return a permutation of the input IRIs that places them "
-    "in chronological order, earliest first. Use the temporal markers, "
-    "the descriptions, and ordinary world knowledge of how engineering "
-    "projects unfold to break ties. When two entries clearly happen "
-    "concurrently, place the one whose effects propagate first (e.g., a "
-    "data exposure before the downstream draft generation) earlier.\n\n"
-    "Output JSON only, matching this schema:\n"
-    "{\n"
-    "  \"ordered_iris\": [\"<iri-1>\", \"<iri-2>\", ...],\n"
-    "  \"rationale\": \"<one or two sentences>\"\n"
-    "}\n\n"
-    "Critical rules:\n"
-    "- Every input IRI must appear exactly once.\n"
-    "- Do not invent IRIs not present in the input.\n"
-    "- Do not omit any IRI.\n"
-    "- Do not wrap the JSON in prose, markdown, or code fences."
-)
+# The temporal-sequence SYSTEM prompt and user prompt now live in the editable 'temporal_sequence'
+# template (extraction_prompt_templates); see _load_temporal_template() / build_user_prompt() /
+# TemporalSequenceExtractor._system_prompt(). Seed: docs-internal/scripts/seed_temporal_sequence_template.py
 
 
 @dataclass
@@ -67,29 +47,33 @@ class TemporalEntryContext:
     description: str
 
 
+def _load_temporal_template():
+    """Load the editable 'temporal_sequence' prompt template (prompt editor -> Shared prompts ->
+    Synthesis & enrichment -> Temporal sequence). A separate function so a test can inject a stub
+    without a DB / app context. Raises (no fallback) if unseeded."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'temporal_sequence')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'temporal_sequence' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_temporal_sequence_template.py")
+    return tmpl
+
+
 def build_user_prompt(case_id: int, entries: List[TemporalEntryContext]) -> str:
-    """Render the per-entry block fed to the LLM."""
-    lines: List[str] = [
-        f"Case ID: {case_id}",
-        f"Number of entries: {len(entries)}",
-        "",
-        "Entries (in arbitrary order; your job is to chronologize them):",
-        "",
-    ]
+    """Render the per-entry block fed to the LLM, from the editable DB template."""
+    item_lines: List[str] = []
     for e in entries:
-        lines.append(f"IRI: {e.iri}")
-        lines.append(f"Kind: {e.kind}")
-        lines.append(f"Label: {e.label}")
+        item_lines.append(f"IRI: {e.iri}")
+        item_lines.append(f"Kind: {e.kind}")
+        item_lines.append(f"Label: {e.label}")
         if e.temporal_marker:
-            lines.append(f"TemporalMarker: {e.temporal_marker}")
+            item_lines.append(f"TemporalMarker: {e.temporal_marker}")
         if e.description:
-            lines.append(f"Description: {e.description}")
-        lines.append("")
-    lines.append(
-        "Return JSON with `ordered_iris` containing all of the above IRIs in "
-        "chronological order (earliest first)."
-    )
-    return "\n".join(lines)
+            item_lines.append(f"Description: {e.description}")
+        item_lines.append("")
+    return _load_temporal_template().render(
+        case_id=case_id, n_entries=len(entries), items="\n".join(item_lines))
 
 
 class TemporalSequenceExtractor(StreamingEdgeExtractor):
@@ -109,7 +93,7 @@ class TemporalSequenceExtractor(StreamingEdgeExtractor):
         return ModelConfig.get_default_model()
 
     def _system_prompt(self) -> str:
-        return SYSTEM_PROMPT
+        return _load_temporal_template().render_system()
 
     # ------------------------------------------------------------------
     # Public API

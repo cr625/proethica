@@ -60,11 +60,30 @@ def _discussion_segmenter_sample() -> Dict[str, str]:
     }
 
 
+def _temporal_sequence_sample() -> Dict[str, object]:
+    """Three Action/Event entries in arbitrary order, to be chronologized."""
+    items = (
+        "IRI: http://proethica.org/case7#Action_SubmitDesign\n"
+        "Kind: Action\nLabel: Engineer L submits the structural design\n"
+        "TemporalMarker: after the review\n"
+        "Description: L finalizes and submits the design package to the client.\n\n"
+        "IRI: http://proethica.org/case7#Event_DataExposure\n"
+        "Kind: Event\nLabel: Client data is exposed\n"
+        "TemporalMarker: early in the project\n"
+        "Description: A misconfigured server exposes client data before any design work.\n\n"
+        "IRI: http://proethica.org/case7#Action_PeerReview\n"
+        "Kind: Action\nLabel: Engineer M reviews the design\n"
+        "Description: M performs a peer review prior to submission.\n"
+    )
+    return {'case_id': 7, 'n_entries': 3, 'items': items}
+
+
 # Registry keyed by the shared prompt's concept_type (matches the seeded template row).
 _PROVIDERS: Dict[str, Callable[[], Dict]] = {
     'individual_filter': _individual_filter_sample,
     'concept_splitter': _concept_splitter_sample,
     'discussion_segmenter': _discussion_segmenter_sample,
+    'temporal_sequence': _temporal_sequence_sample,
 }
 
 
