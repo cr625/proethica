@@ -69,11 +69,15 @@ class PromptBuildingMixin:
         earlier sections (e.g. facts) are appended to the existing-entities
         list so the LLM can reference them rather than re-extracting.
         """
-        # Load the pass-specific template (facts/discussion) when the component is split into separate
-        # per-pass prompts; get_active_template falls back to the 'all' template for unsplit components.
-        from app.models.extraction_prompt_template import ExtractionPromptTemplate
-        template = ExtractionPromptTemplate.get_active_template(
-            step_number=self.config['step'], concept_type=self.concept_type, pass_type=section_type)
+        # Use the pre-loaded template if one was set (tests / explicit caller); otherwise load the
+        # PASS-SPECIFIC template (facts/discussion) for split components -- get_active_template falls back
+        # to the 'all' template for unsplit ones. (Split components deactivate their 'all' row, so the
+        # init-time no-pass load leaves self.template None and this picks the right per-pass template.)
+        template = self.template
+        if template is None:
+            from app.models.extraction_prompt_template import ExtractionPromptTemplate
+            template = ExtractionPromptTemplate.get_active_template(
+                step_number=self.config['step'], concept_type=self.concept_type, pass_type=section_type)
         if not template:
             raise RuntimeError(
                 f"No prompt template available for {self.concept_type} (pass={section_type}). "
@@ -121,6 +125,10 @@ class PromptBuildingMixin:
         }
 
         rendered = template.render(**variables)
+        # Render the optional system prompt with the same variables; _call_llm passes it as system=.
+        # getattr-guarded so a render-only template-like object (e.g. a test fixture) does not break.
+        self._rendered_system = (template.render_system(**variables)
+                                 if hasattr(template, 'render_system') else '')
 
         # Append JSON wrapper instruction so the LLM returns a dict with
         # both keys rather than a bare list.  Kept in code (not in the

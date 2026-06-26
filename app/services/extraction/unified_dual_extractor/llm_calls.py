@@ -75,12 +75,16 @@ class LLMCallMixin:
             # generation exceeds ~180s (e.g., discussion principles at 7K+
             # output tokens).
             chunks = []
-            with client.messages.stream(
+            stream_kwargs = dict(
                 model=self.model_name,
                 max_tokens=self.config['max_tokens'],
                 temperature=self.config['temperature'],
                 messages=[{"role": "user", "content": prompt}],
-            ) as stream:
+            )
+            _system = (getattr(self, '_rendered_system', '') or '').strip()
+            if _system:
+                stream_kwargs['system'] = _system
+            with client.messages.stream(**stream_kwargs) as stream:
                 for text in stream.text_stream:
                     chunks.append(text)
 
@@ -182,19 +186,23 @@ class LLMCallMixin:
 
         messages = [{"role": "user", "content": prompt}]
         max_rounds = 25
+        _system = (getattr(self, '_rendered_system', '') or '').strip()
 
         try:
             for round_num in range(max_rounds):
                 # Use streaming to avoid WSL2 TCP timeout on long responses.
                 # client.messages.stream() supports tool_use and end_turn
                 # stop reasons identically to messages.create().
-                with client.messages.stream(
+                stream_kwargs = dict(
                     model=self.model_name,
                     max_tokens=self.config['max_tokens'],
                     temperature=self.config['temperature'],
                     messages=messages,
                     tools=self.ONTOLOGY_LOOKUP_TOOLS,
-                ) as stream:
+                )
+                if _system:
+                    stream_kwargs['system'] = _system
+                with client.messages.stream(**stream_kwargs) as stream:
                     # Consume the stream to get the final message
                     response = stream.get_final_message()
 
@@ -297,12 +305,15 @@ class LLMCallMixin:
                 if tool_stubs:
                     messages.append({"role": "user", "content": tool_stubs})
 
-                with client.messages.stream(
+                final_kwargs = dict(
                     model=self.model_name,
                     max_tokens=self.config['max_tokens'],
                     temperature=self.config['temperature'],
                     messages=messages,
-                ) as final_stream:
+                )
+                if _system:
+                    final_kwargs['system'] = _system
+                with client.messages.stream(**final_kwargs) as final_stream:
                     final_response = final_stream.get_final_message()
 
                 response_text = ""
