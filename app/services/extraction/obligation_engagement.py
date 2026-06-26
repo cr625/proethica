@@ -36,55 +36,9 @@ from .schemas import ObligationEngagementResult, PerActionEngagement
 logger = logging.getLogger(__name__)
 
 
-SYSTEM_PROMPT = (
-    "You are an expert at reading professional ethics case opinions and "
-    "classifying how each action in the case engages the obligations "
-    "previously attributed to it.\n\n"
-    "For each Action, you receive a pool of obligation strings already "
-    "extracted as either fulfilled or violated. Your task is to "
-    "reclassify that pool into three buckets: fulfills, violates, and "
-    "raises.\n\n"
-    "Definitions:\n"
-    "  - fulfills: this specific Action directly satisfies the obligation. "
-    "    Use when the action carries out what the obligation requires.\n"
-    "  - violates: this specific Action directly breaches the obligation. "
-    "    Use when the action does the opposite of what the obligation "
-    "    requires.\n"
-    "  - raises: this Action puts the obligation IN FORCE (at stake) but does "
-    "    not itself resolve it (the Event Calculus view of an obligation as a "
-    "    fluent the action initiates, fulfilled or violated by a later action; "
-    "    Berreby et al. 2017; Dennis et al. 2016). The fulfillment or violation "
-    "    happens at a downstream Action in the same chain (e.g., a choice to use "
-    "    a tool raises a competence concern that the later review either "
-    "    satisfies or breaches). Use this whenever the case opinion treats the "
-    "    obligation as 'at risk' from the choice but actually resolved by a "
-    "    subsequent step.\n\n"
-    "Critical rules:\n"
-    "- The union of fulfills + violates + raises for an Action must "
-    "  EQUAL the input pool exactly. Do not invent new obligations. Do "
-    "  not drop obligations.\n"
-    "- Each obligation belongs in exactly one bucket per Action. Do not "
-    "  duplicate within an Action.\n"
-    "- Copy the obligation strings VERBATIM. Do not paraphrase.\n"
-    "- When the case discussion explicitly says an obligation was met "
-    "  by a later review/verification step, classify the upstream choice "
-    "  as 'raises' (not 'violates'); the resolution Action gets "
-    "  'fulfills' or 'violates' as the discussion concludes.\n"
-    "- When in doubt and the action is the moment of resolution "
-    "  (review, submission, discovery), prefer fulfills or violates. "
-    "  When in doubt and the action is upstream of a clearer "
-    "  resolution, prefer raises.\n\n"
-    "Output JSON only:\n"
-    "{\n"
-    "  \"actions\": [\n"
-    "    { \"action_iri\": \"<iri>\", "
-    "\"fulfills\": [...], \"violates\": [...], \"raises\": [...] },\n"
-    "    ...\n"
-    "  ],\n"
-    "  \"rationale\": \"<brief summary>\"\n"
-    "}\n\n"
-    "Do not wrap the JSON in prose, markdown, or code fences."
-)
+# The obligation-engagement SYSTEM and user prompts now live in the editable 'obligation_engagement'
+# template (extraction_prompt_templates); see _load_obligation_engagement_template() / build_user_prompt() /
+# _call_llm. Seed: docs-internal/scripts/seed_obligation_engagement_template.py
 
 
 @dataclass
@@ -102,46 +56,48 @@ class ActionEngagementContext:
     raises: List[str] = field(default_factory=list)
 
 
+def _load_obligation_engagement_template():
+    """Load the editable 'obligation_engagement' prompt template (prompt editor -> Shared prompts ->
+    Synthesis & enrichment -> Obligation engagement). A separate function so a test can inject a stub
+    without a DB / app context. Raises (no fallback) if unseeded."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'obligation_engagement')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'obligation_engagement' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_obligation_engagement_template.py")
+    return tmpl
+
+
 def build_user_prompt(
     case_id: int,
     case_title: str,
     actions: List[ActionEngagementContext],
     discussion_excerpt: str = "",
 ) -> str:
-    lines: List[str] = [
-        f"Case ID: {case_id}",
-        f"Case title: {case_title}",
-        f"Actions to reclassify: {len(actions)}",
-        "",
-    ]
-    if discussion_excerpt:
-        lines.append("Case discussion (excerpt for grounding):")
-        lines.append(discussion_excerpt.strip())
-        lines.append("")
-    lines.append("Actions in chronological order:")
-    lines.append("")
+    """Assemble the per-action blocks in code, then render the editable DB template."""
+    block_lines: List[str] = []
     for a in actions:
-        lines.append(f"IRI: {a.iri}")
-        lines.append(f"Sequence: {a.sequence if a.sequence is not None else '?'}")
-        lines.append(f"Label: {a.label}")
+        block_lines.append(f"IRI: {a.iri}")
+        block_lines.append(f"Sequence: {a.sequence if a.sequence is not None else '?'}")
+        block_lines.append(f"Label: {a.label}")
         if a.description:
-            lines.append(f"Description: {a.description}")
-        lines.append("Fulfills (input):")
+            block_lines.append(f"Description: {a.description}")
+        block_lines.append("Fulfills (input):")
         for o in a.fulfills:
-            lines.append(f"  - {o}")
-        lines.append("Violates (input):")
+            block_lines.append(f"  - {o}")
+        block_lines.append("Violates (input):")
         for o in a.violates:
-            lines.append(f"  - {o}")
+            block_lines.append(f"  - {o}")
         if a.raises:
-            lines.append("Raises (input, already at stake):")
+            block_lines.append("Raises (input, already at stake):")
             for o in a.raises:
-                lines.append(f"  - {o}")
-        lines.append("")
-    lines.append(
-        "Reclassify each Action's pool into fulfills / violates / raises. "
-        "Return JSON; the union per action must equal the input pool exactly."
-    )
-    return "\n".join(lines)
+                block_lines.append(f"  - {o}")
+        block_lines.append("")
+    return _load_obligation_engagement_template().render(
+        case_id=case_id, case_title=case_title, action_count=len(actions),
+        discussion_excerpt=(discussion_excerpt or "").strip(),
+        actions_block="\n".join(block_lines))
 
 
 class ObligationEngagementExtractor:
@@ -237,7 +193,7 @@ class ObligationEngagementExtractor:
                 model=model,
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                system=SYSTEM_PROMPT,
+                system=_load_obligation_engagement_template().render_system(),
                 messages=[{"role": "user", "content": user_prompt}],
             ) as stream:
                 for text in stream.text_stream:

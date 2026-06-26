@@ -30,35 +30,9 @@ from .schemas import BoardConclusionExtractionResult, BoardConclusionForQuestion
 logger = logging.getLogger(__name__)
 
 
-SYSTEM_PROMPT = (
-    "You are an expert at reading NSPE Board of Ethical Review (BER) "
-    "published opinions and identifying the Board's ruling on each "
-    "explicit board Question.\n\n"
-    "Given a case Discussion section and a list of board Questions for "
-    "which a Board conclusion has not yet been extracted, return one "
-    "Conclusion per question. Each Conclusion paraphrases the Board's "
-    "ruling on that specific question, drawn from the Discussion text. "
-    "When the Discussion folds multiple rulings together, identify the "
-    "portion that addresses each specific question and paraphrase it.\n\n"
-    "Critical rules:\n"
-    "- One Conclusion per requested question_number, no more, no less.\n"
-    "- The conclusion_text must be the Board's position, not analytical "
-    "  commentary or counterfactual reasoning. Do not add 'In response "
-    "  to QN:' or similar prefixes.\n"
-    "- Cite provisions only when the Discussion explicitly cites them "
-    "  in support of the ruling on this question.\n"
-    "- One to three sentences per conclusion. Quote sparingly; "
-    "  paraphrase otherwise.\n\n"
-    "Output JSON only:\n"
-    "{\n"
-    "  \"conclusions\": [\n"
-    "    { \"question_number\": <int>, "
-    "\"conclusion_text\": \"...\", \"cited_provisions\": [\"I.1\", ...] },\n"
-    "    ...\n"
-    "  ]\n"
-    "}\n\n"
-    "No prose, markdown, or code fences around the JSON."
-)
+# The board-conclusions SYSTEM and user prompts now live in the editable 'board_conclusions' template
+# (extraction_prompt_templates); see _load_board_conclusions_template() / build_user_prompt() / _call_llm.
+# Seed: docs-internal/scripts/seed_board_conclusions_template.py
 
 
 @dataclass
@@ -68,6 +42,19 @@ class BoardQuestionGap:
     question_text: str
 
 
+def _load_board_conclusions_template():
+    """Load the editable 'board_conclusions' prompt template (prompt editor -> Shared prompts ->
+    Synthesis & enrichment -> Board conclusions). A separate function so a test can inject a stub
+    without a DB / app context. Raises (no fallback) if unseeded."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'board_conclusions')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'board_conclusions' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_board_conclusions_template.py")
+    return tmpl
+
+
 def build_user_prompt(
     case_id: int,
     case_title: str,
@@ -75,27 +62,12 @@ def build_user_prompt(
     discussion_text: str,
     conclusion_text: str = "",
 ) -> str:
-    lines: List[str] = [
-        f"Case ID: {case_id}",
-        f"Case title: {case_title}",
-        "",
-        "Board Questions for which a Board conclusion is needed:",
-    ]
-    for g in gaps:
-        lines.append(f"  Q{g.question_number}: {g.question_text}")
-    lines.append("")
-    lines.append("Discussion section (Board's reasoning):")
-    lines.append(discussion_text.strip())
-    if conclusion_text and conclusion_text.strip():
-        lines.append("")
-        lines.append("Conclusion section (Board's published conclusions, when present):")
-        lines.append(conclusion_text.strip())
-    lines.append("")
-    lines.append(
-        f"Return JSON with exactly {len(gaps)} conclusion(s), one per "
-        "question_number listed above."
-    )
-    return "\n".join(lines)
+    """Assemble the gap-question lines in code, then render the editable DB template."""
+    gap_questions = "\n".join(f"  Q{g.question_number}: {g.question_text}" for g in gaps)
+    return _load_board_conclusions_template().render(
+        case_id=case_id, case_title=case_title, gap_questions=gap_questions,
+        discussion_text=discussion_text.strip(),
+        conclusion_text=(conclusion_text or "").strip(), gap_count=len(gaps))
 
 
 class BoardConclusionExtractor:
@@ -174,7 +146,7 @@ class BoardConclusionExtractor:
                 model=model,
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                system=SYSTEM_PROMPT,
+                system=_load_board_conclusions_template().render_system(),
                 messages=[{"role": "user", "content": user_prompt}],
             ) as stream:
                 for text in stream.text_stream:

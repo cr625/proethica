@@ -364,10 +364,10 @@ SHARED_PROMPTS = [
      'editable': True, 'step': 0, 'concept': 'temporal_sequence', 'source': 'temporal_sequence.py',
      'note': 'Action / Event temporal ordering edges (Step 3)'},
     {'key': 'obligation_engagement', 'label': 'Obligation engagement', 'phase': 'Synthesis & enrichment',
-     'editable': False, 'source': 'obligation_engagement.py',
+     'editable': True, 'step': 0, 'concept': 'obligation_engagement', 'source': 'obligation_engagement.py',
      'note': 'Re-classify how obligations are engaged'},
     {'key': 'board_conclusions', 'label': 'Board conclusions', 'phase': 'Synthesis & enrichment',
-     'editable': False, 'source': 'board_conclusions.py',
+     'editable': True, 'step': 0, 'concept': 'board_conclusions', 'source': 'board_conclusions.py',
      'note': 'Board-conclusion gap-fill (Step 4 synthesis)'},
 ]
 

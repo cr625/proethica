@@ -78,12 +78,47 @@ def _temporal_sequence_sample() -> Dict[str, object]:
     return {'case_id': 7, 'n_entries': 3, 'items': items}
 
 
+def _obligation_engagement_sample() -> Dict[str, object]:
+    """Two actions: one that violates a competence obligation, one whose review resolves it."""
+    actions_block = (
+        "IRI: http://proethica.org/case7#Action_UseUnvettedTool\n"
+        "Sequence: 1\nLabel: Engineer L uses an unvetted AI tool for the design\n"
+        "Description: L adopts a new generative tool without verifying its competence basis.\n"
+        "Fulfills (input):\n"
+        "Violates (input):\n"
+        "  - Practice only in areas of competence\n\n"
+        "IRI: http://proethica.org/case7#Action_PeerReview\n"
+        "Sequence: 2\nLabel: Engineer M peer-reviews the output\n"
+        "Description: M reviews and corrects the tool's output before submission.\n"
+        "Fulfills (input):\n"
+        "  - Practice only in areas of competence\n"
+        "Violates (input):\n"
+    )
+    return {'case_id': 7, 'case_title': 'AI in Engineering Design', 'action_count': 2,
+            'discussion_excerpt': "The Board considered whether using the tool breached competence, "
+                                  "and whether the later review cured it.",
+            'actions_block': actions_block}
+
+
+def _board_conclusions_sample() -> Dict[str, object]:
+    """Two board questions needing conclusions, with a short Discussion to draw from."""
+    return {'case_id': 7, 'case_title': 'AI in Engineering Design',
+            'gap_questions': "  Q1: Was it ethical for Engineer L to use the unvetted tool?\n"
+                             "  Q2: Did peer review discharge the competence obligation?",
+            'discussion_text': "The Board found that using a new tool is permissible only when the "
+                               "engineer retains the competence to evaluate its output. Here, Engineer M's "
+                               "review supplied that competence, so the obligation was met at the review step.",
+            'conclusion_text': '', 'gap_count': 2}
+
+
 # Registry keyed by the shared prompt's concept_type (matches the seeded template row).
 _PROVIDERS: Dict[str, Callable[[], Dict]] = {
     'individual_filter': _individual_filter_sample,
     'concept_splitter': _concept_splitter_sample,
     'discussion_segmenter': _discussion_segmenter_sample,
     'temporal_sequence': _temporal_sequence_sample,
+    'obligation_engagement': _obligation_engagement_sample,
+    'board_conclusions': _board_conclusions_sample,
 }
 
 
