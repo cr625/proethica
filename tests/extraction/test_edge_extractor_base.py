@@ -19,6 +19,24 @@ import pytest
 from app.services.extraction.edge_extractor_base import StreamingEdgeExtractor
 
 
+@pytest.fixture(autouse=True)
+def _stub_edge_templates(monkeypatch):
+    """rpo_edges and defeasibility now render their prompts from editable DB templates; stub the
+    loaders so these mock-client tests need no DB / app context (the mock ignores the prompt text).
+    The temporal-sequence loader is stubbed separately in TestTemporalSequenceExtractor."""
+    class _Stub:
+        def render(self, **kw):
+            return "USER"
+
+        def render_system(self, **kw):
+            return "SYSTEM"
+
+    import app.services.extraction.rpo_edges as rpo
+    import app.services.extraction.enhanced_prompts_defeasibility as defp
+    monkeypatch.setattr(rpo, "_load_rpo_template", lambda: _Stub())
+    monkeypatch.setattr(defp, "_load_defeasibility_template", lambda: _Stub())
+
+
 # ---------------------------------------------------------------------------
 # Mock client helpers (mirror the Anthropic streaming context-manager shape)
 # ---------------------------------------------------------------------------

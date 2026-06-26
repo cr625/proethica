@@ -28,8 +28,8 @@ from .enhanced_prompts_defeasibility import (
     NarrativeContext,
     ObligationContext,
     StateContext,
-    SYSTEM_PROMPT,
     create_defeasibility_prompt,
+    defeasibility_system_prompt,
 )
 from .schemas import DefeasibilityEdge, DefeasibilityEdgeExtractionResult
 
@@ -62,7 +62,7 @@ class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
     default_max_tokens = 16384
 
     def _system_prompt(self) -> str:
-        return SYSTEM_PROMPT
+        return defeasibility_system_prompt()
 
     # ------------------------------------------------------------------
     # Public API

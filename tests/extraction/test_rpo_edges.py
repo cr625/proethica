@@ -39,6 +39,21 @@ PRINCIPLE_IRI = f"{CASE_NS}Public_Welfare_Principle"
 OBLIGATION_IRI = f"{CASE_NS}Obl_PublicWelfare"
 
 
+@pytest.fixture(autouse=True)
+def _stub_rpo_template(monkeypatch):
+    """RPO now renders its prompt from the editable 'rpo_edges' DB template; stub the loader so these
+    mock-client tests need no DB / app context (the mock ignores the prompt text)."""
+    class _Stub:
+        def render(self, **kw):
+            return "USER"
+
+        def render_system(self, **kw):
+            return "SYSTEM"
+
+    import app.services.extraction.rpo_edges as rpo
+    monkeypatch.setattr(rpo, "_load_rpo_template", lambda: _Stub())
+
+
 # ---------------------------------------------------------------------------
 # Fixtures: a minimal Role / Principle / Obligation triangle
 # ---------------------------------------------------------------------------

@@ -37,6 +37,31 @@ from app.services.extraction.enhanced_prompts_defeasibility import (
 from app.services.extraction.schemas import DefeasibilityEdge
 
 
+# Defeasibility now renders its prompt from the editable 'defeasibility_edges' DB template. The stub
+# below keeps the OBLIGATIONS/STATES headers + the entity blocks so the prompt-content assertions in
+# TestPromptBuilder stay meaningful; full-prompt fidelity is proven by the golden-diff verification,
+# not by these unit tests.
+_STUB_DEF_USER = (
+    "Extract proethica-core v2.5.0 defeasibility edges from {{ case_tag }}.\n\n"
+    "OBLIGATIONS (eligible for subject_iri and object_iri on competesWith / prevailsOver, and "
+    "subject_iri on defeasibleUnder):\n{{ obligations_block }}\n\n"
+    "STATES (eligible for object_iri on defeasibleUnder):\n{{ states_block }}\n\n"
+    "ADDITIONAL NARRATIVE CONTEXT:\n{{ narratives_block }}\n"
+)
+_STUB_DEF_SYS = "SYSTEM\n{{ property_axioms_block }}"
+
+
+@pytest.fixture(autouse=True)
+def _stub_def_template(monkeypatch):
+    """Stub the 'defeasibility_edges' template loader with an in-memory ExtractionPromptTemplate (which
+    uses the real render/render_system code paths) so these tests need no DB / app context."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    import app.services.extraction.enhanced_prompts_defeasibility as defp
+    monkeypatch.setattr(
+        defp, "_load_defeasibility_template",
+        lambda: ExtractionPromptTemplate(template_text=_STUB_DEF_USER, system_prompt=_STUB_DEF_SYS))
+
+
 # ---------------------------------------------------------------------------
 # Gold fixture: hand-annotated Case 76-4 (internal "case 72") defeasibility example
 # ---------------------------------------------------------------------------
@@ -189,11 +214,11 @@ class TestPromptBuilder:
     constraints survive serialization."""
 
     def test_property_axioms_present(self, case72_obligations, case72_states):
-        from app.services.extraction.enhanced_prompts_defeasibility import SYSTEM_PROMPT
-        # The verbatim TTL block must be in the system prompt.
-        assert "owl:SymmetricProperty" in SYSTEM_PROMPT
-        assert "rdfs:domain proeth-core:Obligation" in SYSTEM_PROMPT
-        assert "rdfs:range proeth-core:State" in SYSTEM_PROMPT
+        from app.services.extraction.enhanced_prompts_defeasibility import PROPERTY_AXIOMS_BLOCK
+        # The verbatim TTL block injected into the system prompt as {{ property_axioms_block }}.
+        assert "owl:SymmetricProperty" in PROPERTY_AXIOMS_BLOCK
+        assert "rdfs:domain proeth-core:Obligation" in PROPERTY_AXIOMS_BLOCK
+        assert "rdfs:range proeth-core:State" in PROPERTY_AXIOMS_BLOCK
 
     def test_iris_passed_verbatim(self, case72_obligations, case72_states):
         prompt = create_defeasibility_prompt(

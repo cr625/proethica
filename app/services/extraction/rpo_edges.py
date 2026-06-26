@@ -65,24 +65,18 @@ proeth:derivedFromPrinciple a owl:ObjectProperty ;
     rdfs:comment "Links obligation to the principle(s) it operationalizes."@en .\
 """
 
-SYSTEM_PROMPT = (
-    "You are an R->P->O dependency-chain extractor for the ProEthica D-tuple model. "
-    "You link previously extracted Role, Principle, and Obligation individuals using "
-    "exactly three proethica object properties. You must NOT invent classes, individuals, "
-    "IRIs, or property names. Output STRICT JSON only -- no prose, no markdown fences.\n\n"
-    "Property axioms (verbatim from the ontology):\n\n" + PROPERTY_AXIOMS + "\n\n"
-    "Hard constraints:\n"
-    "  1. predicate is exactly one of: hasObligation, adheresToPrinciple, derivedFromPrinciple.\n"
-    "  2. hasObligation: subject is a ROLE iri, object is an OBLIGATION iri.\n"
-    "  3. adheresToPrinciple: subject is a ROLE iri, object is a PRINCIPLE iri.\n"
-    "  4. derivedFromPrinciple: subject is an OBLIGATION iri, object is a PRINCIPLE iri.\n"
-    "  5. subject_iri and object_iri must each appear verbatim in the supplied lists. "
-    "Copy them character-for-character.\n"
-    "  6. Every edge must be supported by a verbatim source_text drawn from one of the "
-    "narrative fields supplied (e.g. an obligation's obligatedparty/obligationstatement, "
-    "a principle's invokedby, a role's relationships). Set source_text to that quote.\n"
-    "  7. Only assert an edge when the narrative genuinely supports it. Omit speculative links."
-)
+def _load_rpo_template():
+    """Load the editable 'rpo_edges' prompt template (prompt editor -> Shared prompts -> Ontology edges
+    -> R->P->O edges). A separate function so a test can inject a stub without a DB / app context.
+    Raises (no fallback) if unseeded. The property axioms (PROPERTY_AXIOMS) are injected at render time
+    as the {{ property_axioms }} system variable, keeping the ontology as the canonical source."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'rpo_edges')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'rpo_edges' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_rpo_edges_template.py")
+    return tmpl
 
 
 @dataclass
@@ -147,18 +141,15 @@ def _fmt_transformations(transformations) -> str:
 
 
 def build_prompt(roles, principles, obligations, case_id, state_transformations=None) -> str:
-    return (
-        f"Extract R->P->O dependency edges for case {case_id}.\n\n"
-        f"ROLES (subject of hasObligation / adheresToPrinciple):\n{_fmt(roles)}\n\n"
-        f"PRINCIPLES (object of adheresToPrinciple / derivedFromPrinciple):\n{_fmt(principles)}\n\n"
-        f"OBLIGATIONS (object of hasObligation; subject of derivedFromPrinciple):\n{_fmt(obligations)}\n\n"
-        f"{_fmt_transformations(state_transformations)}"
-        "TASK: Assert hasObligation (which role bears which obligation), adheresToPrinciple "
-        "(which role is guided by which principle), and derivedFromPrinciple (which obligation "
-        "operationalizes which principle), using the narrative fields as evidence. "
-        "If no edge is warranted, return an empty edges array.\n\n"
-        'OUTPUT (strict JSON): {"edges": [{"predicate": "...", "subject_iri": "...", '
-        '"object_iri": "...", "source_text": "...", "confidence": 0.9}]}'
+    """Render the R->P->O user prompt from the editable DB template. The per-individual blocks are
+    assembled here (via _fmt / _fmt_transformations) and passed as template variables; only the static
+    framing lives in the editable template."""
+    return _load_rpo_template().render(
+        case_id=case_id,
+        roles_block=_fmt(roles),
+        principles_block=_fmt(principles),
+        obligations_block=_fmt(obligations),
+        transformations_block=_fmt_transformations(state_transformations),
     )
 
 
@@ -177,7 +168,7 @@ class RPOEdgeExtractor(StreamingEdgeExtractor):
     swallow_stream_errors = False
 
     def _system_prompt(self) -> str:
-        return SYSTEM_PROMPT
+        return _load_rpo_template().render_system(property_axioms=PROPERTY_AXIOMS)
 
     @staticmethod
     def _recover_partial_edges(raw: str) -> List[Dict[str, Any]]:

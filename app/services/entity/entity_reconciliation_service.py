@@ -37,6 +37,33 @@ SKIP_EXTRACTION_TYPES = {'temporal_dynamics_enhanced', 'temporal_dynamics'}
 LLM_CANDIDATE_THRESHOLD = 0.70
 
 
+def _load_merge_pair_eval_template():
+    """Load the editable 'merge_pair_eval' prompt template (prompt editor -> Shared prompts ->
+    Entity passes -> Reconciliation (pair-merge)). Separate function so a test can inject a stub
+    without a DB / app context. Raises (no fallback) if unseeded."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'merge_pair_eval')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'merge_pair_eval' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_merge_pair_eval_template.py")
+    return tmpl
+
+
+def _load_merge_canonicalize_template():
+    """Load the editable 'merge_canonicalize' prompt template (prompt editor -> Shared prompts ->
+    Entity passes -> Canonicalization (de-compounding)). Separate function so a test can inject a stub
+    without a DB / app context. Raises (no fallback) if unseeded. The reference-sheet block stays a
+    rendered {{ reuse_block }} variable fed from source at render time (canonical-binding rule)."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'merge_canonicalize')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'merge_canonicalize' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_merge_canonicalize_template.py")
+    return tmpl
+
+
 @dataclass
 class ReconciliationCandidate:
     """A pair of entities that may be duplicates."""
@@ -462,27 +489,12 @@ class EntityReconciliationService:
 
         pairs_text = '\n\n'.join(pair_lines)
 
-        return f"""Evaluate each candidate pair for potential duplication among entities extracted from a professional ethics case.
-
-Entity type: {type_label} ({storage_label}){concept_line}
-
-For each pair, determine:
-- "merge" if both refer to the SAME specific concept extracted from different document sections (Facts vs Discussion)
-- "keep_separate" if they are DISTINCT concepts that should remain as separate entities
-
-{pairs_text}
-
-STRICT RULES -- most pairs should be "keep_separate":
-- merge: Same label or trivially rephrased label referring to the exact same specific concept
-- keep_separate: Different roles of the same person (e.g., "Engineer A Design Role" vs "Engineer A Safety Role")
-- keep_separate: Different BER case references (e.g., "BER 85-3 ..." vs "BER 98-8 ...")
-- keep_separate: Related but distinct concepts (e.g., "Safety Obligation" vs "Competence Obligation")
-- keep_separate: Different aspects or facets of a broader topic
-- keep_separate: General vs specific versions (e.g., "Safety Constraint" vs "Structural Safety Constraint")
-- When in doubt, use "keep_separate"
-
-Return ONLY valid JSON:
-{{"evaluations": [{{"pair": [id_a, id_b], "verdict": "merge"|"keep_separate", "reason": "brief explanation"}}]}}"""
+        return _load_merge_pair_eval_template().render(
+            type_label=type_label,
+            storage_label=storage_label,
+            concept_line=concept_line,
+            pairs_text=pairs_text,
+        )
 
     # -- Phase 4: LLM label canonicalization (de-compounding) --
 
@@ -677,27 +689,11 @@ Return ONLY valid JSON:
             lines.append(line)
         entities_text = '\n'.join(lines)
 
-        return f"""You are canonicalizing the CLASS identity of {type_label} entities extracted from a SINGLE professional-ethics case. The extractor frequently bakes case-specific context (a particular tool or technology, a named actor, a specific material, a jurisdiction, a code-section number) into the class name. Case-specific context belongs on the INDIVIDUAL -- as a state, an edge, or a literal attribute -- NEVER in the reusable CLASS identity.
-
-{reuse_block}
-
-For EACH entity below choose ONE action:
-- "reuse": its concept matches one of the canonical classes above -> return that canonical class label verbatim.
-- "generalize": its label bakes case-specific context into the class identity -> return a tool/actor/instance-NEUTRAL class label and list the stripped context in externalized_context.
-- "keep": the label is already a clean, general, reusable class -> return it unchanged.
-
-STAY IN CATEGORY: a {type_label} must remain a {type_label}. Only reuse or generalize to a {type_label} class; never fold it into a different component (e.g. do not turn a Constraint into an Obligation) -- that cross-component reconciliation is handled separately.
-
-Generalize aggressively but do NOT invent a class more specific than the concept warrants, and do NOT collapse genuinely distinct concepts together. Examples:
-- "AI Technology Substitution Constraint" -> action=generalize, canonical_label="ToolSubstitutionProhibitionConstraint", externalized_context={{"tool": "AI"}}
-- "Engineer A Competence Self-Assessment Capability" -> action=generalize, canonical_label="CompetenceSelfAssessmentCapability", externalized_context={{"actor": "Engineer A"}}
-- "Confidentiality Obligation" -> action=keep
-
-Entities:
-{entities_text}
-
-Return ONLY valid JSON (one object per entity, echo the exact ID):
-{{"entities": [{{"id": <int>, "action": "reuse"|"generalize"|"keep", "canonical_label": "<class label>", "externalized_context": {{"<kind>": "<value>"}}, "reason": "<brief>"}}]}}"""
+        return _load_merge_canonicalize_template().render(
+            type_label=type_label,
+            reuse_block=reuse_block,
+            entities_text=entities_text,
+        )
 
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """Call Haiku for dedup evaluation."""

@@ -111,6 +111,84 @@ def _board_conclusions_sample() -> Dict[str, object]:
             'conclusion_text': '', 'gap_count': 2}
 
 
+def _rpo_edges_sample() -> Dict[str, object]:
+    """One Role, Principle, Obligation plus a state-transformation grounding line. The per-individual
+    blocks come from the live rpo_edges formatters so the sample tracks the real prompt; property_axioms
+    is the verbatim ontology block the system prompt injects."""
+    from app.services.extraction.rpo_edges import (
+        Indiv, _fmt, _fmt_transformations, PROPERTY_AXIOMS)
+    roles = [Indiv("http://proethica.org/case7#Engineer_A_Role", "Engineer A",
+                   {"roleClass": "EngineerRole", "caseContext": "lead designer on the project"})]
+    principles = [Indiv("http://proethica.org/case7#Public_Welfare_Principle", "Public Welfare",
+                        {"principleClass": "PublicWelfare", "invokedBy": "Engineer A"})]
+    obligations = [Indiv("http://proethica.org/case7#Report_Findings_Obligation", "Report Findings",
+                         {"obligationStatement": "must report safety-relevant findings to the client"})]
+    transformations = [("Risk State", "the risk state turns the public-welfare principle into a "
+                        "concrete reporting obligation")]
+    return {
+        'property_axioms': PROPERTY_AXIOMS,
+        'case_id': 7,
+        'roles_block': _fmt(roles),
+        'principles_block': _fmt(principles),
+        'obligations_block': _fmt(obligations),
+        'transformations_block': _fmt_transformations(transformations),
+    }
+
+
+def _defeasibility_edges_sample() -> Dict[str, object]:
+    """Two competing obligations, one conflict state, one narrative justification. Blocks come from the
+    live defeasibility formatters; property_axioms_block is the verbatim proethica-core.ttl block the
+    system prompt injects."""
+    from app.services.extraction.enhanced_prompts_defeasibility import (
+        ObligationContext, StateContext, NarrativeContext,
+        _format_obligations, _format_states, _format_narratives, PROPERTY_AXIOMS_BLOCK)
+    obligations = [
+        ObligationContext(iri="http://proethica.org/case7#Safety_Obligation", label="Safety",
+                          statement="protect the public welfare", obligated_party="Engineer A"),
+        ObligationContext(iri="http://proethica.org/case7#Loyalty_Obligation", label="Loyalty",
+                          statement="serve the client faithfully"),
+    ]
+    states = [StateContext(iri="http://proethica.org/case7#Conflict_State", label="Conflict",
+                           state_class="ConflictState", triggering_event="client instruction to suppress")]
+    narratives = [NarrativeContext(source_iri="http://proethica.org/case7#Tension", source_label="Tension",
+                                   source_field="tensionresolution",
+                                   text="public welfare overrides loyalty when safety is at stake")]
+    return {
+        'property_axioms_block': PROPERTY_AXIOMS_BLOCK,
+        'case_tag': 'case 7',
+        'obligations_block': _format_obligations(obligations),
+        'states_block': _format_states(states),
+        'narratives_block': _format_narratives(narratives),
+    }
+
+
+def _merge_pair_eval_sample() -> Dict[str, str]:
+    """Two same-actor roles (the canonical keep_separate case). concept_line carries the Roles category
+    definition with its leading/trailing newlines, exactly as the live builder assembles it."""
+    return {
+        'type_label': 'Roles',
+        'storage_label': 'class',
+        'concept_line': ('\nCategory: Professional roles and role-bearers (e.g., "Engineer A", '
+                         '"Structural Design Engineer"). Different roles of the same person are DISTINCT.\n'),
+        'pairs_text': ('Pair 1: [ID: 1] "Engineer A Design Role" (source: facts)\n'
+                       '     vs [ID: 2] "Engineer A Safety Role" (source: discussion)\n'
+                       '  A: "The role of Engineer A in the design phase"\n'
+                       '  B: "The role of Engineer A in the safety review"'),
+    }
+
+
+def _merge_canonicalize_sample() -> Dict[str, str]:
+    """A compound obligation to generalize plus a clean one to keep. reuse_block is the live reference-
+    sheet block for obligations (the OntServe-derived controlled vocabulary), fed from source."""
+    from app.services.extraction.reference_sheet import reuse_block_for_concept
+    return {
+        'type_label': 'Obligations',
+        'reuse_block': reuse_block_for_concept('obligations'),
+        'entities_text': ('[ID: 10] "AI Tool Disclosure Obligation" -- Duty to disclose use of the AI tool\n'
+                          '[ID: 11] "Confidentiality Obligation" -- Keep client information secret'),
+    }
+
+
 # Registry keyed by the shared prompt's concept_type (matches the seeded template row).
 _PROVIDERS: Dict[str, Callable[[], Dict]] = {
     'individual_filter': _individual_filter_sample,
@@ -119,6 +197,10 @@ _PROVIDERS: Dict[str, Callable[[], Dict]] = {
     'temporal_sequence': _temporal_sequence_sample,
     'obligation_engagement': _obligation_engagement_sample,
     'board_conclusions': _board_conclusions_sample,
+    'rpo_edges': _rpo_edges_sample,
+    'defeasibility_edges': _defeasibility_edges_sample,
+    'merge_pair_eval': _merge_pair_eval_sample,
+    'merge_canonicalize': _merge_canonicalize_sample,
 }
 
 

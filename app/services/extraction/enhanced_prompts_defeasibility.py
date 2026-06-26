@@ -19,7 +19,6 @@ Reference: proethica/.claude/plans/defeasibility-edge-extraction.md Phase A2.
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -90,30 +89,24 @@ proeth-core:defeasibleUnder a owl:ObjectProperty ;
 """
 
 
-SYSTEM_PROMPT = (
-    "You are a defeasibility-edge extractor for the ProEthica D-tuple model. "
-    "Your task is to emit object-property triples that link previously extracted "
-    "Obligation and State individuals using the three proethica-core v2.5.0 "
-    "properties below. "
-    "You must NOT invent classes, individuals, IRIs, or property names. "
-    "Output STRICT JSON only -- no prose, no markdown fences. "
-    "Property axioms (verbatim from proethica-core.ttl):\n\n"
-    f"{PROPERTY_AXIOMS_BLOCK}\n\n"
-    "Hard constraints:\n"
-    "  1. predicate must be exactly one of: competesWith, prevailsOver, defeasibleUnder.\n"
-    "  2. subject_iri and object_iri must each appear verbatim in the supplied "
-    "OBLIGATIONS or STATES lists. Copy them character-for-character (including "
-    "non-ASCII characters such as em-dashes).\n"
-    "  3. competesWith: subject and object are both Obligations; emit ONE direction "
-    "only (the inverse will be added automatically).\n"
-    "  4. prevailsOver: subject is the prevailing Obligation, object is the "
-    "defeated Obligation.\n"
-    "  5. defeasibleUnder: subject is an Obligation, object is a State.\n"
-    "  6. Every edge must be supported by a verbatim source_text drawn from one "
-    "of the narrative datatype fields supplied. Set source_field to the field "
-    "name (e.g. tensionresolution) and source_individual_iri to the IRI of the "
-    "individual whose field supplied the quote."
-)
+def _load_defeasibility_template():
+    """Load the editable 'defeasibility_edges' prompt template (prompt editor -> Shared prompts ->
+    Ontology edges -> Defeasibility edges). A separate function so a test can inject a stub without a
+    DB / app context. Raises (no fallback) if unseeded."""
+    from app.models.extraction_prompt_template import ExtractionPromptTemplate
+    tmpl = ExtractionPromptTemplate.get_active_template(0, 'defeasibility_edges')
+    if tmpl is None:
+        raise RuntimeError(
+            "No 'defeasibility_edges' prompt template in extraction_prompt_templates. "
+            "Seed it: docs-internal/scripts/seed_defeasibility_edges_template.py")
+    return tmpl
+
+
+def defeasibility_system_prompt() -> str:
+    """Render the defeasibility system prompt from the editable template. The property axioms are
+    injected from PROPERTY_AXIOMS_BLOCK (verbatim from proethica-core.ttl), keeping the ontology as
+    the canonical source rather than baking the axioms into the editable text."""
+    return _load_defeasibility_template().render_system(property_axioms_block=PROPERTY_AXIOMS_BLOCK)
 
 
 # ---------------------------------------------------------------------------
@@ -173,51 +166,18 @@ def create_defeasibility_prompt(
     additional_narratives: Optional[List[NarrativeContext]] = None,
     case_id: Optional[int] = None,
 ) -> str:
-    """Build the user-side prompt for defeasibility edge extraction.
+    """Render the defeasibility user prompt from the editable DB template.
 
-    The system prompt (`SYSTEM_PROMPT`) carries the property axioms and the
-    hard constraints; this user prompt supplies the case-specific entities
-    and narrative context.
+    The per-entity blocks are assembled here (via _format_obligations / _format_states /
+    _format_narratives) and passed as template variables; the static framing and the JSON output
+    example live in the editable template. The system prompt (with the property axioms) is rendered
+    separately by ``defeasibility_system_prompt()``.
     """
     case_tag = f"case {case_id}" if case_id is not None else "this case"
     additional_narratives = additional_narratives or []
-
-    output_schema_example = {
-        "edges": [
-            {
-                "predicate": "competesWith",
-                "subject_iri": "http://proethica.org/ontology/case/72#Doe_Faithful_Agent_Obligation_Fulfilled_XYZ_Corporation_Verbal_Disclosure",
-                "object_iri": "http://proethica.org/ontology/case/72#Doe_Public_Welfare_Safety_Escalation_XYZ_Discharge_Regulatory_Authority",
-                "source_field": "tensionresolution",
-                "source_text": "the subsequent instruction to suppress the report and the client's presentation of contradictory data at the public hearing activated the overriding public welfare obligation",
-                "source_individual_iri": "http://proethica.org/ontology/case/72#Faithful_Agent_Obligation_Fulfilled_Then_Superseded_By_Ethical_Limits",
-                "confidence": 0.9,
-            }
-        ]
-    }
-
-    return (
-        f"Extract proethica-core v2.5.0 defeasibility edges from {case_tag}.\n\n"
-        "OBLIGATIONS (eligible for subject_iri and object_iri on competesWith / "
-        "prevailsOver, and subject_iri on defeasibleUnder):\n"
-        f"{_format_obligations(obligations)}\n\n"
-        "STATES (eligible for object_iri on defeasibleUnder):\n"
-        f"{_format_states(states)}\n\n"
-        "ADDITIONAL NARRATIVE CONTEXT (datatype fields from related entities -- "
-        "Principles, Constraints, etc. -- that may justify edges between the "
-        "obligations above):\n"
-        f"{_format_narratives(additional_narratives)}\n\n"
-        "TASK:\n"
-        "Identify defeasibility edges supported by the narrative material above. "
-        "Emit one competesWith direction per pair (the symmetric inverse is "
-        "added automatically). When prevailsOver applies, emit the directed "
-        "edge from winner to loser. When an Obligation yields under a State, "
-        "emit defeasibleUnder. If no edges are warranted, return an empty "
-        "edges array.\n\n"
-        "OUTPUT FORMAT (strict JSON, no markdown fences):\n"
-        f"{json.dumps(output_schema_example, indent=2)}\n\n"
-        "Reminder: subject_iri and object_iri MUST be copied verbatim from the "
-        "lists above -- do not reformat or normalize them. If you cannot find "
-        "an exact IRI match for an entity you would like to reference, omit "
-        "that edge."
+    return _load_defeasibility_template().render(
+        case_tag=case_tag,
+        obligations_block=_format_obligations(obligations),
+        states_block=_format_states(states),
+        narratives_block=_format_narratives(additional_narratives),
     )
