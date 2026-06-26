@@ -478,6 +478,28 @@ def _format_entity_inventory(entities: List[Dict[str, Any]],
 
     lines = []
 
+    # Specialization-axis grouping (sourced from the ontology via MCP): when existing
+    # classes carry a specializationAxis annotation -- e.g. engineer role leaves tagged
+    # "discipline" (Civil/Electrical/...) vs "function" (Quality/Safety/...) -- present them
+    # grouped up front so the model reuses the right specialization instead of minting a
+    # compound. The axes are orthogonal. Fires for any axis-tagged component, not just roles.
+    axis_groups = {}
+    for e in entities:
+        axis = (e.get('properties') or {}).get('specializationAxis')
+        if axis:
+            axis_groups.setdefault(str(axis), []).append(
+                e.get('label', e.get('name', 'Unknown')))
+    if axis_groups:
+        lines.append(f"=== {concept_type.upper()} SPECIALIZATIONS BY AXIS ===")
+        lines.append(
+            "Existing classes that specialize a parent along a named axis. Reuse the exact "
+            "label; do not mint a compound variant. The axes are orthogonal (a class may "
+            "specialize on more than one).")
+        for axis in sorted(axis_groups):
+            labels = "; ".join(sorted(set(axis_groups[axis])))
+            lines.append(f"- {axis}: {labels}")
+        lines.append('')
+
     if canonical:
         lines.append(f"=== CANONICAL ONTOLOGY CLASSES ({concept_type}) ===")
         lines.append("Hand-curated classes from the formal ontology. Match to these with high confidence.")
