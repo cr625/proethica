@@ -186,6 +186,11 @@
                                             <i class="bi bi-collection me-2"></i>Browse ProEthica Ontologies <i
                                                 class="bi bi-box-arrow-up-right ms-1"></i>
                                         </a></li>
+                                    {% if not (current_user and current_user.is_authenticated and current_user.is_admin) %}
+                                    <li><a class="dropdown-item" href="/tools/prompts">
+                                            <i class="bi bi-eye me-2"></i>Prompt Viewer
+                                        </a></li>
+                                    {% endif %}
                                     {% if current_user and current_user.is_authenticated and current_user.is_admin %}
                                     <li><hr class="dropdown-divider"></li>
                                     <li><h6 class="dropdown-header">Admin Tools</h6></li>

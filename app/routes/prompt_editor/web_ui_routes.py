@@ -1,6 +1,10 @@
-"""HTML editor views: redirect landing page, case-template editor, guideline-template editor. Renders tools/prompt_editor_*.html.."""
+"""HTML editor views: redirect landing page, case-template editor, guideline-template editor. Renders tools/prompt_editor_*.html..
+
+The pages are PUBLIC (a read-only Prompt Viewer) so anyone can inspect the extraction prompts to
+understand the system. Editing affordances (Save/Test/Revert) are shown only when ``can_edit`` is true;
+the write/LLM APIs are independently auth-gated, so the viewer is read-only regardless of the UI."""
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
-from flask_login import login_required
+from flask_login import current_user
 from sqlalchemy import func
 
 from app.models import db
@@ -12,15 +16,25 @@ from app.models.extraction_prompt_template import (
 from app.models.extraction_prompt import ExtractionPrompt
 from app.models.document import Document
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
+from app.utils.environment_auth import is_production
 
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+def can_edit_prompts() -> bool:
+    """Whether to show the editing UI (Save/Test/Revert) vs the read-only Prompt Viewer.
+
+    Editing is for logged-in admins in production; development stays permissive for any authenticated
+    user. Anonymous users get the viewer. This only drives the UI affordances -- the write/LLM API
+    routes are independently auth-gated, so an anonymous user cannot mutate anything regardless."""
+    return current_user.is_authenticated and (
+        getattr(current_user, 'is_admin', False) or not is_production())
+
+
 def register_web_ui(bp):
     @bp.route('/tools/prompts')
-    @login_required
     def index():
         """Redirect to the prompt editor - uses localStorage to restore last viewed template."""
         # This renders a minimal page that checks localStorage for the last viewed template
@@ -29,9 +43,8 @@ def register_web_ui(bp):
 
 
     @bp.route('/tools/prompts/<int:step>/<concept>')
-    @login_required
     def edit_template(step, concept):
-        """Edit a specific template."""
+        """View (or, for admins, edit) a specific extraction-prompt template."""
         # Get domain from query params
         selected_domain = request.args.get('domain', 'engineering')
 
@@ -126,6 +139,7 @@ def register_web_ui(bp):
 
         return render_template('tools/prompt_editor_detail.html',
                               template=template,
+                              can_edit=can_edit_prompts(),
                               template_pass=template_pass,
                               request_pass=pass_type,
                               split_concepts=split_concepts,
@@ -144,9 +158,8 @@ def register_web_ui(bp):
                               selected_domain=selected_domain,
                               json_wrapper_suffix=json_wrapper_suffix)
     @bp.route('/tools/prompts/guidelines/<concept>')
-    @login_required
     def edit_guideline_template(concept):
-        """Edit a guideline extraction template."""
+        """View (or, for admins, edit) a guideline extraction template."""
         # Get domain from query params
         selected_domain = request.args.get('domain', 'engineering')
 
@@ -195,6 +208,7 @@ def register_web_ui(bp):
 
         return render_template('tools/prompt_editor_guideline.html',
                               template=template,
+                              can_edit=can_edit_prompts(),
                               concept=concept,
                               concept_info=concept_info,
                               concept_color=concept_info.get('color', '#f97316'),

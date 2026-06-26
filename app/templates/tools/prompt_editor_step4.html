@@ -242,5 +242,14 @@
 <script>
     window.PROMPT_EDITOR_STEP4 = { phase: '{{ phase }}' };
 </script>
+{% if not can_edit %}
+<script>
+    // Read-only Prompt Viewer: the synthesis settings + the Step-4 test launcher are admin-only
+    // affordances (the config API is independently auth-gated). Disable them in place; the prompts
+    // themselves stay visible for inspection.
+    document.querySelectorAll('#tab-settings .setting-input, #testCaseSelect, #testBtn')
+        .forEach(function (el) { el.disabled = true; });
+</script>
+{% endif %}
 <script src="{{ url_for('static', filename='js/tools/prompt_editor_step4.js') }}"></script>
 {% endblock %}

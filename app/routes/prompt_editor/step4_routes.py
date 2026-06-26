@@ -12,6 +12,7 @@ from app.models.extraction_prompt_template import (
 from app.models.extraction_prompt import ExtractionPrompt
 from app.models.document import Document
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
+from app.routes.prompt_editor.web_ui_routes import can_edit_prompts
 
 import logging
 
@@ -20,9 +21,8 @@ logger = logging.getLogger(__name__)
 
 def register_step4(bp):
     @bp.route('/tools/prompts/4/<phase>')
-    @login_required
     def view_step4_phase(phase):
-        """View a Step 4 synthesis phase (read-only prompts + settings)."""
+        """View a Step 4 synthesis phase (read-only prompts; settings editable by admins)."""
         from app.models.extraction_prompt_template import STEP4_PHASES
         from app.models.synthesis_config import SynthesisConfig, SYNTHESIS_PARAMETERS
 
@@ -47,6 +47,7 @@ def register_step4(bp):
 
         return render_template('tools/prompt_editor_step4.html',
                               phase=phase,
+                              can_edit=can_edit_prompts(),
                               phase_info=phase_info,
                               step4_phases=STEP4_PHASES,
                               config=config,

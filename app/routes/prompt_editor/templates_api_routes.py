@@ -228,8 +228,9 @@ def register_templates_api(bp):
                 'error': str(e)
             }), 400
     @bp.route('/api/prompts/template/<int:template_id>/render', methods=['POST'])
-    @login_required
     def render_template_with_case(template_id):
+        # Public: read-only prompt Preview for the Prompt Viewer (no writes, no LLM call). The
+        # write/LLM endpoints (update / test-run / revert / resolve-variables) stay auth-gated.
         """Render a template with auto-resolved variables from case context.
 
     Expects JSON body:

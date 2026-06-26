@@ -456,11 +456,18 @@ div.reference-panel {
             {% if template and template.extractor_file %}
             <span class="extractor-badge">{{ template.extractor_file.split('/')[-1] }}</span>
             {% endif %}
+            {% if not can_edit %}
+            <span class="badge bg-secondary" title="Read-only view of the extraction prompts. Log in as an admin to edit.">
+                <i class="bi bi-eye"></i> Viewer
+            </span>
+            {% endif %}
         </div>
         <div class="d-flex gap-2">
+            {% if can_edit %}
             <button class="btn btn-sm btn-success" id="saveBtn" onclick="saveTemplate()" disabled>
                 <i class="bi bi-check-lg"></i> Save
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -569,16 +576,18 @@ div.reference-panel {
         <div class="main-panel">
             {% if template %}
             <div class="main-tabs">
-                <div class="main-tab active" onclick="switchMainTab('template')">
+                <div class="main-tab active" data-tab="template" onclick="switchMainTab('template')">
                     <i class="bi bi-code-slash"></i> Template
                 </div>
-                <div class="main-tab" onclick="switchMainTab('preview')">
+                <div class="main-tab" data-tab="preview" onclick="switchMainTab('preview')">
                     <i class="bi bi-eye"></i> Preview
                 </div>
-                <div class="main-tab" onclick="switchMainTab('test')">
+                {% if can_edit %}
+                <div class="main-tab" data-tab="test" onclick="switchMainTab('test')">
                     <i class="bi bi-play-circle"></i> Test
                 </div>
-                <div class="main-tab" onclick="switchMainTab('history')">
+                {% endif %}
+                <div class="main-tab" data-tab="history" onclick="switchMainTab('history')">
                     <i class="bi bi-clock-history"></i> History
                 </div>
             </div>
@@ -592,12 +601,12 @@ div.reference-panel {
                         </label>
                         <textarea class="template-textarea" id="systemText" placeholder="(no system prompt)"
                                   style="height: 6rem; min-height: 4rem; flex: 0 0 auto; margin-bottom: .6rem;"
-                                  onchange="markUnsaved()" oninput="markUnsaved()">{{ template.system_prompt or '' }}</textarea>
+                                  {% if can_edit %}onchange="markUnsaved()" oninput="markUnsaved()"{% else %}readonly{% endif %}>{{ template.system_prompt or '' }}</textarea>
                         <label class="small text-muted mb-1" for="templateText">
                             <i class="bi bi-chat-text"></i> User prompt (template)
                         </label>
                         <textarea class="template-textarea" id="templateText" style="flex: 1 1 auto;"
-                                  onchange="markUnsaved()" oninput="markUnsaved()">{{ template.template_text }}</textarea>
+                                  {% if can_edit %}onchange="markUnsaved()" oninput="markUnsaved()"{% else %}readonly{% endif %}>{{ template.template_text }}</textarea>
                     </div>
                 </div>
 
@@ -617,6 +626,7 @@ div.reference-panel {
                     </div>
                 </div>
 
+                {% if can_edit %}
                 <!-- Test Tab -->
                 <div class="tab-content" id="tab-test">
                     <div class="test-controls">
@@ -633,6 +643,7 @@ div.reference-panel {
                         </div>
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- History Tab -->
                 <div class="tab-content" id="tab-history">
@@ -648,9 +659,11 @@ div.reference-panel {
                                 <div class="small text-muted">{{ version.change_description }}</div>
                                 {% endif %}
                             </div>
+                            {% if can_edit %}
                             <button class="btn btn-sm btn-outline-warning" onclick="revertToVersion({{ version.version_number }})">
                                 Revert
                             </button>
+                            {% endif %}
                         </div>
                         {% endfor %}
                         {% else %}
@@ -688,19 +701,22 @@ div.reference-panel {
                 <div class="ref-section">
                     <div class="ref-section-title d-flex justify-content-between align-items-center">
                         <span>Template Variables</span>
+                        {% if can_edit %}
                         <button class="btn btn-xs btn-outline-primary" onclick="previewVariables()" title="Preview all resolved values">
                             <i class="bi bi-eye"></i>
                         </button>
+                        {% endif %}
                     </div>
                     <div id="detectedVariables">
                         {% if template %}
                         {% set detected_vars = template.get_template_variables() %}
                         {% if detected_vars %}
                         {% for var_name in detected_vars %}
-                        <div class="var-item var-clickable" onclick="previewSingleVariable('{{ var_name }}')" title="Click to preview value">
+                        <div class="var-item {% if can_edit %}var-clickable{% endif %}"
+                             {% if can_edit %}onclick="previewSingleVariable('{{ var_name }}')" title="Click to preview value"{% endif %}>
                             <div class="var-name d-flex justify-content-between">
                                 <span>{{ "{{ " ~ var_name ~ " }}" }}</span>
-                                <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.7rem;"></i>
+                                {% if can_edit %}<i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.7rem;"></i>{% endif %}
                             </div>
                             {% if template.variable_builders and var_name in template.variable_builders %}
                             <div class="var-desc">{{ template.variable_builders[var_name].get('description', '') }}</div>
@@ -841,11 +857,13 @@ let originalText = document.getElementById('templateText')?.value || '';
 let hasUnsavedChanges = false;
 
 function switchMainTab(tabName) {
-    document.querySelectorAll('.main-tab').forEach((t, i) => {
-        t.classList.toggle('active', ['template', 'preview', 'test', 'history'][i] === tabName);
+    // Identity-based (data-tab), not index-based: the Test tab is absent in the read-only viewer.
+    document.querySelectorAll('.main-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tabName);
     });
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById('tab-' + tabName).classList.add('active');
+    const pane = document.getElementById('tab-' + tabName);
+    if (pane) pane.classList.add('active');
 }
 
 function markUnsaved() {

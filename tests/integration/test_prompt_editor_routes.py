@@ -82,13 +82,11 @@ def create_test_document(app_context, create_test_world):
 class TestPromptEditorWebRoutes:
     """Tests for prompt editor web routes."""
 
-    def test_index_redirects_without_login(self, client):
-        """Test that /tools/prompts redirects to login when not authenticated."""
+    def test_index_public_viewer(self, client):
+        """/tools/prompts is public (read-only Prompt Viewer); it no longer redirects to login."""
         response = client.get('/tools/prompts')
 
-        # Should redirect to login
-        assert response.status_code == 302
-        assert 'login' in response.location.lower() or response.status_code == 302
+        assert response.status_code == 200
 
     def test_index_accessible_when_logged_in(self, auth_client):
         """Test that /tools/prompts is accessible when logged in."""
@@ -97,12 +95,15 @@ class TestPromptEditorWebRoutes:
         # Should return 200 or redirect to specific template
         assert response.status_code in [200, 302]
 
-    def test_edit_template_page_requires_login(self, client):
-        """Test that edit template page requires authentication."""
-        response = client.get('/tools/prompts/1/roles')
+    def test_edit_template_page_public_viewer(self, client, create_test_template):
+        """The template page is public in read-only viewer mode when not logged in:
+        it loads (no login redirect), shows the Viewer badge, and hides the Save button."""
+        template = create_test_template()
+        response = client.get(f'/tools/prompts/{template.step_number}/{template.concept_type}')
 
-        assert response.status_code == 302
-        assert 'login' in response.location.lower() or response.status_code == 302
+        assert response.status_code == 200
+        assert b'id="saveBtn"' not in response.data   # editing UI hidden for viewers
+        assert b'Viewer' in response.data              # read-only viewer badge
 
     def test_edit_template_page_loads_for_concept(self, auth_client, create_test_template):
         """Test that edit template page loads for a specific concept."""
@@ -139,8 +140,9 @@ class TestPromptEditorWebRoutes:
 class TestRenderTemplateAPI:
     """Tests for POST /api/prompts/template/<id>/render endpoint."""
 
-    def test_render_requires_authentication(self, client, create_test_template):
-        """Test that render endpoint requires authentication."""
+    def test_render_is_public(self, client, create_test_template):
+        """The render (Preview) endpoint is public so the read-only viewer can show filled prompts;
+        it must not redirect to login when unauthenticated."""
         template = create_test_template()
 
         response = client.post(
@@ -149,7 +151,8 @@ class TestRenderTemplateAPI:
             content_type='application/json'
         )
 
-        assert response.status_code == 302  # Redirects to login
+        # Public now: no auth redirect (the response itself may be 200/400/500 depending on case data).
+        assert response.status_code != 302
 
     @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_render_requires_case_id(self, mock_mcp, auth_client, create_test_template):
