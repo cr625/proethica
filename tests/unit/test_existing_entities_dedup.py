@@ -107,14 +107,15 @@ def test_format_existing_entities_has_no_duplicate_lines():
 
 
 def test_reuse_block_prepended_with_canonical_guidance():
-    """format_existing_entities leads with the reference-sheet reuse-bias block: the canonical
-    classes to reuse, the synonym folds, and the compound anti-patterns that reduce LLM minting
-    of context-laden classes (step 2 of the canonicalization calibration)."""
+    """format_existing_entities leads with the reference-sheet reuse-bias block: the synonym folds
+    and the compound anti-patterns that reduce LLM minting of context-laden classes. The canonical
+    class LIST itself is no longer in this block -- it comes from the OntServe-sourced inventory, so
+    the reuse block stays pure policy and never drifts from the ontology."""
     rows = [{"uri": CANON_URI, "label": "Stakeholder Role",
              "ontology_name": "proethica-intermediate"}]
     block = format_existing_entities(rows, "roles")
-    # Reuse guidance comes first, the live inventory after it.
-    assert block.index("REUSE THESE CANONICAL ROLE") < block.index("=== CANONICAL ONTOLOGY CLASSES")
+    # Reuse policy comes first, the live inventory after it.
+    assert block.index("ROLE REUSE POLICY") < block.index("=== CANONICAL ONTOLOGY CLASSES")
     # A known role anti-pattern is present (compound role -> canonical role).
     assert "AI Tool Reliant Engineer -> EngineerRole" in block
     # Constraint folds reach the constraint prompt (manifest cross-component redirect).

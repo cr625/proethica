@@ -262,21 +262,23 @@ class ReferenceSheet:
 
         cat_l = category.lower()
         lines = [
-            f"=== REUSE THESE CANONICAL {category.upper()} CLASSES (do not mint compound variants) ===",
-            f"When a {cat_l} matches one of these, reuse the exact canonical label.",
+            f"=== {category.upper()} REUSE POLICY (reuse a canonical class; do not mint compound variants) ===",
+            f"Reuse a canonical {cat_l} from the ontology class list below; express case-specific context "
+            f"(tool, domain, bearer, conduct, trigger) as a State, an edge, or a literal, never as a new "
+            f"compound class.",
         ]
         # Global cross-component hygiene rules (declared once in the sheet manifest's global_rules;
         # NOT hardcoded here, so a second domain swaps them with its sheet). Soft at the prompt layer;
-        # the deterministic enforcement point is the commit-time normalizer + SHACL.
+        # the deterministic enforcement point is the commit-time normalizer + SHACL. The canonical class
+        # LIST itself is not rendered here -- it comes from the ontology (the OntServe-sourced inventory),
+        # so this block stays pure reuse POLICY (synonyms + anti-patterns) and never drifts from OntServe.
         grules = self._global_rules_for(category)
         if grules:
             lines.append("Rules for every class you mint:")
             lines += [f"- {r}" for r in grules]
-        if canon:
-            lines.append("Canonical classes: " + "; ".join(canon))
         if synonyms:
             lines.append("")
-            lines.append("Synonyms (fold into a canonical class above -- reuse it, do not mint a new class):")
+            lines.append("Synonyms (each folds into a canonical class -- reuse the target, do not mint a new class):")
             lines += [f"- {label} -> {tgt}" for label, tgt in synonyms]
         if antipatterns:
             lines.append("")
