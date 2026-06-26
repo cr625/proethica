@@ -175,6 +175,21 @@ class OntServeCommitService:
             return disambiguated
         return class_local_name
 
+    @staticmethod
+    def _enforce_role_suffix(local_name: str, label: str, category: Optional[str]) -> Tuple[str, str]:
+        """Every role CLASS ends in 'Role' (URI local-name + rdfs:label). Deterministic hard
+        enforcement of the convention the extraction prompt only soft-biases; idempotent and a
+        no-op for non-Role categories. Applied before the base-check so a suffixless extraction
+        (e.g. 'Design Engineer') maps onto the canonical promoted class (DesignEngineerRole) and
+        is reused, not re-minted."""
+        if category != 'Role':
+            return local_name, label
+        if local_name and not local_name.endswith('Role'):
+            local_name = f"{local_name}Role"
+        if label and not label.rstrip().endswith('Role'):
+            label = f"{label.rstrip()} Role"
+        return local_name, label
+
     def _record_edge_provenance(self, case_id, edge_result):
         """Record the commit-time edge materialization (per family) + the unified guard as
         provenance PASSES, so the record shows the post-extraction graph construction, not only
@@ -452,7 +467,9 @@ class OntServeCommitService:
                 # Category-aware disambiguation: never mint a class IRI that the
                 # immutable base reserves for a disjoint category (e.g. a Principle
                 # onto proeth:ProfessionalCompetence, a base Capability).
-                safe_label = self._category_safe_class_local(safe_label, self._get_concept_category(entity))
+                category = self._get_concept_category(entity)
+                safe_label = self._category_safe_class_local(safe_label, category)
+                safe_label, label = self._enforce_role_suffix(safe_label, label, category)
                 class_uri = PROETHICA[safe_label]
 
                 # Normalized D15 rule: do NOT copy a class that already lives in the curated
