@@ -149,10 +149,14 @@ class CandidateRoleClass(BaseCandidate):
         description="Required education, licensing, and experience")
     generated_obligations: List[str] = Field(
         default_factory=list,
-        description="Specific duties this role creates")
+        description="Specific duties this role creates (hasObligation -> Obligation; professional roles)")
+    adheres_to_principles: List[str] = Field(
+        default_factory=list,
+        description="Principles this role serves/adheres to (adheresToPrinciple -> Principle; the P side "
+                    "of R->P->O, sibling of generated_obligations; professional roles)")
     associated_virtues: List[str] = Field(
         default_factory=list,
-        description="Virtues or qualities expected of this role")
+        description="Virtues or qualities expected of this role (professional roles)")
 
 
 class RoleIndividual(BaseIndividual):
@@ -176,9 +180,16 @@ class RoleIndividual(BaseIndividual):
     role_category: Optional[RoleCategory] = Field(
         None, description="Kong framework category for this individual"
     )
+    # Professional-role bearer data (ProfessionalRolePropertyShape). Extract only for a PROFESSIONAL
+    # role-bearer (engineer/architect/...); a participant/stakeholder role-bearer has none of these.
+    license: Optional[str] = Field(None, description="Professional license / licensure")
+    specialty: Optional[str] = Field(None, description="Area of specialisation")
+    experience_level: Optional[str] = Field(None, description="Professional experience")
+    employer: Optional[str] = Field(None, description="Employer / affiliation")
+    technical_background: Optional[str] = Field(None, description="Technical background")
     attributes: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Qualifications, experience, credentials"
+        description="Overflow 'key: value' bag for case-specific bearer attributes outside the named fields above"
     )
     relationships: List[Dict[str, str]] = Field(
         default_factory=list,

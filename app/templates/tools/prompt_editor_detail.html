@@ -728,7 +728,10 @@ div.reference-panel {
                         {% for field_name, field_info in schema_info.get('fields').items() %}
                         <div class="schema-field">
                             <span>{{ field_name }}{% if field_info.get('required') %}<span class="text-danger">*</span>{% endif %}</span>
-                            <span class="schema-type">{{ field_info.get('type', '') }}</span>
+                            <span class="schema-type">{{ field_info.get('type', '') }}{% if field_info.get('range') %}
+                                <a href="{{ config.ONTSERVE_WEB_URL }}/entity/{{ field_info.get('range_ontology', 'proethica-core') }}/{{ field_info.get('range') }}"
+                                   target="_blank" rel="noopener" class="ms-1 text-decoration-none"
+                                   title="Relation range -- open {{ field_info.get('range') }} in OntServe">&rarr; {{ field_info.get('range') }} <i class="bi bi-box-arrow-up-right" style="font-size:.6rem;"></i></a>{% endif %}</span>
                         </div>
                         {% endfor %}
                         {% endif %}
