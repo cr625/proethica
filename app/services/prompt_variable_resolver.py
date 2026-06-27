@@ -77,6 +77,12 @@ class PromptVariableResolver:
         variables[f'existing_{concept_type}'] = existing_entities
         variables['existing_entities'] = existing_entities
 
+        # Role definitional schema, resolved live from the SHACL role shapes (the SAME shapes the
+        # OntServe Role page renders) so the prompt's field list stays in lockstep with core-shapes.ttl
+        # instead of being a hand-maintained copy. See the prompt-harmonization playbook.
+        if concept_type in ('roles', 'role'):
+            variables['role_schema'] = _role_schema_block()
+
         # Cross-concept context (e.g., roles for principles extraction)
         from app.services.extraction.unified_dual_extractor import (
             format_cross_concept_context,
@@ -429,6 +435,49 @@ def format_existing_entities(entities: List[Dict[str, Any]],
     guidance = reuse_block_for_concept(concept_type)
     inventory = _format_entity_inventory(entities, concept_type, label_only_tier2)
     return "\n\n".join(p for p in (guidance, inventory) if p)
+
+
+def _role_schema_block() -> str:
+    """Build the role definitional/bearer schema text from the SHACL role shapes (core-shapes.ttl) so the
+    extraction prompt's controlled field list stays in lockstep with the ontology -- the same shapes the
+    OntServe Role page renders. Single source: edit the shapes, both the page and the prompt update.
+    Raises on an unreadable shapes file (a real misconfiguration; not silently swallowed)."""
+    import os
+    from pathlib import Path
+    import rdflib
+    from app.services.extraction.reference_sheet import _sheet_dir
+    shapes = os.environ.get('ONTSERVE_SHAPES_PATH') or str(
+        Path(_sheet_dir()).resolve().parents[1] / 'validation' / 'shapes' / 'core-shapes.ttl')
+    SH = rdflib.Namespace('http://www.w3.org/ns/shacl#')
+    PCSH = rdflib.Namespace('http://proethica.org/shapes/core#')
+    g = rdflib.Graph()
+    g.parse(shapes, format='turtle')
+
+    def fields(shape: str):
+        rows = []
+        for pshape in g.objects(PCSH[shape], SH.property):
+            name = next(g.objects(pshape, SH.name), None)
+            if name is None:
+                continue
+            desc = next(g.objects(pshape, SH.description), None)
+            order = next(g.objects(pshape, SH.order), None)
+            rows.append((int(order) if order is not None else 999, str(name), str(desc) if desc else ''))
+        return [f'- {n}: {d}' for _o, n, d in sorted(rows)]
+
+    universal = fields('RoleDefinitionShape')                  # every role
+    professional = fields('ProfessionalRoleDefinitionShape')   # obligation-bearing roles only
+    bearer = fields('ProfessionalRolePropertyShape')           # per-individual
+    out = ['=== ROLE SCHEMA (from the SHACL role shapes -- the controlled class/individual fields) ===']
+    if universal:
+        out.append('Universal class fields (every role, professional or participant):')
+        out += universal
+    if professional:
+        out.append('Professional-role class fields (obligation-bearing roles only; omit for participant/stakeholder):')
+        out += professional
+    if bearer:
+        out.append('Bearer fields (on the individual, where the case states them):')
+        out += bearer
+    return '\n'.join(out)
 
 
 def _format_entity_inventory(entities: List[Dict[str, Any]],
