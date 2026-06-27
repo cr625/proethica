@@ -528,10 +528,13 @@ def _format_entity_inventory(entities: List[Dict[str, Any]],
     lines = []
 
     # Specialization-axis grouping (sourced from the ontology via MCP): when existing
-    # classes carry a specializationAxis annotation -- e.g. engineer role leaves tagged
-    # "discipline" (Civil/Electrical/...) vs "function" (Quality/Safety/...) -- present them
-    # grouped up front so the model reuses the right specialization instead of minting a
-    # compound. The axes are orthogonal. Fires for any axis-tagged component, not just roles.
+    # classes carry a specializationAxis annotation -- engineer role leaves tagged "discipline"
+    # (Civil/Electrical/...) vs "function" (Quality/Safety/...; values are skos:notations of the
+    # RoleSpecializationScheme) -- present them grouped up front so the model reuses the right
+    # specialization instead of minting a compound. specializationAxis is now ROLE-only; the
+    # principle-kind grouping it used to carry was retired (2026-06-27) -- a principle's kind is
+    # the rdfs:subClassOf kind class (FundamentalEthical/ProfessionalVirtue/Relational/DomainSpecific
+    # Principle), which already appears as a canonical class below.
     axis_groups = {}
     for e in entities:
         axis = (e.get('properties') or {}).get('specializationAxis')
