@@ -87,6 +87,7 @@ Each new role class should be a JSON object:
     "professional_scope": "Original engineering design within the licensed discipline",
     "typical_qualifications": ["Professional Engineer license", "Discipline-specific design experience"],
     "generated_obligations": ["Hold paramount public safety in the design", "Disclose identified design risks to the client"],
+    "adheres_to_principles": ["Public Safety and Welfare", "Professional Competence"],
     "associated_virtues": ["Competence", "Integrity"],
     "text_references": ["Engineer A designed the tower structures"],
     "confidence": 0.85,
@@ -117,7 +118,9 @@ Each role instance should be a JSON object:
     "case_involvement": "Created original tower designs containing significant errors",
     "active_obligations": ["Disclose the design errors to the Owner", "Cooperate with the reviewing engineer"],
     "ethical_tensions": ["Loyalty to the Owner versus candor about the engineer's own errors"],
-    "attributes": {"license": "Professional Engineer", "specialty": "Structural design"},
+    "license": "Professional Engineer",
+    "specialty": "Structural design",
+    "attributes": {"professional_membership": "ASCE member"},
     "relationships": [{"type": "has_client", "target": "Owner", "quote": "Engineer A was retained by the Owner to design the tower"}, {"type": "peer", "target": "Engineer B", "quote": "Engineer B was engaged to review Engineer A's work"}],
     "text_references": ["plans and design of Engineer A", "Engineer A objects and refused to consent"],
     "confidence": 0.90
