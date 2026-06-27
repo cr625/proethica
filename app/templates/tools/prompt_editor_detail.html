@@ -594,15 +594,14 @@ div.reference-panel {
             <div class="main-body">
                 <!-- Template Tab -->
                 <div class="tab-content active" id="tab-template">
-                    <div style="display:flex; flex-direction:column; height:100%;">
-                        <label class="small text-muted mb-1" for="systemText">
-                            <i class="bi bi-gear"></i> System prompt
-                            <span style="font-size:.7rem;">(optional; sent as the LLM system message, rendered with the same variables)</span>
+                    <div style="display:flex; flex-direction:column; height:100%; padding-top:.6rem;">
+                        <label class="small mb-1" for="systemText" style="color:#6c757d;">
+                            <i class="bi bi-gear"></i> System prompt (optional)
                         </label>
                         <textarea class="template-textarea" id="systemText" placeholder="(no system prompt)"
                                   style="height: 6rem; min-height: 4rem; flex: 0 0 auto; margin-bottom: .6rem;"
                                   {% if can_edit %}onchange="markUnsaved()" oninput="markUnsaved()"{% else %}readonly{% endif %}>{{ template.system_prompt or '' }}</textarea>
-                        <label class="small text-muted mb-1" for="templateText">
+                        <label class="small mb-1" for="templateText" style="color:#6c757d;">
                             <i class="bi bi-chat-text"></i> User prompt (template)
                         </label>
                         <textarea class="template-textarea" id="templateText" style="flex: 1 1 auto;"
