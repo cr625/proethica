@@ -1,0 +1,222 @@
+{
+  "concept_type": "roles",
+  "step_number": 1,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting professional roles from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Dennis 2016; Oakley & Cocking 2001; Kong 2020). Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "new_role_classes": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "Role class name"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        },
+        "definition": {
+          "type": "string",
+          "required": true,
+          "description": "Role definition (rdfs:comment)"
+        },
+        "role_category": {
+          "type": "string",
+          "required": true,
+          "description": "Kong framework: provider_client, professional_peer, employer_relationship, public_responsibility, participant, stakeholder"
+        },
+        "match_decision": {
+          "type": "object",
+          "fields": {
+            "reasoning": {
+              "type": "string",
+              "required": true,
+              "description": "Explanation for the match decision"
+            },
+            "confidence": {
+              "type": "number",
+              "required": true,
+              "description": "Match confidence 0.0-1.0"
+            },
+            "matched_uri": {
+              "type": "string",
+              "required": false,
+              "description": "URI of matched class (null if new)"
+            },
+            "matched_label": {
+              "type": "string",
+              "required": false,
+              "description": "Label of matched class (null if new)"
+            },
+            "matches_existing": {
+              "type": "boolean",
+              "required": true,
+              "description": "Whether matches existing ontology class"
+            }
+          },
+          "required": true,
+          "description": "Ontology match decision"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes from case text"
+        },
+        "associated_virtues": {
+          "type": "array",
+          "required": false,
+          "description": "Virtues characteristic of the role type (professional roles)"
+        },
+        "professional_scope": {
+          "type": "string",
+          "required": false,
+          "description": "Areas of responsibility and authority (professional roles)"
+        },
+        "adheres_to_principles": {
+          "type": "array",
+          "range": "Principle",
+          "required": false,
+          "description": "Principles this role serves (adheresToPrinciple); professional roles",
+          "range_ontology": "proethica-core"
+        },
+        "generated_obligations": {
+          "type": "array",
+          "range": "Obligation",
+          "required": false,
+          "description": "Obligations the role generates (hasObligation; professional roles)",
+          "range_ontology": "proethica-core"
+        },
+        "typical_qualifications": {
+          "type": "array",
+          "required": false,
+          "description": "Generic credentials the role type requires (professional roles)"
+        },
+        "distinguishing_features": {
+          "type": "array",
+          "required": false,
+          "description": "What sets this role type apart from related roles"
+        }
+      },
+      "description": "Role classes extracted from case text (CandidateRoleClass)"
+    },
+    "role_individuals": {
+      "type": "array",
+      "fields": {
+        "actor": {
+          "type": "string",
+          "range": "Agent",
+          "required": false,
+          "description": "Stable underlying actor this facet belongs to (e.g. 'Engineer A'); reused across sections so one Agent bears all facets of the actor",
+          "range_ontology": "proethica-core"
+        },
+        "license": {
+          "type": "string",
+          "required": false,
+          "description": "Professional license / licensure (professional role-bearers)"
+        },
+        "employer": {
+          "type": "string",
+          "required": false,
+          "description": "Employer / affiliation (professional role-bearers)"
+        },
+        "specialty": {
+          "type": "string",
+          "required": false,
+          "description": "Area of specialisation (professional role-bearers)"
+        },
+        "attributes": {
+          "type": "object",
+          "required": false,
+          "description": "Qualifications, experience, credentials"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        },
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "description": "Unique instance descriptor (e.g. 'Engineer A Design Role')"
+        },
+        "importance": {
+          "type": "string",
+          "required": false,
+          "description": "high, medium, low"
+        },
+        "role_class": {
+          "type": "string",
+          "required": true,
+          "description": "Label of the role class this individual instantiates"
+        },
+        "relationships": {
+          "type": "array",
+          "required": false,
+          "description": "Employment, collaboration, client relationships"
+        },
+        "role_category": {
+          "type": "string",
+          "required": false,
+          "description": "Kong framework category"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes mentioning this individual"
+        },
+        "case_involvement": {
+          "type": "string",
+          "required": false,
+          "description": "How this individual is involved in the case"
+        },
+        "experience_level": {
+          "type": "string",
+          "required": false,
+          "description": "Professional experience (professional role-bearers)"
+        },
+        "technical_background": {
+          "type": "string",
+          "required": false,
+          "description": "Technical background (professional role-bearers)"
+        }
+      },
+      "description": "Specific persons/entities filling roles in the case (RoleIndividual)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type being analyzed"
+    },
+    "existing_roles_text": {
+      "source": "MCP get_all_role_entities()",
+      "description": "Formatted list of existing role classes from ontology",
+      "builder_method": "_format_existing_roles_for_prompt"
+    },
+    "role_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) via _role_schema_block()",
+      "description": "Role definitional/bearer field schema, resolved live from the SHACL role shapes (single source shared with the OntServe Role page)"
+    }
+  },
+  "passes": {
+    "facts": {
+      "name": "Roles (facts)",
+      "description": "Extract new role classes and role individuals from case text using Kong et al. (2020) framework",
+      "template_file": "roles_facts.md"
+    },
+    "discussion": {
+      "name": "Roles (discussion)",
+      "description": "Extract new role classes and role individuals from case text using Kong et al. (2020) framework",
+      "template_file": "roles_discussion.md"
+    }
+  }
+}
