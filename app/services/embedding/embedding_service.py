@@ -15,17 +15,19 @@ def resolve_embedding_device() -> str:
     """Resolve the device for the local SentenceTransformer model.
 
     Controlled by the EMBEDDINGS_DEVICE environment variable:
-      - "cpu" (default): always use the CPU. The model is small (all-MiniLM-L6-v2),
-        CPU is fast enough, and it never fails.
+      - "auto" (default): use the GPU only after verifying a CUDA kernel actually runs,
+        else CPU. Machine-adaptive: the RTX 4090 dev box (Area51) gets the GPU, while a
+        box with a mismatched CUDA build or no GPU falls back to CPU.
       - "cuda": force the GPU (operator opt-in; trusted as-is).
-      - "auto": use the GPU only after verifying a CUDA kernel actually runs.
+      - "cpu": always use the CPU.
 
-    The default is CPU on purpose. torch.cuda.is_available() can return True for a GPU
-    whose compute capability this torch build has no kernels for; the device then raises
-    cudaErrorNoKernelImageForDevice at encode time, which previously left embeddings
-    silently ungenerated. Set EMBEDDINGS_DEVICE=cuda or =auto to opt in to the GPU.
+    The default is "auto", not a blind "cuda": torch.cuda.is_available() can return True for
+    a GPU whose compute capability this torch build has no kernels for, and that device then
+    raises cudaErrorNoKernelImageForDevice at encode time. The auto probe runs a real kernel op
+    and catches that failure (logging a warning, not silently leaving embeddings ungenerated and
+    corrupting the cache), so it is safe on every box. Set EMBEDDINGS_DEVICE=cpu to force CPU.
     """
-    requested = os.environ.get("EMBEDDINGS_DEVICE", "cpu").lower()
+    requested = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
     if requested == "cpu":
         return "cpu"
     try:
