@@ -22,6 +22,9 @@ from rdflib.namespace import SKOS
 
 _INTERMEDIATE_NS = "http://proethica.org/ontology/intermediate#"
 _ARCHETYPE_AXIS = rdflib.URIRef(_INTERMEDIATE_NS + "archetypeAxis")
+# The archetypeAxis value is now the SKOS concept URI (RoleArchetypeAxisScheme), not the "occupational"
+# string. Match the concept, not a Literal.
+_OCCUPATIONAL_ARCHETYPE = rdflib.URIRef(_INTERMEDIATE_NS + "OccupationalArchetype")
 
 # Default to the engineering archetype ontology; override per domain via the env var or the
 # ttl_path argument so a different domain points at its own archetype ontology.
@@ -48,7 +51,7 @@ def _build_index(ttl_path: str) -> Dict[str, str]:
     g = rdflib.Graph()
     g.parse(ttl_path, format="turtle")
     syn_to_iri: Dict[str, str] = {}
-    for cls in g.subjects(_ARCHETYPE_AXIS, rdflib.Literal("occupational")):
+    for cls in g.subjects(_ARCHETYPE_AXIS, _OCCUPATIONAL_ARCHETYPE):
         iri = str(cls)
         synonyms = set()
         for lbl in g.objects(cls, RDFS.label):

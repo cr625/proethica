@@ -535,11 +535,16 @@ def _format_entity_inventory(entities: List[Dict[str, Any]],
     # principle-kind grouping it used to carry was retired (2026-06-27) -- a principle's kind is
     # the rdfs:subClassOf kind class (FundamentalEthical/ProfessionalVirtue/Relational/DomainSpecific
     # Principle), which already appears as a canonical class below.
+    def _axis_label(v):
+        # specializationAxis is now a SKOS concept URI (RoleSpecializationScheme); show a readable label
+        # (the de-CamelCased fragment, e.g. "Discipline Specialization") rather than the raw URI.
+        frag = str(v).rsplit('#', 1)[-1].rsplit('/', 1)[-1]
+        return re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', frag) or frag
     axis_groups = {}
     for e in entities:
         axis = (e.get('properties') or {}).get('specializationAxis')
         if axis:
-            axis_groups.setdefault(str(axis), []).append(
+            axis_groups.setdefault(_axis_label(axis), []).append(
                 e.get('label', e.get('name', 'Unknown')))
     if axis_groups:
         lines.append(f"=== {concept_type.upper()} SPECIALIZATIONS BY AXIS ===")
