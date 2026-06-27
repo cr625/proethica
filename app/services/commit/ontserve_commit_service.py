@@ -2324,16 +2324,17 @@ class OntServeCommitService:
                                 else:
                                     g.add((uri, PROETHICA['otherAttribute'], Literal(f"{attr_key}: {lit}")))
                         continue
-                # Relationships (actor-to-actor) become real edges via a
-                # proeth-core relation, instead of opaque stringified dicts.
-                # Attached at the AGENT level when both endpoints have an Agent
-                # (the relationship is between the persons, not the role facets);
-                # falls back to the facet endpoints otherwise. Unresolvable
-                # targets are logged and skipped so nothing becomes dead text.
+                # Relationships become real ROLE-to-ROLE edges via a proeth-core
+                # relation, instead of opaque stringified dicts. Attached at the
+                # ROLE-FACET level (the relationship holds between the role facets,
+                # not the bearer Agents) so a defined relational archetype -- e.g.
+                # ProviderClientRole equivalentClass Role and (hasClient some Role) --
+                # classifies the role. The target must still resolve to a role-bearer's
+                # facet; unresolvable / non-role targets are logged and skipped.
                 if prop_name == 'relationships':
                     import ast
                     facet_to_agent = getattr(self, '_facet_to_agent', {}) or {}
-                    subj = facet_to_agent.get(uri, uri)
+                    subj = uri  # the source role facet (was the bearer Agent)
                     rels = prop_values if isinstance(prop_values, list) else [prop_values]
                     for rel in rels:
                         r = rel
@@ -2358,15 +2359,16 @@ class OntServeCommitService:
                         if tgt_uri is None:
                             logger.info(f"relationship target unresolved, skipped: type={rtype!r} target={tgt!r}")
                             continue
-                        # Actor relations hold between role-bearers: reject a target
-                        # that resolved to a non-role node (no Agent) instead of
-                        # emitting a domain/range-violating edge.
-                        obj = self._target_agent(g, facet_to_agent, tgt_uri)
-                        if obj is None:
+                        # Actor relations hold between role-bearers: validate the target
+                        # resolved to a role-bearer's facet (reject a non-role node), but
+                        # emit the edge ROLE-to-ROLE -- the target role facet is the object,
+                        # not its bearer Agent.
+                        if self._target_agent(g, facet_to_agent, tgt_uri) is None:
                             logger.warning(
                                 f"relationship target is not a role-bearer, skipped: "
                                 f"type={rtype!r} target={tgt!r} resolved={str(tgt_uri).split('#')[-1]}")
                             continue
+                        obj = tgt_uri  # the target role facet (was the bearer Agent)
                         relprop, swap = self._rel_property_for(str(rtype))
                         if relprop == 'relatedTo':
                             logger.info(

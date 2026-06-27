@@ -67,10 +67,11 @@ def test_attributes_become_per_key_triples():
 
 def test_relationships_become_resolved_actor_edges():
     svc = _svc()
-    g, subj_uri = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
+    g, subj_uri, tgt_uri = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
                                'client', 'Owner Tower Development Client', 'Owner')
-    # Edge is between the AGENTS (actor relations hold between role-bearers).
-    assert (CASE['Agent_Engineer_A'], CORE['hasClient'], CASE['Agent_Owner']) in g
+    # Edge is ROLE-to-ROLE (between the role facets) so a defined relational archetype
+    # -- ProviderClientRole equivalentClass Role and (hasClient some Role) -- classifies it.
+    assert (subj_uri, CORE['hasClient'], tgt_uri) in g
     # No opaque literal fallback for a resolved relationship.
     assert (subj_uri, PROETHICA['relationships'],
             Literal("{'type': 'client', 'target': 'Owner Tower Development Client'}")) not in g
@@ -90,9 +91,9 @@ def test_relationship_unresolved_target_skipped_not_deadtext():
 
 def test_peer_relationship_maps_to_symmetric_property():
     svc = _svc()
-    g, _ = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
+    g, subj_uri, tgt_uri = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
                         'peer', 'Engineer B Peer Reviewer', 'Engineer B')
-    assert (CASE['Agent_Engineer_A'], CORE['professionalPeerOf'], CASE['Agent_Engineer_B']) in g
+    assert (subj_uri, CORE['professionalPeerOf'], tgt_uri) in g
 
 
 def test_argument_validation_rich_handler_emits():
@@ -190,7 +191,7 @@ def test_actor_fallback_to_label_when_absent():
     assert (agent, RDF.type, CORE['Agent']) in g
 
 
-def test_relationship_attaches_at_agent_level():
+def test_relationship_attaches_at_role_level():
     svc = _svc()
     subj_facet = _role_entity('Engineer A Original Design Engineer')
     tgt_facet = _role_entity('Owner Tower Development Client')
@@ -210,9 +211,10 @@ def test_relationship_attaches_at_agent_level():
     svc._add_individual_properties(g, subj_uri, subj_facet, subj_rdf, CASE)
     agent_a = CASE['Agent_Engineer_A']
     agent_owner = CASE['Agent_Owner']
-    # Edge is between the AGENTS, not the role facets.
-    assert (agent_a, CORE['hasClient'], agent_owner) in g
-    assert (subj_uri, CORE['hasClient'], tgt_uri) not in g
+    # Edge is between the ROLE FACETS, not the Agents (so the defined relational
+    # archetype classifies the role, not every role its bearer holds).
+    assert (subj_uri, CORE['hasClient'], tgt_uri) in g
+    assert (agent_a, CORE['hasClient'], agent_owner) not in g
 
 
 def test_relationship_edge_carries_prov_derivation():
@@ -236,14 +238,13 @@ def test_relationship_edge_carries_prov_derivation():
     svc._build_agent_indices(individuals, CASE)
     g = Graph()
     svc._add_individual_properties(g, subj_uri, subj_facet, subj_rdf, CASE)
-    agent_a = CASE['Agent_Engineer_A']
-    agent_owner = CASE['Agent_Owner']
-    assert (agent_a, CORE['hasClient'], agent_owner) in g
+    # Edge + provenance reference the ROLE FACETS now.
+    assert (subj_uri, CORE['hasClient'], tgt_uri) in g
     derivs = list(g.subjects(RDF.type, PROV.Derivation))
     assert len(derivs) == 1, derivs
     d = derivs[0]
-    assert (d, PROV.wasDerivedFrom, agent_a) in g
-    assert (d, PROV.wasDerivedFrom, agent_owner) in g
+    assert (d, PROV.wasDerivedFrom, subj_uri) in g
+    assert (d, PROV.wasDerivedFrom, tgt_uri) in g
     assert (d, PROV.value, Literal('Engineer A was retained by the Owner')) in g
 
 
@@ -255,13 +256,15 @@ def test_role_individual_archetype_parents_divergent_type():
     Participant-side occupational archetype (ClientRole) is satisfiable."""
     svc = _svc()
     PROVIDER_CLIENT = str(PROETHICA['ProviderClientRole'])
-    ENGINEER = str(PROETHICA['EngineerRole'])
+    DESIGN_ENGINEER = str(PROETHICA['DesignEngineerRole'])
     CLIENT = str(PROETHICA['ClientRole'])
-    # Divergent compound engineering type-class + provider_client category.
+    # Divergent compound engineering type-class + provider_client category. The
+    # occupational resolver returns the MOST SPECIFIC match (DesignEngineerRole, which
+    # subClassOf EngineerRole), composed with the relational ProviderClientRole.
     p1 = svc._role_individual_archetype_parents(
         {'properties': {'roleCategory': ['provider_client']}},
         'OriginalDesignEngineerSubjecttoPeerReview')
-    assert ENGINEER in p1 and PROVIDER_CLIENT in p1, p1
+    assert DESIGN_ENGINEER in p1 and PROVIDER_CLIENT in p1, p1
     # The Participant-side ClientRole composes with the relational ProviderClientRole.
     p2 = svc._role_individual_archetype_parents(
         {'properties': {'roleCategory': ['provider_client']}}, 'DeveloperClient')
@@ -294,8 +297,10 @@ def test_rel_property_mapping_orientations():
 
 
 def _rel_fixture(svc, subj_label, subj_actor, rtype, target_label, target_actor, extra_index=None):
-    """Build a two-individual fixture and return (g, subj_uri) after serializing
-    the subject's single relationship of type `rtype` toward `target_label`."""
+    """Build a two-individual fixture and return (g, subj_uri, tgt_uri) after
+    serializing the subject's single relationship of type `rtype` toward
+    `target_label`. The edges are ROLE-to-ROLE (between the role facets), so the
+    facet URIs are the relevant endpoints."""
     subj_facet = _role_entity(subj_label)
     tgt_facet = _role_entity(target_label)
     subj_rdf = {'properties': {
@@ -311,29 +316,27 @@ def _rel_fixture(svc, subj_label, subj_actor, rtype, target_label, target_actor,
     svc._build_agent_indices(individuals, CASE)
     g = Graph()
     svc._add_individual_properties(g, subj_uri, subj_facet, subj_rdf, CASE)
-    return g, subj_uri
+    return g, subj_uri, tgt_uri
 
 
 def test_subject_of_review_maps_to_work_reviewed_by():
     """Passive review direction must orient to workReviewedBy, not reviewsWorkOf."""
     svc = _svc()
-    g, _ = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
+    g, subj_uri, tgt_uri = _rel_fixture(svc, 'Engineer A Original Design Engineer', 'Engineer A',
                         'subject_of_review', 'Engineer B Peer Reviewer', 'Engineer B')
-    agent_a = CASE['Agent_Engineer_A']
-    agent_b = CASE['Agent_Engineer_B']
-    assert (agent_a, CORE['workReviewedBy'], agent_b) in g
-    assert (agent_a, CORE['reviewsWorkOf'], agent_b) not in g
+    assert (subj_uri, CORE['workReviewedBy'], tgt_uri) in g
+    assert (subj_uri, CORE['reviewsWorkOf'], tgt_uri) not in g
 
 
 def test_has_provider_orients_hasclient_from_client_side():
     """A client naming its provider (has_provider) yields hasClient(provider, client)."""
     svc = _svc()
-    g, _ = _rel_fixture(svc, 'Owner Peer Review Instructing Client', 'Owner',
+    g, subj_uri, tgt_uri = _rel_fixture(svc, 'Owner Peer Review Instructing Client', 'Owner',
                         'has_provider', 'Engineer B Peer Reviewer', 'Engineer B')
-    agent_owner = CASE['Agent_Owner']
-    agent_b = CASE['Agent_Engineer_B']
-    assert (agent_b, CORE['hasClient'], agent_owner) in g
-    assert (agent_owner, CORE['hasClient'], agent_b) not in g
+    # has_provider swaps: the provider (Engineer B = target facet) hasClient the client
+    # (Owner = subject facet); edge runs target->subject at the ROLE level.
+    assert (tgt_uri, CORE['hasClient'], subj_uri) in g
+    assert (subj_uri, CORE['hasClient'], tgt_uri) not in g
 
 
 def test_target_resolver_prefers_role_facet_over_nonrole():
@@ -361,10 +364,9 @@ def test_target_resolver_prefers_role_facet_over_nonrole():
     svc._build_agent_indices(individuals, CASE)
     g2 = Graph()
     svc._add_individual_properties(g2, subj_uri, subj_facet, subj_rdf, CASE)
-    agent_a = CASE['Agent_Engineer_A']
-    agent_owner = CASE['Agent_Owner']
-    assert (agent_a, CORE['hasClient'], agent_owner) in g2
-    assert (agent_a, CORE['hasClient'], action_uri) not in g2
+    # The edge connects the role facets; the non-role action node never receives one.
+    assert (subj_uri, CORE['hasClient'], owner_uri) in g2
+    assert (subj_uri, CORE['hasClient'], action_uri) not in g2
 
 
 def test_actor_edge_to_non_role_target_is_skipped():
