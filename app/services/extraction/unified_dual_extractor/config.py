@@ -368,28 +368,34 @@ _FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
     },
     'constraints': {
         'class_required': (
-            'label, definition, confidence (float 0-1), match_decision, '
-            'constraint_type, flexibility, text_references'
+            'label, definition (the prohibition), confidence (float 0-1), '
+            'match_decision, constraint_type (legal | regulatory | resource | '
+            'competence | jurisdictional | procedural | safety | confidentiality '
+            '| ethical | temporal | priority), text_references'
         ),
         'individual_required': (
-            'identifier, constraint_class, confidence (float 0-1), '
-            'severity, text_references'
+            'identifier, constraint_class, constraint_statement, '
+            'applicability_condition, confidence (float 0-1), severity, '
+            'text_references'
         ),
         'match_decision_note': (
-            'Every new class MUST include a match_decision object.'
+            'Every new class MUST include a match_decision object. A constraint is '
+            'a PROHIBITION; a positive "shall do" duty is an obligation, not a constraint.'
         ),
     },
     'capabilities': {
         'class_required': (
-            'label, definition, confidence (float 0-1), match_decision, '
-            'capability_category, skill_level, text_references'
+            'label (a tool/actor-neutral competence kind), definition, '
+            'confidence (float 0-1), match_decision, required_for_obligations, '
+            'text_references'
         ),
         'individual_required': (
-            'identifier, capability_class, confidence (float 0-1), '
+            'identifier, capability_class, possessed_by, confidence (float 0-1), '
             'text_references'
         ),
         'match_decision_note': (
-            'Every new class MUST include a match_decision object.'
+            'Every new class MUST include a match_decision object. Extract only a '
+            'competence the agent POSSESSES or exercises; drop a lacked competence.'
         ),
     },
 }

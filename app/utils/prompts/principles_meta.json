@@ -1,0 +1,176 @@
+{
+  "concept_type": "principles",
+  "step_number": 2,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting professional ethical principles from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (McLaren extensional definition; Frankel aspirational principles; Taddeo constitutional interpretation). Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "new_principle_classes": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "Principle class name (canonical short reusable leaf form)"
+        },
+        "definition": {
+          "type": "string",
+          "required": true,
+          "description": "Principle definition (rdfs:comment / skos:definition)"
+        },
+        "principle_category": {
+          "type": "string",
+          "required": true,
+          "description": "Controlled principle kind that drives the subClassOf typing when a new leaf is minted: fundamental_ethical, professional_virtue, relational, domain_specific. A routing input, not stored as a literal"
+        },
+        "extensional_examples": {
+          "type": "array",
+          "required": false,
+          "description": "Optional class-mint field: prior cases that instantiate the principle (McLaren extensional grounding)"
+        },
+        "match_decision": {
+          "type": "object",
+          "fields": {
+            "reasoning": {
+              "type": "string",
+              "required": true,
+              "description": "Explanation for the match decision"
+            },
+            "confidence": {
+              "type": "number",
+              "required": true,
+              "description": "Match confidence 0.0-1.0"
+            },
+            "matched_uri": {
+              "type": "string",
+              "required": false,
+              "description": "URI of matched class (null if new)"
+            },
+            "matched_label": {
+              "type": "string",
+              "required": false,
+              "description": "Label of matched class (null if new)"
+            },
+            "matches_existing": {
+              "type": "boolean",
+              "required": true,
+              "description": "Whether matches existing ontology class"
+            }
+          },
+          "required": true,
+          "description": "Ontology match decision"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes from case text"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Principle classes extracted from case text (CandidatePrincipleClass)"
+    },
+    "principle_individuals": {
+      "type": "array",
+      "fields": {
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "description": "Unique instance descriptor (e.g. 'Public Safety in Bridge Review')"
+        },
+        "principle_class": {
+          "type": "string",
+          "required": true,
+          "description": "Label of the principle class this individual instantiates"
+        },
+        "interpretation": {
+          "type": "string",
+          "required": false,
+          "description": "Per-case reading of what the principle requires here (a defeasibility-pipeline source field)"
+        },
+        "concrete_expression": {
+          "type": "string",
+          "required": false,
+          "description": "How the principle is concretely expressed in the case (a defeasibility-pipeline source field)"
+        },
+        "applied_to": {
+          "type": "array",
+          "required": false,
+          "description": "The situation or party the principle bears on in the case"
+        },
+        "balancing_with": {
+          "type": "array",
+          "required": false,
+          "description": "The competing principle or value the principle is balanced against (a defeasibility-pipeline source field)"
+        },
+        "tension_resolution": {
+          "type": "string",
+          "required": false,
+          "description": "How the case resolves the tension involving this principle (a defeasibility-pipeline source field)"
+        },
+        "invoked_by": {
+          "type": "array",
+          "range": "Agent",
+          "required": false,
+          "description": "Actor(s) who invoke the principle; resolves to the invokedBy edge (P->Agent), not stored as a literal",
+          "range_ontology": "proethica-core"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes mentioning this principle"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Specific principle invocations in the case (PrincipleIndividual)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type being analyzed"
+    },
+    "existing_principles_text": {
+      "source": "MCP get_entities_by_category(Principle)",
+      "description": "Formatted list of existing principle classes from ontology (plus the reuse-bias guidance block)",
+      "builder_method": "format_existing_entities"
+    },
+    "cross_concept_context": {
+      "source": "format_cross_concept_context('principles', case_id)",
+      "description": "Roles already extracted in this case, injected so invoked_by grounds in a named role-bearer (R->P dependency)"
+    },
+    "principle_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) PrincipleDefinitionShape via concept_ontology_slots -> _component_schema_block('Principle')",
+      "description": "Principle definitional/individual field schema, resolved live from the SHACL PrincipleDefinitionShape (single source shared with the OntServe Principle entity page). principle_category drives the four-kind subClassOf typing; the canonical leaf becomes the rdf:type; invoked_by resolves to the invokedBy edge; the five narrative fields are per-individual literals"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES[('principles', section_type)] in prompt_variable_resolver",
+      "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
+    }
+  },
+  "passes": {
+    "facts": {
+      "name": "Principles (facts)",
+      "description": "Extract new principle classes and principle individuals from the case facts (the values in play as the situation unfolds)",
+      "template_file": "principles.md"
+    },
+    "discussion": {
+      "name": "Principles (discussion)",
+      "description": "Extract new principle classes and principle individuals from the case discussion, reusing the facts-pass principles via match_decision",
+      "template_file": "principles.md"
+    }
+  }
+}

@@ -1,0 +1,176 @@
+{
+  "concept_type": "constraints",
+  "step_number": 2,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting constraints (prohibitions and hard boundaries) from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Dennis et al. complete specification and severity ordering; Ganascia defeasible boundaries). A constraint is a prohibition, distinct from the positive duty an obligation states. Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "new_constraint_classes": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "Constraint class name (canonical short reusable boundary-type form)"
+        },
+        "definition": {
+          "type": "string",
+          "required": true,
+          "description": "Constraint definition / prohibition (rdfs:comment / skos:definition)"
+        },
+        "constraint_type": {
+          "type": "string",
+          "required": true,
+          "description": "Controlled boundary type that drives the subClassOf typing: legal, regulatory, resource, competence, jurisdictional, procedural, safety, confidentiality, ethical, temporal, priority. A routing input, not stored as a literal"
+        },
+        "match_decision": {
+          "type": "object",
+          "fields": {
+            "reasoning": {
+              "type": "string",
+              "required": true,
+              "description": "Explanation for the match decision"
+            },
+            "confidence": {
+              "type": "number",
+              "required": true,
+              "description": "Match confidence 0.0-1.0"
+            },
+            "matched_uri": {
+              "type": "string",
+              "required": false,
+              "description": "URI of matched class (null if new)"
+            },
+            "matched_label": {
+              "type": "string",
+              "required": false,
+              "description": "Label of matched class (null if new)"
+            },
+            "matches_existing": {
+              "type": "boolean",
+              "required": true,
+              "description": "Whether matches existing ontology class"
+            }
+          },
+          "required": true,
+          "description": "Ontology match decision"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes from case text"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Constraint classes extracted from case text (CandidateConstraintClass)"
+    },
+    "constraint_individuals": {
+      "type": "array",
+      "fields": {
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "description": "Unique instance descriptor (e.g. 'Engineer A Merger Confidentiality')"
+        },
+        "constraint_class": {
+          "type": "string",
+          "required": true,
+          "description": "Label of the constraint class this individual instantiates"
+        },
+        "constraint_statement": {
+          "type": "string",
+          "required": false,
+          "description": "The prohibition (the operative 'must not' clause); becomes the skos:definition / rdfs:comment"
+        },
+        "applicability_condition": {
+          "type": "string",
+          "required": false,
+          "description": "The temporal and contextual circumstances under which the prohibition applies (Dennis complete-specification condition)"
+        },
+        "constrained_entity": {
+          "type": "string",
+          "range": "Agent",
+          "required": false,
+          "description": "The agent whose conduct the constraint limits; resolves to the constrainedEntity edge, not stored as a literal",
+          "range_ontology": "proethica-core"
+        },
+        "source": {
+          "type": "string",
+          "required": false,
+          "description": "The provision or authority establishing the prohibition; resolves to the establishedBy edge when it resolves"
+        },
+        "temporal_scope": {
+          "type": "string",
+          "required": false,
+          "description": "When the constraint is in force"
+        },
+        "severity": {
+          "type": "string",
+          "required": false,
+          "description": "How serious the boundary is: critical, high, medium, or low (Dennis severity ordering); a genuine attribute"
+        },
+        "case_context": {
+          "type": "string",
+          "required": false,
+          "description": "How this constraint manifests in the case"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes mentioning this constraint"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Specific prohibitions holding in the case (ConstraintIndividual)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type being analyzed"
+    },
+    "existing_constraints_text": {
+      "source": "MCP get_entities_by_category(Constraint)",
+      "description": "Formatted list of existing constraint classes from ontology (plus the reuse-bias guidance block)",
+      "builder_method": "format_existing_entities"
+    },
+    "cross_concept_context": {
+      "source": "format_cross_concept_context('constraints', case_id)",
+      "description": "Obligations, states, and resources already extracted in this case, injected so constrained_entity and source ground in named entities"
+    },
+    "constraint_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ConstraintDefinitionShape via concept_ontology_slots -> _component_schema_block('Constraint')",
+      "description": "Constraint definitional/individual field schema, resolved live from the SHACL ConstraintDefinitionShape (single source shared with the OntServe Constraint entity page). boundary_type drives the subClassOf typing; severity and applicability_condition are literals; constrained_entity resolves to the constrainedEntity edge; source resolves to establishedBy"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES[('constraints', section_type)] in prompt_variable_resolver",
+      "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
+    }
+  },
+  "passes": {
+    "facts": {
+      "name": "Constraints (facts)",
+      "description": "Extract new constraint classes and constraint individuals from the case facts (the prohibitions and hard boundaries in force as the situation unfolds)",
+      "template_file": "constraints.md"
+    },
+    "discussion": {
+      "name": "Constraints (discussion)",
+      "description": "Extract new constraint classes and constraint individuals from the case discussion, reusing the facts-pass constraints via match_decision",
+      "template_file": "constraints.md"
+    }
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "concept_type": "capabilities",
+  "step_number": 2,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting professional capabilities (competences) from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Tolmeijer et al. four ethical-competence requirements; Narvaez & Rest Four Component Model). A capability's identity is a tool/actor-neutral competence kind, and only a competence the agent possesses or exercises is a capability. Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "new_capability_classes": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "Capability class name (canonical tool/actor-neutral competence-kind head-noun form)"
+        },
+        "definition": {
+          "type": "string",
+          "required": true,
+          "description": "Capability definition (rdfs:comment / skos:definition)"
+        },
+        "required_for_obligations": {
+          "type": "array",
+          "range": "Obligation",
+          "required": false,
+          "description": "Obligations that presuppose this capacity (the Ca->O linkage); resolves to the requiresCapability edge (Obligation->Capability), not stored as a literal",
+          "range_ontology": "proethica-core"
+        },
+        "match_decision": {
+          "type": "object",
+          "fields": {
+            "reasoning": {
+              "type": "string",
+              "required": true,
+              "description": "Explanation for the match decision"
+            },
+            "confidence": {
+              "type": "number",
+              "required": true,
+              "description": "Match confidence 0.0-1.0"
+            },
+            "matched_uri": {
+              "type": "string",
+              "required": false,
+              "description": "URI of matched class (null if new)"
+            },
+            "matched_label": {
+              "type": "string",
+              "required": false,
+              "description": "Label of matched class (null if new)"
+            },
+            "matches_existing": {
+              "type": "boolean",
+              "required": true,
+              "description": "Whether matches existing ontology class"
+            }
+          },
+          "required": true,
+          "description": "Ontology match decision"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes from case text"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Capability classes extracted from case text (CandidateCapabilityClass)"
+    },
+    "capability_individuals": {
+      "type": "array",
+      "fields": {
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "description": "Unique instance descriptor (e.g. 'Engineer A Structural Analysis')"
+        },
+        "capability_class": {
+          "type": "string",
+          "required": true,
+          "description": "Label of the capability class this individual instantiates"
+        },
+        "possessed_by": {
+          "type": "string",
+          "range": "Agent",
+          "required": false,
+          "description": "Stable actor identity who holds or exercises the capability; reused from the roles pass. Resolves to the possessedBy edge, not stored as a literal",
+          "range_ontology": "proethica-core"
+        },
+        "case_context": {
+          "type": "string",
+          "required": false,
+          "description": "Grounding-context literal: how this capability manifests in the case"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes mentioning this capability"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Specific competences a party holds in the case (CapabilityIndividual)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type being analyzed"
+    },
+    "existing_capabilities_text": {
+      "source": "MCP get_entities_by_category(Capability)",
+      "description": "Formatted list of existing capability classes from ontology (plus the reuse-bias guidance block)",
+      "builder_method": "format_existing_entities"
+    },
+    "cross_concept_context": {
+      "source": "format_cross_concept_context('capabilities', case_id)",
+      "description": "Obligations and roles already extracted in this case, injected so possessed_by and required_for_obligations ground in named entities (O->Ca dependency)"
+    },
+    "capability_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) CapabilityDefinitionShape via concept_ontology_slots -> _component_schema_block('Capability')",
+      "description": "Capability definitional/individual field schema, resolved live from the SHACL CapabilityDefinitionShape (single source shared with the OntServe Capability entity page). capability_kind drives the subClassOf typing; possessed_by resolves to the possessedBy edge; required_for_obligations resolves to the requiresCapability edge; the Tolmeijer requirement is a class-level annotation"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES[('capabilities', section_type)] in prompt_variable_resolver",
+      "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
+    }
+  },
+  "passes": {
+    "facts": {
+      "name": "Capabilities (facts)",
+      "description": "Extract new capability classes and capability individuals from the case facts (competences a party possesses or exercises)",
+      "template_file": "capabilities.md"
+    },
+    "discussion": {
+      "name": "Capabilities (discussion)",
+      "description": "Extract new capability classes and capability individuals from the case discussion, reusing the facts-pass capabilities via match_decision",
+      "template_file": "capabilities.md"
+    }
+  }
+}

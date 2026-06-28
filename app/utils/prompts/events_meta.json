@@ -1,0 +1,104 @@
+{
+  "concept_type": "events",
+  "step_number": 3,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting events (occurrences, not volitional decisions) from engineering-ethics cases using the ProEthica nine-component formalism and the Event-Calculus literature (Berreby et al. agent-caused vs exogenous vs automatic events; Kowalski & Sergot fluents). An event's load-bearing signal is its origin, and an event initiates a state rather than an obligation. Follow the extraction methodology and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "events": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "Short general event KIND name, at most 4 words (becomes the URI; case detail goes in description)"
+        },
+        "description": {
+          "type": "string",
+          "required": true,
+          "description": "1-2 sentences with the case-specific detail (rdfs:comment)"
+        },
+        "event_type": {
+          "type": "string",
+          "required": true,
+          "description": "Controlled origin that drives the three-way subClassOf typing: outcome (AgentCausedEvent), exogenous (ExogenousEvent), automatic (AutomaticEvent). A routing input, not stored as a literal"
+        },
+        "temporal_marker": {
+          "type": "string",
+          "required": false,
+          "description": "When the event occurred (the textual when)"
+        },
+        "temporal_extent": {
+          "type": "string",
+          "required": false,
+          "description": "'instant' for a point occurrence or 'interval' for one extending over a period (anchors OWL-Time)"
+        },
+        "initiates": {
+          "type": "array",
+          "range": "State",
+          "required": false,
+          "description": "States (fluents) the event brings into holding; resolve to the initiates edge (Event->State)",
+          "range_ontology": "proethica-core"
+        },
+        "terminates": {
+          "type": "array",
+          "range": "State",
+          "required": false,
+          "description": "States (fluents) the event ends; resolve to the terminates edge (Event->State)",
+          "range_ontology": "proethica-core"
+        },
+        "caused_by_action": {
+          "type": "string",
+          "required": false,
+          "description": "The action label that caused this event; resolves to the causedByAction edge"
+        },
+        "text_references": {
+          "type": "array",
+          "required": false,
+          "description": "Direct quotes mentioning this event"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Event occurrences in the case (EventIndividual); origin-typed individuals only, no event classes (CandidateEventClass retired)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "all"
+      ],
+      "description": "Events run in a single Step-3 pass (no facts/discussion split)"
+    },
+    "existing_events_text": {
+      "source": "MCP get_entities_by_category(Event)",
+      "description": "Formatted list of existing event classes from ontology (plus the reuse-bias guidance block)",
+      "builder_method": "format_existing_entities"
+    },
+    "cross_concept_context": {
+      "source": "format_cross_concept_context('events', case_id)",
+      "description": "Events carry no cross-concept dependency in the config map, so this slot is empty for events; retained for template uniformity"
+    },
+    "event_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) EventDefinitionShape via concept_ontology_slots -> _component_schema_block('Event')",
+      "description": "The LIGHT event field schema, resolved live from the SHACL EventDefinitionShape (single source shared with the OntServe Event entity page). event_origin drives the three-way origin subClassOf typing; initiates/terminates resolve to the fluent edges; temporal_marker is a literal"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES[('events', section_type)] in prompt_variable_resolver",
+      "description": "Single-pass component: no per-pass directive is registered, so this slot resolves empty"
+    }
+  },
+  "passes": {
+    "all": {
+      "name": "Events (Step 3)",
+      "description": "Extract event occurrences from the case in a single Step-3 pass (origin-typed individuals; no facts/discussion split). NOTE: the live Step-3 LangGraph path builds its event prompt in app/services/temporal_dynamics/extractors/event_extractor.py (the editable-prompt exception); this seeded template is the single-source field contract and prompt-editor surface, not the live runtime prompt.",
+      "template_file": "events.md"
+    }
+  }
+}

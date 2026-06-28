@@ -1,0 +1,201 @@
+{
+  "concept_type": "states",
+  "step_number": 1,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting situational states from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Berreby et al. Event-Calculus fluents; Jones moral intensity; Almpani context-driven obligation priorities). A state is classified by its content archetype, not by the obligation it activates. Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "new_state_classes": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "State class name (canonical short reusable form, chaining to one of the nine archetypes)"
+        },
+        "definition": {
+          "type": "string",
+          "required": true,
+          "description": "State definition (rdfs:comment / skos:definition)"
+        },
+        "state_category": {
+          "type": "string",
+          "required": true,
+          "description": "Controlled content archetype that drives the subClassOf typing: epistemic, risk, competence, emergency, conflict_of_interest, regulatory, temporal, resource, disclosure. A classification of the state content, not the activatesObligation relation. A routing input, not stored as a literal"
+        },
+        "persistence_type": {
+          "type": "string",
+          "required": false,
+          "description": "Berreby fluent classification: inertial (persists until terminated) or non_inertial (momentary)"
+        },
+        "activation_conditions": {
+          "type": "array",
+          "required": false,
+          "description": "Edge-driving input: events/conditions that bring the state into holding (Event Calculus)"
+        },
+        "termination_conditions": {
+          "type": "array",
+          "required": false,
+          "description": "Edge-driving input: events/conditions that end the state (Event Calculus)"
+        },
+        "obligation_activation": {
+          "type": "array",
+          "required": false,
+          "description": "Edge-driving input: obligations this state makes applicable (resolves to the activatesObligation edge; not stored as a literal)"
+        },
+        "action_constraints": {
+          "type": "array",
+          "required": false,
+          "description": "Edge-driving input: constraints this state activates (resolves to the activatesConstraint edge; not stored as a literal)"
+        },
+        "principle_transformation": {
+          "type": "string",
+          "required": false,
+          "description": "Edge-driving grounding input: how the state transforms an abstract principle into a concrete obligation (temp_rdf grounding only; not stored as a literal)"
+        },
+        "match_decision": {
+          "type": "object",
+          "fields": {
+            "reasoning": {
+              "type": "string",
+              "required": true,
+              "description": "Explanation for the match decision"
+            },
+            "confidence": {
+              "type": "number",
+              "required": true,
+              "description": "Match confidence 0.0-1.0"
+            },
+            "matched_uri": {
+              "type": "string",
+              "required": false,
+              "description": "URI of matched class (null if new)"
+            },
+            "matched_label": {
+              "type": "string",
+              "required": false,
+              "description": "Label of matched class (null if new)"
+            },
+            "matches_existing": {
+              "type": "boolean",
+              "required": true,
+              "description": "Whether matches existing ontology class"
+            }
+          },
+          "required": true,
+          "description": "Ontology match decision"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes from case text"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "State classes extracted from case text (CandidateStateClass)"
+    },
+    "state_individuals": {
+      "type": "array",
+      "fields": {
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "description": "Unique instance descriptor (e.g. 'Dual Engagement Conflict')"
+        },
+        "state_class": {
+          "type": "string",
+          "required": true,
+          "description": "Label of the state class this individual instantiates"
+        },
+        "subject": {
+          "type": "string",
+          "required": false,
+          "description": "Who or what is in this state"
+        },
+        "active_period": {
+          "type": "string",
+          "required": false,
+          "description": "When the state holds (the activePeriod literal)"
+        },
+        "triggering_event": {
+          "type": "string",
+          "required": false,
+          "description": "Edge-driving input: the event that brings the state into holding (resolves to activatedByEvent; not stored as a literal)"
+        },
+        "terminated_by": {
+          "type": "string",
+          "required": false,
+          "description": "Edge-driving input: the event that ends the state (resolves to terminatedByEvent; not stored as a literal)"
+        },
+        "affected_parties": {
+          "type": "array",
+          "range": "Agent",
+          "required": false,
+          "description": "Edge-driving input: agents the state affects (resolves to the affects edge; not stored as a literal)",
+          "range_ontology": "proethica-core"
+        },
+        "urgency_level": {
+          "type": "string",
+          "required": false,
+          "description": "Jones salience: low, medium, high, or critical"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes mentioning this state"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Specific conditions holding in the case (StateIndividual)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type being analyzed"
+    },
+    "existing_states_text": {
+      "source": "MCP get_entities_by_category(State)",
+      "description": "Formatted list of existing state classes from ontology (plus the reuse-bias guidance block)",
+      "builder_method": "format_existing_entities"
+    },
+    "cross_concept_context": {
+      "source": "format_cross_concept_context('states', case_id)",
+      "description": "States are extracted in Step 1 and carry no cross-concept dependency, so this slot is empty for states; retained for template uniformity"
+    },
+    "state_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) StateDefinitionShape via concept_ontology_slots -> _component_schema_block('State')",
+      "description": "State definitional/individual field schema, resolved live from the SHACL StateDefinitionShape (single source shared with the OntServe State entity page). state_category drives the archetype subClassOf typing; persistence_type and urgency_level are attributes; the linkage fields resolve to edges; none are stored as the conceptCategory literal"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES[('states', section_type)] in prompt_variable_resolver",
+      "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
+    }
+  },
+  "passes": {
+    "facts": {
+      "name": "States (facts)",
+      "description": "Extract new state classes and state individuals from the case facts (the conditions that hold as the situation unfolds)",
+      "template_file": "states.md"
+    },
+    "discussion": {
+      "name": "States (discussion)",
+      "description": "Extract new state classes and state individuals from the case discussion, reusing the facts-pass states via match_decision",
+      "template_file": "states.md"
+    }
+  }
+}

@@ -243,28 +243,19 @@ class PrincipleCategory(str, Enum):
 
 
 class CandidatePrincipleClass(BaseCandidate):
-    """A new principle class discovered in case text."""
+    """A new principle class discovered in case text.
+
+    Field set aligned to the extraction-architecture spec (P section, 2026-06):
+    principle_category drives the four-kind subClassOf typing when a new leaf is minted and
+    the canonical leaf label (BaseCandidate.label) becomes the rdf:type. extensional_examples
+    is retained as an optional class-mint field (McLaren extensional grounding). The earlier
+    abstract_nature, value_basis, operationalization, derived_obligations, and potential_conflicts
+    fields were dropped (spec "Not stored": folded into the class definition or carried by edges).
+    """
     principle_category: Optional[PrincipleCategory] = None
-    abstract_nature: Optional[str] = Field(
-        None, description="Ethical foundation (McLaren open-textured terms)"
-    )
     extensional_examples: List[str] = Field(
         default_factory=list,
-        description="Concrete application examples (McLaren extensional definition)"
-    )
-    value_basis: Optional[str] = Field(
-        None, description="Core moral value grounding the principle"
-    )
-    operationalization: Optional[str] = Field(
-        None, description="How the principle is made concrete (Coeckelbergh)"
-    )
-    derived_obligations: List[str] = Field(
-        default_factory=list,
-        description="Obligations derived from this principle (P->O linkage)"
-    )
-    potential_conflicts: List[str] = Field(
-        default_factory=list,
-        description="Principles this may conflict with (Taddeo balancing)"
+        description="Concrete application examples (McLaren extensional definition); optional class-mint field"
     )
 
 
@@ -407,28 +398,29 @@ class ObligationExtractionResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 class StateCategory(str, Enum):
-    """proethica-intermediate.ttl State archetypes (deontic-function axis).
+    """The closed nine CONTENT archetypes of a state (extraction-architecture spec, S section, B1).
 
-    A state's kind is grounded by its deontic function on a role-derived obligation:
-    activating it (risk, emergency), constraining the action it governs (regulatory),
-    putting obligations in conflict/defeat (conflict), conditioning a duty on capacity
-    (competence) or on knowledge (information), scoping it to a relationship
-    (relationship), bounding it in time (temporal), or conditioning its feasibility
-    (resource). Grounding: Berreby et al. (2017) Event-Calculus fluents that trigger/
-    terminate obligations, Almpani et al. (2023) context-driven obligation priorities,
-    Stenseke (2024) obligation-presupposes-capacity, Govindarajulu & Bringsjord (2017)
-    obligation-depends-on-knowledge -- NOT Jones (1991), whose moral intensity SCORES a
-    situation's salience (a state attribute, e.g. urgency_level) rather than typing it.
+    A state's kind is a classification of the condition's CONTENT in the world, explicitly NOT the
+    activatesObligation relation the edge layer records: a RiskState is hazard exposure, an
+    EpistemicState is the agent's knowledge condition (the responsibility epistemic condition, C2),
+    a ConflictOfInterestState is a clash of duties, a DisclosureState is an information-disclosure
+    condition. Each archetype is subClassOf core:State; a discovered compound class chains through
+    its archetype. Grounding: Berreby et al. (2017) Event-Calculus fluents, with Jones (1991) moral
+    intensity carried separately as urgency_level (a state attribute), not as the typing axis.
+
+    Replaces the earlier deontic-function framing (conflict/relationship/information): conflict ->
+    conflict_of_interest, relationship is dropped, and information splits into epistemic +
+    disclosure.
     """
-    conflict = "conflict"
+    epistemic = "epistemic"
     risk = "risk"
     competence = "competence"
-    relationship = "relationship"
-    information = "information"
     emergency = "emergency"
+    conflict_of_interest = "conflict_of_interest"
     regulatory = "regulatory"
     temporal = "temporal"
     resource = "resource"
+    disclosure = "disclosure"
 
 
 class PersistenceType(str, Enum):
@@ -504,46 +496,57 @@ class StateExtractionResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ResourceCategory(str, Enum):
-    """proethica-intermediate.ttl Resource subclass hierarchy.
+    """The closed six SOURCE KINDS of a resource (extraction-architecture spec, Rs section).
 
-    McLaren/Frankel professional knowledge typology.
+    The canonical identity of a resource is its source kind; topic, who-used, and which-document
+    are context, not class identity. ethical_code is typed EthicalCode subClassOf Guideline
+    subClassOf Resource; the other five subClassOf Resource. Replaces the earlier seven-value
+    typology: expert_interpretation and decision_tool are folded away and ethical_code is added.
     """
+    ethical_code = "ethical_code"
     professional_code = "professional_code"
-    case_precedent = "case_precedent"
-    expert_interpretation = "expert_interpretation"
     technical_standard = "technical_standard"
+    case_precedent = "case_precedent"
     legal_resource = "legal_resource"
-    decision_tool = "decision_tool"
     reference_material = "reference_material"
 
 
 class CandidateResourceClass(BaseCandidate):
-    """A new resource class discovered in case text."""
+    """A new resource class discovered in case text.
+
+    Field set aligned to the extraction-architecture spec (Rs section, 2026-06): the source kind
+    (resource_category) is the canonical class identity and drives the six-kind subClassOf typing.
+    The earlier authority_source, extensional_function, and usage_context class fields were dropped
+    (spec "Not stored"; not carried on the Resource).
+    """
     resource_category: Optional[ResourceCategory] = None
-    authority_source: Optional[str] = Field(
-        None, description="Creator or maintaining body"
-    )
-    extensional_function: Optional[str] = Field(
-        None, description="How the resource functions in professional practice (McLaren)"
-    )
-    usage_context: List[str] = Field(
-        default_factory=list, description="Contexts where this resource type is used"
-    )
 
 
 class ResourceIndividual(BaseIndividual):
-    """A specific resource instance in the case."""
+    """A specific resource instance in the case.
+
+    Field set aligned to the extraction-architecture spec (Rs section, 2026-06): document_title and
+    topic are literals; used_by (the Facts-section reliance signal) resolves to availableTo and
+    cited_by (the Discussion-section authority signal) resolves to citedByAgent; provision_codes
+    resolve to refersToDocument nspe# IRIs for a code. The earlier created_by, version, and
+    used_in_context fields were dropped, and the conflated used_by was split into used_by + cited_by.
+    """
     resource_class: str = Field("", description="Resource class label or URI", alias="instance_of")
     document_title: Optional[str] = Field(
         None, description="Official document/resource name"
     )
-    created_by: Optional[str] = None
-    version: Optional[str] = None
-    used_by: Optional[str] = Field(
-        None, description="Who used this resource in the case"
+    topic: Optional[str] = Field(
+        None, description="Subject the resource addresses (proeth:topic datatype property)"
     )
-    used_in_context: Optional[str] = Field(
-        None, description="How the resource was applied"
+    used_by: Optional[str] = Field(
+        None, description="Case actor who relied on the resource (Facts signal); resolves to the availableTo edge"
+    )
+    cited_by: Optional[str] = Field(
+        None, description="Agent who cited the resource as authority (Discussion signal); resolves to the citedByAgent edge"
+    )
+    provision_codes: List[str] = Field(
+        default_factory=list,
+        description="For a code/regulation, provision code(s) cited (e.g. 'I.1'); resolve to refersToDocument nspe# IRIs"
     )
 
 
@@ -713,27 +716,13 @@ class CandidateEventClass(BaseCandidate):
     NOTE (HO-006): As with :class:`CandidateActionClass`, Step-3 commits no event
     *class* rows; the LangGraph temporal pass emits individuals only. Retained for
     symmetry, not populated by the live pass.
+
+    Field set aligned to the extraction-architecture spec (E section, 2026-06): events are
+    origin-typed light individuals and this pass mints no event classes, so the earlier
+    event_category, automatic_nature, ethical_salience, causal_position, constraint_activation,
+    obligation_transformation, and state_transitions fields were dropped (spec "Not stored").
     """
-    event_category: Optional[EventCategory] = None
-    automatic_nature: Optional[str] = Field(
-        None,
-        description="How this occurs without volitional agency (Berreby automatic events)"
-    )
-    ethical_salience: Optional[str] = Field(
-        None, description="Why this event is ethically significant"
-    )
-    causal_position: Optional[CausalPosition] = None
-    constraint_activation: List[str] = Field(
-        default_factory=list,
-        description="Constraints this event activates (E->Cs linkage)"
-    )
-    obligation_transformation: Optional[str] = Field(
-        None, description="How this event changes obligations (E->O linkage)"
-    )
-    state_transitions: List[str] = Field(
-        default_factory=list,
-        description="State changes this event causes (E->S linkage)"
-    )
+    pass
 
 
 class EventIndividual(BaseModel):
@@ -759,23 +748,18 @@ class EventIndividual(BaseModel):
     description: Optional[str] = Field(None, alias="proeth:description")
     temporal_marker: Optional[str] = Field(None, alias="proeth:temporalMarker")
 
-    # Classification. eventType is the Event Calculus agent-caused (outcome) / external
-    # (exogenous) / precondition-triggered (automatic_trigger) distinction (Berreby et al.
-    # 2017). severity is a heuristic triage indicator of how serious the occurrence is, NOT
-    # a formal ontology category. The former emergency_status was renamed to severity and
-    # the separate urgency_level field dropped 2026-05-31 (it duplicated severity in every
-    # case).
+    # Classification (extraction-architecture spec, E section, 2026-06). eventType is the
+    # load-bearing ORIGIN signal and drives the three-way subClassOf typing: outcome ->
+    # AgentCausedEvent (agent-caused), exogenous -> ExogenousEvent (external), automatic ->
+    # AutomaticEvent (precondition-triggered) (Berreby/Sarmiento). The earlier severity field
+    # was dropped (spec: severity is dropped for events; emergency salience is structural, via
+    # the RiskState/EmergencyState an emergency event initiates).
     event_type: Optional[str] = Field(None, alias="proeth:eventType")
-    severity: Optional[str] = Field(None, alias="proeth:severity")
 
-    # State change. The former proeth:activatesConstraint and proeth:createsObligation
-    # event links were dropped 2026-05-31: an event activates a constraint or makes an
-    # obligation apply only via the State it initiates (the Event-Calculus path State
-    # proeth-core:activatesConstraint / activatesObligation, materialised by fluent_edges.py
-    # + state_edges.py), so the direct event links named free-text obligations/constraints
-    # that resolved to no extracted individual and duplicated that grounded path. See
-    # rdf_converter._add_fluent_and_time.
-    causes_state_change: Optional[str] = Field(None, alias="proeth:causesStateChange")
+    # State change. The earlier causes_state_change prose was dropped (spec "Not stored"; folded
+    # into the description). An event activates a constraint or makes an obligation apply only via
+    # the State it initiates (the Event-Calculus path State proeth-core:activatesConstraint /
+    # activatesObligation, materialised by fluent_edges.py + state_edges.py).
     caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
 
     # Fluent transitions + OWL-Time extent (Event Calculus)
@@ -835,36 +819,36 @@ class SkillLevel(str, Enum):
 
 
 class CandidateCapabilityClass(BaseCandidate):
-    """A new capability class discovered in case text."""
-    capability_category: Optional[CapabilityCategory] = None
-    enables_actions: List[str] = Field(
-        default_factory=list,
-        description="Actions this capability makes possible (Ca->A linkage)"
-    )
+    """A new capability class discovered in case text.
+
+    Field set aligned to the extraction-architecture spec (Ca section, 2026-06): the canonical
+    competence kind (BaseCandidate.label) drives the subClassOf typing, and required_for_obligations
+    is the Ca->O capacity linkage that resolves to the requiresCapability edge (Obligation->Capability).
+    The earlier capability_category, enables_actions, skill_level, and domain_specificity fields were
+    dropped (spec "Not stored"). Only a competence the agent possesses or exercises is a Capability;
+    a lacked competence is dropped here and captured downstream as a CompetenceGapState.
+    """
     required_for_obligations: List[str] = Field(
         default_factory=list,
-        description="Obligations requiring this capability (Ca->O linkage)"
-    )
-    skill_level: Optional[SkillLevel] = None
-    domain_specificity: Optional[str] = Field(
-        None, description="How domain-specific this capability is (Stenseke)"
+        description="Obligations requiring this capability (Ca->O linkage; resolves to requiresCapability)"
     )
 
 
 class CapabilityIndividual(BaseIndividual):
-    """A specific capability instance in the case."""
+    """A specific capability instance in the case.
+
+    Field set aligned to the extraction-architecture spec (Ca section, 2026-06): possessed_by
+    resolves to the possessedBy edge and case_context is the grounding-context literal. The earlier
+    capability_statement, demonstrated_through, and proficiency_level fields were dropped (spec
+    "Not stored").
+    """
     capability_class: str = Field("", description="Capability class label or URI", alias="instance_of")
     possessed_by: Optional[str] = Field(
-        None, description="Who possesses this capability"
+        None, description="Who possesses this capability; resolves to the possessedBy edge"
     )
-    capability_statement: Optional[str] = Field(
-        None, description="Competency description"
+    case_context: Optional[str] = Field(
+        None, description="Grounding-context literal: how this capability manifests in the case"
     )
-    demonstrated_through: Optional[str] = Field(
-        None, description="How this capability was evidenced in the case"
-    )
-    proficiency_level: Optional[SkillLevel] = None
-    case_context: Optional[str] = None
 
 
 class CapabilityExtractionResult(BaseModel):
@@ -940,30 +924,36 @@ class Severity(str, Enum):
 
 
 class CandidateConstraintClass(BaseCandidate):
-    """A new constraint class discovered in case text."""
+    """A new constraint class discovered in case text.
+
+    Field set aligned to the extraction-architecture spec (Cs section, 2026-06): constraint_type is
+    the controlled boundary type and drives the subClassOf typing. The earlier flexibility (a dead
+    shadow of the obligation-layer defeasibility edges), violation_impact, mitigation_strategies, and
+    affected_stakeholders fields were dropped (spec "Not stored").
+    """
     constraint_type: Optional[ConstraintType] = None
-    flexibility: Optional[Flexibility] = Field(
-        None, description="Defeasibility level (Ganascia)"
-    )
-    violation_impact: Optional[str] = None
-    mitigation_strategies: List[str] = Field(
-        default_factory=list,
-        description="Ways to work within the constraint"
-    )
-    affected_stakeholders: List[str] = Field(default_factory=list)
 
 
 class ConstraintIndividual(BaseIndividual):
-    """A specific constraint instance in the case."""
+    """A specific constraint instance in the case.
+
+    Field set aligned to the extraction-architecture spec (Cs section, 2026-06): constraint_statement
+    is the prohibition (skos:definition), applicability_condition is the Dennis complete-specification
+    condition, severity is a genuine attribute, constrained_entity resolves to the constrainedEntity
+    edge, and source resolves to establishedBy.
+    """
     constraint_class: str = Field("", description="Constraint class label or URI", alias="instance_of")
     constrained_entity: Optional[str] = Field(
-        None, description="What/who is constrained"
+        None, description="The agent whose conduct is limited; resolves to the constrainedEntity edge"
     )
     constraint_statement: Optional[str] = Field(
-        None, description="Specific limitation statement"
+        None, description="The prohibition (the operative 'must not' clause); becomes skos:definition"
+    )
+    applicability_condition: Optional[str] = Field(
+        None, description="Temporal and contextual circumstances under which the prohibition applies (Dennis)"
     )
     source: Optional[str] = Field(
-        None, description="Where the constraint comes from"
+        None, description="Provision or authority establishing the prohibition; resolves to establishedBy"
     )
     temporal_scope: Optional[str] = None
     severity: Optional[Severity] = None

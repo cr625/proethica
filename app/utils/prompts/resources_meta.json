@@ -1,0 +1,168 @@
+{
+  "concept_type": "resources",
+  "step_number": 1,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting professional resources (codes, standards, precedents, and reference materials) from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (McLaren precedents; Davis & Frankel professional codes). A resource's canonical identity is its source kind. Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "new_resource_classes": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "Resource class name (canonical short reusable source-kind form)"
+        },
+        "definition": {
+          "type": "string",
+          "required": true,
+          "description": "Resource definition (rdfs:comment / skos:definition)"
+        },
+        "resource_category": {
+          "type": "string",
+          "required": true,
+          "description": "Controlled source kind that drives the six-kind subClassOf typing: ethical_code, professional_code, technical_standard, case_precedent, legal_resource, reference_material. EthicalCode is typed subClassOf Guideline subClassOf Resource; the other five subClassOf Resource. A routing input, not stored as a literal"
+        },
+        "match_decision": {
+          "type": "object",
+          "fields": {
+            "reasoning": {
+              "type": "string",
+              "required": true,
+              "description": "Explanation for the match decision"
+            },
+            "confidence": {
+              "type": "number",
+              "required": true,
+              "description": "Match confidence 0.0-1.0"
+            },
+            "matched_uri": {
+              "type": "string",
+              "required": false,
+              "description": "URI of matched class (null if new)"
+            },
+            "matched_label": {
+              "type": "string",
+              "required": false,
+              "description": "Label of matched class (null if new)"
+            },
+            "matches_existing": {
+              "type": "boolean",
+              "required": true,
+              "description": "Whether matches existing ontology class"
+            }
+          },
+          "required": true,
+          "description": "Ontology match decision"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes from case text"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Resource classes extracted from case text (CandidateResourceClass)"
+    },
+    "resource_individuals": {
+      "type": "array",
+      "fields": {
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "description": "Unique instance descriptor (e.g. 'NSPE Code of Ethics')"
+        },
+        "resource_class": {
+          "type": "string",
+          "required": true,
+          "description": "Label of the resource class this individual instantiates"
+        },
+        "document_title": {
+          "type": "string",
+          "required": false,
+          "description": "The title of the source document"
+        },
+        "topic": {
+          "type": "string",
+          "required": false,
+          "description": "The subject the resource addresses (the declared proeth:topic property, not the otherAttribute overflow)"
+        },
+        "used_by": {
+          "type": "string",
+          "range": "Agent",
+          "required": false,
+          "description": "The case actor who relied on the resource (the Facts-section signal); resolves to the availableTo edge, not stored as a literal",
+          "range_ontology": "proethica-core"
+        },
+        "cited_by": {
+          "type": "string",
+          "range": "Agent",
+          "required": false,
+          "description": "The agent who cited the resource as authority (the Discussion-section signal, commonly the NSPE Board); resolves to the citedByAgent edge, not stored as a literal",
+          "range_ontology": "proethica-core"
+        },
+        "provision_codes": {
+          "type": "array",
+          "required": false,
+          "description": "For a code or regulation, the provision code(s) cited (e.g. 'I.1', 'II.2.b'); resolve to refersToDocument nspe# IRIs. Empty for a non-code resource"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes mentioning this resource"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Specific documents used or cited in the case (ResourceIndividual)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type being analyzed"
+    },
+    "existing_resources_text": {
+      "source": "MCP get_entities_by_category(Resource)",
+      "description": "Formatted list of existing resource classes from ontology (plus the reuse-bias guidance block)",
+      "builder_method": "format_existing_entities"
+    },
+    "cross_concept_context": {
+      "source": "format_cross_concept_context('resources', case_id)",
+      "description": "Resources are extracted in Step 1 and carry no cross-concept dependency, so this slot is empty for resources; retained for template uniformity"
+    },
+    "resource_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ResourceDefinitionShape via concept_ontology_slots -> _component_schema_block('Resource')",
+      "description": "Resource definitional/individual field schema, resolved live from the SHACL ResourceDefinitionShape (single source shared with the OntServe Resource entity page). resource_category drives the six-kind subClassOf typing; document_title and topic are literals; used_by and cited_by resolve to the availableTo and citedByAgent edges"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES[('resources', section_type)] in prompt_variable_resolver",
+      "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot (used_by is the Facts signal, cited_by the Discussion signal)"
+    }
+  },
+  "passes": {
+    "facts": {
+      "name": "Resources (facts)",
+      "description": "Extract new resource classes and resource individuals from the case facts (the codes, standards, and precedents the parties relied on; the used_by signal)",
+      "template_file": "resources.md"
+    },
+    "discussion": {
+      "name": "Resources (discussion)",
+      "description": "Extract new resource classes and resource individuals from the case discussion, reusing the facts-pass resources via match_decision (the cited_by authority signal)",
+      "template_file": "resources.md"
+    }
+  }
+}

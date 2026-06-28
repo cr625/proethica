@@ -618,6 +618,35 @@ _PASS_DIRECTIVES = {
                                     "OBLIGATIONS above. REUSE or refine them via match_decision; extract only "
                                     "genuinely NEW obligations the discussion introduces (e.g. duties the Board "
                                     "names in its analysis). A near-duplicate of a facts-pass obligation is an error."),
+    ('principles', 'facts'): ("THIS PASS (facts): extract the principle classes and individuals the case FACTS "
+                              "put in play (the values the parties act on as the situation unfolds)."),
+    ('principles', 'discussion'): ("THIS PASS (discussion): the facts-pass principles are already in EXISTING "
+                                   "PRINCIPLES above. REUSE or refine them via match_decision; extract only "
+                                   "genuinely NEW principles the discussion introduces (e.g. values the Board "
+                                   "invokes in its analysis). A near-duplicate of a facts-pass principle is an error."),
+    ('states', 'facts'): ("THIS PASS (facts): extract the state classes and individuals the case FACTS "
+                          "establish (the conditions that hold as the situation unfolds)."),
+    ('states', 'discussion'): ("THIS PASS (discussion): the facts-pass states are already in EXISTING STATES "
+                               "above. REUSE or refine them via match_decision; extract only genuinely NEW "
+                               "states the discussion introduces. A near-duplicate of a facts-pass state is an error."),
+    ('resources', 'facts'): ("THIS PASS (facts): extract the resource classes and individuals the case FACTS "
+                             "name (the codes, standards, and precedents the parties relied on; set used_by)."),
+    ('resources', 'discussion'): ("THIS PASS (discussion): the facts-pass resources are already in EXISTING "
+                                  "RESOURCES above. REUSE or refine them via match_decision; extract only "
+                                  "genuinely NEW resources the discussion cites as authority (set cited_by). A "
+                                  "near-duplicate of a facts-pass resource is an error."),
+    ('capabilities', 'facts'): ("THIS PASS (facts): extract the capability classes and individuals the case "
+                                "FACTS evidence (competences a party possesses or exercises)."),
+    ('capabilities', 'discussion'): ("THIS PASS (discussion): the facts-pass capabilities are already in EXISTING "
+                                     "CAPABILITIES above. REUSE or refine them via match_decision; extract only "
+                                     "genuinely NEW capabilities the discussion introduces. A near-duplicate of a "
+                                     "facts-pass capability is an error."),
+    ('constraints', 'facts'): ("THIS PASS (facts): extract the constraint classes and individuals the case FACTS "
+                               "establish (the prohibitions and hard boundaries in force as the situation unfolds)."),
+    ('constraints', 'discussion'): ("THIS PASS (discussion): the facts-pass constraints are already in EXISTING "
+                                    "CONSTRAINTS above. REUSE or refine them via match_decision; extract only "
+                                    "genuinely NEW constraints the discussion introduces. A near-duplicate of a "
+                                    "facts-pass constraint is an error."),
 }
 
 
