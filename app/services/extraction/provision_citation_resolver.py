@@ -21,6 +21,10 @@ from typing import Optional, Set
 NSPE_NS = "http://proethica.org/ontology/nspe#"
 INTERMEDIATE_NS = "http://proethica.org/ontology/intermediate#"
 CORE_CITES_PROVISION = "http://proethica.org/ontology/core#citesProvision"
+# A code resource (Guideline) contains the provisions the case cites for it. containsProvision has
+# domain Guideline, range CodeProvision -- the precise property for resource provision_codes (NOT
+# refersToDocument, whose range is an IAO document, nor citesProvision, which is for analysis).
+CORE_CONTAINS_PROVISION = "http://proethica.org/ontology/core#containsProvision"
 
 # Roman-numeral section, optional dotted numeric subsections, optional single
 # lowercase letter: I, I.1, II.1, II.1.a, III.9.d
@@ -124,6 +128,66 @@ def apply_cites_provision_on_ttl(ttl_path) -> int:
     g = Graph()
     g.parse(str(ttl_path), format="turtle")
     added = apply_cites_provision_edges(g, resolver)
+    if added:
+        g.serialize(destination=str(ttl_path), format="turtle")
+    return added
+
+
+def _is_provision_codes_pred(p) -> bool:
+    local = str(p).rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+    return local == "provisionCodes"
+
+
+def apply_resource_provision_edges(g, resolver: ProvisionCitationResolver) -> int:
+    """Add ``proeth-core:containsProvision nspe:<frag>`` for each resolvable code in a resource
+    individual's ``provisionCodes`` literals. Returns the number of new edges. Idempotent.
+
+    A code resource (e.g. the NSPE Code, typed EthicalCode subClassOf Guideline) contains the
+    provisions the case cites for it; provision_codes is the LLM-extracted routing input and
+    containsProvision is its canonical form, connecting the resource to the nspe: CodeProvision
+    nodes so case reasoning can traverse resource -> provision -> established Principle/Obligation.
+    Same DB-validated, deterministic resolution as the conclusion citesProvision pass.
+    """
+    from rdflib import URIRef, Literal
+
+    contains = URIRef(CORE_CONTAINS_PROVISION)
+    new_edges = set()
+    for s, p, o in g:
+        if isinstance(o, Literal) and _is_provision_codes_pred(p):
+            iri = resolver.resolve(str(o))
+            if iri:
+                edge = (s, contains, URIRef(iri))
+                if edge not in g:
+                    new_edges.add(edge)
+    for e in new_edges:
+        g.add(e)
+    return len(new_edges)
+
+
+def apply_resource_provisions_on_ttl(ttl_path) -> int:
+    """Resolve resource provisionCodes literals to nspe: IRIs on one case TTL and add
+    proeth-core:containsProvision edges (a code resource -> the CodeProvisions it cites).
+
+    Deterministic (no LLM), DB-validated against the live ai_ethical_dm guideline_sections.
+    Returns the number of edges added. Raises on DB/parse errors; callers that must not fail a
+    commit should wrap this. Mirrors apply_cites_provision_on_ttl for the resource direction.
+    """
+    from pathlib import Path
+    from rdflib import Graph
+    from sqlalchemy import text
+    from app.models import db
+
+    codes = [r[0] for r in db.session.execute(
+        text("SELECT section_code FROM guideline_sections WHERE guideline_id = 1")
+    ).fetchall()]
+    if not codes:
+        return 0
+    resolver = ProvisionCitationResolver(valid_fragments_from_codes(codes))
+
+    ttl_path = Path(ttl_path)
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+    added = apply_resource_provision_edges(g, resolver)
     if added:
         g.serialize(destination=str(ttl_path), format="turtle")
     return added

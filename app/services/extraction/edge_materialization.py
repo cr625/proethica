@@ -199,6 +199,15 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: cites-provision applier failed for case %s", case_id)
         results["cites_provision"] = {"error": str(e)}
 
+    # 3b. resource provisionCodes -> containsProvision edges (a code resource -> the CodeProvisions
+    # it cites; deterministic, DB-driven). Gap 3 of the Resources fix, mirroring cites-provision.
+    try:
+        from app.services.extraction.provision_citation_resolver import apply_resource_provisions_on_ttl
+        results["resource_provisions"] = {"edges_added": apply_resource_provisions_on_ttl(ttl_path)}
+    except Exception as e:
+        logger.exception("materialize: resource-provision applier failed for case %s", case_id)
+        results["resource_provisions"] = {"error": str(e)}
+
     # 4. Unified Pellet-safety guard over ALL edge families on the final TTL.
     # apply_rpo_edges guards its own edges, but a defeasibility edge can still
     # pull an endpoint into a disjoint core class by domain/range inference
