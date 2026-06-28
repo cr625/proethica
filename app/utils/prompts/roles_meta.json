@@ -205,18 +205,34 @@
     "role_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) via _role_schema_block()",
       "description": "Role definitional/bearer field schema, resolved live from the SHACL role shapes (single source shared with the OntServe Role page)"
+    },
+    "role_definition": {
+      "source": "OntServe proethica-core.ttl core:Role iao:0000115 via _role_definition_block()",
+      "description": "Governing definitional anchor: the Ch2-operationalised Role definition, read verbatim from the ontology"
+    },
+    "role_directives": {
+      "source": "OntServe proethica-core/intermediate axioms via _role_directives_block()",
+      "description": "Prescriptive extraction directives compiled from the disjointness/restriction/scopeNote axioms (D-EXCLUDE/D-AGENT/D-TELEO/D-INDIVIDUATION/D-FILTER/D-LABEL)"
+    },
+    "role_category_vocab": {
+      "source": "OntServe relational archetypes + role_category via _role_category_block()",
+      "description": "Controlled role_category vocabulary with per-category audience cues and the directed edge each implies"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES (section_type) in prompt_variable_resolver",
+      "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
     }
   },
   "passes": {
     "facts": {
       "name": "Roles (facts)",
       "description": "Extract new role classes and role individuals from case text using Kong et al. (2020) framework",
-      "template_file": "roles_facts.md"
+      "template_file": "roles.md"
     },
     "discussion": {
       "name": "Roles (discussion)",
       "description": "Extract new role classes and role individuals from case text using Kong et al. (2020) framework",
-      "template_file": "roles_discussion.md"
+      "template_file": "roles.md"
     }
   }
 }

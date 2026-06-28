@@ -123,6 +123,12 @@ class PromptBuildingMixin:
             'existing_entities_text': existing_text,
             'cross_concept_context': cross_context,
         }
+        # Ontology-derived slots (role_definition, role_schema, role_directives, role_category_vocab),
+        # resolved from the curated ontology + SHACL shapes by the SAME builder the editor preview uses, so
+        # what the LLM receives is byte-identical to the preview. This also fixes the prior bug where
+        # {{ role_schema }} was set only on the editor path and rendered to '' during real extraction.
+        from app.services.prompt_variable_resolver import concept_ontology_slots
+        variables.update(concept_ontology_slots(self.concept_type, section_type))
 
         rendered = template.render(**variables)
         # Render the optional system prompt with the same variables; _call_llm passes it as system=.

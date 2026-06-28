@@ -7,10 +7,12 @@ SINGLE SOURCE for the roles prompt. Consolidates the former competing seeders:
   - prompt_template_seeder.py           (old {{ mcp_context }} / {{ text }} scheme)
 all of which are archived under docs-internal/scripts/archive/.
 
-The prompt TEXT lives in prompts/roles_facts.md and prompts/roles_discussion.md (the verified DB content,
-including the SHACL-resolved {{ role_schema }} variable). The shared METADATA (system prompt, output schema,
-documented variables, per-pass name/description) lives in prompts/roles_meta.json. This module only wires
-them into ExtractionPromptTemplate rows. See .claude/plans/prompt-harmonization-playbook.md.
+The prompt TEXT lives in a SINGLE body prompts/roles.md, seeded to both the facts and discussion pass rows;
+the two differ only by the runtime {{ pass_directive }} slot. The body references the ontology-derived slots
+({{ role_definition }}, {{ role_schema }}, {{ role_directives }}, {{ role_category_vocab }}) resolved at
+injection time by concept_ontology_slots() from the curated ontology + SHACL shapes. The shared METADATA
+(system prompt, output schema, documented variables, per-pass name/description) lives in prompts/roles_meta.json.
+This module wires them into ExtractionPromptTemplate rows. See .claude/plans/prompt-harmonization-playbook.md.
 
 Run: python -m app.utils.seed_roles_prompt [--replace]
 """
@@ -31,6 +33,17 @@ def seed_roles_prompt(replace_existing: bool = False):
     unless replace_existing. Returns (created, updated, skipped)."""
     meta = json.loads((_DIR / "roles_meta.json").read_text())
     created = updated = skipped = 0
+
+    # Smoke test: the body references ontology-derived slots; fail the seed loudly if any resolves empty
+    # (a broken builder or unreadable ontology), so the prior "{{ role_schema }} renders to ''" bug cannot
+    # recur and a missing slot is caught at seed time, not silently in production.
+    from app.services.prompt_variable_resolver import concept_ontology_slots
+    _required = ('role_definition', 'role_schema', 'role_directives', 'role_category_vocab', 'pass_directive')
+    for st in meta["passes"]:
+        slots = concept_ontology_slots('roles', st)
+        missing = [k for k in _required if not slots.get(k)]
+        if missing:
+            raise RuntimeError(f"roles seed aborted: ontology slots empty for pass '{st}': {missing}")
 
     # The roles prompt is pass-split (facts/discussion); deactivate any stale pass-less ('all') row.
     for legacy in ExtractionPromptTemplate.query.filter_by(

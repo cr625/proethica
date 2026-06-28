@@ -77,11 +77,10 @@ class PromptVariableResolver:
         variables[f'existing_{concept_type}'] = existing_entities
         variables['existing_entities'] = existing_entities
 
-        # Role definitional schema, resolved live from the SHACL role shapes (the SAME shapes the
-        # OntServe Role page renders) so the prompt's field list stays in lockstep with core-shapes.ttl
-        # instead of being a hand-maintained copy. See the prompt-harmonization playbook.
-        if concept_type in ('roles', 'role'):
-            variables['role_schema'] = _role_schema_block()
+        # Ontology-derived slots (role definition anchor, SHACL field schema, compiled directives, category
+        # vocabulary), resolved at injection from the curated ontology + SHACL shapes. SHARED with the live
+        # extractor via concept_ontology_slots so the editor preview and real extraction inject identically.
+        variables.update(concept_ontology_slots(concept_type, section_type))
 
         # Cross-concept context (e.g., roles for principles extraction)
         from app.services.extraction.unified_dual_extractor import (
@@ -478,6 +477,124 @@ def _role_schema_block() -> str:
         out.append('Bearer fields (on the individual, where the case states them):')
         out += bearer
     return '\n'.join(out)
+
+
+def _ontology_ttl(name: str) -> str:
+    """Absolute path to a curated OntServe ontology TTL, mirroring the shapes-path derivation in
+    _role_schema_block. Override the ontologies dir with ONTSERVE_ONTOLOGIES_PATH."""
+    import os
+    from pathlib import Path
+    from app.services.extraction.reference_sheet import _sheet_dir
+    base = os.environ.get('ONTSERVE_ONTOLOGIES_PATH')
+    root = Path(base) if base else Path(_sheet_dir()).resolve().parents[1] / 'ontologies'
+    return str(Path(root) / name)
+
+
+def _role_definition_block() -> str:
+    """The governing definitional anchor: core:Role's iao:0000115 textual definition, read VERBATIM from
+    proethica-core.ttl so the prompt's framing IS the Ch2 operationalization, not a hand-written paraphrase.
+    Raises on an unreadable ontology file (no silent fallback)."""
+    import rdflib
+    IAO_DEF = rdflib.URIRef('http://purl.obolibrary.org/obo/IAO_0000115')
+    ROLE = rdflib.URIRef('http://proethica.org/ontology/core#Role')
+    g = rdflib.Graph()
+    g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
+    defn = next((str(o) for o in g.objects(ROLE, IAO_DEF)), None)
+    if not defn:
+        raise RuntimeError("core:Role iao:0000115 definition not found in proethica-core.ttl")
+    return "=== WHAT A ROLE IS (ontology definition) ===\n" + defn
+
+
+# Banned-example phrasing for the eight non-Role D-tuple components (D-EXCLUDE). The component LIST is read
+# from the ontology (so a new component appears automatically); only the example phrasing is maintained here.
+_ROLE_EXCLUDE_EXAMPLES = {
+    'Obligation': "a duty or 'shall' statement", 'Principle': "a value or ideal such as public safety",
+    'Capability': "a skill or competence", 'State': "a condition such as a conflict of interest",
+    'Action': "an act such as reviewing a design", 'Event': "an external occurrence",
+    'Resource': "a document or standard such as the NSPE Code", 'Constraint': "a hard boundary or prohibition",
+}
+
+
+def _role_directives_block() -> str:
+    """Compile the role AXIOMS into terse extraction DIRECTIVES -- the prescriptive rules the descriptive
+    SHACL schema does not carry. The exclusion list (D-EXCLUDE) is DERIVED from the nine mutually-disjoint
+    D-tuple component classes (owl:AllDisjointClasses) in proethica-core.ttl; the remaining directive
+    sentences are a maintained axiom->sentence map, each traced to its source axiom. Raises on unreadable TTL."""
+    import rdflib
+    CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+    g = rdflib.Graph()
+    g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
+    components = sorted(str(s).split('#')[-1] for s in g.subjects(CORE.dtupleComponent, None))
+    excl = "; ".join(f"{_ROLE_EXCLUDE_EXAMPLES[c]} ({c})"
+                     for c in components if c != 'Role' and c in _ROLE_EXCLUDE_EXAMPLES)
+    D = ["=== ROLE EXTRACTION DIRECTIVES (rules the ontology enforces) ==="]
+    # D-EXCLUDE  <- owl:AllDisjointClasses over the nine D-tuple components (proethica-core.ttl)
+    D.append(f"- DO NOT emit as a role: {excl}. If the thing is something an agent DOES, an occurrence, or "
+             "a condition that holds, it is not a role.")
+    # D-AGENT  <- proeth-core:Agent owl:disjointWith proeth-core:Role
+    D.append("- The ACTOR and the ROLE are disjoint: put the actor's stable identity in `actor` (e.g. "
+             "Engineer A) and the role facet in `identifier`; a person is never a role class.")
+    # D-TELEO  <- proeth-core:Role rdfs:subClassOf (hasObligation some Obligation) + scopeNote
+    D.append("- Every PROFESSIONAL role generates at least one obligation: name at least one obligation it "
+             "generates (each becomes a hasObligation edge to an Obligation). If you cannot name one, the "
+             "role is participant/stakeholder, not professional.")
+    # D-INDIVIDUATION  <- core:Role skos:scopeNote (TYPE vs occupant facts, Davis 1991)
+    D.append("- Individuate a role CLASS by the obligations/principles it determines and its audience "
+             "relationship, NOT by occupant attributes: role_category and associated virtues belong on the "
+             "CLASS; license, specialty, and employer belong on the INDIVIDUAL. License is not role-defining, "
+             "so never put it in the class label.")
+    # D-FILTER  <- proeth:ProfessionalRole owl:disjointWith proeth:ParticipantRole + its restrictions
+    D.append("- Classify each role as professional XOR participant (disjoint, never both). Professional only "
+             "if (a) a professional code governs it AND (b) it generates obligations; then fill the "
+             "professional-role fields. Otherwise participant/stakeholder: fill only the universal fields and "
+             "invent no professional attributes.")
+    # D-LABEL  <- canonical head-noun + archetype reuse (proethica-intermediate occupational archetypes)
+    D.append("- Use a canonical head-noun role label (e.g. 'Structural Engineer Role') and REUSE an existing "
+             "role class from the list above rather than minting a near-duplicate compound.")
+    return "\n".join(D)
+
+
+def _role_category_block() -> str:
+    """The controlled role_category vocabulary with per-category Kong audience-relationship cues and the
+    directed relationship edge each implies (the four relational archetypes + participant/stakeholder).
+    role_category must agree with the directed edge actually emitted (D-CATEGORY)."""
+    rows = [
+        "=== ROLE CATEGORY (controlled vocabulary -- set role_category to match the directed relationship you emit) ===",
+        "- provider_client: the role serves a client (Kong provider-to-client). Edge: hasClient (use the provider side when THIS actor is the client).",
+        "- professional_peer: a colleague relationship among professionals (symmetric). Edge: professionalPeerOf.",
+        "- employer_relationship: an employment relationship. Edge: employedBy (or employs).",
+        "- public_responsibility: a duty owed to the public. Edge: owesDutyToward (a PublicInterest).",
+        "- participant: a non-professional party to the case (e.g. a client or owner) bearing no professional obligations; universal fields only.",
+        "- stakeholder: an affected party with an interest but no professional obligations; universal fields only.",
+        "The literal role_category must agree with the reasoner-inferred relational archetype (ProviderClientRole, ProfessionalPeerRole, EmployerRelationshipRole, PublicResponsibilityRole).",
+    ]
+    return "\n".join(rows)
+
+
+# Per-pass directive: one body serves both pass rows, differing only by this runtime slot.
+_PASS_DIRECTIVES = {
+    ('roles', 'facts'): "THIS PASS (facts): extract the role classes and individuals introduced by the case FACTS.",
+    ('roles', 'discussion'): ("THIS PASS (discussion): the facts-pass roles are already in EXISTING ROLES above. "
+                              "REUSE or refine them via match_decision; extract only genuinely NEW roles the "
+                              "discussion introduces. A near-duplicate of a facts-pass role is an error."),
+}
+
+
+def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[str, str]:
+    """Ontology-derived prompt slots for a concept, resolved at INJECTION time from the curated ontology +
+    SHACL shapes, plus the per-pass directive (section_type). SHARED by the live extractor (prompt_building)
+    and the editor preview (resolve_variables) so the two inject identically -- preview == live by
+    construction. Empty for concepts without slots yet."""
+    if concept_type in ('roles', 'role'):
+        key = ('roles', section_type)
+        return {
+            'role_definition': _role_definition_block(),
+            'role_schema': _role_schema_block(),
+            'role_directives': _role_directives_block(),
+            'role_category_vocab': _role_category_block(),
+            'pass_directive': _PASS_DIRECTIVES.get(key, ''),
+        }
+    return {}
 
 
 def _format_entity_inventory(entities: List[Dict[str, Any]],
