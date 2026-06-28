@@ -209,10 +209,14 @@ class PromptBuildingMixin:
 
             # Format as text block with multi-source definitions
             lines = [
-                f'\n\n--- {self.concept_type.upper()} CLASSES ALREADY EXTRACTED FROM PRIOR SECTIONS ---',
-                'These classes were found in earlier sections of this case.',
-                'Reference them via match_decision if the same concept appears here.',
-                'Do NOT re-create them as new classes.\n',
+                f'\n\n--- {self.concept_type.upper()} CLASSES ALREADY EXTRACTED FROM PRIOR SECTIONS OF THIS CASE ---',
+                'These classes were captured from earlier sections and ARE ALREADY RECORDED. Your job in this',
+                'pass is to AUGMENT: extract only classes that are genuinely NEW and absent from the list below.',
+                'If a class you find is the SAME concept as one below, even under a different label or paraphrase',
+                '(e.g. "AI Report Disclosure Duty" vs "AI Tool Disclosure Report Duty"), do NOT emit it as a new',
+                'class; instead set match_decision.matches_existing=true with its matched_label from the list.',
+                'Re-emitting an already-recorded concept under a reworded label creates a duplicate and is an',
+                'extraction error. Add the discussion-only concepts the facts pass could not have seen.\n',
             ]
             for cls in prior_classes:
                 json_ld = cls.rdf_json_ld or {}
