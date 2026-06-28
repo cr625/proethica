@@ -612,6 +612,12 @@ _PASS_DIRECTIVES = {
     ('roles', 'discussion'): ("THIS PASS (discussion): the facts-pass roles are already in EXISTING ROLES above. "
                               "REUSE or refine them via match_decision; extract only genuinely NEW roles the "
                               "discussion introduces. A near-duplicate of a facts-pass role is an error."),
+    ('obligations', 'facts'): ("THIS PASS (facts): extract the obligation classes and individuals the case FACTS "
+                               "establish (the duties in force as the situation unfolds)."),
+    ('obligations', 'discussion'): ("THIS PASS (discussion): the facts-pass obligations are already in EXISTING "
+                                    "OBLIGATIONS above. REUSE or refine them via match_decision; extract only "
+                                    "genuinely NEW obligations the discussion introduces (e.g. duties the Board "
+                                    "names in its analysis). A near-duplicate of a facts-pass obligation is an error."),
 }
 
 

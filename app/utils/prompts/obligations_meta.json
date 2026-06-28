@@ -1,0 +1,180 @@
+{
+  "concept_type": "obligations",
+  "step_number": 2,
+  "domain": "engineering",
+  "system_prompt": "You are an expert at extracting professional obligations from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Dennis et al. 2016 specification requirements; Donohue 2017 directive information entities; the NSPE Code structure). Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "output_schema": {
+    "new_obligation_classes": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true,
+          "description": "Obligation class name (canonical short reusable form)"
+        },
+        "definition": {
+          "type": "string",
+          "required": true,
+          "description": "Obligation definition (rdfs:comment / skos:definition)"
+        },
+        "obligation_type": {
+          "type": "string",
+          "required": true,
+          "description": "Controlled NSPE obligation category that drives the subClassOf core:Obligation typing: disclosure, safety, competence, confidentiality, reporting, collegial, legal, ethical"
+        },
+        "derived_from_principle": {
+          "type": "string",
+          "range": "Principle",
+          "required": false,
+          "description": "Principle the obligation operationalizes (derivedFromPrinciple; the P side of R->P->O)",
+          "range_ontology": "proethica-core"
+        },
+        "match_decision": {
+          "type": "object",
+          "fields": {
+            "reasoning": {
+              "type": "string",
+              "required": true,
+              "description": "Explanation for the match decision"
+            },
+            "confidence": {
+              "type": "number",
+              "required": true,
+              "description": "Match confidence 0.0-1.0"
+            },
+            "matched_uri": {
+              "type": "string",
+              "required": false,
+              "description": "URI of matched class (null if new)"
+            },
+            "matched_label": {
+              "type": "string",
+              "required": false,
+              "description": "Label of matched class (null if new)"
+            },
+            "matches_existing": {
+              "type": "boolean",
+              "required": true,
+              "description": "Whether matches existing ontology class"
+            }
+          },
+          "required": true,
+          "description": "Ontology match decision"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes from case text"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Obligation classes extracted from case text (CandidateObligationClass)"
+    },
+    "obligation_individuals": {
+      "type": "array",
+      "fields": {
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "description": "Unique instance descriptor (e.g. 'Engineer A AI Disclosure Duty')"
+        },
+        "obligation_class": {
+          "type": "string",
+          "required": true,
+          "description": "Label of the obligation class this individual instantiates"
+        },
+        "obligated_party": {
+          "type": "string",
+          "range": "Agent",
+          "required": false,
+          "description": "Stable actor identity who bears the obligation (e.g. 'Engineer A'); reused from the roles pass. Resolves to the obligatedParty edge, not stored as a literal",
+          "range_ontology": "proethica-core"
+        },
+        "obligation_statement": {
+          "type": "string",
+          "required": false,
+          "description": "The concrete duty (the operative 'shall' or 'must' clause)"
+        },
+        "derived_from_principle": {
+          "type": "string",
+          "range": "Principle",
+          "required": false,
+          "description": "Principle the duty operationalizes (derivedFromPrinciple edge)",
+          "range_ontology": "proethica-core"
+        },
+        "temporal_scope": {
+          "type": "string",
+          "required": false,
+          "description": "When the obligation is in force (Dennis: 'when')"
+        },
+        "compliance_status": {
+          "type": "string",
+          "required": false,
+          "description": "Whether the obligation was met in the case: met, unmet, partial, or unclear"
+        },
+        "case_context": {
+          "type": "string",
+          "required": false,
+          "description": "How this obligation manifests in the case"
+        },
+        "text_references": {
+          "type": "array",
+          "required": true,
+          "description": "Direct quotes mentioning this obligation"
+        },
+        "confidence": {
+          "type": "number",
+          "required": false,
+          "description": "Extraction confidence 0.0-1.0"
+        }
+      },
+      "description": "Specific duties borne by a party in the case (ObligationIndividual)"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "source": "Document content",
+      "description": "The case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type being analyzed"
+    },
+    "existing_obligations_text": {
+      "source": "MCP get_entities_by_category(Obligation)",
+      "description": "Formatted list of existing obligation classes from ontology (plus the reuse-bias guidance block)",
+      "builder_method": "format_existing_entities"
+    },
+    "cross_concept_context": {
+      "source": "format_cross_concept_context('obligations', case_id)",
+      "description": "Roles and principles already extracted in this case, injected so obligated_party and derived_from_principle ground in named entities (R->P->O dependency)"
+    },
+    "obligation_schema": {
+      "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ObligationDefinitionShape via concept_ontology_slots -> _component_schema_block('Obligation')",
+      "description": "Obligation definitional/individual field schema, resolved live from the SHACL ObligationDefinitionShape (single source shared with the OntServe Obligation entity page). obligation_type drives the subClassOf typing; obligated_party and derived_from_principle resolve to edges; the rest are per-individual literals"
+    },
+    "pass_directive": {
+      "source": "_PASS_DIRECTIVES[('obligations', section_type)] in prompt_variable_resolver",
+      "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
+    }
+  },
+  "passes": {
+    "facts": {
+      "name": "Obligations (facts)",
+      "description": "Extract new obligation classes and obligation individuals from the case facts (the duties in force as the situation unfolds)",
+      "template_file": "obligations.md"
+    },
+    "discussion": {
+      "name": "Obligations (discussion)",
+      "description": "Extract new obligation classes and obligation individuals from the case discussion, reusing the facts-pass obligations via match_decision",
+      "template_file": "obligations.md"
+    }
+  }
+}

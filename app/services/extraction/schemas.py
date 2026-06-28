@@ -349,19 +349,17 @@ class ComplianceStatus(str, Enum):
 
 
 class CandidateObligationClass(BaseCandidate):
-    """A new obligation class discovered in case text."""
+    """A new obligation class discovered in case text.
+
+    Field set aligned to the extraction-architecture spec (O section, 2026-06):
+    obligation_type drives the subClassOf core:Obligation typing and derived_from_principle
+    resolves to the O->P edge. The earlier enforcement_level (the retired modality axis),
+    violation_consequences, stakeholders_affected, monitoring_criteria, and nspe_reference
+    fields were dropped (all 0/59 populated, spec "Not stored").
+    """
     obligation_type: Optional[ObligationType] = None
-    enforcement_level: Optional[EnforcementLevel] = None
     derived_from_principle: Optional[str] = Field(
         None, description="Source principle (P->O linkage)"
-    )
-    violation_consequences: Optional[str] = None
-    stakeholders_affected: List[str] = Field(default_factory=list)
-    monitoring_criteria: Optional[str] = Field(
-        None, description="How fulfillment is assessed (Dennis et al. verifiability)"
-    )
-    nspe_reference: Optional[str] = Field(
-        None, description="Code provision reference (e.g., 'III.4')"
     )
 
 
@@ -369,10 +367,13 @@ class ObligationIndividual(BaseIndividual):
     """A specific obligation instance in the case."""
     obligation_class: str = Field("", description="Obligation class label or URI", alias="instance_of")
     obligated_party: Optional[str] = Field(
-        None, description="Who bears the obligation (Dennis: 'by whom')"
+        None, description="Who bears the obligation (Dennis: 'by whom'); resolves to the obligatedParty edge"
     )
     obligation_statement: Optional[str] = Field(
         None, description="The specific duty statement"
+    )
+    derived_from_principle: Optional[str] = Field(
+        None, description="Principle the duty operationalizes (derivedFromPrinciple edge; the P side of R->P->O)"
     )
     case_context: Optional[str] = None
     temporal_scope: Optional[str] = Field(

@@ -354,11 +354,13 @@ _FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
     'obligations': {
         'class_required': (
             'label, definition, confidence (float 0-1), match_decision, '
-            'obligation_type, enforcement_level, text_references'
+            'obligation_type (disclosure | safety | competence | '
+            'confidentiality | reporting | collegial | legal | ethical), '
+            'derived_from_principle, text_references'
         ),
         'individual_required': (
-            'identifier, obligation_class, confidence (float 0-1), '
-            'text_references'
+            'identifier, obligation_class, obligated_party, '
+            'obligation_statement, confidence (float 0-1), text_references'
         ),
         'match_decision_note': (
             'Every new class MUST include a match_decision object.'
