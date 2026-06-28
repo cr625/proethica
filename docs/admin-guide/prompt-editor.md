@@ -91,28 +91,41 @@ The editor displays:
 
 ### Template Syntax
 
-Templates use Jinja2 syntax with variable placeholders:
+Templates use Jinja2 syntax with variable placeholders. The Roles template (Step 1) opens with its variable slots and then continues with fixed instruction text. The opening slots are:
 
 ```jinja
-Extract {{ concept_type }} from the following case text.
+{{ role_definition }}
 
-Case Text:
+EXISTING ROLES IN ONTOLOGY:
+{{ existing_roles_text }}
+
+{{ pass_directive }}
+
+{{ role_directives }}
+
+CASE TEXT:
 {{ case_text }}
 
-Existing {{ concept_type }} in the ontology:
-{{ existing_entities_text }}
+{{ role_schema }}
 
-{{ mcp_context }}
+{{ role_category_vocab }}
 ```
 
-### Common Variables
+The remainder of the template is fixed instruction text: the match-decision rules, the JSON output format, and the class and individual schemas.
+
+### Template Variables
+
+The Roles template resolves the variables below. The first two appear in every concept template, with the concept name substituted in the existing-entity variable. The remaining five are supplied by the ontology-slot builder and are currently specific to the Roles template.
 
 | Variable | Source | Description |
 |----------|--------|-------------|
-| `{{ case_text }}` | Document section | Text from Facts or Discussion section |
-| `{{ existing_entities_text }}` | OntServe MCP | Existing entities for deduplication |
-| `{{ mcp_context }}` | OntServe MCP | Additional ontology context |
-| `{{ concept_type }}` | Template config | Current concept being extracted |
+| `{{ case_text }}` | Document section | Text from the Facts or Discussion section |
+| `{{ existing_roles_text }}` | OntServe MCP snapshot | Inventory of existing role classes with reuse guidance, used for deduplication. Each concept uses `existing_<concept>_text`; `existing_entities_text` is an alias of the same value. |
+| `{{ pass_directive }}` | Pass configuration | Instruction specific to the Facts or Discussion pass |
+| `{{ role_definition }}` | Core ontology | Definition of the core Role class, read from `proethica-core.ttl` |
+| `{{ role_schema }}` | SHACL shapes | Expected class and individual fields, parsed from `core-shapes.ttl` |
+| `{{ role_directives }}` | Core ontology | Disjointness directives derived from the disjoint-class axioms |
+| `{{ role_category_vocab }}` | Core ontology | Controlled vocabulary of role categories |
 
 ## Preview Function
 
