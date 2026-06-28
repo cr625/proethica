@@ -571,18 +571,6 @@ def _role_category_block() -> str:
     return "\n".join(rows)
 
 
-# Cues for the canonical actor-relationship family (the proeth-core:relatedTo subproperties). These core
-# properties currently lack rdfs:comment; the cues should migrate to rdfs:comment so the block fully
-# single-sources (ontology-enrichment follow-up). Kong (2020) audience-relationship categories.
-_ROLE_REL_CUES = {
-    'hasClient': "the provider role serves this client (Kong provider-client); defining edge of ProviderClientRole.",
-    'professionalPeerOf': "a symmetric collegial-peer relationship among professional roles (Kong professional-peer); use it for peers, mentoring, and collaboration.",
-    'employedBy': "this professional role is employed by the target (Kong employer); defining edge of EmployerRelationshipRole.",
-    'reviewsWorkOf': "this role reviews the target role's work (peer review).",
-    'workReviewedBy': "this role's work is reviewed by the target role (inverse of reviewsWorkOf).",
-}
-
-
 def _role_relationships_block() -> str:
     """The canonical role-to-role relationship `type` vocabulary for the relationships[] field, DERIVED from
     the ontology: the NON-DEPRECATED subproperties of proeth-core:relatedTo (hasClient, professionalPeerOf,
@@ -593,6 +581,7 @@ def _role_relationships_block() -> str:
     supervision, reporting) with no dedicated archetype. Same single-source pattern as _role_schema_block.
     Raises on unreadable TTL."""
     import rdflib
+    from rdflib.namespace import SKOS
     CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
     g = rdflib.Graph()
     g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
@@ -602,7 +591,10 @@ def _role_relationships_block() -> str:
     out = ["=== ROLE RELATIONSHIPS (controlled `type` for the relationships[] field, from the ontology -- "
            "state each from THIS role-bearer's perspective) ==="]
     for n in names:
-        cue = _ROLE_REL_CUES.get(n) or next((str(c) for c in g.objects(CORE[n], rdflib.RDFS.comment)), '')
+        # cue = the ontology's own skos:definition (single source; same text the entity page shows), with
+        # rdfs:comment as a fallback. No authored cue map -- the description cannot drift from the ontology.
+        cue = (next((str(d) for d in g.objects(CORE[n], SKOS.definition)), '')
+               or next((str(c) for c in g.objects(CORE[n], rdflib.RDFS.comment)), ''))
         out.append(f"- {n}: {cue}")
     out.append("- relatedTo: any other professional relationship between two roles that none of the above "
                "fits (e.g. supervision, a reporting line).")
