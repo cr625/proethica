@@ -6,7 +6,7 @@ already-extracted typed individuals:
 
   - proeth-core:hasObligation       Role -> Obligation
   - proeth-core:adheresToPrinciple  Role -> Principle
-  - proeth:derivedFromPrinciple     Obligation -> Principle
+  - proeth-core:derivedFromPrinciple  Obligation -> Principle  (promoted to core, v2.8.0)
 
 These were declared in the ontology but never materialized in the per-case
 TTLs (the link lived only in narrative datatype fields). This module makes the
@@ -39,7 +39,7 @@ PROV = Namespace("http://www.w3.org/ns/prov#")
 
 HAS_OBLIGATION = PROETH_CORE.hasObligation
 ADHERES_TO = PROETH_CORE.adheresToPrinciple
-DERIVED_FROM = PROETH.derivedFromPrinciple
+DERIVED_FROM = PROETH_CORE.derivedFromPrinciple  # promoted to core (v2.8.0)
 
 # predicate -> (subject category, object category)
 _PRED_CATEGORY = {
@@ -60,7 +60,7 @@ proeth-core:hasObligation a owl:ObjectProperty ;
 proeth-core:adheresToPrinciple a owl:ObjectProperty ;
     rdfs:domain proeth-core:Role ; rdfs:range proeth-core:Principle ;
     rdfs:comment "Relates a role to principles that guide its conduct."@en .
-proeth:derivedFromPrinciple a owl:ObjectProperty ;
+proeth-core:derivedFromPrinciple a owl:ObjectProperty ;
     rdfs:domain proeth-core:Obligation ; rdfs:range proeth-core:Principle ;
     rdfs:comment "Links obligation to the principle(s) it operationalizes."@en .\
 """
@@ -350,13 +350,14 @@ _FLUENT_EDGE_RANGE = {
 # Action normative-engagement edges materialized by obligation_edges.py from the Step-3
 # Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels.
 # Domain Action, range Obligation/Principle, both among the nine disjoint categories, so
-# the guard validates BOTH endpoints and drops any mis-resolved edge. fulfillsObligation is
-# declared in proeth-core; violates/raises/guidedByPrinciple are proeth-intermediate-only.
+# the guard validates BOTH endpoints and drops any mis-resolved edge. All four are declared
+# in proeth-core: violates/raises/guidedByPrinciple were promoted from intermediate in v2.8.0,
+# joining fulfillsObligation, which was already core.
 _NORMATIVE_EDGE_RANGE = {
     PROETH_CORE.fulfillsObligation: ("Action", "Obligation"),
-    PROETH.violatesObligation: ("Action", "Obligation"),
-    PROETH.raisesObligation: ("Action", "Obligation"),
-    PROETH.guidedByPrinciple: ("Action", "Principle"),
+    PROETH_CORE.violatesObligation: ("Action", "Obligation"),
+    PROETH_CORE.raisesObligation: ("Action", "Obligation"),
+    PROETH_CORE.guidedByPrinciple: ("Action", "Principle"),
 }
 # Causal-chain endpoint edges materialized by causal_edges.py. Domain CausalChain is NOT
 # one of the nine disjoint core categories, so the subject resolves to an empty core-set

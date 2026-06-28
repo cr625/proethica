@@ -712,8 +712,12 @@ _FLUENT_SPEC = EdgeSpec(
     no_data_status="no_fluent_transitions",
 )
 
-# obligation_edges: Action fulfills/violates/raises Obligation + guidedByPrinciple. Mixed
-# declaring namespaces (fulfillsObligation in CORE; the rest in PROETH).
+# obligation_edges: Action fulfills/violates/raises Obligation + guidedByPrinciple. All four
+# land in CORE: fulfillsObligation was already core, and violates/raises/guidedByPrinciple were
+# promoted from intermediate to core in v2.8.0 (the landed-edge namespace is governed here by the
+# EdgePredicate namespace arg). The `fields` tuples keep the proeth: temp_rdf carrier-key names,
+# which are the Step-3 JSON-LD field convention (unchanged), exactly as the already-core
+# initiates/terminates fluent edges keep their proeth: carrier keys.
 _OBLIGATION_SPEC = EdgeSpec(
     name="obligation_edges",
     extraction_type="temporal_dynamics_enhanced",
@@ -724,15 +728,15 @@ _OBLIGATION_SPEC = EdgeSpec(
                       ("proeth:fulfillsObligation", "fulfillsObligation"), "Obligation",
                       pool_fields=("obligationStatement", "obligationClass"),
                       prompt_builder_factory=_obligation_prompt_factory),
-        EdgePredicate("violatesObligation", PROETH,
+        EdgePredicate("violatesObligation", CORE,
                       ("proeth:violatesObligation", "violatesObligation"), "Obligation",
                       pool_fields=("obligationStatement", "obligationClass"),
                       prompt_builder_factory=_obligation_prompt_factory),
-        EdgePredicate("raisesObligation", PROETH,
+        EdgePredicate("raisesObligation", CORE,
                       ("proeth:raisesObligation", "raisesObligation"), "Obligation",
                       pool_fields=("obligationStatement", "obligationClass"),
                       prompt_builder_factory=_obligation_prompt_factory),
-        EdgePredicate("guidedByPrinciple", PROETH,
+        EdgePredicate("guidedByPrinciple", CORE,
                       ("proeth:guidedByPrinciple", "guidedByPrinciple"), "Principle",
                       pool_fields=("principleClass", "interpretation", "concreteExpression"),
                       prompt_builder_factory=_obligation_prompt_factory),

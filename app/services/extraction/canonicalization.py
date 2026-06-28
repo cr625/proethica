@@ -43,7 +43,7 @@ def _label_words(local: str) -> str:
 
 
 def _via_prop(via: str, CORE: Namespace, PROETH: Namespace) -> URIRef:
-    # recipe via like "core#affects" / "intermediate#derivedFromPrinciple"; default affects.
+    # recipe via like "core#affects" / "core#derivedFromPrinciple"; default affects.
     v = (via or "core#affects").strip()
     ns, _, local = v.partition("#")
     if not local:

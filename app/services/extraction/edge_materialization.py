@@ -135,8 +135,8 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
 
     # 2g. Action normative-engagement edges (DB-driven, embedding-resolved): the Step-3
     # Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels
-    # become Action -> Obligation / Principle edges (proeth-core:fulfillsObligation,
-    # proeth:violatesObligation / raisesObligation / guidedByPrinciple). Grounds the
+    # become Action -> Obligation / Principle edges (all four core: proeth-core:fulfillsObligation,
+    # proeth-core:violatesObligation / raisesObligation / guidedByPrinciple, promoted v2.8.0). Grounds the
     # normative engagement to the real O/P individuals, closing the Event-Calculus loop
     # begun by fluent_edges (Action -> State) + state_edges (State -> O/Cs). Mirrors the
     # fluent applier; range Obligation/Principle is among the nine disjoint categories, so
