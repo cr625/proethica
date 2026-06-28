@@ -271,10 +271,47 @@ def register_templates_api(bp):
         section_type = data.get('section_type', 'facts')
 
         if not case_id:
-            return jsonify({
-                'success': False,
-                'error': 'case_id is required'
-            }), 400
+            # No case selected: still show the ACTUAL ontology-derived injections (role_definition,
+            # role_schema, role_relationships, directives, ...) -- they are case-independent -- with the
+            # case-driven variables rendered as visible «placeholders». This makes the Preview tab useful the
+            # moment it is opened; selecting a case fills the placeholders with real case text. Uses the SAME
+            # concept_ontology_slots() the live extractor and the with-case preview use, so what is shown here
+            # is exactly what the pipeline injects.
+            try:
+                from app.services.prompt_variable_resolver import concept_ontology_slots
+                from app.services.extraction.unified_dual_extractor import build_json_wrapper_suffix
+                from jinja2 import Template as _JTemplate, Undefined as _JUndefined
+
+                class _Placeholder(_JUndefined):
+                    __slots__ = ()
+                    def __str__(self):
+                        return f'«{self._undefined_name}»'
+
+                try:
+                    variables = dict(concept_ontology_slots(template.concept_type, section_type) or {})
+                except Exception:
+                    variables = {}
+                variables.setdefault('section_type', section_type)
+
+                def _render(text):
+                    return _JTemplate(text or '', undefined=_Placeholder).render(**variables)
+
+                rendered = _render(template.template_text) + build_json_wrapper_suffix(template.concept_type)
+                sys_rendered = _render(template.system_prompt)
+                if sys_rendered:
+                    rendered = f"[SYSTEM]\n{sys_rendered}\n\n[USER]\n{rendered}"
+                return jsonify({
+                    'success': True,
+                    'rendered_prompt': rendered,
+                    'variables_used': {k: (str(v)[:200] + '...' if len(str(v)) > 200 else str(v))
+                                       for k, v in variables.items()},
+                    'case_title': 'Ontology injections (no case selected -- «name» marks a case placeholder)',
+                    'section_type': section_type,
+                    'character_count': len(rendered),
+                })
+            except Exception as e:
+                logger.error(f"Error rendering no-case preview {template_id}: {e}")
+                return jsonify({'success': False, 'error': str(e)}), 500
 
         try:
             from app.services.prompt_variable_resolver import get_prompt_variable_resolver

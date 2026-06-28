@@ -820,6 +820,9 @@ function switchMainTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     const pane = document.getElementById('tab-' + tabName);
     if (pane) pane.classList.add('active');
+    // Auto-render the Preview when its tab is opened so the injected values show immediately (the no-case
+    // path renders the ontology slots with «placeholders» for case text; selecting a case fills them).
+    if (tabName === 'preview') renderPreview();
 }
 
 function markUnsaved() {
@@ -984,25 +987,22 @@ async function renderPreview() {
     const status = document.getElementById('previewStatus');
     const caseStatus = document.getElementById('caseStatus');
 
-    if (!caseId && !IS_SHARED_PROMPT) {
-        body.innerHTML = '<div class="preview-placeholder"><p>Please select a case above first</p></div>';
-        return;
-    }
-
-    status.textContent = 'Rendering...';
+    // No hard stop on a missing case: the /render endpoint renders the case-independent ontology
+    // injections with «placeholders» for the case-driven variables, so the tab is useful immediately.
+    status.textContent = caseId ? 'Rendering...' : 'Rendering ontology injections...';
     body.innerHTML = '<div class="preview-placeholder"><div class="spinner-border spinner-border-sm"></div></div>';
 
     try {
         const response = await fetch(`/api/prompts/template/${templateId}/render`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ case_id: parseInt(caseId), section_type: section })
+            body: JSON.stringify({ case_id: caseId ? parseInt(caseId) : null, section_type: section })
         });
         const data = await response.json();
         if (data.success) {
             body.innerHTML = formatPromptPreview(data.rendered_prompt);
             status.textContent = `Rendered (${section})`;
-            caseStatus.textContent = `Preview ready (${data.character_count.toLocaleString()} chars)`;
+            caseStatus.textContent = data.case_title || `Preview ready (${data.character_count.toLocaleString()} chars)`;
         } else {
             body.innerHTML = `<div class="preview-placeholder text-danger">${data.error || 'Render failed'}</div>`;
             status.textContent = 'Failed';
