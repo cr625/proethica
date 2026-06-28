@@ -615,6 +615,48 @@ _PASS_DIRECTIVES = {
 }
 
 
+# concept_type (plural, as the pipeline passes it) -> the core component class whose <Component>DefinitionShape
+# carries the controlled field contract. Roles is handled separately (it unions multiple shapes along its class
+# chain). Action has no shape (bare, per the spec). Modular: one builder reads ANY component's shape, so a new
+# component needs no new code -- add its row here and author its DefinitionShape.
+_COMPONENT_SHAPE = {
+    'obligations': 'Obligation', 'principles': 'Principle', 'states': 'State',
+    'resources': 'Resource', 'capabilities': 'Capability', 'constraints': 'Constraint',
+    'events': 'Event',
+}
+
+
+def _component_schema_block(component_class: str) -> str:
+    """Generic {{ <concept>_schema }} field contract, read from the component's SHACL <Component>DefinitionShape
+    in core-shapes.ttl -- the same single-source pattern as _role_schema_block, so a component prompt's
+    controlled field list stays in lockstep with the ontology and the OntServe entity page. Raises on an
+    unreadable shapes file or a shape with no fields (a real misconfiguration, not silently swallowed)."""
+    import os
+    from pathlib import Path
+    import rdflib
+    from app.services.extraction.reference_sheet import _sheet_dir
+    shapes = os.environ.get('ONTSERVE_SHAPES_PATH') or str(
+        Path(_sheet_dir()).resolve().parents[1] / 'validation' / 'shapes' / 'core-shapes.ttl')
+    SH = rdflib.Namespace('http://www.w3.org/ns/shacl#')
+    PCSH = rdflib.Namespace('http://proethica.org/shapes/core#')
+    g = rdflib.Graph()
+    g.parse(shapes, format='turtle')
+    rows = []
+    for pshape in g.objects(PCSH[f'{component_class}DefinitionShape'], SH.property):
+        name = next(g.objects(pshape, SH.name), None)
+        if name is None:
+            continue
+        desc = next(g.objects(pshape, SH.description), None)
+        order = next(g.objects(pshape, SH.order), None)
+        rows.append((int(order) if order is not None else 999, str(name), str(desc) if desc else ''))
+    if not rows:
+        raise RuntimeError(f"{component_class}DefinitionShape has no fields in core-shapes.ttl (Phase-1 shape missing?)")
+    lines = [f'=== {component_class.upper()} SCHEMA (the controlled fields, from the SHACL '
+             f'{component_class}DefinitionShape; single source with the OntServe entity page) ===']
+    lines += [f'- {n}: {d}' for _o, n, d in sorted(rows)]
+    return '\n'.join(lines)
+
+
 def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[str, str]:
     """Ontology-derived prompt slots for a concept, resolved at INJECTION time from the curated ontology +
     SHACL shapes, plus the per-pass directive (section_type). SHARED by the live extractor (prompt_building)
@@ -629,6 +671,14 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
             'role_category_vocab': _role_category_block(),
             'role_relationships': _role_relationships_block(),
             'pass_directive': _PASS_DIRECTIVES.get(key, ''),
+        }
+    comp = _COMPONENT_SHAPE.get(concept_type)
+    if comp:
+        # Generic ontology-driven schema slot for the other eight components: {{ <concept>_schema }} read from
+        # the component's DefinitionShape. The per-component prompt body wires this in (Phase-3 migration).
+        return {
+            f'{comp.lower()}_schema': _component_schema_block(comp),
+            'pass_directive': _PASS_DIRECTIVES.get((concept_type, section_type), ''),
         }
     return {}
 
