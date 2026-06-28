@@ -555,18 +555,20 @@ def _role_directives_block() -> str:
 
 
 def _role_category_block() -> str:
-    """The controlled role_category vocabulary with per-category Kong audience-relationship cues and the
-    directed relationship edge each implies (the four relational archetypes + participant/stakeholder).
-    role_category must agree with the directed edge actually emitted (D-CATEGORY)."""
+    """The controlled role_category vocabulary: the FOUR Kong relational categories with their
+    audience-relationship cues and the directed actor edge each implies. role_category is the nullable
+    RELATIONAL fallback (a role may bear none); the relational archetype is resolved edge-primary from
+    the actor edge at commit (decision R1), with role_category used only when no actor edge is emitted
+    and the edge winning on conflict. The occupational professional/participant axis is carried by the
+    separate role_kind field. participant and stakeholder were removed from this vocabulary (they are
+    occupational, not relational; stakeholder collapses into participant)."""
     rows = [
-        "=== ROLE CATEGORY (controlled vocabulary -- set role_category to match the directed relationship you emit) ===",
-        "- provider_client: the role serves a client (Kong provider-to-client). Edge: hasClient (use the provider side when THIS actor is the client).",
+        "=== ROLE CATEGORY (controlled relational vocabulary -- nullable; set role_category to match the directed actor edge you emit, or omit it when the role bears no relational category) ===",
+        "- provider_client: the role serves a client (Kong provider-to-client). Edge: hasClient (the provider side bears the archetype).",
         "- professional_peer: a colleague relationship among professionals (symmetric). Edge: professionalPeerOf.",
-        "- employer_relationship: an employment relationship. Edge: employedBy (or employs).",
+        "- employer_relationship: an employment relationship. Edge: employedBy (the employee/professional side bears the archetype).",
         "- public_responsibility: a duty owed to the public. Edge: owesDutyToward (a PublicInterest).",
-        "- participant: a non-professional party to the case (e.g. a client or owner) bearing no professional obligations; universal fields only.",
-        "- stakeholder: an affected party with an interest but no professional obligations; universal fields only.",
-        "The literal role_category must agree with the reasoner-inferred relational archetype (ProviderClientRole, ProfessionalPeerRole, EmployerRelationshipRole, PublicResponsibilityRole).",
+        "role_category is a routing input (not stored as a literal) and is the FALLBACK only: when the role bears an actor edge, the edge determines the relational archetype (ProviderClientRole, ProfessionalPeerRole, EmployerRelationshipRole, PublicResponsibilityRole) and wins on conflict.",
     ]
     return "\n".join(rows)
 

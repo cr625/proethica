@@ -24,8 +24,13 @@
         },
         "role_category": {
           "type": "string",
-          "required": true,
-          "description": "Kong framework: provider_client, professional_peer, employer_relationship, public_responsibility, participant, stakeholder"
+          "required": false,
+          "description": "Relational Kong category (nullable, the FALLBACK only): provider_client, professional_peer, employer_relationship, public_responsibility. The relational archetype is resolved edge-primary from the actor edge at commit (R1); a routing input, not stored as a literal."
+        },
+        "role_kind": {
+          "type": "string",
+          "required": false,
+          "description": "Occupational professional/participant backstop: professional or participant. Drives ProfessionalRole/ParticipantRole typing when the occupational resolver matches no head; omit when the case does not state the judgment. A routing input, not stored as a literal."
         },
         "match_decision": {
           "type": "object",
@@ -73,20 +78,6 @@
           "type": "string",
           "required": false,
           "description": "Areas of responsibility and authority (professional roles)"
-        },
-        "adheres_to_principles": {
-          "type": "array",
-          "range": "Principle",
-          "required": false,
-          "description": "Principles this role serves (adheresToPrinciple); professional roles",
-          "range_ontology": "proethica-core"
-        },
-        "generated_obligations": {
-          "type": "array",
-          "range": "Obligation",
-          "required": false,
-          "description": "Obligations the role generates (hasObligation; professional roles)",
-          "range_ontology": "proethica-core"
         },
         "typical_qualifications": {
           "type": "array",
@@ -164,7 +155,12 @@
         "role_category": {
           "type": "string",
           "required": false,
-          "description": "Kong framework category"
+          "description": "Relational Kong category for this individual (nullable, FALLBACK only; edge-primary at commit, R1): provider_client, professional_peer, employer_relationship, public_responsibility. A routing input, not stored as a literal."
+        },
+        "role_kind": {
+          "type": "string",
+          "required": false,
+          "description": "Occupational professional/participant backstop for this individual; omit when unstated. A routing input, not stored as a literal."
         },
         "text_references": {
           "type": "array",

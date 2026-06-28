@@ -24,7 +24,7 @@ For each role, evaluate ONLY against the EXISTING ROLES IN ONTOLOGY list above. 
 OUTPUT FORMAT:
 Return a JSON object with TWO arrays: new_role_classes (reusable types/categories of roles) and role_individuals (specific persons/entities filling those roles). A Role Class is a general reusable type (e.g. "Design Engineer"); a Role Individual is a specific named actor in the case (e.g. "Engineer A Design Engineer"). Each individual MUST reference a class via the role_class field.
 
-VALID role_class values: (a) a label from EXISTING ROLES above, (b) a label from your new_role_classes array (exact match), or (c) a base category: Provider-Client Role, Professional Peer Role, Employer Relationship Role, Public Responsibility Role, Participant Role, Stakeholder Role. Do not invent class names outside (a)-(c). Prefer the most specific correct type over the bare base class "Role".
+VALID role_class values: (a) a label from EXISTING ROLES above, (b) a label from your new_role_classes array (exact match), or (c) a base category: Provider-Client Role, Professional Peer Role, Employer Relationship Role, Public Responsibility Role, Participant Role. Do not invent class names outside (a)-(c). Prefer the most specific correct type over the bare base class "Role".
 
 CLASS LABEL CANONICALIZATION (the D-LABEL directive, with worked examples):
 Drop case-specific detail (named actors, case identifiers, scenario chains) from the class label; put it in the definition and the individual record. Emit the short general right-hand form:
@@ -40,11 +40,10 @@ CLASS SCHEMA (new_role_classes array) -- each class is a JSON object:
     "label": "Design Engineer",
     "definition": "A professional engineering role responsible for creating original plans, specifications, and designs",
     "role_category": "provider_client",
+    "role_kind": "professional",
     "distinguishing_features": ["Creates original designs rather than reviewing them"],
     "professional_scope": "Original engineering design within the licensed discipline",
     "typical_qualifications": ["Professional Engineer license", "Discipline-specific design experience"],
-    "generated_obligations": ["Hold paramount public safety in the design", "Disclose identified design risks to the client"],
-    "adheres_to_principles": ["Public Safety and Welfare", "Professional Competence"],
     "associated_virtues": ["Competence", "Integrity"],
     "text_references": ["Engineer A designed the tower structures"],
     "confidence": 0.85,
@@ -64,9 +63,8 @@ INDIVIDUAL SCHEMA (role_individuals array) -- each individual is a JSON object:
     "actor": "Engineer A",
     "role_class": "Design Engineer",
     "role_category": "provider_client",
+    "role_kind": "professional",
     "case_involvement": "Created original tower designs containing significant errors",
-    "active_obligations": ["Disclose the design errors to the Owner", "Cooperate with the reviewing engineer"],
-    "ethical_tensions": ["Loyalty to the Owner versus candor about the engineer's own errors"],
     "license": "Professional Engineer",
     "specialty": "Structural design",
     "attributes": {"professional_membership": "ASCE member"},
@@ -75,7 +73,11 @@ INDIVIDUAL SCHEMA (role_individuals array) -- each individual is a JSON object:
     "confidence": 0.90
   }
 
-Keep each individual's identifier short (the case actor plus the short concept, at most about 6 words); scenario detail belongs in case_involvement, not the identifier (it becomes the URI). For role_individuals, also populate active_obligations (the obligations that apply given the role) and ethical_tensions (conflicts among this individual's role obligations).
+Keep each individual's identifier short (the case actor plus the short concept, at most about 6 words); scenario detail belongs in case_involvement, not the identifier (it becomes the URI).
+
+ROLE TYPING FIELDS (role_category and role_kind are routing inputs, never stored as literals):
+- role_category is the RELATIONAL category, one of the four Kong values (provider_client, professional_peer, employer_relationship, public_responsibility) or omitted when the role bears none. It is a FALLBACK: when the role bears an actor relationship (the relationships[] field), that edge determines the relational archetype and wins on conflict, so set role_category to agree with the directed edge you emit.
+- role_kind is the OCCUPATIONAL backstop, professional or participant. Set it when the case states the judgment; omit it when unstated (do not guess). It types a role that matches no known occupational class onto the professional/participant axis. The do-not-establish-professional-obligations test: a party with no professional obligations is participant.
 
 {{ role_relationships }}
 

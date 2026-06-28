@@ -121,22 +121,50 @@ class BaseIndividual(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RoleCategory(str, Enum):
-    """proethica-intermediate.ttl Role subclass hierarchy.
+    """The four Kong et al. (2020) RELATIONAL identity-role categories (extraction-architecture
+    spec, R section / decision R1).
 
-    Kong et al. (2020) identity role categories (professional roles)
-    plus participant/stakeholder distinction.
+    A role's relational archetype is edge-PRIMARY: it is materialized at commit from the actor edge
+    the role bears (hasClient -> ProviderClientRole, professionalPeerOf -> ProfessionalPeerRole,
+    employedBy -> EmployerRelationshipRole, owesDutyToward -> PublicResponsibilityRole). role_category
+    is the FALLBACK relational signal, used only when no actor edge is extracted (the edge wins on
+    conflict). It is nullable (a role may bear no relational category) and is a commit routing input,
+    not stored as a literal. participant and stakeholder were removed from this enum (they are
+    occupational, not relational; stakeholder collapses into participant); the occupational
+    professional/participant axis is carried by role_kind.
     """
     provider_client = "provider_client"
     professional_peer = "professional_peer"
     employer_relationship = "employer_relationship"
     public_responsibility = "public_responsibility"
+
+
+class RoleKind(str, Enum):
+    """The occupational professional/participant backstop (extraction-architecture spec, R section,
+    decision A2 / professional-participant typing).
+
+    Drives ProfessionalRole vs ParticipantRole typing when the ontology-driven occupational resolver
+    matches no head (e.g. a novel label such as "Affected Citizen"). Omitted when the case text does
+    not state the judgment, so absence is three-state-capable (the earlier is_professional boolean was
+    dropped because a boolean cannot represent the unstated case, which is exactly when the backstop
+    must stay silent). A commit routing input, not stored as a literal.
+    """
+    professional = "professional"
     participant = "participant"
-    stakeholder = "stakeholder"
 
 
 class CandidateRoleClass(BaseCandidate):
-    """A new role class discovered in case text."""
+    """A new role class discovered in case text.
+
+    Field set aligned to the extraction-architecture spec (R section, 2026-06-28). role_category is the
+    nullable relational fallback (the four Kong categories; the relational archetype is edge-primary at
+    commit, R1) and role_kind is the occupational professional/participant backstop. The earlier
+    generated_obligations and adheres_to_principles class fields were dropped (spec "Remove" / "Not stored":
+    they are R->P->O routing inputs owned by the dedicated R->P->O pass, materialized as the
+    hasObligation/adheresToPrinciple edges, not stored as class literals).
+    """
     role_category: Optional[RoleCategory] = None
+    role_kind: Optional[RoleKind] = None
     # Structured role-class attributes (Chapter 3, Section 3.3.1). Restored
     # 2026-06-22 for dissertation fidelity; populated by the Roles prompt.
     distinguishing_features: List[str] = Field(
@@ -147,13 +175,6 @@ class CandidateRoleClass(BaseCandidate):
     typical_qualifications: List[str] = Field(
         default_factory=list,
         description="Required education, licensing, and experience")
-    generated_obligations: List[str] = Field(
-        default_factory=list,
-        description="Specific duties this role creates (hasObligation -> Obligation; professional roles)")
-    adheres_to_principles: List[str] = Field(
-        default_factory=list,
-        description="Principles this role serves/adheres to (adheresToPrinciple -> Principle; the P side "
-                    "of R->P->O, sibling of generated_obligations; professional roles)")
     associated_virtues: List[str] = Field(
         default_factory=list,
         description="Virtues or qualities expected of this role (professional roles)")
@@ -178,7 +199,14 @@ class RoleIndividual(BaseIndividual):
         alias="instance_of",
     )
     role_category: Optional[RoleCategory] = Field(
-        None, description="Kong framework category for this individual"
+        None, description="The relational Kong category for this individual (the four relational "
+                          "archetypes; nullable). Relational typing is edge-primary at commit (R1); this "
+                          "is the fallback used only when no actor edge is extracted. A routing input."
+    )
+    role_kind: Optional[RoleKind] = Field(
+        None, description="The occupational professional/participant backstop; drives "
+                          "ProfessionalRole/ParticipantRole typing when the occupational resolver matches "
+                          "no head. Omitted when unstated (three-state via absence). A routing input."
     )
     # Professional-role bearer data (ProfessionalRolePropertyShape). Extract only for a PROFESSIONAL
     # role-bearer (engineer/architect/...); a participant/stakeholder role-bearer has none of these.
@@ -201,16 +229,10 @@ class RoleIndividual(BaseIndividual):
                     "each {type, target, quote}. Staged (not mapped to a controlled edge) for periodic review "
                     "and possible promotion to a real ontology property."
     )
-    # Role-individual normative fields (Chapter 3, Section 3.3.1). Restored
-    # 2026-06-22 for dissertation fidelity. The role->obligation substance is
-    # also materialized as first-class R->P->O edges (hasObligation); these
-    # capture the per-individual view the chapter describes.
-    active_obligations: List[str] = Field(
-        default_factory=list,
-        description="Obligations that apply to this individual given the role")
-    ethical_tensions: List[str] = Field(
-        default_factory=list,
-        description="Tensions arising when this individual's role obligations conflict")
+    # active_obligations and ethical_tensions were dropped (extraction-architecture spec, R section,
+    # 2026-06-28): they are R->P->O routing inputs owned by the dedicated R->P->O pass and the
+    # obligation-layer defeasibility edges, materialized as first-class edges rather than stored as
+    # per-individual role literals (spec "Remove" / "Not stored").
     case_involvement: Optional[str] = None
 
 
@@ -1058,19 +1080,16 @@ class TemporalDynamicsExtractionResult(BaseModel):
 # domain type and deontic modality), each axis maps independently.
 
 CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
-    # R: Role categories -> intermediate subclass IRIs
+    # R: the four Kong RELATIONAL archetypes (extraction-architecture spec, R1). These are the
+    # role_category -> subClassOf/rdf:type targets used only as the FALLBACK when no actor edge is
+    # extracted; the relational archetype is otherwise materialized edge-primary from the actor edge at
+    # commit (the edge wins on conflict). participant/stakeholder were removed (they are occupational, not
+    # relational; the occupational axis is carried by role_kind -> ProfessionalRole/ParticipantRole).
     'roles': {
         'provider_client': f'{INTERMEDIATE_NS}ProviderClientRole',
         'professional_peer': f'{INTERMEDIATE_NS}ProfessionalPeerRole',
         'employer_relationship': f'{INTERMEDIATE_NS}EmployerRelationshipRole',
         'public_responsibility': f'{INTERMEDIATE_NS}PublicResponsibilityRole',
-        # participant/stakeholder are generic involvement, not duty-relationships,
-        # and ParticipantRole/StakeholderRole live on the (occupational) Participant
-        # side, which is disjoint with ProfessionalRole. Map them to the generic
-        # relational head so the occupational archetype carries the classification
-        # and the relational parent never crosses the occupational disjointness.
-        'participant': f'{INTERMEDIATE_NS}RelationalRole',
-        'stakeholder': f'{INTERMEDIATE_NS}RelationalRole',
     },
     # P: Principle categories -> intermediate subclass IRIs
     'principles': {

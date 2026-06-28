@@ -697,6 +697,10 @@ class OntServeCommitService:
             # per distinct actor (must precede the loop so the relationships branch
             # can attach actor relations at the Agent level).
             self._build_agent_indices(individuals, case_ns)
+            # R1 edge-primary relational archetype: role facets that received a
+            # relational archetype from an actor edge (so the role_category fallback
+            # is skipped for them; the edge wins on conflict). Reset per commit.
+            self._role_edge_archetyped = set()
 
             count = 0
             for entity, rdf_data in individuals:
@@ -845,14 +849,14 @@ class OntServeCommitService:
                                         safe_class, prior, concept_cat, prior,
                                     )
 
-                        # Layer-1 convergence: attach both archetype axes (occupational +
-                        # relational) to a GENUINELY-NEW role class the individual is typed
-                        # under. For an established role class the archetypes already live in
-                        # intermediate, so skip (the normalized case does not re-declare shared
-                        # classes). The axes are orthogonal (relational archetypes sit under
-                        # RelationalRole), so the additive subClassOf carries no disjointness risk.
+                        # Layer-1 convergence: attach the OCCUPATIONAL archetype (or the role_kind
+                        # backstop) to a GENUINELY-NEW role class the individual is typed under. For an
+                        # established role class the archetype already lives in intermediate, so skip
+                        # (the normalized case does not re-declare shared classes). The relational
+                        # archetype is materialized edge-primary on the individual (rdf:type), not here
+                        # (R1). The occupational axis carries no disjointness risk for the new class.
                         if established is None and self._is_role_individual(entity):
-                            for arch_uri in self._role_individual_archetype_parents(rdf_data, class_name):
+                            for arch_uri in self._role_individual_occupational_parents(rdf_data, class_name):
                                 g.add((class_uri, RDF.type, OWL.Class))
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
                                     g.add((class_uri, RDFS.subClassOf, URIRef(arch_uri)))
@@ -1161,36 +1165,41 @@ class OntServeCommitService:
 
         return result
 
-    def _role_individual_archetype_parents(self, rdf_data: Dict, type_class_name: str) -> list[str]:
-        """Occupational + relational archetype URIs for the class a role INDIVIDUAL
-        is typed under.
+    def _role_individual_occupational_parents(self, rdf_data: Dict, type_class_name: str) -> list[str]:
+        """OCCUPATIONAL archetype subClassOf URI(s) for the GENUINELY-NEW class a role INDIVIDUAL is
+        typed under, with the role_kind backstop.
 
-        The matcher sometimes types a role individual under a compound class that
-        diverges from its own role_class entity (the entity gets the archetype via
-        _resolve_subclass_uris, but the individual's type is a different, often
-        matched-existing, class). This attaches both archetype axes to the class the
-        individual really bears: the occupational axis resolved from the
-        (de-camelCased) type-class name, the relational axis from the individual's
-        roleCategory. The two axes are orthogonal -- the relational archetypes sit
-        under RelationalRole, decoupled from the ProfessionalRole/ParticipantRole
-        disjointness -- so the additive subClassOf carries no disjointness risk."""
+        The matcher sometimes types a role individual under a compound class that diverges from its own
+        role_class entity. This attaches the OCCUPATIONAL axis (resolved from the de-camelCased type-class
+        name) to the class the individual really bears. When the occupational resolver matches no head,
+        the role_kind backstop types the class onto ProfessionalRole / ParticipantRole (decision R1 /
+        professional-participant typing), closing the novel-role bare-core:Role gap without overriding the
+        resolver; when role_kind is absent too, nothing is appended and the role stays bare core:Role for
+        the conformance gate to flag.
+
+        The RELATIONAL axis is no longer attached here (R-spec migration): the relational archetype is
+        materialized edge-primary on the INDIVIDUAL as a direct rdf:type from the actor edge (with the
+        role_category individual-fallback in _apply_role_category_fallback_archetype), so the edge can win
+        on conflict. The class-level relational subClassOf for a new role CLASS is still emitted by
+        _resolve_subclass_uris on the class-commit path."""
         import re
         parents: list[str] = []
-        props = (rdf_data or {}).get('properties', {}) or {}
-        rc = (props.get('roleCategory') or props.get('role_category')
-              or (rdf_data or {}).get('role_category'))
-        if isinstance(rc, list):
-            rc = rc[0] if rc else None
-        if rc:
-            norm = str(rc).lower().replace(' ', '_').replace('-', '_')
-            iri = CATEGORY_TO_ONTOLOGY_IRI.get('roles', {}).get(norm)
-            if iri:
-                parents.append(iri)
         from app.services.extraction.role_archetype_resolver import resolve_occupational_archetype
         label = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', type_class_name or '')
         occ = resolve_occupational_archetype(label)
-        if occ and occ not in parents:
+        if occ:
             parents.append(occ)
+        else:
+            props = (rdf_data or {}).get('properties', {}) or {}
+            rk = (props.get('roleKind') or props.get('role_kind')
+                  or (rdf_data or {}).get('role_kind'))
+            if isinstance(rk, list):
+                rk = rk[0] if rk else None
+            rk = str(rk).lower().strip() if rk else None
+            if rk == 'professional':
+                parents.append(f'{PROETHICA}ProfessionalRole')
+            elif rk == 'participant':
+                parents.append(f'{PROETHICA}ParticipantRole')
         return parents
 
     def _camelCase(self, text: str) -> str:
@@ -1806,6 +1815,8 @@ class OntServeCommitService:
 
             # Agent layer (Option C): one proeth-core:Agent per distinct actor.
             self._build_agent_indices(individuals, case_ns)
+            # R1 edge-primary relational archetype tracker (see the append path).
+            self._role_edge_archetyped = set()
 
             count = 0
             for entity, rdf_data in individuals:
@@ -1858,11 +1869,11 @@ class OntServeCommitService:
                         established = self._established_core_category(safe_class)
                         if established is not None:
                             resolved_cat = established
-                        # Layer-1 convergence: both archetype axes on the
-                        # individual's own type-class (see
-                        # _commit_individuals_to_case_ontology).
+                        # Layer-1 convergence: the OCCUPATIONAL archetype (or role_kind backstop) on the
+                        # individual's own type-class (see _commit_individuals_to_case_ontology). The
+                        # relational archetype is materialized edge-primary on the individual (R1).
                         if self._is_role_individual(entity):
-                            for arch_uri in self._role_individual_archetype_parents(rdf_data, class_name):
+                            for arch_uri in self._role_individual_occupational_parents(rdf_data, class_name):
                                 g.add((class_uri, RDF.type, OWL.Class))
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
                                     g.add((class_uri, RDFS.subClassOf, URIRef(arch_uri)))
@@ -2011,6 +2022,22 @@ class OntServeCommitService:
         ('peer', 'professionalPeerOf', False),
         ('client', 'hasClient', False),
     )
+
+    # R1 edge-primary relational archetype: the actor edge a role facet bears determines its Kong
+    # relational archetype, which is materialized as the role facet's direct rdf:type at commit (the
+    # type a reasoner would infer from the intermediate equivalentClass definitions: ProviderClientRole
+    # equivalentClass Role and (hasClient some Role), etc.). The archetype attaches to the proeth-core
+    # property's SUBJECT side (the provider for hasClient, the employee for employedBy). owesDutyToward /
+    # PublicResponsibilityRole is intentionally absent: per the spec it is not materialized per instance
+    # (the equivalentClass existential plus the reasoner supply it), so a public-responsibility role lands
+    # via the role_category fallback only.
+    _REL_PROP_TO_RELATIONAL_ARCHETYPE = {
+        'hasClient': 'ProviderClientRole',
+        'employedBy': 'EmployerRelationshipRole',
+        'professionalPeerOf': 'ProfessionalPeerRole',
+    }
+    # Symmetric relations classify BOTH endpoints (professionalPeerOf is owl:SymmetricProperty).
+    _SYMMETRIC_REL_PROPS = frozenset({'professionalPeerOf'})
 
     def _rel_property_for(self, rel_type: str):
         """(proeth-core property, swap) for an LLM relationship type. swap=True
@@ -2178,6 +2205,10 @@ class OntServeCommitService:
         `_rel_label_index`). Keeping one serializer is what stops the two paths
         re-drifting; do not reintroduce an inline copy in either caller.
         """
+        # Lazy-init the R1 edge-archetype tracker so the serializer is self-contained
+        # (both commit paths pre-initialize it; a direct unit-test caller need not).
+        if not hasattr(self, '_role_edge_archetyped'):
+            self._role_edge_archetyped = set()
         extraction_type = entity.extraction_type or ''
 
         # Universal per-individual serialization. Lives here (not in a caller) so
@@ -2422,6 +2453,18 @@ class OntServeCommitService:
                         # provider), so the edge runs target->subject.
                         edge_subj, edge_obj = (obj, subj) if swap else (subj, obj)
                         g.add((edge_subj, PROETHICA_CORE[relprop], edge_obj))
+                        # R1 edge-primary relational archetype: materialize the Kong archetype as the
+                        # bearing facet's DIRECT rdf:type (CMT-1 reflects the edge resolution). hasClient
+                        # / employedBy classify their SUBJECT (provider / employee); the symmetric
+                        # professionalPeerOf classifies both endpoints. Tracked so the role_category
+                        # fallback is skipped for these facets (the edge wins on conflict).
+                        archetype = self._REL_PROP_TO_RELATIONAL_ARCHETYPE.get(relprop)
+                        if archetype:
+                            g.add((edge_subj, RDF.type, PROETHICA[archetype]))
+                            self._role_edge_archetyped.add(edge_subj)
+                            if relprop in self._SYMMETRIC_REL_PROPS:
+                                g.add((edge_obj, RDF.type, PROETHICA[archetype]))
+                                self._role_edge_archetyped.add(edge_obj)
                         # PROV-O derivation for the edge (mirrors defeasibility edges);
                         # carries the per-relationship quote when the prompt supplied one.
                         self._emit_relationship_provenance(
@@ -2458,13 +2501,41 @@ class OntServeCommitService:
                 # CMT-3: do not persist the spec's "Not stored" shadows. A RELATION field is materialized as an
                 # object-property edge elsewhere, and a *Class field is the rdf:type (reconstructable from the
                 # type chain); writing either here re-introduces a literal shadow of the canonical form.
+                # R1: role_category and role_kind are commit routing inputs (they drive the relational
+                # archetype + the occupational typing) and are never stored as literals (spec "Not stored").
                 from app.services.extraction.field_classification import classify, FieldKind
-                if safe_prop.endswith('Class') or classify(safe_prop) is FieldKind.RELATION:
+                if (safe_prop.endswith('Class')
+                        or safe_prop in ('roleCategory', 'roleKind')
+                        or classify(safe_prop) is FieldKind.RELATION):
                     continue
                 prop_uri = PROETHICA[safe_prop]
                 for value in prop_values:
                     if value:
                         g.add((uri, prop_uri, Literal(value)))
+
+        # R1 relational-archetype FALLBACK: a role facet that did NOT receive an edge-derived archetype
+        # falls back to its role_category (the four Kong archetypes) for the relational type. Materialized
+        # as the individual's direct rdf:type so it sits beside the edge route (edge primary, role_category
+        # fallback, edge wins on conflict). Skipped when an actor edge already classified this facet.
+        if self._is_role_individual(entity) and uri not in getattr(self, '_role_edge_archetyped', set()):
+            self._apply_role_category_fallback_archetype(g, uri, rdf_data)
+
+    def _apply_role_category_fallback_archetype(self, g: Graph, uri: URIRef, rdf_data: Dict) -> None:
+        """Type a role facet to its role_category relational archetype (the fallback when no actor edge
+        classified it). role_category is one of the four Kong relational categories; participant /
+        stakeholder were removed (occupational, carried by role_kind). public_responsibility lands here
+        because owesDutyToward is not materialized per instance (R1)."""
+        props = (rdf_data or {}).get('properties', {}) or {}
+        rc = (props.get('roleCategory') or props.get('role_category')
+              or (rdf_data or {}).get('role_category'))
+        if isinstance(rc, list):
+            rc = rc[0] if rc else None
+        if not rc:
+            return
+        norm = str(rc).lower().replace(' ', '_').replace('-', '_')
+        iri = CATEGORY_TO_ONTOLOGY_IRI.get('roles', {}).get(norm)
+        if iri:
+            g.add((uri, RDF.type, URIRef(iri)))
 
     def _object_property_locals(self) -> set:
         """Local names of every owl:ObjectProperty declared in core / intermediate.

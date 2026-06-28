@@ -248,30 +248,79 @@ def test_relationship_edge_carries_prov_derivation():
     assert (d, PROV.value, Literal('Engineer A was retained by the Owner')) in g
 
 
-def test_role_individual_archetype_parents_divergent_type():
-    """Layer-1 convergence: the class a role individual is typed under gets BOTH
-    archetype axes even when its name diverges from the role_class entity. The
-    relational archetype sits under RelationalRole, decoupled from the
-    ProfessionalRole/ParticipantRole disjointness, so pairing it with a
-    Participant-side occupational archetype (ClientRole) is satisfiable."""
+def test_role_individual_occupational_parents_divergent_type():
+    """R-spec migration (decision R1): the class a role individual is typed under gets the
+    OCCUPATIONAL archetype only (the relational archetype is now materialized edge-primary on the
+    individual, not attached here). When the occupational resolver matches no head, the role_kind
+    backstop types the class onto ProfessionalRole / ParticipantRole; with no head and no role_kind,
+    the result is empty (the tail the RoleArchetypeShape flags, never a spurious parent)."""
     svc = _svc()
     PROVIDER_CLIENT = str(PROETHICA['ProviderClientRole'])
     DESIGN_ENGINEER = str(PROETHICA['DesignEngineerRole'])
     CLIENT = str(PROETHICA['ClientRole'])
-    # Divergent compound engineering type-class + provider_client category. The
-    # occupational resolver returns the MOST SPECIFIC match (DesignEngineerRole, which
-    # subClassOf EngineerRole), composed with the relational ProviderClientRole.
-    p1 = svc._role_individual_archetype_parents(
+    PROFESSIONAL = str(PROETHICA['ProfessionalRole'])
+    PARTICIPANT = str(PROETHICA['ParticipantRole'])
+    # Divergent compound engineering type-class: the occupational resolver returns the MOST SPECIFIC
+    # match (DesignEngineerRole, which subClassOf EngineerRole). role_category no longer contributes a
+    # relational parent here, so ProviderClientRole is absent (it is materialized edge-primary).
+    p1 = svc._role_individual_occupational_parents(
         {'properties': {'roleCategory': ['provider_client']}},
         'OriginalDesignEngineerSubjecttoPeerReview')
-    assert DESIGN_ENGINEER in p1 and PROVIDER_CLIENT in p1, p1
-    # The Participant-side ClientRole composes with the relational ProviderClientRole.
-    p2 = svc._role_individual_archetype_parents(
+    assert DESIGN_ENGINEER in p1 and PROVIDER_CLIENT not in p1, p1
+    # The Participant-side occupational ClientRole, no relational archetype attached here.
+    p2 = svc._role_individual_occupational_parents(
         {'properties': {'roleCategory': ['provider_client']}}, 'DeveloperClient')
-    assert CLIENT in p2 and PROVIDER_CLIENT in p2, p2
-    # No roleCategory and an unmapped occupational label -> empty (the tail the
-    # RoleArchetypeShape flags, never a spurious parent).
-    assert svc._role_individual_archetype_parents({'properties': {}}, 'Confidentiality-BoundPeerReviewer') == []
+    assert CLIENT in p2 and PROVIDER_CLIENT not in p2, p2
+    # No occupational head + role_kind backstop -> ProfessionalRole / ParticipantRole. The label
+    # 'Confidentiality-BoundPeerReviewer' matches no occupational archetype, so the backstop fires.
+    assert svc._role_individual_occupational_parents(
+        {'properties': {'roleKind': ['participant']}}, 'Confidentiality-BoundPeerReviewer') == [PARTICIPANT]
+    assert svc._role_individual_occupational_parents(
+        {'properties': {'roleKind': ['professional']}}, 'Confidentiality-BoundPeerReviewer') == [PROFESSIONAL]
+    # No occupational head and no role_kind -> empty (bare core:Role for the conformance gate to flag).
+    assert svc._role_individual_occupational_parents({'properties': {}}, 'Confidentiality-BoundPeerReviewer') == []
+
+
+def test_role_relational_archetype_edge_primary():
+    """Decision R1: the relational archetype is materialized as the role facet's DIRECT rdf:type from
+    the actor edge it bears (hasClient -> ProviderClientRole on the provider side), tracked so the
+    role_category fallback is skipped for that facet (the edge wins on conflict)."""
+    svc = _svc()
+    subj_facet = _role_entity('Engineer A Original Design Engineer')
+    tgt_facet = _role_entity('Owner Tower Development Client')
+    subj_rdf = {'properties': {
+        'roleCategory': ['provider_client'],
+        'relationships': ["{'type': 'has_client', 'target': 'Owner Tower Development Client', "
+                          "'quote': 'Engineer A was retained by the Owner'}"],
+    }}
+    individuals = [(subj_facet, subj_rdf), (tgt_facet, {'properties': {'actor': ['Owner']}})]
+    subj_uri = CASE[svc._safe_label('Engineer A Original Design Engineer')]
+    tgt_uri = CASE[svc._safe_label('Owner Tower Development Client')]
+    svc._rel_label_index = {
+        svc._norm_label('Engineer A Original Design Engineer'): subj_uri,
+        svc._norm_label('Owner Tower Development Client'): tgt_uri,
+    }
+    svc._build_agent_indices(individuals, CASE)
+    svc._role_edge_archetyped = set()
+    g = Graph()
+    svc._add_individual_properties(g, subj_uri, subj_facet, subj_rdf, CASE)
+    # Edge emitted provider -> client; the provider bears ProviderClientRole as a DIRECT rdf:type.
+    assert (subj_uri, CORE['hasClient'], tgt_uri) in g
+    assert (subj_uri, RDF.type, PROETHICA['ProviderClientRole']) in g
+    assert subj_uri in svc._role_edge_archetyped
+
+
+def test_role_relational_archetype_role_category_fallback():
+    """Decision R1: with NO actor edge, the role facet falls back to its role_category for the
+    relational archetype, materialized as a direct rdf:type (public_responsibility lands only here,
+    since owesDutyToward is not materialized per instance)."""
+    svc = _svc()
+    g = Graph()
+    facet = _role_entity('Public Duty Engineer')
+    uri = CASE['Public_Duty_Engineer']
+    rdf = {'properties': {'roleCategory': ['public_responsibility']}}
+    svc._add_individual_properties(g, uri, facet, rdf, CASE)
+    assert (uri, RDF.type, PROETHICA['PublicResponsibilityRole']) in g
 
 
 def test_rel_property_mapping_orientations():
