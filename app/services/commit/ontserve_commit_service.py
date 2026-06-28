@@ -1977,9 +1977,12 @@ class OntServeCommitService:
         means the edge is asserted target->subject (the role-bearer is on the
         receiving side of a directional relation). professionalPeerOf is symmetric,
         so swap is immaterial there. relatedTo is the controlled fallback."""
-        t = (rel_type or '').lower()
+        # Normalize separators so the snake_case needles match the camelCase types the prompt now derives
+        # from the ontology property names (employedBy, retainedBy, ...): strip spaces/underscores both sides.
+        import re as _re
+        t = _re.sub(r'[ _]', '', (rel_type or '').lower())
         for needle, prop, swap in self._REL_TYPE_TO_PROP:
-            if needle in t:
+            if _re.sub(r'[ _]', '', needle) in t:
                 return prop, swap
         return 'relatedTo', False
 

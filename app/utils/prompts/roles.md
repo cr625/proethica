@@ -70,21 +70,14 @@ INDIVIDUAL SCHEMA (role_individuals array) -- each individual is a JSON object:
     "license": "Professional Engineer",
     "specialty": "Structural design",
     "attributes": {"professional_membership": "ASCE member"},
-    "relationships": [{"type": "has_client", "target": "Owner", "quote": "Engineer A was retained by the Owner to design the tower"}, {"type": "peer", "target": "Engineer B", "quote": "Engineer B was engaged to review Engineer A's work"}],
+    "relationships": [{"type": "hasClient", "target": "Owner", "quote": "Engineer A was retained by the Owner to design the tower"}, {"type": "workReviewedBy", "target": "Engineer B", "quote": "Engineer B was engaged to review Engineer A's work"}],
     "text_references": ["plans and design of Engineer A", "Engineer A objects and refused to consent"],
     "confidence": 0.90
   }
 
 Keep each individual's identifier short (the case actor plus the short concept, at most about 6 words); scenario detail belongs in case_involvement, not the identifier (it becomes the URI). For role_individuals, also populate active_obligations (the obligations that apply given the role) and ethical_tensions (conflicts among this individual's role obligations).
 
-RELATIONSHIP EVIDENCE: every entry in `relationships` MUST include a `quote`, a short verbatim snippet from the case text that evidences the relationship (attached as PROV-O provenance on the edge). If no text supports a relationship, do not assert it.
-
-RELATIONSHIP TYPES (directional; the subject is THIS role's actor; matches the role_category edges above):
-- "has_client": this actor provides professional service to the target (the target is the client). Use "has_provider" when THIS actor is the client and the target provides the service.
-- "employed_by": this actor is employed by the target. Use "employs" when this actor is the employer.
-- "reviews": this actor reviews the target's work. Use "reviewed_by" when this actor's own work is reviewed by the target.
-- "peer": collegial professional peer (symmetric; direction does not matter).
-A client role (for example an owner who retains an engineer) uses "has_provider", not "has_client".
+{{ role_relationships }}
 
 ACTOR IDENTITY (cross-section): each role individual names a role FACET that some underlying actor plays. Set `actor` to that actor's stable identity (e.g. "Engineer A", "Owner", "City of X"), kept separate from the role facet in `identifier`. The SAME actor seen in a different section under a different role facet MUST reuse the SAME `actor` value. When an "ACTORS ALREADY IDENTIFIED IN PRIOR SECTIONS" block appears above the case text, reuse those actor identities exactly. One Agent is minted per distinct actor and bears each facet, so consistent actor naming is what keeps a person from being fragmented across sections.
 

@@ -221,6 +221,10 @@
     "pass_directive": {
       "source": "_PASS_DIRECTIVES (section_type) in prompt_variable_resolver",
       "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
+    },
+    "role_relationships": {
+      "source": "OntServe role-domain object properties (range Role + owesDutyToward) via _role_relationships_block()",
+      "description": "Controlled role-to-role relationship type vocabulary for the relationships[] field, derived from the ontology so it matches the entity page; includes the additional_relationships overflow-bag instruction"
     }
   },
   "passes": {

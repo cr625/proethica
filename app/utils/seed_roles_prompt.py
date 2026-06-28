@@ -38,7 +38,8 @@ def seed_roles_prompt(replace_existing: bool = False):
     # (a broken builder or unreadable ontology), so the prior "{{ role_schema }} renders to ''" bug cannot
     # recur and a missing slot is caught at seed time, not silently in production.
     from app.services.prompt_variable_resolver import concept_ontology_slots
-    _required = ('role_definition', 'role_schema', 'role_directives', 'role_category_vocab', 'pass_directive')
+    _required = ('role_definition', 'role_schema', 'role_directives', 'role_category_vocab',
+                 'role_relationships', 'pass_directive')
     for st in meta["passes"]:
         slots = concept_ontology_slots('roles', st)
         missing = [k for k in _required if not slots.get(k)]

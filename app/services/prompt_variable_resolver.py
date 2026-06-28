@@ -571,6 +571,49 @@ def _role_category_block() -> str:
     return "\n".join(rows)
 
 
+# Cues for the canonical actor-relationship family (the proeth-core:relatedTo subproperties). These core
+# properties currently lack rdfs:comment; the cues should migrate to rdfs:comment so the block fully
+# single-sources (ontology-enrichment follow-up). Kong (2020) audience-relationship categories.
+_ROLE_REL_CUES = {
+    'hasClient': "the provider role serves this client (Kong provider-client); defining edge of ProviderClientRole.",
+    'professionalPeerOf': "a symmetric collegial-peer relationship among professional roles (Kong professional-peer); use it for peers, mentoring, and collaboration.",
+    'employedBy': "this professional role is employed by the target (Kong employer); defining edge of EmployerRelationshipRole.",
+    'reviewsWorkOf': "this role reviews the target role's work (peer review).",
+    'workReviewedBy': "this role's work is reviewed by the target role (inverse of reviewsWorkOf).",
+}
+
+
+def _role_relationships_block() -> str:
+    """The canonical role-to-role relationship `type` vocabulary for the relationships[] field, DERIVED from
+    the ontology: the NON-DEPRECATED subproperties of proeth-core:relatedTo (hasClient, professionalPeerOf,
+    employedBy, reviewsWorkOf, workReviewedBy) -- the actor-relationship family the pipeline emits, the commit
+    path maps, and the defining edges of the relational archetype classes. The older domain-Role spellings
+    (retainedBy, mentoredBy, reportsTo, supervisedBy, collaboratesWith, ...) are owl:deprecated as duplicates
+    of this family and are EXCLUDED; relatedTo is the controlled fallback for an organizational link (e.g.
+    supervision, reporting) with no dedicated archetype. Same single-source pattern as _role_schema_block.
+    Raises on unreadable TTL."""
+    import rdflib
+    CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+    g = rdflib.Graph()
+    g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
+    g.parse(_ontology_ttl('proethica-intermediate.ttl'), format='turtle')
+    names = sorted(str(p).split('#')[-1] for p in g.subjects(rdflib.RDFS.subPropertyOf, CORE.relatedTo)
+                   if (p, rdflib.OWL.deprecated, rdflib.Literal(True)) not in g)
+    out = ["=== ROLE RELATIONSHIPS (controlled `type` for the relationships[] field, from the ontology -- "
+           "state each from THIS role-bearer's perspective) ==="]
+    for n in names:
+        cue = _ROLE_REL_CUES.get(n) or next((str(c) for c in g.objects(CORE[n], rdflib.RDFS.comment)), '')
+        out.append(f"- {n}: {cue}")
+    out.append("- relatedTo: any other professional relationship between two roles that none of the above "
+               "fits (e.g. supervision, a reporting line).")
+    out.append("Each relationship needs a verbatim `quote` from the case. If the case states a relationship "
+               "that fits NONE of the types above, do NOT invent a listed type: record it under "
+               "`additional_relationships` as {type: <short verb phrase>, target: <the other role or agent>, "
+               "quote: <evidence>}. These overflow entries are collected for periodic review and possible "
+               "promotion to a real ontology property.")
+    return "\n".join(out)
+
+
 # Per-pass directive: one body serves both pass rows, differing only by this runtime slot.
 _PASS_DIRECTIVES = {
     ('roles', 'facts'): "THIS PASS (facts): extract the role classes and individuals introduced by the case FACTS.",
@@ -592,6 +635,7 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
             'role_schema': _role_schema_block(),
             'role_directives': _role_directives_block(),
             'role_category_vocab': _role_category_block(),
+            'role_relationships': _role_relationships_block(),
             'pass_directive': _PASS_DIRECTIVES.get(key, ''),
         }
     return {}
