@@ -63,6 +63,15 @@ def is_precedent_reference(label: str | None) -> bool:
 # to the precedent, not this case.
 NORM_CONCEPT_TYPES = frozenset({"principles", "obligations", "constraints"})
 
+# Concept types for which a cited precedent is legitimate CONTENT, not contamination. The Resources
+# component captures a cited BER opinion AS a case_precedent resource (the precedent IS the resource),
+# so a precedent-reference label or quote is the entity itself, not a phantom pulled from inside a
+# precedent. These types are exempt from the precedent-marker and clean-label-precedent rules; the
+# foreign-actor rule still applies (a resource carrying a foreign engineer letter is still a phantom).
+# Added 2026-06-28 after the case-7 pilot dropped BER Case 90-6 and 98-3, the two precedents the
+# case's entire analysis rests on.
+PRECEDENT_AS_CONTENT_TYPES = frozenset({"resources"})
+
 
 def _all_quotes_are_precedent(quotes: List[str] | None) -> bool:
     """True iff there is at least one supporting quote and EVERY one is a precedent
@@ -86,9 +95,11 @@ def is_precedent_entity(
     in cited-precedent context is a phantom precedent entity (e.g. "Public Works Director"
     attested only by "BER Case No. 00-5 centered on ..."). Norm concepts are exempt from
     the clean-label rule because a cited precedent's norms transfer to the present case."""
-    if is_precedent_reference(label):
+    if concept_type not in PRECEDENT_AS_CONTENT_TYPES and is_precedent_reference(label):
         return True
-    if concept_type not in NORM_CONCEPT_TYPES and _all_quotes_are_precedent(quotes):
+    if (concept_type not in NORM_CONCEPT_TYPES
+            and concept_type not in PRECEDENT_AS_CONTENT_TYPES
+            and _all_quotes_are_precedent(quotes)):
         return True
     return False
 
@@ -150,11 +161,15 @@ PRECEDENT_RULES: RuleSet[EntityContext] = RuleSet(
     name="precedent_contamination",
     rules=[
         Rule("precedent_marker",
-             "citation marker in the label (any concept type), e.g. 'Defendant BER Case 19-3'",
-             lambda c: is_precedent_reference(c.label)),
+             "citation marker in the label, dropped for every concept type EXCEPT those where a "
+             "precedent is legitimate content (a case_precedent resource), e.g. 'Defendant BER Case 19-3'",
+             lambda c: c.concept_type not in PRECEDENT_AS_CONTENT_TYPES
+             and is_precedent_reference(c.label)),
         Rule("clean_label_precedent",
-             "fact concept whose every supporting quote sits in cited-precedent context",
+             "fact concept (not a norm, not a precedent-as-content type) whose every supporting "
+             "quote sits in cited-precedent context",
              lambda c: c.concept_type not in NORM_CONCEPT_TYPES
+             and c.concept_type not in PRECEDENT_AS_CONTENT_TYPES
              and _all_quotes_are_precedent(c.quotes)),
         Rule("foreign_actor",
              "an engineer letter absent from the present case (a precedent actor)",
