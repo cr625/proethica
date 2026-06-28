@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 TRIO = {"competesWith", "prevailsOver", "defeasibleUnder"}
 
+_CORE_NS = "http://proethica.org/ontology/core#"
+_NINE_CATEGORIES = {"Role", "Principle", "Obligation", "State", "Resource",
+                    "Action", "Event", "Capability", "Constraint"}
+
 # Curated cross-case comparison sets, keyed by conflict theme. ``case_ids`` is the
 # fixed selection (current-architecture, Pellet-consistent extractions); the edges
 # themselves are read live from each case's committed TTL, so the panel is real data
@@ -108,8 +112,9 @@ def _trio_edges(g):
 def _entity_index(g, case_id):
     """Build label(lowercased) -> hover entry from a committed case graph, for attaching
     OntServe definition popovers to the entity labels the view renders. Definition prefers
-    skos:definition, falls back to rdfs:comment; type is proeth:conceptCategory; the
-    OntServe target is the case ontology. Predicates matched by local name (namespace-robust)."""
+    skos:definition, falls back to rdfs:comment; type is the materialized direct
+    rdf:type proeth-core:<Category> (CMT-1); the OntServe target is the case ontology.
+    Predicates matched by local name (namespace-robust)."""
     target = f"proethica-case-{case_id}"
     labels = {}
     for s, p, o in g:
@@ -124,8 +129,9 @@ def _entity_index(g, case_id):
                 defn_skos = str(o)
             elif ln == "comment" and not defn_comment:
                 defn_comment = str(o)
-            elif ln == "conceptCategory" and not cat:
-                cat = str(o)
+            elif ln == "type" and not cat and str(o).startswith(_CORE_NS) \
+                    and _local(o) in _NINE_CATEGORIES:
+                cat = _local(o)
         frag = str(s).rsplit("#", 1)[-1].rsplit("/", 1)[-1]
         exact = frag.replace("_", " ").lower() == lbl.lower()
         key = lbl.lower()

@@ -74,7 +74,10 @@ def _norm(s: str) -> str:
 # --- graph helpers (mirror rpo_edges / defeasibility_pipeline) -------------
 
 def _individuals_in_category(g: Graph, category: str) -> List[URIRef]:
-    return [s for s, _, _ in g.triples((None, PROETH.conceptCategory, Literal(category)))]
+    # Read the materialized direct rdf:type proeth-core:<Category> (CMT-1): the
+    # commit asserts it on every individual, so the category is one hop away. The
+    # retired proeth:conceptCategory literal is no longer consulted.
+    return list(g.subjects(RDF.type, CORE[category]))
 
 
 def _label(g: Graph, ind: URIRef) -> str:

@@ -72,12 +72,10 @@ def _label(g: Graph, subj: URIRef) -> str:
 
 
 def _individuals_in_category(g: Graph, category: str) -> List[URIRef]:
-    cat_lit = Literal(category)
-    found: List[URIRef] = []
-    for s, _, _ in g.triples((None, PROETH.conceptCategory, cat_lit)):
-        if isinstance(s, URIRef):
-            found.append(s)
-    return found
+    # Read the materialized direct rdf:type proeth-core:<Category> (CMT-1), one
+    # hop, rather than the retired proeth:conceptCategory literal.
+    return [s for s in g.subjects(RDF.type, PROETH_CORE[category])
+            if isinstance(s, URIRef)]
 
 
 # ---------------------------------------------------------------------------

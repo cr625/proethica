@@ -7,9 +7,9 @@ rdfs:subClassOf*, anchored in the curated foundation ontologies
 
 Authority note: the chain is trusted only because it is anchored in the curated
 tiers. The stored OntServe entity-table category and the per-individual
-conceptCategory literal are extraction-derived and can disagree with the chain;
+materialized direct type are extraction-derived and can disagree with the chain;
 callers that need the authoritative category must use this module, not those
-literals. See docs-internal/reextraction/matcher-category-authority-design.md.
+signals. See docs-internal/reextraction/matcher-category-authority-design.md.
 
 This is the single implementation. ontserve_commit_service delegates here so the
 matcher gate and the commit guard resolve categories identically.

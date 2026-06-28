@@ -72,7 +72,10 @@ def canonicalize_ttl(case_id, ttl_path, write_back: bool = True) -> dict:
         ind = URIRef(cfg.case_iri(case_id, frag))
         g.add((ind, RDF.type, cls_uri))
         g.add((ind, RDF.type, OWL.NamedIndividual))
-        g.add((ind, PROETH["conceptCategory"], Literal(category)))
+        # Materialized direct type (CMT-1): the canonical core category as a direct
+        # rdf:type proeth-core:<Category> (the type a reasoner infers from cls_uri's
+        # subClassOf-core chain), replacing the retired proeth:conceptCategory literal.
+        g.add((ind, RDF.type, CORE[category]))
         g.add((ind, RDFS.label, Literal(label)))
         g.add((ind, PROV.wasGeneratedBy, Literal("canonicalization: role+facet decomposition")))
         return ind

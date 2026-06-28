@@ -398,9 +398,10 @@ class AutoCommitService:
 
         # Category guard: an entity may only reuse a class of its own D-tuple
         # category. Without this, a Constraint/Principle entity can match an
-        # Obligation-named class by label, producing one class IRI with
-        # conflicting conceptCategory values and an OWL-DL disjointness clash
-        # (proeth-core AllDisjointClasses). See KI2026 corpus-consistency repair.
+        # Obligation-named class by label, producing one class IRI that two
+        # individuals would type to under conflicting materialized core categories
+        # and an OWL-DL disjointness clash (proeth-core AllDisjointClasses). See
+        # KI2026 corpus-consistency repair.
         type_markers = _semantic_type_markers(entity_type)
 
         def _category_ok(uri: str) -> bool:

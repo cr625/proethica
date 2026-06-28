@@ -126,8 +126,8 @@ class MatchingMixin:
 
         Resolves the matched class's curated subClassOf* CHAIN core category
         (anchored in proethica-core+intermediate[-extended], NOT the stored
-        OntServe entity-table category or conceptCategory literal, which are
-        extraction-derived and can lie) and compares it to the candidate's core
+        OntServe entity-table category, which is extraction-derived and can lie)
+        and compares it to the candidate's core
         category. Two distinct core categories are mutually disjoint under the
         nine-way AllDisjointClasses, so the match would force an OWL-DL clash;
         drop it and let the candidate be treated as a new class. A same-category

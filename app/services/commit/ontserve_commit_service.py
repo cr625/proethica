@@ -51,6 +51,15 @@ IAO = Namespace("http://purl.obolibrary.org/obo/IAO_")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 PROETHICA_PROV = Namespace("http://proethica.org/provenance#")
 
+# The nine disjoint D-tuple core categories. The materialized direct
+# rdf:type proeth-core:<Category> (CMT-1) ranges over exactly these, and the
+# collision check reads them back to recover an individual's category after the
+# proeth:conceptCategory literal was retired.
+_NINE_CORE_CATEGORIES = frozenset({
+    "Role", "Principle", "Obligation", "State", "Resource",
+    "Action", "Event", "Capability", "Constraint",
+})
+
 
 class OntServeCommitService:
     """Service for committing extracted entities to OntServe permanent storage."""
@@ -88,13 +97,13 @@ class OntServeCommitService:
         to (via rdfs:subClassOf*), or None if the class is unknown / has no core
         ancestor.
 
-        Used to avoid re-declaring a conceptCategory-derived parent for a class
+        Used to avoid re-declaring a category-derived parent for a class
         the ontology already defines: e.g. proeth:ProfessionalCompetence is
         subClassOf proeth-core:Capability in proethica-intermediate, so a commit
-        must NOT add proeth-core:Principle just because an instance's
-        conceptCategory literal says "Principle" -- that second disjoint parent
-        makes the case OWL-DL inconsistent. The ontology definition wins over the
-        (lie-prone) literal. Mirrors pellet_validate's skip-if-parent-exists rule
+        must NOT add proeth-core:Principle just because an instance's routing
+        category says "Principle" -- that second disjoint parent makes the case
+        OWL-DL inconsistent. The ontology definition wins over the (lie-prone)
+        routing category. Mirrors pellet_validate's skip-if-parent-exists rule
         at commit time rather than as an after-the-fact in-memory patch.
 
         Delegates to the shared CategoryResolver (one implementation, shared with
@@ -170,7 +179,7 @@ class OntServeCommitService:
             disambiguated = f"{class_local_name}{concept_category}"
             logger.info(
                 "Cross-category IRI collision: %s is reserved for %s in the base but "
-                "carries conceptCategory %s; minting %s instead.",
+                "carries routing category %s; minting %s instead.",
                 class_local_name, base_cat, concept_category, disambiguated)
             return disambiguated
         return class_local_name
@@ -727,7 +736,16 @@ class OntServeCommitService:
                     # share an entity_label), disambiguate the URI by category so the
                     # second individual is not silently dropped (display-to-RDF fidelity).
                     new_cat = self._get_concept_category(entity)
-                    existing_cats = {str(o) for o in g.objects(individual_uri, PROETHICA['conceptCategory'])}
+                    # The materialized direct rdf:type proeth-core:<Category> (CMT-1)
+                    # is the per-individual category signal now that the
+                    # proeth:conceptCategory literal is retired; read it back (one hop)
+                    # to detect a genuine cross-category label collision.
+                    existing_cats = {
+                        str(o).split('#')[-1]
+                        for o in g.objects(individual_uri, RDF.type)
+                        if str(o).startswith(str(PROETHICA_CORE))
+                        and str(o).split('#')[-1] in _NINE_CORE_CATEGORIES
+                    }
                     if new_cat and existing_cats and new_cat not in existing_cats:
                         disambiguated = case_ns[f"{safe_label}_{new_cat}"]
                         if (disambiguated, RDF.type, OWL.NamedIndividual) in g:
@@ -755,7 +773,7 @@ class OntServeCommitService:
                 # Authoritative category = the reasoner-visible type chain. Starts as
                 # the extraction-pass category and is overridden below to an
                 # established class's core category when the individual is typed to
-                # one, so the conceptCategory literal we write cannot disagree with
+                # one, so the materialized direct type we write cannot disagree with
                 # the chain (the case-8 re-extraction inconsistency).
                 resolved_cat = concept_cat
 
@@ -789,19 +807,19 @@ class OntServeCommitService:
                             if established is not None:
                                 # Shared class. R1 self-contained-TTL (2026-06-04): declare its
                                 # subClassOf-core IN THE CASE using the chain-authoritative
-                                # `established` category (NOT the instance conceptCategory
-                                # literal), so the persisted case validates standalone under
+                                # `established` category (NOT the instance routing
+                                # category), so the persisted case validates standalone under
                                 # Pellet/SHACL without the in-memory pellet_validate patch.
                                 # Using `established` (the ontology's own parent) makes the
                                 # triple identical to the one in the shared store: no second
                                 # disjoint parent, and no self-loop (parent is a core class,
                                 # never the class itself). This is what D15 deferred; emitting
-                                # from `established` rather than the lie-prone literal is what
-                                # makes it safe.
+                                # from `established` rather than the lie-prone routing category
+                                # is what makes it safe.
                                 if established != concept_cat:
                                     logger.warning(
                                         "Class %s is established as %s in the ontology but an "
-                                        "instance carries conceptCategory %s; keeping the "
+                                        "instance carries routing category %s; keeping the "
                                         "ontology parent. Flagged for canonicalization.",
                                         safe_class, established, concept_cat,
                                     )
@@ -839,11 +857,15 @@ class OntServeCommitService:
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
                                     g.add((class_uri, RDFS.subClassOf, URIRef(arch_uri)))
 
-                # Tag with the resolved (chain-authoritative) concept category for
-                # display grouping. Derived from the type chain so it cannot drift
-                # from what the reasoner sees.
+                # Materialized direct type (CMT-1): assert the resolved core category
+                # as a direct rdf:type proeth-core:<Category> -- the type a reasoner
+                # would infer from the subClassOf-core chain emitted above. A one-hop
+                # type for plain-rdflib consumers, and a wrong type clashes with the
+                # nine-way AllDisjointClasses rather than lying silently. resolved_cat
+                # is the SAME category that drove the subClassOf-core edge; the retired
+                # proeth:conceptCategory literal is no longer written.
                 if resolved_cat:
-                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(resolved_cat)))
+                    g.add((individual_uri, RDF.type, PROETHICA_CORE[resolved_cat]))
 
                 # Per-individual property serialization. SINGLE shared serializer for
                 # both commit paths (see _add_individual_properties): typed provenance,
@@ -1812,6 +1834,15 @@ class OntServeCommitService:
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))
                 g.add((individual_uri, RDFS.label, Literal(label)))
 
+                # Base concept category for this entity (from its extraction pass).
+                concept_cat = self._get_concept_category(entity)
+                # Authoritative category for the materialized direct type (CMT-1):
+                # starts as the extraction-pass category and is overridden to an
+                # established class's own core category when the individual is typed to
+                # a class the shared ontology already defines, so the materialized type
+                # cannot disagree with the subClassOf-core chain the reasoner sees.
+                resolved_cat = concept_cat
+
                 # Add type based on rdf_json_ld types
                 if rdf_data and rdf_data.get('types'):
                     for type_uri in rdf_data['types']:
@@ -1823,9 +1854,12 @@ class OntServeCommitService:
                         # Category-aware disambiguation (same rule as the append +
                         # class-commit paths): never type to an IRI the base reserves
                         # for a disjoint category.
-                        safe_class = self._category_safe_class_local(safe_class, self._get_concept_category(entity))
+                        safe_class = self._category_safe_class_local(safe_class, concept_cat)
                         class_uri = PROETHICA[safe_class]
                         g.add((individual_uri, RDF.type, class_uri))
+                        established = self._established_core_category(safe_class)
+                        if established is not None:
+                            resolved_cat = established
                         # Layer-1 convergence: both archetype axes on the
                         # individual's own type-class (see
                         # _commit_individuals_to_case_ontology).
@@ -1835,10 +1869,11 @@ class OntServeCommitService:
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
                                     g.add((class_uri, RDFS.subClassOf, URIRef(arch_uri)))
 
-                # Tag with base concept category for display grouping
-                concept_cat = self._get_concept_category(entity)
-                if concept_cat:
-                    g.add((individual_uri, PROETHICA['conceptCategory'], Literal(concept_cat)))
+                # Materialized direct type (CMT-1): the resolved core category as a
+                # direct rdf:type proeth-core:<Category>, replacing the retired
+                # proeth:conceptCategory literal.
+                if resolved_cat:
+                    g.add((individual_uri, RDF.type, PROETHICA_CORE[resolved_cat]))
 
                 # Add type-specific properties (reuse existing logic)
                 self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)

@@ -176,7 +176,7 @@ def apply_causal_edges(case_id: int, ttl_path, write_back: bool = True,
     svc = _embedding_service()
 
     # Subject map: CausalChain individuals by normalized label (typed proeth:CausalChain,
-    # not via conceptCategory, so resolve by rdf:type).
+    # resolved directly by rdf:type).
     chain_iris: Dict[str, URIRef] = {}
     for ind in g.subjects(RDF.type, PROETH.CausalChain):
         chain_iris.setdefault(_norm(_label(g, ind)), ind)

@@ -15,10 +15,10 @@ each edge to the verbatim narrative text that justifies it.
 
 Design mirrors defeasibility_edges.py: streaming LLM call, IRI validation
 against the supplied entity lists, dedupe. CRITICAL ADDITION: endpoints are
-validated by conceptCategory (subject/object must be the property's
-rdfs:domain/range category) so edges cannot force an individual into a
-disjoint core class -- this preserves the OWL-DL consistency restored in the
-KI2026 corpus repair.
+validated by the materialized direct rdf:type proeth-core:<Category> (subject/
+object must resolve to the property's rdfs:domain/range category) so edges cannot
+force an individual into a disjoint core class -- this preserves the OWL-DL
+consistency restored in the KI2026 corpus repair.
 """
 from __future__ import annotations
 
@@ -87,10 +87,9 @@ class Indiv:
 
 
 def _individuals_in_category(g: Graph, category: str) -> List[URIRef]:
-    out = []
-    for s, _, _ in g.triples((None, PROETH.conceptCategory, Literal(category))):
-        out.append(s)
-    return out
+    # Read the materialized direct rdf:type proeth-core:<Category> (CMT-1), one
+    # hop, rather than the retired proeth:conceptCategory literal.
+    return list(g.subjects(RDF.type, PROETH_CORE[category]))
 
 
 def _fields(g: Graph, ind: URIRef, names: List[str]) -> Dict[str, str]:
@@ -262,12 +261,13 @@ def add_edges_to_graph(g: Graph, edges: List[Dict[str, Any]], case_id: int) -> i
 # Pellet-safety guard + TTL-level applier
 # ---------------------------------------------------------------------------
 #
-# RPOEdgeExtractor.extract validates endpoints against the proeth:conceptCategory
-# literal. That literal can disagree with the reasoner-visible type->subClassOf*
-# chain (e.g. an individual tagged conceptCategory "Principle" whose rdf:type
-# resolves through proethica-intermediate to Capability). A range-bearing edge
-# then forces the individual into a disjoint core class under the nine-way
-# AllDisjointClasses axiom and the case ontology goes OWL-DL inconsistent.
+# RPOEdgeExtractor.extract validates endpoints against the per-category input
+# lists built from the materialized direct rdf:type proeth-core:<Category>. That
+# materialized type is a one-hop assertion that can still lag a compound class's
+# full type->subClassOf* chain (e.g. an individual whose materialized type was set
+# before a later retype). A range-bearing edge on a mis-resolved endpoint would
+# force a disjoint core class under the nine-way AllDisjointClasses axiom and the
+# case ontology would go OWL-DL inconsistent.
 #
 # The guard below re-validates the just-emitted edges against the MERGED
 # (core + intermediate + case) graph and drops any whose endpoint's resolved
@@ -406,21 +406,24 @@ def _default_ontology_paths() -> Tuple[Any, Any]:
 def _add_missing_subclass_declarations(g: Graph) -> int:
     """Mirror pellet_validate._add_missing_subclass_declarations: for each
     LLM-generated class used as rdf:type but lacking an rdfs:subClassOf, derive
-    the parent core class from an instance's conceptCategory and add it. Classes
-    that already carry a real subClassOf (e.g. an intermediate class) are left
-    alone, so their genuine chain takes precedence over the literal."""
+    the parent core class from the individual's materialized direct
+    rdf:type proeth-core:<Category> (CMT-1) and add it. Classes that already carry
+    a real subClassOf (e.g. an intermediate class) are left alone, so their genuine
+    chain takes precedence. The retired proeth:conceptCategory literal is no longer
+    consulted; the materialized direct type carries the same category one hop away."""
     from rdflib import OWL
     class_categories: Dict[Any, str] = {}
     for ind in g.subjects(RDF.type, OWL.NamedIndividual):
-        for cls in g.objects(ind, RDF.type):
-            if cls == OWL.NamedIndividual:
+        types = list(g.objects(ind, RDF.type))
+        direct = next((_CORECLASSES[t] for t in types if t in _CORECLASSES), None)
+        if not direct:
+            continue
+        for cls in types:
+            if cls == OWL.NamedIndividual or cls in _CORECLASSES:
                 continue
             if list(g.objects(cls, RDFS.subClassOf)):
                 continue
-            if cls not in class_categories:
-                cats = list(g.objects(ind, PROETH.conceptCategory))
-                if cats:
-                    class_categories[cls] = str(cats[0])
+            class_categories.setdefault(cls, direct)
     added = 0
     for cls_uri, cat in class_categories.items():
         core_parent = _CATEGORY_TO_CORE.get(cat)
@@ -433,12 +436,13 @@ def _add_missing_subclass_declarations(g: Graph) -> int:
 
 def _build_merged_graph(case_graph: Graph, core_ttl, intermediate_ttl) -> Graph:
     """core + intermediate + intermediate-extended + case, owl:imports stripped,
-    missing subclass chains filled from conceptCategory.
+    missing subclass chains filled from the materialized direct type.
 
     intermediate-extended carries the "discovered" classes (their established
     subClassOf-core chains) that committed cases type individuals to; loading it
     here means the guard resolves an endpoint's core category the same way the
-    persisted case does, instead of falling back to the conceptCategory literal."""
+    persisted case does, falling back to the materialized direct rdf:type only when
+    a class chain is absent."""
     from pathlib import Path
     from rdflib import OWL
     g = Graph()

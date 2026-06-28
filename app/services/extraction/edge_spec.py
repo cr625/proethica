@@ -109,8 +109,9 @@ class EdgeSpec:
     prov_label: Callable[[str], str]   # prop local name -> prov rdfs:label
     prov_comment: Callable[[str], str]  # prop local name -> prov rdfs:comment
     reader: Callable[[int, "EdgeSpec"], List[SubjectRow]]  # temp_rdf reader
-    # subject resolution: "category" (conceptCategory) | "type" (rdf:type) | "union"
-    # (multiple conceptCategory categories collapsed into one label map)
+    # subject resolution: "category" (materialized direct rdf:type proeth-core:<Category>)
+    # | "type" (a specific rdf:type class) | "union" (several core categories collapsed
+    # into one label map)
     subject_resolution: str = "category"
     subject_type: Optional[URIRef] = None         # for subject_resolution="type"
     subject_union: Tuple[str, ...] = ()           # for subject_resolution="union"

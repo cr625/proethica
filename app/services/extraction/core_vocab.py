@@ -78,8 +78,6 @@ class CoreProp:
     guidedByPrinciple = "guidedByPrinciple"
     # provenance / provisions
     citesProvision = "citesProvision"
-    # extraction metadata
-    conceptCategory = "conceptCategory"   # the proeth: literal carrying the component category
 
 
 __all__ = [
