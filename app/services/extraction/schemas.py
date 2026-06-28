@@ -195,6 +195,12 @@ class RoleIndividual(BaseIndividual):
         default_factory=list,
         description="Employment, collaboration, client relationships"
     )
+    additional_relationships: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description="Overflow bag: relationships the case states that fit NO controlled relationship type; "
+                    "each {type, target, quote}. Staged (not mapped to a controlled edge) for periodic review "
+                    "and possible promotion to a real ontology property."
+    )
     # Role-individual normative fields (Chapter 3, Section 3.3.1). Restored
     # 2026-06-22 for dissertation fidelity. The role->obligation substance is
     # also materialized as first-class R->P->O edges (hasObligation); these

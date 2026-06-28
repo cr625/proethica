@@ -1886,8 +1886,15 @@ class OntServeCommitService:
     # Controlled professional-attribute vocabulary (Part B). The LLM places free-form
     # keys in a role's `attributes` dict; map the recurring ones (lowercased) to the
     # declared proeth: datatype properties so cross-case queries (e.g. all licensed PEs)
-    # work. Unmapped keys are kept verbatim (camelCased) and logged, so the uncontrolled
-    # tail is visible and the vocabulary can grow deliberately rather than silently.
+    # work. Unmapped keys go to proeth:otherAttribute as "key: value" (the overflow bag).
+    #
+    # TRANSITIONAL -- vocabulary growth is now owned by the promotion loop, not hand-edits here:
+    # OntServe/tools/promotion_candidates.py mines the otherAttribute tail corpus-wide and ranks
+    # recurring keys; a human + literature gate promotes a candidate by DECLARING a real proeth:
+    # datatype property in the ontology. Once a property is declared, the right end-state is for this
+    # map's EXACT-name matches to derive from the ontology (a key equal to a declared property name maps
+    # to it automatically) and for the synonym rows below to migrate to skos:altLabel on the properties,
+    # at which point this literal dict is deleted. Until promotion is live the synonym map stays.
     _ATTRIBUTE_VOCAB = {
         'license': 'hasLicense', 'licensure': 'hasLicense', 'licensestatus': 'hasLicense',
         'licensed': 'hasLicense', 'professionallicense': 'hasLicense', 'licensing': 'hasLicense',
@@ -2386,6 +2393,31 @@ class OntServeCommitService:
                         # carries the per-relationship quote when the prompt supplied one.
                         self._emit_relationship_provenance(
                             g, case_ns, edge_subj, relprop, edge_obj, rtype, r.get('quote'))
+                    continue
+                # Overflow bag: relationships the LLM judged fit NO controlled type. Staged on the existing
+                # declared proeth:otherAttribute with a 'rel:' prefix (no new predicate / re-extract needed for
+                # the first cut) so the periodic promotion-candidate report can mine them; deliberately NOT
+                # mapped to a controlled edge -- these are unvetted. Parallels the attributes->otherAttribute
+                # tail; a dedicated proeth:otherRelationship reified node is the recommended refinement.
+                if prop_name == 'additional_relationships':
+                    import ast
+                    rels = prop_values if isinstance(prop_values, list) else [prop_values]
+                    for rel in rels:
+                        r = rel
+                        if isinstance(r, str):
+                            try:
+                                r = ast.literal_eval(r)
+                            except Exception:
+                                continue
+                        if not isinstance(r, dict):
+                            continue
+                        rtype = str(r.get('type') or r.get('relation') or '').strip()
+                        tgt = str(r.get('target') or r.get('to') or '').strip()
+                        if not rtype or not tgt:
+                            continue
+                        g.add((uri, PROETHICA['otherAttribute'], Literal(f"rel:{rtype} -> {tgt}")))
+                        logger.info("additional_relationships: staged overflow rel:%s -> %s on %s",
+                                    rtype, tgt, str(uri).split('#')[-1])
                     continue
                 if not isinstance(prop_values, list):
                     prop_values = [prop_values]

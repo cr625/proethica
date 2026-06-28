@@ -154,7 +154,12 @@
         "relationships": {
           "type": "array",
           "required": false,
-          "description": "Employment, collaboration, client relationships"
+          "description": "Controlled role-to-role relationships; each {type, target, quote} where type is a value from the derived ROLE RELATIONSHIPS list"
+        },
+        "additional_relationships": {
+          "type": "array",
+          "required": false,
+          "description": "Overflow bag: relationships that fit no controlled type; each {type, target, quote}. Staged for periodic review, not mapped to a controlled edge"
         },
         "role_category": {
           "type": "string",
@@ -223,8 +228,8 @@
       "description": "Per-pass directive; one body serves facts+discussion, differing only by this runtime slot"
     },
     "role_relationships": {
-      "source": "OntServe role-domain object properties (range Role + owesDutyToward) via _role_relationships_block()",
-      "description": "Controlled role-to-role relationship type vocabulary for the relationships[] field, derived from the ontology so it matches the entity page; includes the additional_relationships overflow-bag instruction"
+      "source": "OntServe canonical relatedTo family (non-deprecated subproperties of proeth-core:relatedTo) via _role_relationships_block()",
+      "description": "Controlled role-to-role relationship type vocabulary for the relationships[] field, derived from the ontology (hasClient/professionalPeerOf/employedBy/reviewsWorkOf/workReviewedBy + relatedTo fallback); includes the additional_relationships overflow-bag instruction"
     }
   },
   "passes": {
