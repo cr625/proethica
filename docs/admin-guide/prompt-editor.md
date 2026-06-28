@@ -22,6 +22,51 @@ Templates are organized by pipeline step and concept type:
 ![Prompt Editor Navigation](../assets/images/screenshots/prompt-editor-nav.png)
 *Sidebar navigation showing the three pipeline steps and their concepts*
 
+## Processing Pipeline
+
+A template is one input to a multi-stage process. When an extraction runs, the template is assembled into a full prompt, sent to the model, validated and filtered, and written as draft entities to a staging table. The ontology served by OntServe is produced later by a separate commit step, not by extraction itself. These stages determine what the **Preview**, **Test Extraction**, and **Variable Inspector** functions display, and where extracted entities go before they reach OntServe.
+
+Roles extraction is the reference implementation: it is the only concept whose prompt currently injects ontology-derived schema slots. The other concepts follow the same overall flow without those slots.
+
+### Stage Summary
+
+| Phase | Action | Result |
+|-------|--------|--------|
+| **Prompt assembly** | Load the existing-class inventory from OntServe, the pass-specific template, the case variables, and the ontology-derived slots, then render | A user prompt and a separate system prompt |
+| **Model call** | Send the prompt to the model as a streaming request | Raw JSON text |
+| **Parsing and validation** | Normalize the response and validate it against the concept schema | Two typed lists: candidate classes and individuals |
+| **Filtering and matching** | Remove precedent contamination, match classes to existing ontology classes, link individuals, drop misclassified items | Filtered, ontology-matched entities |
+| **Draft staging** | Record the prompt and response, then write draft rows | Unpublished rows in `temporary_rdf_storage` |
+| **Ontology commit** | A separate, later step serializes Turtle and syncs to OntServe | Durable case ontology |
+
+### Prompt Assembly
+
+Prompt assembly draws on four sources. When the extractor starts, it loads a snapshot of existing classes for the concept from OntServe over the MCP connection. This snapshot is fetched once and serves three later purposes: the existing-entity inventory shown in the prompt, the matching of new candidates against the ontology, and the harvesting of definitions for matched classes. The extractor then loads the active database template for the requested pass, Facts or Discussion.
+
+Case variables are resolved next: the section text, the formatted existing-entity inventory, and, for the Discussion pass, the classes and actors carried forward from the Facts pass. The fourth source is the set of ontology-derived slots. For roles these are read live at injection time from the core ontology and its SHACL shapes, and supply the role definition, the role schema, the disjointness directives, the role category vocabulary, and the pass directive. The same builder feeds both live extraction and the editor **Preview**, so the preview matches what extraction sends. A slot builder raises an error if its source file is unreadable rather than rendering an empty value.
+
+Rendering uses Jinja2. The template body and the system prompt are rendered separately. A code-built JSON wrapper instruction is then appended to the body. This wrapper is kept in code rather than in the editable template so that the required response keys always match the concept configuration.
+
+### Model Call
+
+The assembled prompt is sent to the model as a single user message, with the rendered system prompt as a separate system message. The default model is Claude Sonnet 4.6, configurable per concept and overridable by environment variable. The request streams the response and asks for JSON output through the in-prompt instruction rather than through tool calls or a response schema. If the response is cut off at the token limit, a repair step closes the truncated JSON before parsing.
+
+### Parsing and Validation
+
+The raw response is reshaped into two arrays, candidate classes and individuals, accommodating a bare list or a legacy single-key response. Each item is normalized before validation: field aliases are reconciled, invented fields are remapped or dropped, and default values are supplied. The normalized items are validated against the concept schema. If whole-result validation fails, the extractor validates each item individually and skips any that remain invalid rather than failing the run.
+
+### Filtering, Matching, and Linking
+
+Several passes refine the validated entities. A contamination filter removes entities drawn from cited precedent cases rather than the case under analysis, identified by a citation marker in the label, by supporting quotes that sit only in precedent context, or by an actor letter absent from the present case. Candidate classes are then matched against the OntServe snapshot by exact normalized label; a matched class records the existing URI at high confidence, and a class that matched only a sibling extraction with no ontology URI is reset to unmatched. A disjointness gate rejects any match whose resolved category conflicts with the category of the concept, which prevents a later reasoner inconsistency. Definitions are harvested from the ontology for matched classes, individuals are linked to their classes and inherit a class match where one exists, and a final filter drops items that were emitted as individuals but are class-level types. The contamination filter and the type filter are best-effort: a failure in either is logged and does not break extraction.
+
+### Draft Staging
+
+On completion the extractor records the exact prompt and the raw model response to the `extraction_prompts` table, which is the source for the **Test Extraction** display and for audit. The validated models are converted to a plain dictionary structure. No RDF or Turtle is produced at this point, despite the name of the conversion step. The structured entities are written as draft rows to the `temporary_rdf_storage` table, one row per class and per individual, in a JSON column, with the Turtle column left empty. Existing unpublished rows for the same section are replaced first, and same-label rows are merged. These rows are marked unpublished, which is the state the **Entity Review** screen reads.
+
+### Ontology Commit
+
+Extraction stops at the draft stage. The durable ontology is produced by a separate commit step that runs when case entities are committed, either through review or through automatic commit. That step gathers the unpublished rows, serializes case-specific Turtle, marks the rows published, and syncs the result to OntServe, writing classes to the shared intermediate ontology and individuals to the per-case ontology. Turtle is first produced at this point, and the defeasibility and dependency edge materialization and the conformance check run here. An extraction run on its own does not change the ontology served by OntServe.
+
 ## Template Editor
 
 ### Selecting a Template
