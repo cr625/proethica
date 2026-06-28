@@ -94,7 +94,8 @@ def store_extraction_results(
         match_decision = class_info.get('match_decision', {})
 
         existing = _find_existing_entity(
-            case_id, class_info['label'], extraction_type.capitalize(), extraction_session_id
+            case_id, class_info['label'], extraction_type.capitalize(), extraction_session_id,
+            definition=class_info.get('definition'),
         )
 
         if existing:
@@ -138,7 +139,8 @@ def store_extraction_results(
         match_decision = indiv_info.get('match_decision', {})
 
         existing = _find_existing_entity(
-            case_id, indiv_info['label'], extraction_type.capitalize(), extraction_session_id
+            case_id, indiv_info['label'], extraction_type.capitalize(), extraction_session_id,
+            definition=indiv_info.get('definition'),
         )
 
         if existing:
@@ -185,16 +187,84 @@ def store_extraction_results(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _find_existing_entity(
-    case_id: int, entity_label: str, entity_type: str, current_session_id: str
+from functools import lru_cache
+
+_DEDUP_THRESHOLD = 0.88  # conservative cosine for cross-pass semantic merge (precision over recall)
+
+
+def _embedding_service():
+    """Lazy singleton sentence-transformer service (loads the model once)."""
+    global _EMB_SVC
+    try:
+        return _EMB_SVC
+    except NameError:
+        from app.services.embedding.embedding_service import EmbeddingService
+        _EMB_SVC = EmbeddingService()
+        return _EMB_SVC
+
+
+@lru_cache(maxsize=4096)
+def _embed_text(text: str) -> tuple:
+    """Cached embedding (a hashable tuple) for an entity's (label + definition) text."""
+    return tuple(_embedding_service().get_embedding(text))
+
+
+def _entity_text(label, definition) -> str:
+    label = (label or '').strip()
+    definition = (definition or '').strip()
+    return f"{label}: {definition}" if definition else label
+
+
+def _find_semantic_match(
+    case_id: int, label: str, definition, entity_type: str,
+    threshold: float = _DEDUP_THRESHOLD,
 ) -> Optional[TemporaryRDFStorage]:
-    """Find an existing uncommitted entity with same label."""
-    return TemporaryRDFStorage.query.filter(
+    """The best existing same-case, same-type, unpublished entity whose (label+definition) embedding
+    cosine to the new entity is >= threshold, else None. Catches the same concept paraphrased across
+    the facts and discussion passes that the exact-label merge misses (the over-split problem). The
+    high threshold plus same-type scoping favors leaving a duplicate over fusing two genuinely
+    distinct concepts; survivors stay deletable in review. Best-effort: any embedding failure returns
+    None (no merge) and never blocks storage."""
+    try:
+        from app.services.embedding.similarity_utils import cosine_similarity_list
+        new_emb = list(_embed_text(_entity_text(label, definition)))
+        candidates = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.entity_type == entity_type,
+            TemporaryRDFStorage.is_published == False,
+        ).all()
+        best, best_sim = None, threshold
+        for cand in candidates:
+            if (cand.entity_label or '') == (label or ''):
+                continue  # exact-label is handled before this fallback
+            sim = cosine_similarity_list(
+                new_emb, list(_embed_text(_entity_text(cand.entity_label, cand.entity_definition))))
+            if sim >= best_sim:
+                best, best_sim = cand, sim
+        if best is not None:
+            logger.info("semantic dedup: '%s' ~ '%s' (cos=%.3f) -> merge",
+                        label, best.entity_label, best_sim)
+        return best
+    except Exception as e:
+        logger.debug("semantic dedup skipped for '%s': %s", label, e)
+        return None
+
+
+def _find_existing_entity(
+    case_id: int, entity_label: str, entity_type: str, current_session_id: str,
+    definition=None,
+) -> Optional[TemporaryRDFStorage]:
+    """Find an existing uncommitted entity to merge into: exact label first, then a conservative
+    cross-pass semantic match (the same concept paraphrased between the facts and discussion passes)."""
+    exact = TemporaryRDFStorage.query.filter(
         TemporaryRDFStorage.case_id == case_id,
         TemporaryRDFStorage.entity_label == entity_label,
         TemporaryRDFStorage.entity_type == entity_type,
         TemporaryRDFStorage.is_published == False
     ).first()
+    if exact:
+        return exact
+    return _find_semantic_match(case_id, entity_label, definition, entity_type)
 
 
 def _merge_into_existing(
