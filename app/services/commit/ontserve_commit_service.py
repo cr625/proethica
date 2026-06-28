@@ -2457,6 +2457,12 @@ class OntServeCommitService:
                 if not isinstance(prop_values, list):
                     prop_values = [prop_values]
                 safe_prop = self._camelCase(prop_name)
+                # CMT-3: do not persist the spec's "Not stored" shadows. A RELATION field is materialized as an
+                # object-property edge elsewhere, and a *Class field is the rdf:type (reconstructable from the
+                # type chain); writing either here re-introduces a literal shadow of the canonical form.
+                from app.services.extraction.field_classification import classify, FieldKind
+                if safe_prop.endswith('Class') or classify(safe_prop) is FieldKind.RELATION:
+                    continue
                 prop_uri = PROETHICA[safe_prop]
                 for value in prop_values:
                     if value:

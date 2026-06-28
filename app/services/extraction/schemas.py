@@ -1102,27 +1102,27 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
     # The match_decision field handles mapping to specific state subclasses
     # (ConflictOfInterest, PublicSafetyAtRisk, etc.)
     'states': {
-        # Deontic-function state archetypes (proethica-intermediate, 2026-05-30): a
-        # state's kind is its function on a role-derived obligation. Was all -> core:State.
-        'conflict': f'{INTERMEDIATE_NS}ConflictState',
+        # The nine CONTENT state archetypes (decision B1, 2026-06-28): a state's kind is its content,
+        # NOT the activatesObligation relation. Keys match StateCategory; all subClassOf proeth-core:State.
+        'epistemic': f'{INTERMEDIATE_NS}EpistemicState',
         'risk': f'{INTERMEDIATE_NS}RiskState',
         'competence': f'{INTERMEDIATE_NS}CompetenceState',
-        'relationship': f'{INTERMEDIATE_NS}RelationshipState',
-        'information': f'{INTERMEDIATE_NS}InformationState',
         'emergency': f'{INTERMEDIATE_NS}EmergencyState',
+        'conflict_of_interest': f'{INTERMEDIATE_NS}ConflictOfInterestState',
         'regulatory': f'{INTERMEDIATE_NS}RegulatoryState',
         'temporal': f'{INTERMEDIATE_NS}TemporalState',
-        'resource': f'{INTERMEDIATE_NS}ResourceAvailabilityState',
+        'resource': f'{INTERMEDIATE_NS}ResourceState',
+        'disclosure': f'{INTERMEDIATE_NS}DisclosureState',
     },
-    # Rs: Resource categories -> intermediate subclass IRIs
+    # Rs: the six closed source kinds (spec, 2026-06-28); ethical_code added, expert_interpretation +
+    # decision_tool retired. EthicalCode subClassOf Guideline subClassOf Resource.
     'resources': {
         'professional_code': f'{INTERMEDIATE_NS}ProfessionalCode',
-        'case_precedent': f'{INTERMEDIATE_NS}CasePrecedent',
-        'expert_interpretation': f'{INTERMEDIATE_NS}ExpertInterpretation',
         'technical_standard': f'{INTERMEDIATE_NS}TechnicalStandard',
+        'case_precedent': f'{INTERMEDIATE_NS}CasePrecedent',
         'legal_resource': f'{INTERMEDIATE_NS}LegalResource',
-        'decision_tool': f'{INTERMEDIATE_NS}DecisionTool',
         'reference_material': f'{INTERMEDIATE_NS}ReferenceMaterial',
+        'ethical_code': f'{INTERMEDIATE_NS}EthicalCode',
     },
     # A: Action categories -> intermediate subclass IRIs
     'actions': {
