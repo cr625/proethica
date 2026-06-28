@@ -348,34 +348,6 @@ div.reference-panel {
 }
 .schema-type { color: #6c757d; }
 
-/* Pipeline visualization */
-.pipeline-viz {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 0.25rem;
-    padding: 0.4rem;
-}
-.pipeline-step {
-    display: flex;
-    align-items: center;
-    padding: 0.2rem 0;
-    font-size: 0.7rem;
-}
-.pipeline-step::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    background: #28a745;
-    border-radius: 50%;
-    margin-right: 0.4rem;
-}
-.pipeline-arrow {
-    text-align: center;
-    color: #6c757d;
-    font-size: 0.6rem;
-    padding: 0.1rem 0;
-}
-
 /* Status */
 .status-indicator {
     display: inline-flex;
@@ -757,29 +729,14 @@ div.reference-panel {
                     {% endif %}
                 </div>
 
-                <!-- Pipeline -->
+                <!-- JSON Wrapper -->
+                {% if json_wrapper_suffix %}
                 <div class="ref-section">
-                    <div class="ref-section-title">Processing Pipeline</div>
-                    <div class="pipeline-viz">
-                        <div class="pipeline-step">Template + Variables</div>
-                        <div class="pipeline-arrow">↓ Jinja2 render</div>
-                        <div class="pipeline-step">Rendered Prompt</div>
-                        <div class="pipeline-arrow">↓ + JSON wrapper (code)</div>
-                        <div class="pipeline-step">Final Prompt to LLM</div>
-                        <div class="pipeline-arrow">↓ LLM API</div>
-                        <div class="pipeline-step">JSON Response</div>
-                        <div class="pipeline-arrow">↓ Pydantic validate</div>
-                        <div class="pipeline-step">Entities</div>
-                        <div class="pipeline-arrow">↓ RDF convert</div>
-                        <div class="pipeline-step">Storage</div>
-                    </div>
-                    {% if json_wrapper_suffix %}
-                    <div class="mt-2">
-                        <small class="text-muted">JSON wrapper (appended by extractor):</small>
-                        <pre class="mt-1 p-2 bg-light border rounded" style="font-size: 0.7rem; white-space: pre-wrap; margin-bottom: 0;">{{ json_wrapper_suffix | trim }}</pre>
-                    </div>
-                    {% endif %}
+                    <div class="ref-section-title">JSON Wrapper</div>
+                    <small class="text-muted">Appended to the prompt by the extractor:</small>
+                    <pre class="mt-1 p-2 bg-light border rounded" style="font-size: 0.7rem; white-space: pre-wrap; margin-bottom: 0;">{{ json_wrapper_suffix | trim }}</pre>
                 </div>
+                {% endif %}
 
             </div>
         </div>
