@@ -41,21 +41,19 @@ def build_timeline(
             'label': action.get('label', 'Unknown'),
             'description': action.get('description', ''),
             'agent': action.get('agent', 'Unknown'),
-            'temporal_marker': action.get('temporal_marker', 'Unknown time'),
-            'severity': None  # Actions don't carry a severity
+            'temporal_marker': action.get('temporal_marker', 'Unknown time')
         })
 
-    # Add events. Severity is the event's heuristic triage indicator (renamed from the
-    # former urgency_level / emergency_status, which always duplicated each other).
+    # Add events. Per the ratified Event field set (extraction-architecture spec, E section),
+    # an event's salience is structural (the RiskState / EmergencyState it initiates), so the
+    # timeline element carries no per-event triage literal.
     for event in events:
-        severity = event.get('classification', {}).get('severity', None)
         timeline_elements.append({
             'type': 'event',
             'id': event.get('label', 'Unknown Event'),
             'label': event.get('label', 'Unknown'),
             'description': event.get('description', ''),
-            'temporal_marker': event.get('temporal_marker', 'Unknown time'),
-            'severity': severity
+            'temporal_marker': event.get('temporal_marker', 'Unknown time')
         })
 
     # Group by temporal marker

@@ -1,11 +1,12 @@
 """
 Event Extractor for Enhanced Temporal Dynamics Pass
 
-Extracts occurrences (non-volitional events) with:
-- Emergency classification and urgency levels
-- Automatic triggers and preconditions
-- Constraint activation and obligation creation
-- Causal context (what action caused this event)
+Extracts occurrences (non-volitional events) aligned to the ratified Event (E)
+field set (extraction-architecture spec, E section):
+- Origin classification (event_type: outcome / exogenous / automatic, the
+  Berreby et al. 2017 agent-caused vs external vs automatic origin axis)
+- Fluent transitions (initiates / terminates State labels) plus the OWL-Time extent
+- Causal context (the action that caused the event)
 """
 
 from typing import Dict, List
@@ -19,12 +20,6 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Keywords for automatic emergency detection
-EMERGENCY_KEYWORDS = [
-    'safety', 'urgent', 'critical', 'emergency', 'hazard', 'danger', 'risk',
-    'failure', 'collapse', 'accident', 'injury', 'death', 'catastrophic'
-]
-
 
 def extract_events_with_classification(
     narrative: Dict,
@@ -34,7 +29,7 @@ def extract_events_with_classification(
     llm_trace: List[Dict]
 ) -> List[Dict]:
     """
-    Extract events (occurrences, automatic triggers, outcomes) with classification.
+    Extract events (occurrences, outcomes) with origin classification.
 
     Args:
         narrative: Unified narrative from Stage 1
@@ -93,12 +88,8 @@ def extract_events_with_classification(
         # Parse JSON response
         events = _parse_event_response(response_text)
 
-        # Apply automatic emergency flagging
-        events = _apply_emergency_keywords(events)
-
         trace_entry['parsed_output'] = {
             'event_count': len(events),
-            'emergency_events': sum(1 for e in events if _is_emergency(e))
         }
 
         # Add token usage if available
@@ -146,7 +137,7 @@ ACTIONS ALREADY IDENTIFIED:
 
 ---
 
-Extract all EVENTS (occurrences, outcomes, automatic triggers - NOT volitional decisions).
+Extract all EVENTS (occurrences, outcomes, automatic occurrences - NOT volitional decisions).
 
 For each event, identify:
 
@@ -159,45 +150,28 @@ For each event, identify:
    - Event description (1-2 sentences; put the case-specific detail HERE)
    - Temporal marker (when it occurred)
 
-2. EVENT CLASSIFICATION:
-   - Event type: "outcome" (result of an agent's action) | "exogenous" (external, not
-     caused by a case agent) | "automatic_trigger" (fires automatically when preconditions
-     hold). This is the Event Calculus distinction between agent-caused and exogenous /
-     automatic occurrences (Berreby et al. 2017); it carries weight for responsibility
-     attribution (an exogenous event is no agent's doing; an outcome traces to an action).
-   - Severity: "critical" | "high" | "medium" | "low" | "routine". A heuristic triage
-     indicator of how serious the occurrence is for the case, NOT a formal ontology
-     category. (The former separate "urgency_level" field is removed; it always duplicated
-     this value.)
-   - Automatic trigger: true/false
-   - Preconditions met (if automatic trigger)
+2. ORIGIN CLASSIFICATION:
+   - Event type: "outcome" (result of a case agent's action) | "exogenous" (external,
+     not caused by a case agent) | "automatic" (fires automatically once its triggering
+     conditions hold). This is the Event Calculus origin distinction between agent-caused
+     and exogenous / automatic occurrences (Berreby et al. 2017); it carries weight for
+     responsibility attribution (an exogenous event is no agent's doing; an outcome traces
+     to an action).
 
-3. STATE CHANGE:
-   - State change: a brief prose summary of what changed in the world.
-     Do NOT list the obligations or constraints that "become active" here. An event
-     does not create an obligation or activate a constraint directly; it initiates a
-     STATE (a fluent) that then makes those obligations/constraints apply. Capture the
-     states in 3b (initiates / terminates), not free-text obligation/constraint names.
-     The State -> Obligation and State -> Constraint links are recovered downstream
-     from the already-extracted obligation and constraint individuals.
-
-3b. FLUENT TRANSITIONS (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017):
+3. FLUENT TRANSITIONS (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017):
    - initiates: list of STATES (fluents) this event brings into holding. An event does not
      create an obligation directly; it initiates a STATE (fluent) that then makes
      obligations or constraints apply. Name the conditions/states that become true (for
      example "Public Safety Risk", "Project Suspended"), using the same state names used
-     elsewhere in the case. The constraints/obligations above are the consequences of these
-     initiated states. Empty list if the event changes no state.
+     elsewhere in the case. The downstream obligation and constraint links are recovered
+     from these initiated states, not from free-text names. Empty list if the event changes
+     no state.
    - terminates: list of STATES (fluents) this event ends (conditions that stop holding).
    - temporal_extent: "instant" if the event is a point occurrence, "interval" if it
      extends over a period (anchors the event in OWL-Time; temporal_marker stays the textual when).
 
 4. CAUSAL CONTEXT:
    - Caused by action (reference action label if applicable)
-   - Causal chain summary (brief sequence leading to this event)
-   - NESS test factors:
-     * Necessary factors (what was required for this to occur)
-     * Sufficient factors (what combination was enough)
 
 {STYLE_FORMATTING_LINE}
 
@@ -213,14 +187,7 @@ Return your analysis as a JSON array:
       "source_section": "facts",
 
       "classification": {{
-        "event_type": "outcome",
-        "severity": "critical",
-        "automatic_trigger": false,
-        "preconditions_met": ["Inadequate supervision", "Insufficient review", "Complex task assigned"]
-      }},
-
-      "triggers": {{
-        "state_change": "Project halted; safety review initiated; stakeholders notified"
+        "event_type": "outcome"
       }},
 
       "initiates": ["Public Safety Risk", "Project Halted State"],
@@ -228,22 +195,7 @@ Return your analysis as a JSON array:
       "temporal_extent": "instant",
 
       "causal_context": {{
-        "caused_by_action": "Task Assignment Decision",
-        "causal_chain": [
-          "Senior engineer assigned complex task to unqualified intern",
-          "Inadequate supervision provided during design phase",
-          "Initial review insufficient to catch complexity issues",
-          "Critical structural flaw discovered in detailed review"
-        ],
-        "ness_test_factors": {{
-          "necessary_factors": [
-            "Assignment to person lacking expertise",
-            "Complex technical requirements beyond skill level"
-          ],
-          "sufficient_factors": [
-            "Combination of inexperience, complexity, and inadequate supervision"
-          ]
-        }}
+        "caused_by_action": "Task Assignment Decision"
       }}
     }}
   ]
@@ -253,11 +205,8 @@ Return your analysis as a JSON array:
 IMPORTANT:
 - Only extract occurrences (events), not volitional decisions (those are actions)
 - Use the identified actions to infer causal relationships
-- Be specific with the severity assessment
-- Capture what changes as the STATES the event initiates / terminates (3b), not as
+- Capture what changes as the STATES the event initiates / terminates (section 3), not as
   free-text obligation or constraint names
-- Severity keywords (safety, urgent, critical, hazard, danger, risk, failure, accident)
-  raise the severity to at least "high"
 
 JSON Response:"""
 
@@ -283,36 +232,3 @@ def _parse_event_response(response_text: str) -> List[Dict]:
     events = result.get('events', [])
     logger.info(f"[Stage 4] Parsed {len(events)} events")
     return events
-
-
-def _apply_emergency_keywords(events: List[Dict]) -> List[Dict]:
-    """
-    Raise an event's heuristic `severity` to at least "high" when its label or
-    description contains an emergency-indicating keyword.
-
-    This is a deliberately ad-hoc triage heuristic supplementing the LLM's severity
-    assessment, not a literature-grounded classifier; severity is a triage indicator,
-    not a formal ontology category.
-    """
-    for event in events:
-        # Check description and label for emergency keywords
-        text = f"{event.get('label', '')} {event.get('description', '')}".lower()
-
-        # Check if any emergency keyword appears
-        has_emergency_keyword = any(keyword in text for keyword in EMERGENCY_KEYWORDS)
-
-        if has_emergency_keyword:
-            # Raise severity to high if not already critical/high
-            classification = event.get('classification', {})
-            if classification.get('severity', '').lower() not in ['critical', 'high']:
-                classification['severity'] = 'high'
-                event['keyword_severity_detected'] = True
-
-    return events
-
-
-def _is_emergency(event: Dict) -> bool:
-    """Check if event is high-severity (severity critical or high)."""
-    classification = event.get('classification', {})
-    status = classification.get('severity', '').lower()
-    return status in ['critical', 'high']

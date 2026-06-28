@@ -1,8 +1,8 @@
 """
 Stage 4 Node: Event Extraction
 
-Extracts occurrences (non-volitional events) with emergency classification,
-urgency levels, triggers, and causal context.
+Extracts occurrences (non-volitional events) with origin classification,
+fluent transitions, and causal context.
 """
 
 from typing import Dict
@@ -36,18 +36,10 @@ def extract_events(state: TemporalDynamicsState) -> Dict:
             llm_trace=state.get('llm_trace', [])
         )
 
-        # Count high-severity events
-        emergency_count = sum(
-            1 for e in events
-            if e.get('classification', {}).get('severity', '').lower() in ['critical', 'high']
-        )
-
-        logger.info(f"[Stage 4] Extracted {len(events)} events ({emergency_count} emergency)")
+        logger.info(f"[Stage 4] Extracted {len(events)} events")
 
         # Build progress message
         message = f'✓ Extracted {len(events)} events'
-        if emergency_count > 0:
-            message += f' ({emergency_count} emergency)'
 
         # Return state updates (including accumulated llm_trace)
         return {

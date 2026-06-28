@@ -251,30 +251,25 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
         'proeth:temporalMarker': event.get('temporal_marker', 'Unknown time')
     }
 
-    # Add classification. eventType is the Event Calculus distinction between agent-caused
-    # (outcome), external (exogenous), and precondition-triggered (automatic_trigger)
-    # occurrences (Berreby et al. 2017). severity is a heuristic triage indicator of how
-    # serious the occurrence is, NOT a formal ontology category. The former separate
-    # urgencyLevel field was dropped 2026-05-31: it duplicated severity in every case.
+    # Add origin classification. eventType is the load-bearing Event Calculus origin signal
+    # (Berreby et al. 2017): "outcome" (agent-caused), "exogenous" (external), "automatic"
+    # (precondition-triggered). The commit bridge maps the value to the three disjoint origin
+    # subclasses (AgentCausedEvent / ExogenousEvent / AutomaticEvent). The per-event severity
+    # triage literal was dropped from the Event field set (extraction-architecture spec, E
+    # section): emergency salience is carried structurally by the RiskState / EmergencyState
+    # the event initiates, not by a per-event literal.
     classification = event.get('classification', {})
     if classification:
         rdf_entity['proeth:eventType'] = classification.get('event_type', 'unknown')
-        rdf_entity['proeth:severity'] = classification.get('severity', 'routine')
 
     # The constraint/obligation consequences of an event are NOT emitted as direct event
     # links: in the Event Calculus an event does not activate a constraint or create an
     # obligation directly, it initiates a STATE (fluent) that then makes the
     # constraint/obligation apply. That grounded two-step path is materialised by
     # fluent_edges.py (Event -> State) + state_edges.py (State activatesConstraint /
-    # activatesObligation -> the real Cs/O individual). The former proeth:activatesConstraint
-    # / proeth:createsObligation literals named free-text obligations/constraints that
-    # resolved to no extracted individual and duplicated that path, dropped 2026-05-31.
-
-    # State change (prose summary of what changed; the structured, grounded form is
-    # initiates / terminates, added by _add_fluent_and_time below).
-    triggers = event.get('triggers', {})
-    if triggers and triggers.get('state_change'):
-        rdf_entity['proeth:causesStateChange'] = triggers['state_change']
+    # activatesObligation -> the real Cs/O individual). The former free-text state-change
+    # prose was folded into the description (extraction-architecture spec, E section); the
+    # structured, grounded form is initiates / terminates, added by _add_fluent_and_time.
 
     # Add causal context
     causal = event.get('causal_context', {})

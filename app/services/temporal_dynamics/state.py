@@ -53,17 +53,18 @@ class TemporalDynamicsState(TypedDict):
     #   'professional_context': {...}
     # }]
 
-    # Stage 4: Events (occurrences, automatic triggers, outcomes)
+    # Stage 4: Events (occurrences, outcomes)
     events: List[Dict]
     # [{
     #   'label': str,
     #   'description': str,
     #   'temporal_marker': str,
     #   'source_section': str,
-    #   'classification': {...},
-    #   'urgency': {...},
-    #   'triggers': {...},
-    #   'causal_context': {...}
+    #   'classification': {'event_type': str},   # outcome | exogenous | automatic
+    #   'initiates': [str],
+    #   'terminates': [str],
+    #   'temporal_extent': str,                   # instant | interval
+    #   'causal_context': {'caused_by_action': str}
     # }]
 
     # Stage 5: Causal chains
