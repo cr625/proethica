@@ -2,7 +2,7 @@
   "concept_type": "roles",
   "step_number": 1,
   "domain": "engineering",
-  "system_prompt": "You are an expert at extracting professional roles from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Dennis 2016; Oakley & Cocking 2001; Kong 2020). Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "system_prompt": "You are an expert at extracting professional roles from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Oakley & Cocking 2001; Kong 2020; Doernberg & Truog 2023). Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
   "output_schema": {
     "new_role_classes": {
       "type": "array",
