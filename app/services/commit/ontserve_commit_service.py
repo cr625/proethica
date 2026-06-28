@@ -1071,15 +1071,13 @@ class OntServeCommitService:
     _CONCEPT_CATEGORY_CONFIG = {
         'roles':        [('role_category',       'roles',                  f'{PROETHICA_CORE}Role')],
         'principles':   [('principle_category',  'principles',             f'{PROETHICA_CORE}Principle')],
-        'obligations':  [('obligation_type',     'obligations',            f'{PROETHICA_CORE}Obligation'),
-                         ('enforcement_level',   'obligation_enforcement', None)],
+        'obligations':  [('obligation_type',     'obligations',            f'{PROETHICA_CORE}Obligation')],
         'states':       [('state_category',      'states',                 f'{PROETHICA_CORE}State')],
         'resources':    [('resource_category',   'resources',              f'{PROETHICA_CORE}Resource')],
         'actions':      [('action_category',     'actions',                f'{PROETHICA_CORE}Action')],
         'events':       [('event_category',      'events',                 f'{PROETHICA_CORE}Event')],
         'capabilities': [('capability_category', 'capabilities',           f'{PROETHICA_CORE}Capability')],
-        'constraints':  [('constraint_type',     'constraints',            f'{PROETHICA_CORE}Constraint'),
-                         ('flexibility',         'constraint_flexibility', None)],
+        'constraints':  [('constraint_type',     'constraints',            f'{PROETHICA_CORE}Constraint')],
     }
 
     def _resolve_subclass_uris(self, entity, rdf_data: Dict) -> list[str]:

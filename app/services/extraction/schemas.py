@@ -1092,12 +1092,6 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
     },
     # O: Obligation deontic modality -> intermediate subclass IRIs
     # (orthogonal axis, applied in addition to domain type)
-    'obligation_enforcement': {
-        'mandatory': f'{INTERMEDIATE_NS}MandatoryObligation',
-        'defeasible': f'{INTERMEDIATE_NS}DefeasibleObligation',
-        'conditional': f'{INTERMEDIATE_NS}ConditionalObligation',
-        'prima_facie': f'{INTERMEDIATE_NS}PrimaFacieObligation',
-    },
     # S: State categories -> base class (individual states are specific subclasses)
     # The match_decision field handles mapping to specific state subclasses
     # (ConflictOfInterest, PublicSafetyAtRisk, etc.)
@@ -1173,11 +1167,6 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
     },
     # Cs: Constraint defeasibility -> intermediate subclass IRIs
     # (orthogonal axis, applied in addition to boundary type)
-    'constraint_flexibility': {
-        'hard': f'{INTERMEDIATE_NS}InviolableConstraint',
-        'soft': f'{INTERMEDIATE_NS}DefeasibleConstraint',
-        'negotiable': f'{INTERMEDIATE_NS}DefeasibleConstraint',
-    },
 }
 
 # Specific ontology state subclasses grouped by category.
