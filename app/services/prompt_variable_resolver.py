@@ -701,18 +701,36 @@ _SHARED_ACTOR_SCOPE_DIRECTIVE = (
     "beyond their role, or act outside it when the case does not say so -- especially when the case or the "
     "board LIMITS that actor's role or finds them not qualified to make a given judgment. The duty to hold "
     "public safety paramount does not by itself license attaching escalation or oversight duties to an actor "
-    "the case does not hold to them. For example, from an intern's duty to report all material facts up to "
-    "their supervisor, do not synthesize an escalation duty to 'recognize and escalate systemic failure' "
-    "that the board never imposed."
+    "the case does not hold to them. And do not attribute to an actor a role or relationship the case does "
+    "not establish -- e.g. a supervisory or oversight role over another party when the case describes them as "
+    "a peer or partner (a firm that partners with a subcontractor is not its supervisor); attribute a duty "
+    "only in the role the case actually assigns. For example, from an intern's duty to report all material "
+    "facts up to their supervisor, do not synthesize an escalation duty to 'recognize and escalate systemic "
+    "failure' that the board never imposed."
+)
+# Quote fidelity + modality (all passes, added 2026-06-29 after the batch-1 review). The most pervasive
+# batch-1 finding: Opus gets the CONCEPTS right but composes/paraphrases its text_references instead of
+# copying exact spans, and hardens discretionary/conditional duties into unconditional ones (the two are
+# linked -- a hardened duty arrives with a fabricated quote, e.g. case 5's invented "must report" for the
+# case's "must decide whether to report"). This fixes the root in the prompt (the quote-grounding FILTER was
+# dropped for over-correcting). Scoped to HOW to quote, not WHETHER to extract, so it does not cut recall.
+_SHARED_FIDELITY_DIRECTIVE = (
+    "QUOTE VERBATIM, MATCH THE MODALITY: every text_references quote must be an EXACT contiguous span copied "
+    "from the case text -- never paraphrase, summarize, normalize, or stitch fragments together. (This "
+    "governs HOW you quote, not WHETHER to extract: if you are confident the case states a concept, emit it "
+    "anyway and quote the closest exact span.) And word each entity to match what the case states, including "
+    "the case's own modality -- if the case presents a duty as discretionary or conditional ('may', 'should "
+    "consider', 'must decide whether to', 'is not required until X'), keep that qualification; do not harden "
+    "it into an unconditional 'must'."
 )
 
 
 def _augment_pass_directive(base: str, section_type: str) -> str:
-    """Append the cross-cutting directives to a component's per-pass directive. The anti-fabrication and
-    actor-scope directives are appended on every pass; the respect-the-holdings and present-case scoping
-    directives are appended on the discussion pass only. Empty parts are dropped so a component with no base
-    per-pass directive (e.g. events) still receives them."""
-    parts = [base, _SHARED_NO_FABRICATION_DIRECTIVE, _SHARED_ACTOR_SCOPE_DIRECTIVE]
+    """Append the cross-cutting directives to a component's per-pass directive. The anti-fabrication,
+    actor-scope, and quote-fidelity directives are appended on every pass; the respect-the-holdings and
+    present-case scoping directives are appended on the discussion pass only. Empty parts are dropped so a
+    component with no base per-pass directive (e.g. events) still receives them."""
+    parts = [base, _SHARED_NO_FABRICATION_DIRECTIVE, _SHARED_ACTOR_SCOPE_DIRECTIVE, _SHARED_FIDELITY_DIRECTIVE]
     if (section_type or '').lower() == 'discussion':
         parts.append(_DISCUSSION_HOLDINGS_DIRECTIVE)
         parts.append(_DISCUSSION_PRESENT_CASE_DIRECTIVE)

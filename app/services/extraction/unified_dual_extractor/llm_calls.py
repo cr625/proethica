@@ -11,6 +11,7 @@ sibling methods (e.g. self._repair_truncated_json) and instance attributes
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict
 
 import anthropic
@@ -119,29 +120,53 @@ class LLMCallMixin:
                 stream_kwargs['output_config'] = {
                     "format": {"type": "json_schema", "schema": _schema}
                 }
-            try:
-                with client.messages.stream(**stream_kwargs) as stream:
-                    for text in stream.text_stream:
-                        chunks.append(text)
-                final_msg = stream.get_final_message()
-            except anthropic.BadRequestError as e:
-                # Structured outputs compiles the schema into a grammar with a size ceiling
-                # (the actions schema exceeds it: 400 "compiled grammar is too large"). Fall
-                # back to free-form for this concept and remember it so the failed call is not
-                # repeated. The free-form parse path below still applies.
-                if _use_so and 'grammar' in str(e).lower():
-                    _GRAMMAR_TOO_LARGE.add(self.concept_type)
-                    logger.warning(
-                        f"output_config grammar too large for {self.concept_type}; "
-                        f"falling back to free-form JSON for this concept"
+            # Transient server-side errors (overloaded / rate-limit / 5xx) surface mid-stream, and the SDK
+            # does not retry an already-started stream -- so wrap the stream attempt in a backoff retry. The
+            # batch-1 corpus run dropped a whole component (case-5 constraints) to a one-off overloaded_error;
+            # across 119 cases that would silently lose components, so retry the full call before giving up.
+            _MAX_TRANSIENT_RETRIES = 4
+            for _attempt in range(_MAX_TRANSIENT_RETRIES):
+                chunks = []
+                try:
+                    try:
+                        with client.messages.stream(**stream_kwargs) as stream:
+                            for text in stream.text_stream:
+                                chunks.append(text)
+                        final_msg = stream.get_final_message()
+                    except anthropic.BadRequestError as e:
+                        # Structured outputs compiles the schema into a grammar with a size ceiling
+                        # (the actions schema exceeds it: 400 "compiled grammar is too large"). Fall
+                        # back to free-form for this concept and remember it so the failed call is not
+                        # repeated. The free-form parse path below still applies.
+                        if _use_so and 'grammar' in str(e).lower():
+                            _GRAMMAR_TOO_LARGE.add(self.concept_type)
+                            logger.warning(
+                                f"output_config grammar too large for {self.concept_type}; "
+                                f"falling back to free-form JSON for this concept"
+                            )
+                            stream_kwargs.pop('output_config', None)
+                            chunks = []
+                            with client.messages.stream(**stream_kwargs) as stream:
+                                for text in stream.text_stream:
+                                    chunks.append(text)
+                            final_msg = stream.get_final_message()
+                        else:
+                            raise
+                    break  # got a complete response
+                except anthropic.APIStatusError as e:
+                    _msg = str(e).lower()
+                    _transient = (
+                        'overloaded' in _msg or 'rate_limit' in _msg
+                        or getattr(e, 'status_code', 0) in (429, 500, 502, 503, 529)
                     )
-                    stream_kwargs.pop('output_config', None)
-                    chunks = []
-                    with client.messages.stream(**stream_kwargs) as stream:
-                        for text in stream.text_stream:
-                            chunks.append(text)
-                    final_msg = stream.get_final_message()
-                else:
+                    if _transient and _attempt < _MAX_TRANSIENT_RETRIES - 1:
+                        _wait = min(2 ** _attempt, 20)
+                        logger.warning(
+                            f"transient API error for {self.concept_type} (attempt "
+                            f"{_attempt + 1}/{_MAX_TRANSIENT_RETRIES}, {type(e).__name__}); retrying in {_wait}s"
+                        )
+                        time.sleep(_wait)
+                        continue
                     raise
 
             response_text = "".join(chunks)
