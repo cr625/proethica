@@ -62,6 +62,9 @@ def extract_concept(
     step_number: int = 1,
     session_id: Optional[str] = None,
     injection_mode: str = 'full',
+    model: Optional[str] = None,
+    apply_filters: bool = True,
+    store: bool = True,
 ) -> ExtractionResult:
     """
     Extract a single concept from case text and store results.
@@ -77,6 +80,15 @@ def extract_concept(
         section_type: 'facts' or 'discussion'.
         step_number: Pipeline step (1, 2, or 3).
         session_id: Optional UUID; generated if not provided.
+        model: Optional Claude model id override. None (default) uses the
+            per-concept tier from ModelConfig (live behavior).
+        apply_filters: When True (default, live behavior) the deterministic
+            precedent/quote-grounding/individual-type filters run inside
+            UnifiedDualExtractor.extract. When False the parsed entities are
+            returned raw (used by the offline A/B audit harness).
+        store: When True (default, live behavior) results are persisted to
+            temporary_rdf_storage. When False storage is skipped, so an audit
+            run cannot mutate the live case data.
 
     Returns:
         ExtractionResult with classes, individuals, prompt, response, timing.
@@ -89,25 +101,29 @@ def extract_concept(
 
     start = time.time()
 
-    extractor = UnifiedDualExtractor(concept_type, injection_mode=injection_mode)
+    extractor = UnifiedDualExtractor(
+        concept_type, model=model, injection_mode=injection_mode,
+        apply_filters=apply_filters,
+    )
     classes, individuals = extractor.extract(
         case_text=case_text,
         case_id=case_id,
         section_type=section_type,
     )
 
-    store_extraction_result(
-        case_id=case_id,
-        concept_type=concept_type,
-        step_number=step_number,
-        section_type=section_type,
-        session_id=session_id,
-        extractor=extractor,
-        classes=classes,
-        individuals=individuals,
-        pass_number=step_number,
-        extraction_pass=extraction_pass,
-    )
+    if store:
+        store_extraction_result(
+            case_id=case_id,
+            concept_type=concept_type,
+            step_number=step_number,
+            section_type=section_type,
+            session_id=session_id,
+            extractor=extractor,
+            classes=classes,
+            individuals=individuals,
+            pass_number=step_number,
+            extraction_pass=extraction_pass,
+        )
 
     return ExtractionResult(
         concept_type=concept_type,

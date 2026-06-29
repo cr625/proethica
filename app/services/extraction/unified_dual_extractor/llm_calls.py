@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 class LLMCallMixin:
     """Streaming + tool-use LLM calls for UnifiedDualExtractor."""
 
+    def _maybe_temperature(self) -> Dict[str, Any]:
+        """Return ``{'temperature': ...}`` for models that accept the parameter, or an
+        empty dict for models that reject it (Opus 4.8 returns HTTP 400 if temperature is
+        passed; ModelConfig.TEMPERATURE_UNSUPPORTED tracks these). The default Sonnet/Haiku
+        path is unchanged -- it keeps the per-concept temperature. Spread into the stream
+        kwargs so the live path and any model override both respect the model's contract."""
+        from model_config import ModelConfig
+        if ModelConfig.supports_temperature(self.model_name):
+            return {'temperature': self.config['temperature']}
+        return {}
 
     # ------------------------------------------------------------------
     # LLM call
@@ -78,7 +88,7 @@ class LLMCallMixin:
             stream_kwargs = dict(
                 model=self.model_name,
                 max_tokens=self.config['max_tokens'],
-                temperature=self.config['temperature'],
+                **self._maybe_temperature(),
                 messages=[{"role": "user", "content": prompt}],
             )
             _system = (getattr(self, '_rendered_system', '') or '').strip()
@@ -196,7 +206,7 @@ class LLMCallMixin:
                 stream_kwargs = dict(
                     model=self.model_name,
                     max_tokens=self.config['max_tokens'],
-                    temperature=self.config['temperature'],
+                    **self._maybe_temperature(),
                     messages=messages,
                     tools=self.ONTOLOGY_LOOKUP_TOOLS,
                 )
@@ -308,7 +318,7 @@ class LLMCallMixin:
                 final_kwargs = dict(
                     model=self.model_name,
                     max_tokens=self.config['max_tokens'],
-                    temperature=self.config['temperature'],
+                    **self._maybe_temperature(),
                     messages=messages,
                 )
                 if _system:

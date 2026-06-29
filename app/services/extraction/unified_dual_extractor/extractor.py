@@ -53,6 +53,7 @@ class UnifiedDualExtractor(
         llm_client: Any = None,
         model: Optional[str] = None,
         injection_mode: str = 'full',
+        apply_filters: bool = True,
     ):
         if concept_type not in CONCEPT_CONFIG:
             raise ValueError(
@@ -108,6 +109,11 @@ class UnifiedDualExtractor(
 
         # -- Injection mode (Phase 2 label-only support) --
         self.injection_mode = injection_mode
+        # -- Deterministic extraction filters (default ON = live behavior). When
+        # False, .extract returns the parsed entities raw (precedent, quote-grounding,
+        # and individual/type filters are skipped). Used by the offline A/B audit
+        # harness to capture pre-filter extractions; the live pipeline leaves this True.
+        self.apply_filters = apply_filters
         self.tool_call_count = 0
         self.tool_call_log: List[Dict[str, Any]] = []
 
@@ -156,6 +162,47 @@ class UnifiedDualExtractor(
         # 3. Parse + validate
         classes, individuals = self._parse_and_validate(raw_json, case_id)
 
+        # 3a/3b. Deterministic precedent-contamination + quote-grounding filters.
+        # Gated by self.apply_filters (default True = live behavior); the offline
+        # A/B audit sets it False to capture the raw, pre-filter extraction.
+        if self.apply_filters:
+            classes, individuals = self._apply_text_filters(
+                classes, individuals, case_text, case_id, section_type)
+
+        # 4. Match against existing ontology classes
+        self._check_existing_matches(classes)
+
+        # 5. Collect ontology definitions for matched entities
+        self.ontology_definitions = self._collect_ontology_definitions(classes)
+
+        # 6. Link individuals to classes
+        self._link_individuals_to_classes(individuals, classes)
+
+        # 6b. Drop TYPES emitted as individuals (self-instance / wrong component).
+        # Gated by self.apply_filters (default True = live behavior); skipped in the
+        # offline A/B raw-capture path.
+        if self.apply_filters:
+            individuals = self._filter_types_as_individuals(
+                individuals, case_id, section_type)
+
+        elapsed = time.time() - start
+        logger.info(
+            f"Extracted {len(classes)} classes, {len(individuals)} individuals "
+            f"for {self.concept_type} in {elapsed:.1f}s"
+        )
+
+        return classes, individuals
+
+    # ------------------------------------------------------------------
+    # Deterministic filters (gated by self.apply_filters in extract())
+    # ------------------------------------------------------------------
+
+    def _apply_text_filters(self, classes, individuals, case_text, case_id, section_type):
+        """Steps 3a + 3b: precedent-contamination + quote-grounding filters.
+
+        Relocated verbatim from extract() so the live path (apply_filters=True) and
+        the offline raw-capture path (apply_filters=False, skips this) share one body.
+        Returns (classes, individuals)."""
         # 3a. Drop phantom entities pulled from cited precedent cases: they belong to the
         # precedent, not the case under analysis. One contamination check (precedent_filter)
         # covers three rules -- a citation marker in the label (e.g. "Defendant Attorney BER
@@ -237,23 +284,15 @@ class UnifiedDualExtractor(
         except Exception as e:
             logger.warning(f"quote-grounding filter skipped ({self.concept_type}): {e}")
 
-        # 4. Match against existing ontology classes
-        self._check_existing_matches(classes)
+        return classes, individuals
 
-        # 5. Collect ontology definitions for matched entities
-        self.ontology_definitions = self._collect_ontology_definitions(classes)
+    def _filter_types_as_individuals(self, individuals, case_id, section_type):
+        """Step 6b: drop TYPES emitted as individuals (self-instance / wrong component).
 
-        # 6. Link individuals to classes
-        self._link_individuals_to_classes(individuals, classes)
-
-        # 6b. Drop TYPES emitted as individuals: an individual that is a relabeling of
-        # its own class (a self-instance), or content that belongs to another
-        # component. The multi-purpose individual/type filter is generic across
-        # concept types via a CRITERIA row (it only runs for a type that has one),
-        # deterministic-first with one batched LLM call over the ambiguous remainder
-        # only. Runs here at extraction time so the dropped types never reach
-        # temporary_rdf_storage and the review UI shows the filtered set. Best-effort,
-        # like the precedent filter above: a failure never breaks extraction.
+        Relocated verbatim from extract(); the multi-purpose individual/type filter is
+        generic across concept types via a CRITERIA row (it only runs for a type that
+        has one), deterministic-first with one batched LLM call over the ambiguous
+        remainder only. Best-effort: a failure never breaks extraction. Returns individuals."""
         try:
             from app.services.extraction.individual_type_filter import filter_individuals, CRITERIA
             if self.concept_type in CRITERIA and individuals:
@@ -300,13 +339,7 @@ class UnifiedDualExtractor(
         except Exception as e:
             logger.warning(f"individual/type filter skipped for {self.concept_type}: {e}")
 
-        elapsed = time.time() - start
-        logger.info(
-            f"Extracted {len(classes)} classes, {len(individuals)} individuals "
-            f"for {self.concept_type} in {elapsed:.1f}s"
-        )
-
-        return classes, individuals
+        return individuals
 
     def get_last_raw_response(self) -> Optional[str]:
         """Return the last raw LLM response for RDF conversion."""
