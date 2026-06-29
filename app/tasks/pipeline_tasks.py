@@ -1238,26 +1238,40 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
             logger.info(f"[Task {self.request.id}] No entities to commit")
             return {'success': True, 'step': step_name, 'results': results}
 
-        # Commit-time verification gate: drop over-reaching duties and null-label classes BEFORE
-        # commit_selected_entities canonicalizes them into the extended ontology -- the exact point
-        # where an over-reaching class would otherwise be written with discoveredInCase and then
-        # injected back into later extractions (full-mode injection), recurring and reinforcing.
-        # PART 1 here: over-reach (votes=3, drop at 3/3) + null-label, using the direct
-        # entity_label/entity_definition columns. PART 2 (verbatim quote re-grounding of source_text
-        # in rdf_json_ld) is a staged follow-on; see verification_gate.GateResult.corrected_quotes.
-        from app.services.extraction.verification_gate import verify_case_entities
+        # Commit-time verification gate: the chokepoint just before commit_selected_entities
+        # canonicalizes classes into the extended ontology (where an over-reaching class would be
+        # written with discoveredInCase, then injected back into later extractions and recur). It
+        # (1) DROPS over-reaching duty classes (votes=3, drop at 3/3) and null-label classes by
+        # filtering entity_ids, and (2) RE-GROUNDS surviving entities' quotes to verified verbatim
+        # spans (rewriting the denormalized quote fields in rdf_json_ld), so nothing over-reaching
+        # canonicalizes and every committed quote is provably a span of the case.
+        from app.services.extraction.verification_gate import (
+            verify_case_entities, quotes_of, apply_corrected_quotes)
+        from sqlalchemy.orm.attributes import flag_modified
         _sec = get_case_sections(run.case_id)
         _case_text = (_sec.get('facts') or '') + '\n\n' + (_sec.get('discussion_full') or _sec.get('discussion') or '')
         _gate = verify_case_entities(
             [{'id': e.id, 'label': e.entity_label, 'definition': e.entity_definition,
               'component': (e.extraction_type or '').lower(), 'storage_type': e.storage_type,
-              'quotes': []} for e in entities],
+              'quotes': quotes_of(e.rdf_json_ld)} for e in entities],
             _case_text, run.case_id,
         )
         if _gate.dropped_ids:
             entity_ids = [i for i in entity_ids if i not in _gate.dropped_ids]
             logger.info(f"[verification-gate] case {run.case_id} dropped {len(_gate.dropped_ids)} "
                         f"pre-commit: {_gate.report['dropped_detail']}")
+        if _gate.corrected_quotes:
+            _by_id = {e.id: e for e in entities}
+            _regrounded = 0
+            for _eid, _spans in _gate.corrected_quotes.items():
+                _row = _by_id.get(_eid)
+                if _row is not None and _eid not in _gate.dropped_ids:
+                    _row.rdf_json_ld = apply_corrected_quotes(_row.rdf_json_ld, _spans)
+                    flag_modified(_row, 'rdf_json_ld')
+                    _regrounded += 1
+            if _regrounded:
+                db.session.commit()
+                logger.info(f"[verification-gate] case {run.case_id} re-grounded {_regrounded} entities to verbatim")
 
         commit_service = OntServeCommitService()
         result = commit_service.commit_selected_entities(run.case_id, entity_ids)

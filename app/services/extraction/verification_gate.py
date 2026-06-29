@@ -99,3 +99,34 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: s
     logger.info(f"[verification-gate] case {case_id}: {len(res.corrected_quotes)} re-grounded, "
                 f"{len(res.dropped)} dropped, {len(res.flagged)} flagged")
     return res
+
+
+def quotes_of(rdf_json_ld: Dict) -> List[str]:
+    """Extract an entity's quote list from temp_rdf rdf_json_ld for the gate input. Prefers the full
+    properties.textReferences list, falling back to the primary source_text."""
+    jl = rdf_json_ld or {}
+    q = (jl.get('properties') or {}).get('textReferences') or []
+    if not q and jl.get('source_text'):
+        q = [jl['source_text']]
+    return [s for s in q if s and str(s).strip()]
+
+
+def apply_corrected_quotes(rdf_json_ld: Dict, spans: List[str]) -> Dict:
+    """Return a copy of rdf_json_ld with EVERY quote-bearing field replaced by the verified verbatim
+    ``spans`` (from GateResult.corrected_quotes). The quote is denormalized across four fields and the
+    commit reads more than one (properties.textReferences -> proeth:textReferences; properties.sourceText
+    and the top-level source_texts/source_text -> proeth-prov:sourceText), so all are rewritten and no
+    paraphrase survives into the committed TTL. source_texts keeps its section keys, each mapped to the
+    primary span (per-quote section attribution is not recoverable from the grounding pass; the full set
+    is preserved in textReferences)."""
+    if not spans:
+        return rdf_json_ld
+    jl = dict(rdf_json_ld or {})
+    props = dict(jl.get('properties') or {})
+    props['textReferences'] = list(spans)
+    props['sourceText'] = list(spans)
+    jl['properties'] = props
+    jl['source_text'] = spans[0]
+    sections = list((jl.get('source_texts') or {}).keys()) or ['facts']
+    jl['source_texts'] = {sec: spans[0] for sec in sections}
+    return jl
