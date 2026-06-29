@@ -660,8 +660,9 @@ _PASS_DIRECTIVES = {
 # Cross-cutting extraction directives appended to EVERY component's per-pass directive (the {{ pass_directive }}
 # slot every component prompt renders). Routed through concept_ontology_slots so the live extractor and the
 # editor preview inject identical text, the same single-source guarantee the ontology slots already carry,
-# rather than a live-only append the preview would not show. _SHARED_NO_FABRICATION_DIRECTIVE rides every pass;
-# _DISCUSSION_HOLDINGS_DIRECTIVE rides the discussion pass only (so the facts pass is unaffected).
+# rather than a live-only append the preview would not show. _SHARED_NO_FABRICATION_DIRECTIVE +
+# _SHARED_ACTOR_SCOPE_DIRECTIVE ride every pass; _DISCUSSION_HOLDINGS_DIRECTIVE + _DISCUSSION_PRESENT_CASE_
+# DIRECTIVE ride the discussion pass only (so the facts pass gets only the two all-pass directives).
 _SHARED_NO_FABRICATION_DIRECTIVE = (
     "DO NOT FABRICATE CONCEPTS: extract only concepts the case actually articulates or asserts. Do not "
     "generalize a fact pattern into an abstract principle, obligation, or other concept the case does not "
@@ -688,14 +689,30 @@ _DISCUSSION_PRESENT_CASE_DIRECTIVE = (
     "cited prior opinion is admissible only as a Resource (a referenced document), never as a "
     "present-case role, state, principle, obligation, constraint, capability, action, or event."
 )
+# Actor-scope discipline (all passes, added 2026-06-29 after the 3-case transfer test). Targets a bounded,
+# systematic over-reach found on the must-report / must-escalate cases (case 4, case 57): the model infers an
+# escalation/oversight duty broader than what the case attributes to the specific actor (e.g. a
+# 'Systemic Failure Escalation Obligation' the board never imposed). The general no-fabrication directive did
+# not suppress it because the model rationalizes it as grounded in the public-safety canon; this names it.
+_SHARED_ACTOR_SCOPE_DIRECTIVE = (
+    "SCOPE A DUTY TO ITS ACTOR: attribute an obligation or constraint only as far as the case actually holds "
+    "the specific actor responsible. Do not expand a narrow, role-bound duty into a broader escalation, "
+    "recognition, oversight, or systemic-failure duty, and do not infer that an actor must escalate, report "
+    "beyond their role, or act outside it when the case does not say so -- especially when the case or the "
+    "board LIMITS that actor's role or finds them not qualified to make a given judgment. The duty to hold "
+    "public safety paramount does not by itself license attaching escalation or oversight duties to an actor "
+    "the case does not hold to them. For example, from an intern's duty to report all material facts up to "
+    "their supervisor, do not synthesize an escalation duty to 'recognize and escalate systemic failure' "
+    "that the board never imposed."
+)
 
 
 def _augment_pass_directive(base: str, section_type: str) -> str:
-    """Append the cross-cutting directives to a component's per-pass directive. The anti-fabrication directive
-    is appended on every pass; the respect-the-holdings and present-case scoping directives are appended on
-    the discussion pass only. Empty parts are dropped so a component with no base per-pass directive (e.g.
-    events) still receives them."""
-    parts = [base, _SHARED_NO_FABRICATION_DIRECTIVE]
+    """Append the cross-cutting directives to a component's per-pass directive. The anti-fabrication and
+    actor-scope directives are appended on every pass; the respect-the-holdings and present-case scoping
+    directives are appended on the discussion pass only. Empty parts are dropped so a component with no base
+    per-pass directive (e.g. events) still receives them."""
+    parts = [base, _SHARED_NO_FABRICATION_DIRECTIVE, _SHARED_ACTOR_SCOPE_DIRECTIVE]
     if (section_type or '').lower() == 'discussion':
         parts.append(_DISCUSSION_HOLDINGS_DIRECTIVE)
         parts.append(_DISCUSSION_PRESENT_CASE_DIRECTIVE)
