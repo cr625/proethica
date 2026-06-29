@@ -613,25 +613,22 @@ class CandidateActionClass(BaseCandidate):
     (``storage_type='class'``) - only individuals via the LangGraph path. This
     candidate-class model is retained for API symmetry with Steps 1-2 but is not
     populated by the live temporal pass.
+
+    Field set slimmed 2026-06-29 so the actions structured-output grammar fits the
+    Anthropic compiled-grammar ceiling (the 400 "compiled grammar is too large"; see
+    ``unified_dual_extractor/llm_calls.py``). The earlier volitional_nature,
+    professional_context, obligations_fulfilled, causal_implications, and
+    temporal_constraints fields were dropped: all are absent from the spec's Action
+    "Stored" set (extraction spec A section: actions carry no subtype and the A->O
+    linkage is the action-individual fulfills/violates/raises edge, not a class field),
+    none are read by any emitter/edge/temporal pass as a candidate-class field (the
+    rdf_converter ``obligations_fulfilled``/``professional_context`` reads are of the
+    Step-3 LangGraph nested ethical_context/professional_context dicts, a different data
+    structure), and all are 0-populated across the corpus (no action class rows exist).
+    action_category is retained as the typing axis the commit service reads (it falls
+    back to bare proeth-core:Action when absent, the spec's no-subtype outcome).
     """
     action_category: Optional[ActionCategory] = None
-    volitional_nature: Optional[str] = Field(
-        None,
-        description="How this reflects deliberate professional choice (Sarmiento)"
-    )
-    professional_context: Optional[str] = None
-    obligations_fulfilled: List[str] = Field(
-        default_factory=list,
-        description="Obligations this action type fulfills (A->O linkage)"
-    )
-    causal_implications: List[str] = Field(
-        default_factory=list,
-        description="Consequences of this action type"
-    )
-    temporal_constraints: List[str] = Field(
-        default_factory=list,
-        description="Timing requirements for this action type"
-    )
 
 
 class ActionIndividual(BaseModel):
