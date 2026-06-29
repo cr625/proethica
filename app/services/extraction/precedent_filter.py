@@ -165,12 +165,15 @@ PRECEDENT_RULES: RuleSet[EntityContext] = RuleSet(
              "precedent is legitimate content (a case_precedent resource), e.g. 'Defendant BER Case 19-3'",
              lambda c: c.concept_type not in PRECEDENT_AS_CONTENT_TYPES
              and is_precedent_reference(c.label)),
-        Rule("clean_label_precedent",
-             "fact concept (not a norm, not a precedent-as-content type) whose every supporting "
-             "quote sits in cited-precedent context",
-             lambda c: c.concept_type not in NORM_CONCEPT_TYPES
-             and c.concept_type not in PRECEDENT_AS_CONTENT_TYPES
-             and _all_quotes_are_precedent(c.quotes)),
+        # clean_label_precedent was RETIRED 2026-06-28 (unsound; A/B audit). It dropped a fact
+        # concept whenever EVERY supporting quote sat in cited-precedent context, conflating "the
+        # quote CITES a precedent" with "the entity BELONGS to a precedent". A legitimate present-case
+        # entity whose evidence happens to cite a prior BER case (e.g. case-7 "Precedent Reasoning
+        # Capability") was discarded on both models, with zero genuine precedent contamination in the
+        # case. Present-case scoping is now handled by the discussion-pass scoping prompt directive
+        # (_DISCUSSION_PRESENT_CASE_DIRECTIVE in prompt_variable_resolver.py), which instructs the
+        # extractor not to mint the prior case's actors/facts/reasoning as present-case entities. The
+        # high-precision label-marker and foreign-actor rules below remain.
         Rule("foreign_actor",
              "an engineer letter absent from the present case (a precedent actor)",
              lambda c: is_foreign_actor_entity(c.label, c.present_letters)),

@@ -15,6 +15,7 @@ CASE TEXT:
 {{ resource_schema }}
 
 RESOURCE EXTRACTION DIRECTIVES (rules the ontology enforces):
+- NEGATIVE BOUNDARY (class vs individual): a resource INDIVIDUAL is a specific, named or numbered, separately citable document or data artifact present in THIS case (for example 'NSPE Code of Ethics III.9', 'BER Case 90-6', 'NSPE Position Statement No. 10-1778', or 'Client W groundwater data'). A bare category of law, regulation, or standard ('state law', 'local safety regulations', 'professional design standards') is a CLASS, not an individual: emit it as a class and do not also mint an individual for it. Do not invent a document_title the case does not state.
 - resource_category is the controlled SOURCE KIND and the canonical typing signal. Set exactly one of ethical_code, professional_code, technical_standard, case_precedent, legal_resource, reference_material. It becomes the rdfs:subClassOf typing at commit (ethical_code is typed EthicalCode subClassOf Guideline subClassOf Resource; the other five subClassOf Resource), so a wrong kind collides with the disjointness axioms. It is a routing input, not stored as a literal. Do not invent a kind outside this set.
 - The source kind is the class identity. Do NOT fold topic, who used it, or the document title into the class label; those are context carried on their own fields.
 - document_title names the specific source document (e.g. "NSPE Code of Ethics", "ASCE Standard 7").

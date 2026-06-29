@@ -676,15 +676,29 @@ _DISCUSSION_HOLDINGS_DIRECTIVE = (
     "considers and then rejects. Do not extract as a fact (a state, constraint, obligation, or violation) "
     "anything the discussion explicitly finds did NOT occur or was NOT violated."
 )
+# Present-case scoping (discussion pass only, added 2026-06-28, A/B audit). Replaces the retired
+# precedent_filter clean_label_precedent rule (unsound), moving precedent scoping from a post-hoc
+# quote-provenance drop to an instruction the extractor follows up front: do not pull the cited prior
+# case's actors/facts/reasoning into the present case as entities.
+_DISCUSSION_PRESENT_CASE_DIRECTIVE = (
+    "PRESENT CASE ONLY: the matter under analysis is the present case. When the discussion recaps or "
+    "reasons about cited prior BER cases (for example 'BER Case 90-6', or 'unlike the situation of BER "
+    "Case 98-3'), do not extract the prior case's actors, facts, or the Board's reasoning about those "
+    "precedents as entities of the present case. Extract only entities of the present-case matter. A "
+    "cited prior opinion is admissible only as a Resource (a referenced document), never as a "
+    "present-case role, state, principle, obligation, constraint, capability, action, or event."
+)
 
 
 def _augment_pass_directive(base: str, section_type: str) -> str:
     """Append the cross-cutting directives to a component's per-pass directive. The anti-fabrication directive
-    is appended on every pass; the respect-the-holdings directive is appended on the discussion pass only.
-    Empty parts are dropped so a component with no base per-pass directive (e.g. events) still receives them."""
+    is appended on every pass; the respect-the-holdings and present-case scoping directives are appended on
+    the discussion pass only. Empty parts are dropped so a component with no base per-pass directive (e.g.
+    events) still receives them."""
     parts = [base, _SHARED_NO_FABRICATION_DIRECTIVE]
     if (section_type or '').lower() == 'discussion':
         parts.append(_DISCUSSION_HOLDINGS_DIRECTIVE)
+        parts.append(_DISCUSSION_PRESENT_CASE_DIRECTIVE)
     return '\n\n'.join(p for p in parts if p)
 
 

@@ -167,7 +167,7 @@ class UnifiedDualExtractor(
         # A/B audit sets it False to capture the raw, pre-filter extraction.
         if self.apply_filters:
             classes, individuals = self._apply_text_filters(
-                classes, individuals, case_text, case_id, section_type)
+                classes, individuals, case_id, section_type)
 
         # 4. Match against existing ontology classes
         self._check_existing_matches(classes)
@@ -197,12 +197,11 @@ class UnifiedDualExtractor(
     # Deterministic filters (gated by self.apply_filters in extract())
     # ------------------------------------------------------------------
 
-    def _apply_text_filters(self, classes, individuals, case_text, case_id, section_type):
-        """Steps 3a + 3b: precedent-contamination + quote-grounding filters.
+    def _apply_text_filters(self, classes, individuals, case_id, section_type):
+        """Step 3a: precedent-contamination filter (quote-grounding 3b removed 2026-06-29; see below).
 
-        Relocated verbatim from extract() so the live path (apply_filters=True) and
-        the offline raw-capture path (apply_filters=False, skips this) share one body.
-        Returns (classes, individuals)."""
+        Gated by self.apply_filters so the live path and the offline raw-capture path
+        (apply_filters=False, skips this) share one body. Returns (classes, individuals)."""
         # 3a. Drop phantom entities pulled from cited precedent cases: they belong to the
         # precedent, not the case under analysis. One contamination check (precedent_filter)
         # covers three rules -- a citation marker in the label (e.g. "Defendant Attorney BER
@@ -245,45 +244,15 @@ class UnifiedDualExtractor(
             except Exception:
                 logger.debug("precedent_filter provenance skipped", exc_info=True)
 
-        # 3b. Drop entities whose EVERY supporting quote is fabricated (absent from the case text) --
-        # a hallucination (e.g. a principle attested only by "bore responsible charge over AI-assisted
-        # design documents", which has no hits in the case). Deterministic substring + word-5-gram
-        # grounding check; same list-level drop pattern as the precedent filter, scoped to the section
-        # the LLM was told to quote from. Runs at extraction so fabrications never reach temp_rdf / the
-        # review UI. Best-effort: a failure never breaks extraction. A single grounded quote keeps the
-        # entity (precision-favoring); this catches fabricated QUOTES, not invented concepts whose
-        # quotes are real (the discussion-pass anti-fabrication directive covers those).
-        try:
-            from app.services.extraction.quote_grounding import (
-                build_grounding_index, drop_ungrounded_entities)
-            grounding = build_grounding_index(case_text)
-            if grounding.token_string:
-                classes, ung_c = drop_ungrounded_entities(
-                    classes, lambda c: getattr(c, 'label', None),
-                    lambda c: getattr(c, 'text_references', None), grounding)
-                individuals, ung_i = drop_ungrounded_entities(
-                    individuals, lambda i: getattr(i, 'identifier', None) or getattr(i, 'label', None),
-                    lambda i: getattr(i, 'text_references', None), grounding)
-                if ung_c or ung_i:
-                    logger.info(
-                        f"Quote-grounding filter ({self.concept_type}): dropped {len(ung_c)} class(es) "
-                        f"+ {len(ung_i)} individual(s) with all-fabricated quotes: {ung_c + ung_i}")
-                    try:
-                        from app.services.provenance_service import get_provenance_service
-                        get_provenance_service().track_pass(
-                            activity_type='filter', activity_name='quote_grounding_filter',
-                            case_id=case_id, agent_type='extraction_service',
-                            agent_name='quote_grounding_filter',
-                            execution_plan={'concept_type': self.concept_type, 'section': section_type,
-                                            'rule': 'drop entities whose every text_references quote is '
-                                                    'absent from the case text (fabricated)'},
-                            result={'dropped': ung_c + ung_i, 'dropped_classes': len(ung_c),
-                                    'dropped_individuals': len(ung_i)})
-                    except Exception:
-                        logger.debug("quote_grounding provenance skipped", exc_info=True)
-        except Exception as e:
-            logger.warning(f"quote-grounding filter skipped ({self.concept_type}): {e}")
-
+        # Quote-grounding (former step 3b) was REMOVED 2026-06-29 (user decision after the model A/B).
+        # It fired 0x on Sonnet (verbatim quotes always ground) and only over-corrected on Opus, dropping
+        # legitimate paraphrased obligations (e.g. Confidentiality, Safety) because Opus quotes the case
+        # abstractively. A semantic-grounding rewrite still could not separate faithful paraphrase from
+        # fabrication on Opus's output distribution (legitimate paraphrases scored cosine 0.46-0.69,
+        # overlapping where a same-domain fabrication would fall), and Opus does not fabricate: anti-
+        # fabrication is carried by the _SHARED_NO_FABRICATION_DIRECTIVE prompt directive. The (now
+        # semantic) quote_grounding module is retained for the offline A/B audit harness and as a
+        # candidate for commit-time / review-gate grounding, but is no longer wired into live extraction.
         return classes, individuals
 
     def _filter_types_as_individuals(self, individuals, case_id, section_type):
