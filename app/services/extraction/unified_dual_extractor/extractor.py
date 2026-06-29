@@ -198,6 +198,45 @@ class UnifiedDualExtractor(
             except Exception:
                 logger.debug("precedent_filter provenance skipped", exc_info=True)
 
+        # 3b. Drop entities whose EVERY supporting quote is fabricated (absent from the case text) --
+        # a hallucination (e.g. a principle attested only by "bore responsible charge over AI-assisted
+        # design documents", which has no hits in the case). Deterministic substring + word-5-gram
+        # grounding check; same list-level drop pattern as the precedent filter, scoped to the section
+        # the LLM was told to quote from. Runs at extraction so fabrications never reach temp_rdf / the
+        # review UI. Best-effort: a failure never breaks extraction. A single grounded quote keeps the
+        # entity (precision-favoring); this catches fabricated QUOTES, not invented concepts whose
+        # quotes are real (the discussion-pass anti-fabrication directive covers those).
+        try:
+            from app.services.extraction.quote_grounding import (
+                build_grounding_index, drop_ungrounded_entities)
+            grounding = build_grounding_index(case_text)
+            if grounding.token_string:
+                classes, ung_c = drop_ungrounded_entities(
+                    classes, lambda c: getattr(c, 'label', None),
+                    lambda c: getattr(c, 'text_references', None), grounding)
+                individuals, ung_i = drop_ungrounded_entities(
+                    individuals, lambda i: getattr(i, 'identifier', None) or getattr(i, 'label', None),
+                    lambda i: getattr(i, 'text_references', None), grounding)
+                if ung_c or ung_i:
+                    logger.info(
+                        f"Quote-grounding filter ({self.concept_type}): dropped {len(ung_c)} class(es) "
+                        f"+ {len(ung_i)} individual(s) with all-fabricated quotes: {ung_c + ung_i}")
+                    try:
+                        from app.services.provenance_service import get_provenance_service
+                        get_provenance_service().track_pass(
+                            activity_type='filter', activity_name='quote_grounding_filter',
+                            case_id=case_id, agent_type='extraction_service',
+                            agent_name='quote_grounding_filter',
+                            execution_plan={'concept_type': self.concept_type, 'section': section_type,
+                                            'rule': 'drop entities whose every text_references quote is '
+                                                    'absent from the case text (fabricated)'},
+                            result={'dropped': ung_c + ung_i, 'dropped_classes': len(ung_c),
+                                    'dropped_individuals': len(ung_i)})
+                    except Exception:
+                        logger.debug("quote_grounding provenance skipped", exc_info=True)
+        except Exception as e:
+            logger.warning(f"quote-grounding filter skipped ({self.concept_type}): {e}")
+
         # 4. Match against existing ontology classes
         self._check_existing_matches(classes)
 
