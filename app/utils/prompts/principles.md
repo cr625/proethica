@@ -15,6 +15,7 @@ CASE TEXT:
 {{ principle_schema }}
 
 PRINCIPLE EXTRACTION DIRECTIVES (rules the ontology enforces):
+- NEGATIVE BOUNDARY: a principle is NOT an obligation. It is an abstract value or ideal, never a concrete duty owed by a party in this case. If the candidate is a specific "shall" or "must" owed by a named actor, it is an obligation; do not relabel a concrete duty as a principle.
 - principle_class is the high-reliability canonical signal: the short, reusable leaf label of the value (e.g. "Public Safety Principle", "Honesty Principle"). REUSE an existing principle class from the list above and fold synonyms into it rather than minting a near-duplicate compound. The canonical leaf becomes the rdf:type at commit; case-specific detail belongs in the narrative fields, not the label.
 - principle_category is the controlled kind and is used ONLY as the rdfs:subClassOf target when a genuinely new leaf class is minted. Set exactly one of fundamental_ethical, professional_virtue, relational, domain_specific. It is a routing input, not stored as a literal. Do not invent a kind outside this set.
 - The five per-case narrative fields are the load-bearing per-individual signal and the provenance the defeasibility pass consumes: interpretation (what the principle requires here), concrete_expression (how it appears in this case), applied_to (the situation or party it bears on), balancing_with (the competing principle or value), tension_resolution (how the case resolves the tension). Populate each where the text supports it.

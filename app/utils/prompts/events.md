@@ -15,6 +15,7 @@ CASE TEXT:
 {{ event_schema }}
 
 EVENT EXTRACTION DIRECTIVES (rules the ontology enforces):
+- NEGATIVE BOUNDARY: an event is NOT an action. It is a non-deliberate occurrence or outcome, never an agent's deliberate act. If a named agent deliberately did the thing (e.g. a client "instructed to revise the design"), it is an action and belongs to the action pass, not an event.
 - event_type is the controlled ORIGIN and the load-bearing typing signal (Berreby/Sarmiento). Set exactly one of outcome (the result of a case agent's action), exogenous (external, not caused by any case agent), automatic (fires automatically when preconditions hold). It becomes the three-way subClassOf typing at commit (outcome to AgentCausedEvent, exogenous to ExogenousEvent, automatic to AutomaticEvent), so it carries weight for responsibility attribution: an exogenous event is no agent's doing, an outcome traces to an action. It is a routing input, not stored as a literal. Do not invent an origin outside this set.
 - label is a SHORT, GENERAL name of at most 4 words naming the KIND of event, not the case scenario: write "Structural Failure", not "Single-Client Conflict Mitigation Recognized". The label becomes the event's URI; put case-specific detail in the description.
 - description is 1-2 sentences carrying the case-specific detail.

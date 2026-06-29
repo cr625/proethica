@@ -15,6 +15,7 @@ CASE TEXT:
 {{ state_schema }}
 
 STATE EXTRACTION DIRECTIVES (rules the ontology enforces):
+- NEGATIVE BOUNDARY: a state is NOT a norm. It is a condition that HOLDS in the world, never a rule, duty, or value. If the candidate is something a party ought to do or a value the profession serves (e.g. reliance on a tool framed as a duty rather than as a condition), it is an obligation or a principle, not a state; do not emit it here.
 - state_category is the controlled content archetype and the load-bearing typing signal. Set exactly one of epistemic, risk, competence, emergency, conflict_of_interest, regulatory, temporal, resource, disclosure. It classifies the condition in the world (a RiskState is hazard exposure, an EpistemicState is an agent's knowledge condition), explicitly NOT the activatesObligation relation. The archetype becomes the rdfs:subClassOf typing at commit, so a wrong archetype collides with the disjointness axioms; it is a routing input, not stored as a literal. Do not invent an archetype outside this set.
 - Use a canonical, short, reusable state label and REUSE an existing state class from the list above. A discovered compound class must chain through its archetype (e.g. "Tool Reliance State" is a CompetenceState; "Confidential Information State" is a DisclosureState), so a specific label still lands on one of the nine.
 - persistence_type records whether the state is an inertial or non-inertial fluent (Berreby): inertial states persist until terminated, non-inertial states hold only momentarily.

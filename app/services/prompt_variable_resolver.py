@@ -657,6 +657,37 @@ _PASS_DIRECTIVES = {
 }
 
 
+# Cross-cutting extraction directives appended to EVERY component's per-pass directive (the {{ pass_directive }}
+# slot every component prompt renders). Routed through concept_ontology_slots so the live extractor and the
+# editor preview inject identical text, the same single-source guarantee the ontology slots already carry,
+# rather than a live-only append the preview would not show. _SHARED_NO_FABRICATION_DIRECTIVE rides every pass;
+# _DISCUSSION_HOLDINGS_DIRECTIVE rides the discussion pass only (so the facts pass is unaffected).
+_SHARED_NO_FABRICATION_DIRECTIVE = (
+    "DO NOT FABRICATE CONCEPTS: extract only concepts the case actually articulates or asserts. Do not "
+    "generalize a fact pattern into an abstract principle, obligation, or other concept the case does not "
+    "itself state. This is most acute for principles and obligations: a principle must be one the case "
+    "invokes as a value, not one synthesized from the facts (for example, do not turn the fact that an "
+    "engineer retired into a 'Mentor Dependency Transition Principle'). If the case does not name or assert "
+    "the concept, do not emit it."
+)
+_DISCUSSION_HOLDINGS_DIRECTIVE = (
+    "RESPECT THE HOLDINGS: when this discussion section is an adjudicating opinion (an NSPE Board of Ethical "
+    "Review opinion), extract the board's conclusion or holding, NOT the prosecutorial framing the board "
+    "considers and then rejects. Do not extract as a fact (a state, constraint, obligation, or violation) "
+    "anything the discussion explicitly finds did NOT occur or was NOT violated."
+)
+
+
+def _augment_pass_directive(base: str, section_type: str) -> str:
+    """Append the cross-cutting directives to a component's per-pass directive. The anti-fabrication directive
+    is appended on every pass; the respect-the-holdings directive is appended on the discussion pass only.
+    Empty parts are dropped so a component with no base per-pass directive (e.g. events) still receives them."""
+    parts = [base, _SHARED_NO_FABRICATION_DIRECTIVE]
+    if (section_type or '').lower() == 'discussion':
+        parts.append(_DISCUSSION_HOLDINGS_DIRECTIVE)
+    return '\n\n'.join(p for p in parts if p)
+
+
 # concept_type (plural, as the pipeline passes it) -> the core component class whose <Component>DefinitionShape
 # carries the controlled field contract. Roles is handled separately (it unions multiple shapes along its class
 # chain). Action has no shape (bare, per the spec). Modular: one builder reads ANY component's shape, so a new
@@ -712,7 +743,7 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
             'role_directives': _role_directives_block(),
             'role_category_vocab': _role_category_block(),
             'role_relationships': _role_relationships_block(),
-            'pass_directive': _PASS_DIRECTIVES.get(key, ''),
+            'pass_directive': _augment_pass_directive(_PASS_DIRECTIVES.get(key, ''), section_type),
         }
     comp = _COMPONENT_SHAPE.get(concept_type)
     if comp:
@@ -720,7 +751,8 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
         # the component's DefinitionShape. The per-component prompt body wires this in (Phase-3 migration).
         return {
             f'{comp.lower()}_schema': _component_schema_block(comp),
-            'pass_directive': _PASS_DIRECTIVES.get((concept_type, section_type), ''),
+            'pass_directive': _augment_pass_directive(
+                _PASS_DIRECTIVES.get((concept_type, section_type), ''), section_type),
         }
     return {}
 

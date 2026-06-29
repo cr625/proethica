@@ -15,6 +15,7 @@ CASE TEXT:
 {{ constraint_schema }}
 
 CONSTRAINT EXTRACTION DIRECTIVES (rules the ontology enforces):
+- NEGATIVE BOUNDARY: a constraint is NOT an obligation. It states a hard prohibition or limit (what must NOT be done), never a positive duty to act. If a candidate reads naturally as a positive "shall do X", it is an obligation; do not reword an obligation into a "must not" so as to emit it here.
 - POLARITY first: emit only a PROHIBITION or hard boundary. If the text states a positive duty ("was required to", "shall", "must do"), that is an obligation, redirect it to the obligation pass and do NOT emit it here. A constraint says what must not be done.
 - constraint_type is the controlled boundary type and the typing signal. Set exactly one of legal, regulatory, resource, competence, jurisdictional, procedural, safety, confidentiality, ethical, temporal, priority. It becomes the rdfs:subClassOf typing at commit, so a wrong boundary type collides with the disjointness axioms; a compound becomes a boundary-type subclass with the specificity carried in the label and definition. Do not invent a type outside this set.
 - constraint_statement is the prohibition (the operative "must not" clause), stated for this case. It becomes the skos:definition / rdfs:comment.
