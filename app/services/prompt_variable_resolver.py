@@ -582,6 +582,21 @@ def _component_exclude_directive(component: str) -> str:
             f"Do NOT emit as {art} {component} what is really {others}. Redirect each to the pass that owns it.")
 
 
+def _component_individuation_directive(component: str) -> str:
+    """The class-vs-individual individuation for <component>, read from its skos:scopeNote in
+    proethica-core.ttl (the SAME text the OntServe entity page shows) and framed as an extraction
+    directive. Single source: the ontology scope note, not a sentence hand-kept per prompt. Returns ''
+    when the component has no scopeNote yet, so the slot stays inert until the note is authored (the
+    directive trio P/O/Cs first, then the other categories). Raises on unreadable TTL."""
+    import rdflib
+    from rdflib.namespace import SKOS
+    CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+    g = rdflib.Graph()
+    g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
+    note = next((str(o) for o in g.objects(CORE[component], SKOS.scopeNote)), None)
+    return f"- INDIVIDUATION (from the ontology scope note): {note}" if note else ''
+
+
 def _role_category_block() -> str:
     """The controlled role_category vocabulary: the FOUR Kong relational categories with their
     audience-relationship cues and the directed actor edge each implies. role_category is the nullable
@@ -824,6 +839,7 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
         return {
             f'{comp.lower()}_schema': _component_schema_block(comp),
             f'{comp.lower()}_boundary': _component_exclude_directive(comp),
+            f'{comp.lower()}_individuation': _component_individuation_directive(comp),
             'pass_directive': _augment_pass_directive(
                 _PASS_DIRECTIVES.get((concept_type, section_type), ''), section_type),
         }

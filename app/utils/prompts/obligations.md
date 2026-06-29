@@ -15,7 +15,8 @@ CASE TEXT:
 {{ obligation_schema }}
 
 OBLIGATION EXTRACTION DIRECTIVES (rules the ontology enforces):
-- NEGATIVE BOUNDARY: an obligation is NOT a principle and NOT a constraint. It is a concrete positive duty owed by a party, distinct from the abstract value behind it (a principle) and from a hard prohibition (a constraint). If the candidate is an abstract value, redirect it to the principle pass; if it is a "must not", redirect it to the constraint pass.
+{{ obligation_boundary }}
+{{ obligation_individuation }}
 - obligation_type is the controlled typing signal. Set exactly one of the NSPE categories disclosure, safety, competence, confidentiality, reporting, collegial, legal, ethical. The category becomes the rdfs:subClassOf core:Obligation typing at commit, so a wrong category collides with the disjointness axioms rather than passing silently. Do not invent a category outside this set.
 - obligated_party names the duty-bearer: the stable actor identity who bears the obligation (e.g. "Engineer A"), reused from the roles pass, not a role label. It resolves to the obligatedParty edge at commit; name the actor, do not describe the duty here.
 - derived_from_principle names the principle the duty operationalizes (the P side of R->P->O). It resolves to the derivedFromPrinciple edge. Use a principle label from the cross-concept context above where one fits.
