@@ -1238,6 +1238,27 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
             logger.info(f"[Task {self.request.id}] No entities to commit")
             return {'success': True, 'step': step_name, 'results': results}
 
+        # Commit-time verification gate: drop over-reaching duties and null-label classes BEFORE
+        # commit_selected_entities canonicalizes them into the extended ontology -- the exact point
+        # where an over-reaching class would otherwise be written with discoveredInCase and then
+        # injected back into later extractions (full-mode injection), recurring and reinforcing.
+        # PART 1 here: over-reach (votes=3, drop at 3/3) + null-label, using the direct
+        # entity_label/entity_definition columns. PART 2 (verbatim quote re-grounding of source_text
+        # in rdf_json_ld) is a staged follow-on; see verification_gate.GateResult.corrected_quotes.
+        from app.services.extraction.verification_gate import verify_case_entities
+        _sec = get_case_sections(run.case_id)
+        _case_text = (_sec.get('facts') or '') + '\n\n' + (_sec.get('discussion_full') or _sec.get('discussion') or '')
+        _gate = verify_case_entities(
+            [{'id': e.id, 'label': e.entity_label, 'definition': e.entity_definition,
+              'component': (e.extraction_type or '').lower(), 'storage_type': e.storage_type,
+              'quotes': []} for e in entities],
+            _case_text, run.case_id,
+        )
+        if _gate.dropped_ids:
+            entity_ids = [i for i in entity_ids if i not in _gate.dropped_ids]
+            logger.info(f"[verification-gate] case {run.case_id} dropped {len(_gate.dropped_ids)} "
+                        f"pre-commit: {_gate.report['dropped_detail']}")
+
         commit_service = OntServeCommitService()
         result = commit_service.commit_selected_entities(run.case_id, entity_ids)
 
