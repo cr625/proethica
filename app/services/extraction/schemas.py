@@ -29,6 +29,7 @@ Cross-references:
 
 from __future__ import annotations
 
+import copy
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
@@ -1294,6 +1295,86 @@ CONCEPT_MODELS: Dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     'capabilities': (CandidateCapabilityClass, CapabilityIndividual),
     'constraints': (CandidateConstraintClass, ConstraintIndividual),
 }
+
+# ---------------------------------------------------------------------------
+# Structured-output schema cleaning
+# ---------------------------------------------------------------------------
+# Anthropic structured outputs (output_config.format = json_schema) constrains
+# the model so it cannot emit unparseable JSON, but the grammar accepts only a
+# subset of JSON Schema. model_json_schema() emits several keywords the grammar
+# rejects: Pydantic Field constraints (ge/le -> minimum/maximum, max_length ->
+# maxLength, ...) and the implicit additionalProperties. to_structured_output_schema
+# rewrites a model's emitted schema into the accepted subset so it can be passed
+# as output_config.format.schema. $defs/$ref, enum, const, anyOf/allOf/oneOf, and
+# string format are supported and are preserved unchanged.
+
+#: JSON Schema constraint keywords the structured-outputs grammar does not accept.
+_STRUCTURED_OUTPUT_UNSUPPORTED_KEYS = frozenset({
+    'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
+    'minLength', 'maxLength', 'pattern',
+    'minItems', 'maxItems',
+})
+
+#: Schema keys whose values are themselves schema nodes (or maps/lists of them)
+#: and must be walked recursively.
+_STRUCTURED_OUTPUT_MAP_KEYS = ('properties', '$defs', 'definitions', 'patternProperties')
+_STRUCTURED_OUTPUT_LIST_KEYS = ('anyOf', 'allOf', 'oneOf', 'prefixItems')
+_STRUCTURED_OUTPUT_NODE_KEYS = ('items', 'additionalProperties', 'not')
+
+
+def _clean_structured_output_node(node: Any) -> Any:
+    """Recursively strip unsupported constraints and enforce object closure.
+
+    Drops every key in _STRUCTURED_OUTPUT_UNSUPPORTED_KEYS, descends into
+    $defs/properties/items/anyOf/allOf/oneOf, and on every object node (``type``
+    == ``object`` or a node carrying ``properties``) sets ``additionalProperties``
+    to ``False`` and lists every property in ``required``. The Anthropic grammar
+    is OpenAI-style strict: an object's ``required`` must name all of its
+    properties (verified empirically against the API, 2026-06-29). Pydantic
+    encodes ``Optional`` fields as ``anyOf[..., {"type": "null"}]``, so requiring
+    them is safe -- the value may still be null. $ref/enum/const/format/
+    description/title are preserved.
+    """
+    if isinstance(node, list):
+        return [_clean_structured_output_node(child) for child in node]
+    if not isinstance(node, dict):
+        return node
+
+    cleaned: Dict[str, Any] = {}
+    for key, value in node.items():
+        if key in _STRUCTURED_OUTPUT_UNSUPPORTED_KEYS:
+            continue
+        if key in _STRUCTURED_OUTPUT_MAP_KEYS and isinstance(value, dict):
+            cleaned[key] = {
+                name: _clean_structured_output_node(sub)
+                for name, sub in value.items()
+            }
+        elif key in _STRUCTURED_OUTPUT_LIST_KEYS and isinstance(value, list):
+            cleaned[key] = [_clean_structured_output_node(sub) for sub in value]
+        elif key in _STRUCTURED_OUTPUT_NODE_KEYS and isinstance(value, (dict, list)):
+            cleaned[key] = _clean_structured_output_node(value)
+        else:
+            cleaned[key] = value
+
+    is_object = cleaned.get('type') == 'object' or 'properties' in cleaned
+    if is_object:
+        cleaned['additionalProperties'] = False
+        cleaned['required'] = list(cleaned.get('properties', {}).keys())
+
+    return cleaned
+
+
+def to_structured_output_schema(model: type[BaseModel]) -> Dict[str, Any]:
+    """Return ``model.model_json_schema()`` rewritten for Anthropic structured outputs.
+
+    The returned dict is a deep copy with unsupported numeric/string/array
+    constraints removed and ``additionalProperties: false`` + all-properties-
+    ``required`` set on every object node, ready to pass as the schema in
+    ``output_config={"format": {"type": "json_schema", "schema": ...}}``.
+    """
+    raw = copy.deepcopy(model.model_json_schema())
+    return _clean_structured_output_node(raw)
+
 
 #: D-Tuple extraction step groupings.
 EXTRACTION_STEPS = {

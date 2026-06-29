@@ -99,9 +99,19 @@ class UnifiedDualExtractor(
         self.template = self._load_template()
 
         # -- Pydantic schemas --
-        from app.services.extraction.schemas import CONCEPT_SCHEMAS, CONCEPT_MODELS
+        from app.services.extraction.schemas import (
+            CONCEPT_SCHEMAS, CONCEPT_MODELS, to_structured_output_schema,
+        )
         self.result_schema = CONCEPT_SCHEMAS[concept_type]
         self.class_model, self.individual_model = CONCEPT_MODELS[concept_type]
+        # Structured-outputs schema, computed once: the cleaned JSON Schema handed to the
+        # main LLM call as output_config.format so a complete response is guaranteed to be
+        # parseable JSON. None when no result_schema is available, in which case _call_llm
+        # falls back to the free-form (no output_config) path.
+        self._structured_output_schema = (
+            to_structured_output_schema(self.result_schema)
+            if self.result_schema is not None else None
+        )
 
         # -- Response caching for RDF conversion --
         self.last_raw_response: Optional[str] = None

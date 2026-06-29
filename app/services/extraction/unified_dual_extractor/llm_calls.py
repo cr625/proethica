@@ -94,6 +94,18 @@ class LLMCallMixin:
             _system = (getattr(self, '_rendered_system', '') or '').strip()
             if _system:
                 stream_kwargs['system'] = _system
+            # Structured outputs: constrain the model to the cleaned result schema so a
+            # complete response is guaranteed-parseable JSON. Without it, Opus 4.8 can
+            # emit JSON that extract_json_from_response cannot recover, silently dropping
+            # every entity (e.g. all obligations on case 7). output_config guarantees
+            # FORMAT only -- a max_tokens cut still truncates, so the truncation-repair
+            # branch below is retained and extract_json_from_response now succeeds on the
+            # first try. Skipped (free-form fallback) when no result_schema is set.
+            _schema = getattr(self, '_structured_output_schema', None)
+            if _schema is not None:
+                stream_kwargs['output_config'] = {
+                    "format": {"type": "json_schema", "schema": _schema}
+                }
             with client.messages.stream(**stream_kwargs) as stream:
                 for text in stream.text_stream:
                     chunks.append(text)
