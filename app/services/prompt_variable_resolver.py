@@ -559,6 +559,29 @@ def _role_directives_block() -> str:
     return "\n".join(D)
 
 
+# Generalization of the D-EXCLUDE pairwise boundary (the role block above) to ALL nine D-tuple components,
+# so each component prompt derives its typing boundary from the same owl:AllDisjointClasses single source
+# the role prompt uses, replacing the hard-coded NEGATIVE BOUNDARY directives in the per-component .md files.
+# The example phrasing reuses _ROLE_EXCLUDE_EXAMPLES (the eight non-role components) plus a Role phrasing.
+_COMPONENT_EXCLUDE_EXAMPLES = dict(_ROLE_EXCLUDE_EXAMPLES, Role="a professional position or identity")
+
+
+def _component_exclude_directive(component: str) -> str:
+    """The pairwise typing boundary for <component>, DERIVED from the nine-way owl:AllDisjointClasses over
+    the D-tuple components in proethica-core.ttl. Single source: the disjointness axiom, not a sentence
+    hand-kept per prompt. Replaces the per-component NEGATIVE BOUNDARY directives. Raises on unreadable TTL."""
+    import rdflib
+    CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+    g = rdflib.Graph()
+    g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
+    components = sorted(str(s).split('#')[-1] for s in g.subjects(CORE.dtupleComponent, None))
+    others = "; ".join(f"{_COMPONENT_EXCLUDE_EXAMPLES[c]} ({c})"
+                       for c in components if c != component and c in _COMPONENT_EXCLUDE_EXAMPLES)
+    art = 'an' if component[:1].lower() in 'aeiou' else 'a'
+    return (f"- NEGATIVE BOUNDARY: the nine D-tuple components are mutually disjoint (owl:AllDisjointClasses). "
+            f"Do NOT emit as {art} {component} what is really {others}. Redirect each to the pass that owns it.")
+
+
 def _role_category_block() -> str:
     """The controlled role_category vocabulary: the FOUR Kong relational categories with their
     audience-relationship cues and the directed actor edge each implies. role_category is the nullable
@@ -800,6 +823,7 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
         # the component's DefinitionShape. The per-component prompt body wires this in (Phase-3 migration).
         return {
             f'{comp.lower()}_schema': _component_schema_block(comp),
+            f'{comp.lower()}_boundary': _component_exclude_directive(comp),
             'pass_directive': _augment_pass_directive(
                 _PASS_DIRECTIVES.get((concept_type, section_type), ''), section_type),
         }
