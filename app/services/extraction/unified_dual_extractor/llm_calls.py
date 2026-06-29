@@ -13,9 +13,18 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+import anthropic
+
 from app.utils.llm_utils import extract_json_from_response
 
 logger = logging.getLogger(__name__)
+
+# Concept types whose cleaned result schema compiles to a structured-outputs grammar that exceeds the
+# API's size ceiling (a 400 "compiled grammar is too large"). Learned at runtime on the first such 400
+# so the failed call is not repeated; those concepts fall back to free-form JSON for the rest of the
+# process. The actions schema (richest field set, the only one with a real DB template) is the known
+# case; the rest fit. Slimming the actions schema so it also gets the guarantee is a follow-up.
+_GRAMMAR_TOO_LARGE: set = set()
 
 
 class LLMCallMixin:
@@ -102,18 +111,42 @@ class LLMCallMixin:
             # branch below is retained and extract_json_from_response now succeeds on the
             # first try. Skipped (free-form fallback) when no result_schema is set.
             _schema = getattr(self, '_structured_output_schema', None)
-            if _schema is not None:
+            _use_so = (
+                _schema is not None
+                and self.concept_type not in _GRAMMAR_TOO_LARGE
+            )
+            if _use_so:
                 stream_kwargs['output_config'] = {
                     "format": {"type": "json_schema", "schema": _schema}
                 }
-            with client.messages.stream(**stream_kwargs) as stream:
-                for text in stream.text_stream:
-                    chunks.append(text)
+            try:
+                with client.messages.stream(**stream_kwargs) as stream:
+                    for text in stream.text_stream:
+                        chunks.append(text)
+                final_msg = stream.get_final_message()
+            except anthropic.BadRequestError as e:
+                # Structured outputs compiles the schema into a grammar with a size ceiling
+                # (the actions schema exceeds it: 400 "compiled grammar is too large"). Fall
+                # back to free-form for this concept and remember it so the failed call is not
+                # repeated. The free-form parse path below still applies.
+                if _use_so and 'grammar' in str(e).lower():
+                    _GRAMMAR_TOO_LARGE.add(self.concept_type)
+                    logger.warning(
+                        f"output_config grammar too large for {self.concept_type}; "
+                        f"falling back to free-form JSON for this concept"
+                    )
+                    stream_kwargs.pop('output_config', None)
+                    chunks = []
+                    with client.messages.stream(**stream_kwargs) as stream:
+                        for text in stream.text_stream:
+                            chunks.append(text)
+                    final_msg = stream.get_final_message()
+                else:
+                    raise
 
             response_text = "".join(chunks)
             self.last_raw_response = response_text
 
-            final_msg = stream.get_final_message()
             stop_reason = final_msg.stop_reason
             logger.info(
                 f"LLM stream complete: {final_msg.usage.input_tokens} in / "
