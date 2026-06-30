@@ -1,0 +1,93 @@
+{
+  "system_prompt": "",
+  "output_schema": {
+    "actions": {
+      "type": "array",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": true
+        },
+        "confidence": {
+          "type": "number",
+          "required": true,
+          "description": "0.0-1.0"
+        },
+        "action_type": {
+          "type": "string",
+          "required": true,
+          "description": "Communication, Prevention, Maintenance, Performance, Evaluation, Collaboration, Creation, Monitoring"
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "pass_integration": {
+          "type": "object",
+          "fields": {
+            "constrained_by": {
+              "type": "array"
+            },
+            "appropriate_states": {
+              "type": "array"
+            },
+            "fulfills_obligations": {
+              "type": "array"
+            },
+            "requires_capabilities": {
+              "type": "array"
+            }
+          },
+          "required": true
+        },
+        "volitional_nature": {
+          "type": "string",
+          "required": true,
+          "description": "Explanation of deliberate choice involved"
+        },
+        "professional_context": {
+          "type": "string",
+          "required": true,
+          "description": "How action operates within professional practice"
+        },
+        "temporal_relationship": {
+          "type": "object",
+          "fields": {
+            "becomes_event": {
+              "type": "string"
+            },
+            "triggered_by_events": {
+              "type": "array"
+            }
+          },
+          "required": false
+        }
+      },
+      "description": "Array of action entities"
+    }
+  },
+  "variable_builders": {
+    "case_text": {
+      "description": "Case text to analyze"
+    },
+    "section_type": {
+      "values": [
+        "facts",
+        "discussion"
+      ],
+      "description": "Section type"
+    },
+    "existing_actions_text": {
+      "description": "Existing actions from ontology"
+    }
+  },
+  "step_number": 3,
+  "domain": "engineering",
+  "passes": {
+    "all": {
+      "name": "Dual Actions Extraction",
+      "description": "Extract new action classes and action instances from case text",
+      "template_file": "actions.md"
+    }
+  }
+}
