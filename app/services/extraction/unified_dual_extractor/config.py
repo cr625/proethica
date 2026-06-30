@@ -42,7 +42,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
         'step': 1,
         'model_tier': 'default',
         'temperature': 0.3,
-        'max_tokens': 8192,
+        'max_tokens': 16384,  # bumped from 8192: the verbose v11 BFO-role prompt truncated on case 7
         'classes_key': 'new_role_classes',
         'individuals_key': 'role_individuals',
         'class_ref_field': 'role_class',
