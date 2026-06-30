@@ -151,3 +151,108 @@ def grounding_summary(verdicts: List[QuoteVerdict]) -> Dict[str, int]:
         "unsupported": sum(len(v.unsupported) for v in verdicts),
         "entities_with_a_fabricated_quote": sum(1 for v in verdicts if v.unsupported),
     }
+
+
+# ----------------------------------------------------------------------------------------------------
+# Over-reach detection: the verifier's SECOND check.
+#
+# The modality/scope over-reach (a duty stated broader or harder than the case holds) is the issue a
+# prompt directive could NOT reliably prevent -- case 8's "Proactive Risk Disclosure ... before risks
+# are fully quantified" and "Corrective Action Monitoring ... during periods of suspended work"
+# survived the modality directive, and a keyword scan missed them because the violation lives in the
+# DEFINITION, not the label. An LLM reading the definition against the case and the board's holding
+# catches it. Unlike the code-guaranteed verbatim check, this is LLM JUDGMENT, so it supports
+# multi-vote: run N independent passes and flag on majority. The limiting_quote it cites is confirmed
+# to be a real case substring, so a flag points at an actual holding, never a hallucinated one.
+# ----------------------------------------------------------------------------------------------------
+
+_OVERREACH_SCHEMA = {
+    "type": "object", "additionalProperties": False, "required": ["results"],
+    "properties": {"results": {"type": "array", "items": {
+        "type": "object", "additionalProperties": False,
+        "required": ["id", "overreach", "reason", "limiting_quote"],
+        "properties": {
+            "id": {"type": "integer"},
+            "overreach": {"type": "boolean"},
+            "reason": {"type": "string"},
+            "limiting_quote": {"type": "string"},
+        },
+    }}},
+}
+
+
+@dataclass
+class OverreachVerdict:
+    label: str
+    overreach: bool
+    votes_for: int
+    votes_total: int
+    reason: str
+    limiting_quote: str   # verbatim case span that limits the duty (confirmed substring), or ""
+
+
+def _overreach_once(case_text: str, duty_entities: List[Dict], model: str) -> Dict[int, tuple]:
+    """One judgment pass. Returns {entity_index: (overreach, reason, limiting_quote)}."""
+    lines = [f'[{i}] {e.get("label")} -- {e.get("definition") or ""}' for i, e in enumerate(duty_entities)]
+    prompt = (
+        "Check extracted ethics duties for OVER-REACH. Below is a case (its facts and the board's "
+        "discussion/holding), then extracted obligations and constraints, each with a label and "
+        "definition.\n\n"
+        "For each entity decide whether its definition asserts a duty BROADER or STRONGER than the case "
+        "actually holds the actor responsible for. Over-reach includes: a duty attributed to an actor or "
+        "role the case does not establish; an escalation, oversight, or systemic-failure duty the board "
+        "does not impose; a duty asserted unconditionally or as a mandate where the case makes it "
+        "conditional or discretionary ('not required until X', 'may', 'should consider', 'must decide "
+        "whether to'). A duty the case genuinely holds, at the scope and strength the case states, is NOT "
+        "over-reach.\n\n"
+        "For each id return: overreach (true/false); reason (one sentence); and limiting_quote (the EXACT "
+        "verbatim span from the case or the board's holding that limits or contradicts the asserted duty, "
+        "or an empty string when not over-reach).\n\n"
+        f"CASE (facts + discussion/holding):\n{case_text}\n\nENTITIES:\n" + "\n".join(lines)
+    )
+    from app.utils.llm_utils import get_llm_client
+    client = get_llm_client()
+    if not client:
+        raise RuntimeError("detect_overreach: no LLM client available")
+    chunks: List[str] = []
+    with client.messages.stream(
+        model=model, max_tokens=4000,
+        messages=[{"role": "user", "content": prompt}],
+        output_config={"format": {"type": "json_schema", "schema": _OVERREACH_SCHEMA}},
+    ) as stream:
+        for t in stream.text_stream:
+            chunks.append(t)
+    data = json.loads("".join(chunks))
+    return {r["id"]: (bool(r["overreach"]), r.get("reason", ""), r.get("limiting_quote", ""))
+            for r in data.get("results", [])}
+
+
+def detect_overreach(case_text: str, duty_entities: List[Dict], model: str = 'claude-opus-4-8',
+                     votes: int = 1) -> List[OverreachVerdict]:
+    """Flag duty entities (obligations + constraints) whose definition over-reaches what the case holds.
+
+    LLM judgment, so it supports multi-vote: runs ``votes`` independent passes and flags an entity when
+    a strict majority call it over-reach (votes=1 is a single pass). The limiting quote is taken from a
+    flagging pass and confirmed to be a real case substring, so the flag cites an actual holding."""
+    ts = " ".join(_tokens(case_text))
+    tally: List[List[tuple]] = [[] for _ in duty_entities]
+    for _ in range(max(1, votes)):
+        res = _overreach_once(case_text, duty_entities, model)
+        for i in range(len(duty_entities)):
+            tally[i].append(res.get(i, (False, "", "")))
+
+    verdicts: List[OverreachVerdict] = []
+    for i, e in enumerate(duty_entities):
+        passes = tally[i]
+        n_over = sum(1 for o, _, _ in passes if o)
+        reason, lim = "", ""
+        for o, r, q in passes:
+            if o:
+                reason = reason or r
+                if not lim and q and _verbatim(q, ts):
+                    lim = q
+        verdicts.append(OverreachVerdict(
+            label=str(e.get('label') or '?'),
+            overreach=(n_over * 2 > len(passes)),
+            votes_for=n_over, votes_total=len(passes), reason=reason, limiting_quote=lim))
+    return verdicts
