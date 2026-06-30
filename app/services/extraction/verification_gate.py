@@ -46,7 +46,8 @@ class GateResult:
 def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: str = 'claude-opus-4-8') -> GateResult:
     """Decide the commit fate of a case's entities.
 
-    ``entities``: dicts with 'id', 'label', 'definition', 'quotes' (list), 'component' (extraction_type).
+    ``entities``: dicts with 'id', 'label', 'definition', 'quotes' (list), 'component' (extraction_type),
+    'storage_type' ('class'|'individual'), and 'class_ref' (the class label a duty individual instantiates).
     Returns a GateResult; the caller applies the drops and quote rewrites. Pure / no side effects."""
     res = GateResult()
 
@@ -68,14 +69,16 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: s
                 # the quote set changed (some re-grounded and/or some unsupported dropped)
                 res.corrected_quotes[e.get('id')] = v.kept_verbatim + v.regrounded
 
-    # 2. Over-reach over the surviving duty CLASSES (obligations + constraints), multi-vote. Restricted
-    #    to classes because only classes canonicalize into the extended ontology -- that is where the
-    #    injection feedback loop lives. An over-reaching individual is a per-case quality issue, not a
-    #    loop one, and is left to the verbatim/backfill pass.
+    # 2. Over-reach over the surviving duty CLASSES (obligations + constraints), multi-vote. Detection runs
+    #    on classes because that is where the canonicalization/injection loop lives. The DROP then cascades
+    #    to the duty individuals that instantiate a dropped class (step 2b), so an over-reaching duty does not
+    #    survive as a committed individual -- including when the individual matched a PRE-EXISTING (dirty)
+    #    class of the same label rather than minting a new one, which the class-only drop would miss.
     duties = [e for e in live
               if (e.get('component') or '').lower() in _DUTY_COMPONENTS
               and (e.get('storage_type') or 'class') == 'class'
               and e.get('id') not in res.dropped_ids]
+    overreach_dropped_labels = set()
     if duties:
         overs = detect_overreach(case_text, duties, model=model, votes=_OVERREACH_VOTES)
         for e, v in zip(duties, overs):
@@ -84,8 +87,22 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: s
             if v.votes_for >= _OVERREACH_DROP_AT:
                 res.dropped.append((e.get('id'), e.get('label'),
                                     f'over-reach ({v.votes_for}/{v.votes_total}): {v.reason}'))
+                overreach_dropped_labels.add(str(e.get('label') or '').strip())
             else:
                 res.flagged.append((e.get('id'), e.get('label'), v.reason, v.limiting_quote))
+
+    # 2b. Cascade the over-reach drop to the duty INDIVIDUALS that instantiate a dropped class (matched by
+    #     their class_ref label). The class drop alone breaks the loop, but a matched over-reaching individual
+    #     would still commit and assert the duty; dropping it keeps the over-reach out of the committed case.
+    if overreach_dropped_labels:
+        for e in live:
+            if e.get('id') in res.dropped_ids:
+                continue
+            if (e.get('component') or '').lower() in _DUTY_COMPONENTS \
+               and (e.get('storage_type') or '') == 'individual' \
+               and str(e.get('class_ref') or '').strip() in overreach_dropped_labels:
+                res.dropped.append((e.get('id'), e.get('label'),
+                                    f"over-reach cascade: instance of dropped class '{e.get('class_ref')}'"))
 
     res.report = {
         'case_id': case_id,
@@ -109,6 +126,18 @@ def quotes_of(rdf_json_ld: Dict) -> List[str]:
     if not q and jl.get('source_text'):
         q = [jl['source_text']]
     return [s for s in q if s and str(s).strip()]
+
+
+def class_ref_of(rdf_json_ld: Dict) -> str:
+    """The class label a duty individual instantiates, from temp_rdf rdf_json_ld (properties.*Class), for
+    the over-reach cascade -- so an individual whose duty class was dropped for over-reach can be dropped
+    with it, even when it matched a pre-existing class of that label rather than minting a new one."""
+    props = (rdf_json_ld or {}).get('properties') or {}
+    for k in ('obligationClass', 'constraintClass'):
+        v = props.get(k)
+        if v:
+            return str(v[0] if isinstance(v, list) else v).strip()
+    return ''
 
 
 def apply_corrected_quotes(rdf_json_ld: Dict, spans: List[str]) -> Dict:
