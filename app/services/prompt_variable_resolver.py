@@ -843,6 +843,15 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
             'pass_directive': _augment_pass_directive(
                 _PASS_DIRECTIVES.get((concept_type, section_type), ''), section_type),
         }
+    if concept_type == 'actions':
+        # Action has no SHACL DefinitionShape (bare, per the spec), so no {{ action_schema }} slot; it
+        # still gets the disjointness boundary + the scope-note individuation derived from the ontology.
+        return {
+            'action_boundary': _component_exclude_directive('Action'),
+            'action_individuation': _component_individuation_directive('Action'),
+            'pass_directive': _augment_pass_directive(
+                _PASS_DIRECTIVES.get(('actions', section_type), ''), section_type),
+        }
     return {}
 
 
