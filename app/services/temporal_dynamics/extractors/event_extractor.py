@@ -127,6 +127,14 @@ def _build_event_extraction_prompt(
     for action in actions[:10]:  # Limit to first 10 actions to avoid token overflow
         action_summary.append(f"- {action.get('label', 'Unknown')} (by {action.get('agent', 'Unknown')})")
 
+    # Ontology-sourced typing boundary (disjointness + scope-note individuation), single-sourced from
+    # the ontology via concept_ontology_slots so the live Step-4 typing matches the other components.
+    # concept_ontology_slots reads the ontology TTL/SHACL files, so it works without a Flask app context
+    # (this extractor runs inside the context-free LangGraph pipeline).
+    from app.services.prompt_variable_resolver import concept_ontology_slots
+    _slots = concept_ontology_slots('events', 'all')
+    typing_block = "\n".join(s for s in (_slots.get('event_boundary'), _slots.get('event_individuation')) if s).strip()
+
     prompt = f"""You are analyzing an engineering ethics case to extract EVENTS (occurrences, not volitional decisions).
 
 CASE NARRATIVE:
@@ -138,6 +146,9 @@ ACTIONS ALREADY IDENTIFIED:
 ---
 
 Extract all EVENTS (occurrences, outcomes, automatic occurrences - NOT volitional decisions).
+
+TYPING (rules the ontology enforces):
+{typing_block}
 
 For each event, identify:
 
