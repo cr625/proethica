@@ -199,6 +199,16 @@ class OntServeCommitService:
             label = f"{label.rstrip()} Role"
         return local_name, label
 
+    @staticmethod
+    def _safe_local_name(label: str) -> str:
+        """Label -> URI local-name: keep only [A-Za-z0-9], dropping spaces, hyphens, and every other
+        punctuation mark. An allowlist, not the former hand-enumerated denylist, so no character is ever
+        forgotten -- the denylist missed the hyphen and minted 'CompetenceSelf-AssessmentCapability' where
+        the curated base has 'CompetenceSelfAssessmentCapability'. That mismatch defeated both the class
+        matcher and the D15 base-residence check, leaking a duplicate class into the extended store."""
+        import re
+        return re.sub(r'[^A-Za-z0-9]', '', label or '')
+
     def _record_edge_provenance(self, case_id, edge_result):
         """Record the commit-time edge materialization (per family) + the unified guard as
         provenance PASSES, so the record shows the post-extraction graph construction, not only
@@ -469,10 +479,9 @@ class OntServeCommitService:
             for entity, rdf_data in classes:
                 # Use entity attributes directly
                 label = entity.entity_label or 'UnknownClass'
-                # Sanitize label for valid URI: remove quotes, parens, and other special chars
-                safe_label = label.replace(" ", "").replace("(", "").replace(")", "")
-                safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
-                safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+                # Sanitize label -> URI local-name via the shared allowlist (drops spaces, hyphens, and
+                # all punctuation; see _safe_local_name for why a denylist was the wrong shape here).
+                safe_label = self._safe_local_name(label)
                 # Category-aware disambiguation: never mint a class IRI that the
                 # immutable base reserves for a disjoint category (e.g. a Principle
                 # onto proeth:ProfessionalCompetence, a base Capability).
@@ -789,7 +798,7 @@ class OntServeCommitService:
                             class_name = type_uri.split('#')[-1]
                         else:
                             class_name = type_uri.split('/')[-1]
-                        safe_class = class_name.replace(" ", "").replace("(", "").replace(")", "")
+                        safe_class = self._safe_local_name(class_name)
                         # Category-aware disambiguation (mirrors the class-commit
                         # path): a Principle individual must not be typed to an IRI
                         # the base reserves for a disjoint category. Disambiguating
@@ -1680,9 +1689,7 @@ class OntServeCommitService:
 
                 for entity, rdf_data in classes:
                     label = entity.entity_label or 'UnknownClass'
-                    safe_label = label.replace(" ", "").replace("(", "").replace(")", "")
-                    safe_label = safe_label.replace('"', '').replace("'", "").replace(",", "")
-                    safe_label = safe_label.replace("<", "").replace(">", "").replace("&", "")
+                    safe_label = self._safe_local_name(label)
                     # Category-aware disambiguation (same rule as the TTL commit paths).
                     safe_label = self._category_safe_class_local(safe_label, self._get_concept_category(entity))
 
@@ -1859,7 +1866,7 @@ class OntServeCommitService:
                             class_name = type_uri.split('#')[-1]
                         else:
                             class_name = type_uri.split('/')[-1]
-                        safe_class = class_name.replace(" ", "").replace("(", "").replace(")", "")
+                        safe_class = self._safe_local_name(class_name)
                         # Category-aware disambiguation (same rule as the append +
                         # class-commit paths): never type to an IRI the base reserves
                         # for a disjoint category.
