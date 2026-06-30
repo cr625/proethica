@@ -15,7 +15,8 @@ CASE TEXT:
 {{ capability_schema }}
 
 CAPABILITY EXTRACTION DIRECTIVES (rules the ontology enforces):
-- NEGATIVE BOUNDARY: a capability is NOT an obligation and NOT an action. It is a competence the actor HAS, never a duty the actor owes nor an act the actor performs (e.g. a "Disclosure Capability" that is really a duty to disclose belongs to the obligation pass). If the candidate is owed or performed rather than possessed, redirect it.
+{{ capability_boundary }}
+{{ capability_individuation }}
 - capability_class is the canonical competence KIND and the controlled typing signal. Use a tool/actor-neutral head-noun label (e.g. "Structural Analysis Capability", "Ethical Reasoning Capability"), REUSE an existing capability class from the list above, and fold synonyms into it rather than minting a near-duplicate. The kind becomes the rdfs:subClassOf typing at commit. Do not put the tool, the actor, or the case scenario in the label.
 - GOVERNING directive: extract ONLY a competence the agent POSSESSES or exercises. A lacked, insufficient, or unexercised competence is NOT a capability and must not be emitted here. The competence gap is captured separately downstream as a state; do not mint a capability for it.
 - possessed_by names the agent who holds or exercises the capability (e.g. "Engineer A"), reused from the roles pass. It resolves to the possessedBy edge at commit; name the actor, not a role label.
