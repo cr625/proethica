@@ -27,8 +27,10 @@ from app.services.extraction.extraction_verifier import verify_and_reground, det
 logger = logging.getLogger(__name__)
 
 _DUTY_COMPONENTS = {'obligations', 'constraints'}
-_OVERREACH_VOTES = 3
-_OVERREACH_DROP_AT = 3   # drop only when all votes agree; flag-and-keep below that
+_OVERREACH_VOTES = 5
+_OVERREACH_DROP_AT = 4   # supermajority of a 5-vote panel: cuts the run-to-run variance a 3/3-unanimous
+                         # threshold suffered (a single dissenter no longer blocks a clear over-reach),
+                         # while 4/5 keeps false drops near zero. Below 4/5 is flagged, not dropped.
 
 
 @dataclass
