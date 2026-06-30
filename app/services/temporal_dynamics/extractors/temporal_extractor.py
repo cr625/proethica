@@ -97,13 +97,12 @@ JSON Response:"""
     try:
         # Capture timestamp before LLM call
         call_timestamp = datetime.utcnow().isoformat()
-        model_name = ModelConfig.get_claude_model('default')
+        model_name = ModelConfig.get_claude_model('powerful')
 
         # Use Anthropic messages API (streaming to prevent WSL2 TCP idle timeout)
         with llm_client.messages.stream(
             model=model_name,
             max_tokens=4000,
-            temperature=0.3,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             response = stream.get_final_message()
@@ -151,7 +150,7 @@ JSON Response:"""
             'timestamp': datetime.utcnow().isoformat(),
             'prompt': prompt if 'prompt' in locals() else '',
             'response': f'ERROR: {str(e)}',
-            'model': ModelConfig.get_claude_model('default'),
+            'model': ModelConfig.get_claude_model('powerful'),
             'parsed_output': error_analysis,
             'tokens': {}
         }

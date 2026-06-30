@@ -40,7 +40,7 @@ CONCEPT_TYPE_TO_CORE_CATEGORY: Dict[str, str] = {
 CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     'roles': {
         'step': 1,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.3,
         'max_tokens': 16384,  # bumped from 8192: the verbose v11 BFO-role prompt truncated on case 7
         'classes_key': 'new_role_classes',
@@ -49,7 +49,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'states': {
         'step': 1,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.3,
         'max_tokens': 8192,
         'classes_key': 'new_state_classes',
@@ -58,7 +58,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'resources': {
         'step': 1,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.3,
         'max_tokens': 8192,
         'classes_key': 'new_resource_classes',
@@ -67,7 +67,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'principles': {
         'step': 2,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.5,
         'max_tokens': 16384,
         'classes_key': 'new_principle_classes',
@@ -76,7 +76,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'obligations': {
         'step': 2,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.2,
         'max_tokens': 16384,
         'classes_key': 'new_obligation_classes',
@@ -85,7 +85,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'constraints': {
         'step': 2,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.2,
         'max_tokens': 16384,
         'classes_key': 'new_constraint_classes',
@@ -94,7 +94,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'capabilities': {
         'step': 2,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.2,
         'max_tokens': 16384,
         'classes_key': 'new_capability_classes',
@@ -103,7 +103,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'actions': {
         'step': 3,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.7,
         'max_tokens': 8192,
         'classes_key': 'new_action_classes',
@@ -112,7 +112,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'events': {
         'step': 3,
-        'model_tier': 'default',
+        'model_tier': 'powerful',
         'temperature': 0.7,
         'max_tokens': 8192,
         'classes_key': 'new_event_classes',

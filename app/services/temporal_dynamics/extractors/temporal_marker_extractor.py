@@ -106,7 +106,7 @@ Focus on precision. If unsure about a temporal marker, note it as "approximate" 
 JSON Response:"""
 
     # Record prompt in trace
-    model_name = ModelConfig.get_claude_model('default')
+    model_name = ModelConfig.get_claude_model('powerful')
     trace_entry = {
         'stage': 'temporal_markers',
         'timestamp': datetime.utcnow().isoformat(),
@@ -120,7 +120,6 @@ JSON Response:"""
         with llm_client.messages.stream(
             model=model_name,
             max_tokens=4000,
-            temperature=0.3,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             response = stream.get_final_message()

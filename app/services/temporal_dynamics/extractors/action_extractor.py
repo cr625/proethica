@@ -56,7 +56,7 @@ def extract_actions_with_metadata(
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
         llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
-        model_name = ModelConfig.get_claude_model('default')
+        model_name = ModelConfig.get_claude_model('powerful')
         logger.info(f"[Stage 3] Initialized Anthropic client with model {model_name}")
     except Exception as e:
         logger.error(f"[Stage 3] Failed to initialize LLM client: {e}")
@@ -90,7 +90,6 @@ def _call_llm_with_streaming(
     with llm_client.messages.stream(
         model=model_name,
         max_tokens=8000,
-        temperature=0.7,
         messages=[{"role": "user", "content": prompt}]
     ) as stream:
         response = stream.get_final_message()
