@@ -523,11 +523,11 @@ class ResourceCategory(str, Enum):
 
     The canonical identity of a resource is its source kind; topic, who-used, and which-document
     are context, not class identity. ethical_code is typed EthicalCode subClassOf Guideline
-    subClassOf Resource; the other five subClassOf Resource. Replaces the earlier seven-value
-    typology: expert_interpretation and decision_tool are folded away and ethical_code is added.
+    subClassOf Resource; the other four subClassOf Resource. professional_code was MERGED into
+    ethical_code (2026-07-01): both denoted a profession's code of ethics as a document; the legacy
+    value still maps to EthicalCode but the LLM is no longer offered it.
     """
     ethical_code = "ethical_code"
-    professional_code = "professional_code"
     technical_standard = "technical_standard"
     case_precedent = "case_precedent"
     legal_resource = "legal_resource"
@@ -1128,7 +1128,7 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
     # Rs: the six closed source kinds (spec, 2026-06-28); ethical_code added, expert_interpretation +
     # decision_tool retired. EthicalCode subClassOf Guideline subClassOf Resource.
     'resources': {
-        'professional_code': f'{INTERMEDIATE_NS}ProfessionalCode',
+        'professional_code': f'{INTERMEDIATE_NS}EthicalCode',  # legacy alias: merged into EthicalCode 2026-07-01
         'technical_standard': f'{INTERMEDIATE_NS}TechnicalStandard',
         'case_precedent': f'{INTERMEDIATE_NS}CasePrecedent',
         'legal_resource': f'{INTERMEDIATE_NS}LegalResource',
