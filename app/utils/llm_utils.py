@@ -36,7 +36,7 @@ def streaming_completion(client, model: str, max_tokens: int, prompt: str,
         stream_kwargs["temperature"] = temperature
     with client.messages.stream(**stream_kwargs) as stream:
         response = stream.get_final_message()
-    return response.content[0].text
+    return text_from_message(response)
 
 def text_from_message(message) -> str:
     """Text of an Anthropic message, robust to extended-thinking content blocks.

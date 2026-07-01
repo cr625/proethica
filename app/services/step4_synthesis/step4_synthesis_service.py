@@ -858,7 +858,8 @@ def _run_transformation(case_id: int, llm_client, get_all_case_entities) -> dict
                     step_number=4,
                     section_type='synthesis',
                     prompt_text=classifier.last_prompt,
-                    llm_model=ModelConfig.get_claude_model("default"),
+                    # The classifier itself calls the powerful tier; record the model actually used.
+                    llm_model=ModelConfig.get_claude_model("powerful"),
                     extraction_session_id=session_id,
                     raw_response=getattr(classifier, 'last_response', ''),
                     results_summary=json.dumps({'transformation_type': result.transformation_type, 'confidence': result.confidence})
