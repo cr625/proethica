@@ -50,6 +50,16 @@ class ModelConfig:
         "claude-fable-5",
     }
 
+    # Models that run extended thinking when the `thinking` param is omitted (Fable 5:
+    # always-on, cannot be disabled; Sonnet 5: adaptive by default). Thinking tokens
+    # draw from the SAME max_tokens budget as the visible text, so a per-call budget
+    # sized for the text alone truncates the text mid-generation. Opus 4.8 omits
+    # thinking when the param is absent, so it is not in this set.
+    THINKING_ON_BY_DEFAULT = {
+        "claude-sonnet-5",
+        "claude-fable-5",
+    }
+
     # Model selection based on use case
     @classmethod
     def get_claude_model(cls, use_case="default"):
@@ -60,6 +70,11 @@ class ModelConfig:
     def supports_temperature(cls, model: str) -> bool:
         """Whether `model` accepts the `temperature` parameter (some newer models reject it)."""
         return model not in cls.TEMPERATURE_UNSUPPORTED
+
+    @classmethod
+    def thinking_on_by_default(cls, model: str) -> bool:
+        """Whether `model` spends thinking tokens out of max_tokens without being asked."""
+        return model in cls.THINKING_ON_BY_DEFAULT
     
     @classmethod
     def get_openai_model(cls, use_case="chat"):

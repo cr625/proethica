@@ -24,6 +24,13 @@ def streaming_completion(client, model: str, max_tokens: int, prompt: str,
 
     Returns the full response text.
     """
+    from model_config import ModelConfig
+    # Thinking-by-default models (Fable 5, Sonnet 5) spend thinking tokens from the same
+    # max_tokens budget as the text, so a budget sized for the text alone truncates the
+    # text mid-generation (observed: Fable 5 cut the transformation-classifier JSON at
+    # max_tokens=1500). Floor the budget so thinking + text both fit; a cap is not a spend.
+    if ModelConfig.thinking_on_by_default(model):
+        max_tokens = max(max_tokens, 16000)
     stream_kwargs = dict(
         model=model,
         max_tokens=max_tokens,
@@ -31,7 +38,6 @@ def streaming_completion(client, model: str, max_tokens: int, prompt: str,
     )
     # Some models (e.g. Opus 4.8) reject `temperature` (HTTP 400). Pass it only when
     # supported, so this shared helper works across every tier its callers use.
-    from model_config import ModelConfig
     if ModelConfig.supports_temperature(model):
         stream_kwargs["temperature"] = temperature
     with client.messages.stream(**stream_kwargs) as stream:
