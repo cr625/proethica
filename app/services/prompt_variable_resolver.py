@@ -787,10 +787,14 @@ _COMPONENT_SHAPE = {
 
 
 def _component_schema_block(component_class: str) -> str:
-    """Generic {{ <concept>_schema }} field contract, read from the component's SHACL <Component>DefinitionShape
-    in core-shapes.ttl -- the same single-source pattern as _role_schema_block, so a component prompt's
-    controlled field list stays in lockstep with the ontology and the OntServe entity page. Raises on an
-    unreadable shapes file or a shape with no fields (a real misconfiguration, not silently swallowed)."""
+    """Generic {{ <concept>_schema }} field contract, read from the component's SHACL shapes in
+    core-shapes.ttl -- the same single-source pattern as _role_schema_block, so a component prompt's
+    controlled field list stays in lockstep with the ontology and the OntServe entity page. Reads the
+    <Component>DefinitionShape (type-level fields) and, when present, the <Component>PropertyShape (per-case
+    individual fields), and labels the two sections so the model is told which fields classify the type
+    versus which it reads from the case (the Role template). Components without a PropertyShape render the
+    flat definitional list unchanged. Raises on an unreadable shapes file or a Definition shape with no
+    fields (a real misconfiguration, not silently swallowed)."""
     import os
     from pathlib import Path
     import rdflib
@@ -801,19 +805,32 @@ def _component_schema_block(component_class: str) -> str:
     PCSH = rdflib.Namespace('http://proethica.org/shapes/core#')
     g = rdflib.Graph()
     g.parse(shapes, format='turtle')
-    rows = []
-    for pshape in g.objects(PCSH[f'{component_class}DefinitionShape'], SH.property):
-        name = next(g.objects(pshape, SH.name), None)
-        if name is None:
-            continue
-        desc = next(g.objects(pshape, SH.description), None)
-        order = next(g.objects(pshape, SH.order), None)
-        rows.append((int(order) if order is not None else 999, str(name), str(desc) if desc else ''))
-    if not rows:
+
+    def fields(shape: str):
+        rows = []
+        for pshape in g.objects(PCSH[shape], SH.property):
+            name = next(g.objects(pshape, SH.name), None)
+            if name is None:
+                continue
+            desc = next(g.objects(pshape, SH.description), None)
+            order = next(g.objects(pshape, SH.order), None)
+            rows.append((int(order) if order is not None else 999, str(name), str(desc) if desc else ''))
+        return [f'- {n}: {d}' for _o, n, d in sorted(rows)]
+
+    definitional = fields(f'{component_class}DefinitionShape')
+    per_case = fields(f'{component_class}PropertyShape')
+    if not definitional:
         raise RuntimeError(f"{component_class}DefinitionShape has no fields in core-shapes.ttl (Phase-1 shape missing?)")
     lines = [f'=== {component_class.upper()} SCHEMA (the controlled fields, from the SHACL '
-             f'{component_class}DefinitionShape; single source with the OntServe entity page) ===']
-    lines += [f'- {n}: {d}' for _o, n, d in sorted(rows)]
+             f'{component_class} shapes; single source with the OntServe entity page) ===']
+    # Only demarcate when there is a per-case section; otherwise emit the flat list (identical to before)
+    # so components without a PropertyShape are unchanged.
+    if per_case:
+        lines.append('Class fields (what individuates the type):')
+    lines += definitional
+    if per_case:
+        lines.append('Per-case fields (what the case supplies about this individual):')
+        lines += per_case
     return '\n'.join(lines)
 
 
