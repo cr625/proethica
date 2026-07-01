@@ -47,6 +47,7 @@ class ModelConfig:
     TEMPERATURE_UNSUPPORTED = {
         "claude-opus-4-8",
         "claude-sonnet-5",
+        "claude-fable-5",
     }
 
     # Model selection based on use case
