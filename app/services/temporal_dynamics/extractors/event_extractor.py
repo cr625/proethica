@@ -17,6 +17,7 @@ from model_config import ModelConfig
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 
 import os
+from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ def extract_events_with_classification(
             response = stream.get_final_message()
 
         # Extract response content
-        response_text = response.content[0].text
+        response_text = text_from_message(response)
 
         # Record response in trace
         trace_entry['response'] = response_text

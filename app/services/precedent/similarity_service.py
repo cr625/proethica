@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from app import db
 from model_config import ModelConfig
+from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +320,7 @@ class PrecedentSimilarityService:
             )
 
             # Parse weights from response
-            weights = self._parse_weight_response(response.content[0].text)
+            weights = self._parse_weight_response(text_from_message(response))
             return weights
 
         except Exception as e:

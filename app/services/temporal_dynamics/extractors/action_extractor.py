@@ -20,6 +20,7 @@ import os
 from model_config import ModelConfig
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from datetime import datetime
+from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ def _call_llm_with_streaming(
     ) as stream:
         response = stream.get_final_message()
 
-    return response.content[0].text, response
+    return text_from_message(response), response
 
 
 def _extract_core_actions(

@@ -24,6 +24,7 @@ from app.models import Document
 from .case_feature_extractor import CaseFeatureExtractor, ExtractedFeatures
 from .similarity_service import PrecedentSimilarityService, SimilarityResult
 from model_config import ModelConfig
+from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -455,7 +456,7 @@ In 2-3 sentences, explain:
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
             )
-            text = response.content[0].text
+            text = text_from_message(response)
 
             return {
                 'summary': text[:500],
@@ -516,7 +517,7 @@ Format your response with clear section headers."""
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
             )
-            text = response.content[0].text
+            text = text_from_message(response)
 
             # Parse response
             return self._parse_analysis_response(text)

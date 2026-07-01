@@ -38,6 +38,27 @@ def streaming_completion(client, model: str, max_tokens: int, prompt: str,
         response = stream.get_final_message()
     return response.content[0].text
 
+def text_from_message(message) -> str:
+    """Text of an Anthropic message, robust to extended-thinking content blocks.
+
+    Concatenates the ``.text`` of every content block whose ``type`` is ``"text"``,
+    skipping ``thinking`` / ``redacted_thinking`` blocks. Newer models (Sonnet 5,
+    Opus 4.8+, Fable) can return a ThinkingBlock as ``content[0]``, so the common
+    ``message.content[0].text`` raises ``AttributeError: 'ThinkingBlock' object has no
+    attribute 'text'``; this returns the text regardless of block order or count. If
+    ``message`` has no ``content`` attribute it falls back to ``str(message)`` (mirrors
+    the prior ``if hasattr(..., "content")`` guards at the call sites).
+    """
+    content = getattr(message, "content", None)
+    if content is None:
+        return str(message)
+    return "".join(
+        getattr(block, "text", "") or ""
+        for block in content
+        if getattr(block, "type", None) == "text"
+    )
+
+
 def extract_json_from_response(response_text: str) -> Dict[str, Any]:
     """
     Extract and parse JSON from an LLM response.

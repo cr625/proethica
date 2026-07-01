@@ -32,6 +32,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import List, Optional
+from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ def _llm_labels(paras: List[Paragraph]) -> Optional[List[str]]:
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
-        raw = text.content[0].text if hasattr(text, "content") else str(text)
+        raw = text_from_message(text)
         import json
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         if not m:

@@ -46,6 +46,7 @@ class ModelConfig:
     # passed). Callers should omit temperature for these. Opus 4.8 is the first such model.
     TEMPERATURE_UNSUPPORTED = {
         "claude-opus-4-8",
+        "claude-sonnet-5",
     }
 
     # Model selection based on use case

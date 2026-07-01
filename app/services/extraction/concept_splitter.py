@@ -19,6 +19,7 @@ from langchain_community.callbacks import get_openai_callback
 from .base import ConceptCandidate
 from model_config import ModelConfig
 from app.utils.llm_utils import get_llm_client
+from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +227,7 @@ class GeneralizedConceptSplitter:
                     system=system_prompt,
                     messages=[{"role": "user", "content": analysis_prompt}],
                 )
-                content = response.content[0].text if hasattr(response, 'content') else str(response)
+                content = text_from_message(response)
             else:
                 # Fallback for other clients
                 content = "Analysis: ATOMIC\nAtomic concepts: [\"" + concept_text + "\"]\nReasoning: Fallback analysis\nConfidence: 0.5"

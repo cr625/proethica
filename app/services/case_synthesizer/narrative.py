@@ -60,6 +60,7 @@ from app.services.decision_point_synthesizer import (
     Phase3SynthesisResult,
     synthesize_decision_points
 )
+from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,7 @@ Output ONLY the 2-3 sentence summary, no additional text."""
                 messages=[{"role": "user", "content": summary_prompt}]
             )
 
-            enhanced_summary = response.content[0].text.strip()
+            enhanced_summary = text_from_message(response).strip()
 
             llm_traces.append(LLMTrace(
                 phase=4,
@@ -314,7 +315,7 @@ Output as JSON array:
                 messages=[{"role": "user", "content": timeline_prompt}]
             )
 
-            response_text = response.content[0].text
+            response_text = text_from_message(response)
 
             llm_traces.append(LLMTrace(
                 phase=4,
