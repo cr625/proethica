@@ -1135,27 +1135,20 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         'reference_material': f'{INTERMEDIATE_NS}ReferenceMaterial',
         'ethical_code': f'{INTERMEDIATE_NS}EthicalCode',
     },
-    # A: Action categories -> intermediate subclass IRIs
-    'actions': {
-        'communication': f'{INTERMEDIATE_NS}CommunicationAction',
-        'prevention': f'{INTERMEDIATE_NS}PreventionAction',
-        'maintenance': f'{INTERMEDIATE_NS}MaintenanceAction',
-        'performance': f'{INTERMEDIATE_NS}PerformanceAction',
-        'evaluation': f'{INTERMEDIATE_NS}EvaluationAction',
-        'collaboration': f'{INTERMEDIATE_NS}CollaborationAction',
-        'creation': f'{INTERMEDIATE_NS}CreationAction',
-        'monitoring': f'{INTERMEDIATE_NS}MonitoringAction',
-    },
-    # E: Event categories -> intermediate subclass IRIs
+    # A: Action is BARE (no subtype) per the extraction spec (ONT-4, 2026-07-01). The former topical
+    # action map (Communication/Prevention/... -> owl:deprecated intermediate classes) is retired; an
+    # action individual is typed directly to core:Action. Empty map => the resolver's fallback (core:Action)
+    # applies.
+    'actions': {},
+    # E: Event ORIGIN subclasses (ONT-4, 2026-07-01), keyed by the emitted eventType. Replaces the former
+    # topical map (Crisis/Compliance/... -> owl:deprecated intermediate classes). An event individual is
+    # typed to exactly one of the three disjoint core origin subclasses; the individual-commit path resolves
+    # this from proeth:eventType via ontserve_commit_service.resolve_event_origin_category (this class-path
+    # map is the belt-and-suspenders equivalent should an event ever be resolved as a class).
     'events': {
-        'crisis': f'{INTERMEDIATE_NS}CrisisEvent',
-        'compliance': f'{INTERMEDIATE_NS}ComplianceEvent',
-        'conflict': f'{INTERMEDIATE_NS}ConflictEvent',
-        'project': f'{INTERMEDIATE_NS}ProjectEvent',
-        'safety': f'{INTERMEDIATE_NS}SafetyEvent',
-        'evaluation': f'{INTERMEDIATE_NS}EvaluationEvent',
-        'discovery': f'{INTERMEDIATE_NS}DiscoveryEvent',
-        'change': f'{INTERMEDIATE_NS}ChangeEvent',
+        'outcome': f'{CORE_NS}AgentCausedEvent',
+        'exogenous': f'{CORE_NS}ExogenousEvent',
+        'automatic': f'{CORE_NS}AutomaticEvent',
     },
     # Ca: Capability categories -> base class (individual capabilities
     # are specific subclasses resolved via match_decision)

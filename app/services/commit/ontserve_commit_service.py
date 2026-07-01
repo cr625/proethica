@@ -60,6 +60,38 @@ _NINE_CORE_CATEGORIES = frozenset({
     "Action", "Event", "Capability", "Constraint",
 })
 
+# ONT-4 (2026-07-01): the Step-3 temporal serializer emits an event individual as proeth:Event
+# plus proeth:eventType (outcome/exogenous/automatic) with no per-case subclass. The ratified
+# design types the event to exactly one of the three DISJOINT core ORIGIN subclasses. This maps
+# the emitted eventType to the origin-subclass LOCAL name; each origin subclass is subClassOf
+# core:Event, so typing an event to one is consistent with the chain and the nine-way
+# AllDisjointClasses (the three origins are disjoint with each other, not with Event). The topical
+# event taxonomy this replaces is owl:deprecated in proethica-intermediate.
+_EVENT_ORIGIN_SUBCLASS = {
+    'outcome': 'AgentCausedEvent',
+    'exogenous': 'ExogenousEvent',
+    'automatic': 'AutomaticEvent',
+}
+
+
+def resolve_event_origin_category(rdf_data: dict) -> "str | None":
+    """Return the core Event ORIGIN-subclass local name (AgentCausedEvent / ExogenousEvent /
+    AutomaticEvent) for an event individual's emitted proeth:eventType, or None when the field is
+    absent or its value is unrecognised. Reads the flat Step-3 JSON-LD (top-level proeth:eventType)
+    and, defensively, a nested properties dict; a list value takes its first element."""
+    if not rdf_data:
+        return None
+    v = rdf_data.get('proeth:eventType') or rdf_data.get('eventType')
+    if not v:
+        props = rdf_data.get('properties')
+        if isinstance(props, dict):
+            v = props.get('proeth:eventType') or props.get('eventType')
+    if isinstance(v, list):
+        v = v[0] if v else None
+    if not v:
+        return None
+    return _EVENT_ORIGIN_SUBCLASS.get(str(v).strip().lower())
+
 
 class OntServeCommitService:
     """Service for committing extracted entities to OntServe permanent storage."""
@@ -879,6 +911,20 @@ class OntServeCommitService:
                 # proeth:conceptCategory literal is no longer written.
                 if resolved_cat:
                     g.add((individual_uri, RDF.type, PROETHICA_CORE[resolved_cat]))
+
+                # ONT-4 (2026-07-01): additionally type a bare Event individual to its ORIGIN
+                # subclass (AgentCausedEvent / ExogenousEvent / AutomaticEvent) from the emitted
+                # proeth:eventType. Step 3 emits proeth:Event + proeth:eventType with no per-case
+                # subclass, so an event otherwise commits as bare core:Event and the ratified origin
+                # axis is never materialized. Asserted ALONGSIDE the bare core:Event (each origin is
+                # subClassOf Event, so the pair is redundant-but-consistent): the origin gives
+                # reasoners and origin-aware consumers the disjoint kind, while the bare core:Event
+                # preserves the CMT-1 one-hop discoverability the nine-category readback relies on.
+                # The three origins are pairwise disjoint, so one origin per event raises no clash.
+                if resolved_cat == 'Event':
+                    _origin = resolve_event_origin_category(rdf_data)
+                    if _origin:
+                        g.add((individual_uri, RDF.type, PROETHICA_CORE[_origin]))
 
                 # Per-individual property serialization. SINGLE shared serializer for
                 # both commit paths (see _add_individual_properties): typed provenance,
