@@ -67,7 +67,7 @@ INDIVIDUAL SCHEMA (role_individuals array) -- each individual is a JSON object:
     "case_involvement": "Created original tower designs containing significant errors",
     "license": "Professional Engineer",
     "specialty": "Structural design",
-    "attributes": {"professional_membership": "ASCE member"},
+    "attributes": [{"key": "professional_membership", "value": "ASCE member"}],
     "relationships": [{"type": "hasClient", "target": "Owner", "quote": "Engineer A was retained by the Owner to design the tower"}, {"type": "workReviewedBy", "target": "Engineer B", "quote": "Engineer B was engaged to review Engineer A's work"}],
     "text_references": ["plans and design of Engineer A", "Engineer A objects and refused to consent"],
     "confidence": 0.90

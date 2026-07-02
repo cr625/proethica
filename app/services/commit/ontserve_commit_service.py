@@ -2528,7 +2528,10 @@ class OntServeCommitService:
                 # the first cut) so the periodic promotion-candidate report can mine them; deliberately NOT
                 # mapped to a controlled edge -- these are unvetted. Parallels the attributes->otherAttribute
                 # tail; a dedicated proeth:otherRelationship reified node is the recommended refinement.
-                if prop_name == 'additional_relationships':
+                # Storage camelCases field names (_to_camel_case in extraction_graph),
+                # so the live key is 'additionalRelationships'; the snake_case form is
+                # kept for pre-camelCase rows.
+                if prop_name in ('additional_relationships', 'additionalRelationships'):
                     import ast
                     rels = prop_values if isinstance(prop_values, list) else [prop_values]
                     for rel in rels:

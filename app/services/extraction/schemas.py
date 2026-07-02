@@ -31,9 +31,11 @@ from __future__ import annotations
 
 import copy
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AliasChoices, BaseModel, ConfigDict, Field, WithJsonSchema, model_validator,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +61,65 @@ class MatchDecision(BaseModel):
     matched_label: Optional[str] = None
     confidence: float = 0.0
     reasoning: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Structured-outputs-safe open collections
+#
+# The Anthropic structured-outputs grammar rejects additionalProperties with
+# any value other than false, and _clean_structured_output_node (below) closes
+# EVERY object node: additionalProperties=false + required=ALL properties. A
+# plain Dict[str, ...] field therefore compiles to an object node whose only
+# valid instance is {}, so the LLM is structurally forced to emit an empty
+# dict (2026-07-01 Stage-0 audit: RoleIndividual.attributes/relationships/
+# additional_relationships came back empty on every model). Open-shaped
+# fields must present a fixed-key grammar to the LLM:
+#
+# - list-of-dict fields use a typed item model (see RoleRelationship), whose
+#   model_dump() reproduces the dict shape downstream consumers expect;
+# - open dict fields use KeyValueBag: the LLM-facing schema is an array of
+#   {key, value} pairs while the runtime type stays Dict[str, Any];
+#   fold_key_value_pairs() is the parse-time fold a mode='before'
+#   model_validator applies (see RoleIndividual._fold_attribute_pairs).
+# ---------------------------------------------------------------------------
+
+_KEY_VALUE_PAIRS_JSON_SCHEMA: Dict[str, Any] = {
+    'type': 'array',
+    'items': {
+        'type': 'object',
+        'properties': {
+            'key': {'type': 'string', 'description': 'Attribute name'},
+            'value': {'type': 'string', 'description': 'Attribute value'},
+        },
+    },
+}
+
+#: Runtime Dict[str, Any] whose LLM-facing JSON Schema is an array of
+#: {key, value} pairs (structured-outputs safe; see the note above).
+KeyValueBag = Annotated[
+    Dict[str, Any], WithJsonSchema(_KEY_VALUE_PAIRS_JSON_SCHEMA)
+]
+
+
+def fold_key_value_pairs(value: Any) -> Any:
+    """Fold a ``[{'key': k, 'value': v}, ...]`` list into ``{k: v}``.
+
+    Parse-time companion to KeyValueBag: the LLM emits the array shape, the
+    runtime field stays a dict. Any non-list value (an already-dict payload
+    from old temp rows or non-structured paths) passes through unchanged;
+    non-dict list items and empty keys are skipped.
+    """
+    if not isinstance(value, list):
+        return value
+    folded: Dict[str, Any] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get('key', '') or '').strip()
+        if not key:
+            continue
+        folded[key] = item.get('value', '')
+    return folded
 
 
 class BaseCandidate(BaseModel):
@@ -154,6 +215,32 @@ class RoleKind(str, Enum):
     participant = "participant"
 
 
+class RoleRelationship(BaseModel):
+    """One typed relationship edge borne by a role individual.
+
+    Fixed-key item model for RoleIndividual.relationships and
+    additional_relationships. The former ``Dict[str, str]`` item shape
+    compiled to an empty-only object node under the structured-outputs
+    cleaner (see the KeyValueBag note above), which forced every extracted
+    relationship to ``{}``. ``model_dump()`` of this model yields exactly the
+    ``{type, target, quote}`` dict the storage layer stringifies and the
+    commit bridge (ontserve_commit_service) ``ast.literal_eval``s back.
+    """
+    model_config = ConfigDict(populate_by_name=True)
+
+    type: str = Field(
+        ..., validation_alias=AliasChoices('type', 'relation'),
+        description="Relationship type, e.g. employedBy, clientOf, professionalPeerOf",
+    )
+    target: str = Field(
+        ..., validation_alias=AliasChoices('target', 'to'),
+        description="Name of the target role-bearer",
+    )
+    quote: str = Field(
+        '', description="Verbatim case quote stating the relationship",
+    )
+
+
 class CandidateRoleClass(BaseCandidate):
     """A new role class discovered in case text.
 
@@ -216,15 +303,15 @@ class RoleIndividual(BaseIndividual):
     experience_level: Optional[str] = Field(None, description="Professional experience")
     employer: Optional[str] = Field(None, description="Employer / affiliation")
     technical_background: Optional[str] = Field(None, description="Technical background")
-    attributes: Dict[str, Any] = Field(
+    attributes: KeyValueBag = Field(
         default_factory=dict,
-        description="Overflow 'key: value' bag for case-specific bearer attributes outside the named fields above"
+        description="Overflow bag of {key, value} pairs for case-specific bearer attributes outside the named fields above"
     )
-    relationships: List[Dict[str, str]] = Field(
+    relationships: List[RoleRelationship] = Field(
         default_factory=list,
         description="Employment, collaboration, client relationships"
     )
-    additional_relationships: List[Dict[str, str]] = Field(
+    additional_relationships: List[RoleRelationship] = Field(
         default_factory=list,
         description="Overflow bag: relationships the case states that fit NO controlled relationship type; "
                     "each {type, target, quote}. Staged (not mapped to a controlled edge) for periodic review "
@@ -235,6 +322,20 @@ class RoleIndividual(BaseIndividual):
     # obligation-layer defeasibility edges, materialized as first-class edges rather than stored as
     # per-individual role literals (spec "Remove" / "Not stored").
     case_involvement: Optional[str] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def _fold_attribute_pairs(cls, data: Any) -> Any:
+        """Fold structured-output [{'key','value'}] attribute pairs into the runtime dict.
+
+        The LLM-facing schema for ``attributes`` is the KeyValueBag pair array
+        (a plain dict compiles to an empty-only object under the structured-
+        outputs cleaner); an incoming dict (old temp rows, non-structured
+        paths) passes through unchanged.
+        """
+        if isinstance(data, dict) and isinstance(data.get('attributes'), list):
+            data['attributes'] = fold_key_value_pairs(data['attributes'])
+        return data
 
 
 class RoleExtractionResult(BaseModel):
