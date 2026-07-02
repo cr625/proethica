@@ -20,7 +20,7 @@
         "obligation_type": {
           "type": "string",
           "required": true,
-          "description": "Controlled NSPE obligation category that drives the subClassOf core:Obligation typing: disclosure, safety, competence, confidentiality, reporting, collegial, legal, ethical"
+          "description": "Controlled NSPE obligation category that drives the subClassOf core:Obligation typing: disclosure, safety, competence, confidentiality, reporting, collegial, attribution, legal, ethical"
         },
         "derived_from_principle": {
           "type": "string",

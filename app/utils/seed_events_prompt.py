@@ -42,10 +42,11 @@ def seed_events_prompt(replace_existing: bool = False):
     # Smoke test: the body references the ontology-derived {{ event_schema }} slot (read from the
     # SHACL EventDefinitionShape). Fail the seed loudly if it resolves empty (an unreadable shapes
     # file or a missing shape), so the "{{ event_schema }} renders to ''" failure cannot reach
-    # production silently; the schema-wire is caught at seed time, not at extraction time. Events are
-    # single-pass, so pass_directive is intentionally empty and not required.
+    # production silently; the schema-wire is caught at seed time, not at extraction time. Events
+    # are single-pass (no per-pass base directive), but pass_directive still carries the shared
+    # no-fabrication / actor-scope / quote-fidelity block, so it is required non-empty too.
     from app.services.prompt_variable_resolver import concept_ontology_slots
-    _required = ('event_definition', 'event_schema')
+    _required = ('event_definition', 'event_schema', 'pass_directive')
     for st in meta["passes"]:
         slots = concept_ontology_slots('events', st)
         missing = [k for k in _required if not slots.get(k)]

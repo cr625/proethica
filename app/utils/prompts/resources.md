@@ -17,7 +17,7 @@ RESOURCE EXTRACTION DIRECTIVES (rules the ontology enforces):
 {{ resource_boundary }}
 {{ resource_individuation }}
 - Do not invent a document_title the case does not state.
-- resource_category is the controlled SOURCE KIND and the canonical typing signal. Set exactly one of ethical_code, professional_code, technical_standard, case_precedent, legal_resource, reference_material. It becomes the rdfs:subClassOf typing at commit (ethical_code is typed EthicalCode subClassOf Guideline subClassOf Resource; the other five subClassOf Resource), so a wrong kind collides with the disjointness axioms. It is a routing input, not stored as a literal. Do not invent a kind outside this set.
+- resource_category is the controlled SOURCE KIND and the canonical typing signal. Set exactly one of ethical_code, technical_standard, case_precedent, legal_resource, reference_material. It becomes the rdfs:subClassOf typing at commit (ethical_code is typed EthicalCode subClassOf Guideline subClassOf Resource; the other four subClassOf Resource), so a wrong kind collides with the disjointness axioms. It is a routing input, not stored as a literal. Do not invent a kind outside this set. A profession's code of ethics is ethical_code.
 - The source kind is the class identity. Do NOT fold topic, who used it, or the document title into the class label; those are context carried on their own fields.
 - document_title names the specific source document (e.g. "NSPE Code of Ethics", "ASCE Standard 7").
 - topic names the subject the resource addresses, carried on the declared proeth:topic property, not on the overflow string.
@@ -34,11 +34,11 @@ For each resource class, evaluate ONLY against the EXISTING RESOURCES IN ONTOLOG
 - If genuinely NEW with no close equivalent: match_decision.matches_existing = false
 
 OUTPUT FORMAT:
-Return a JSON object with TWO arrays: new_resource_classes (reusable kinds of professional knowledge source) and resource_individuals (specific documents used or cited in this case). A Resource Class is a general reusable source type (e.g. "Professional Code"); a Resource Individual is a specific document in the case (e.g. "NSPE Code of Ethics"). Each individual MUST reference a class via the resource_class field.
+Return a JSON object with TWO arrays: new_resource_classes (reusable kinds of professional knowledge source) and resource_individuals (specific documents used or cited in this case). A Resource Class is a general reusable source type (e.g. "Ethical Code"); a Resource Individual is a specific document in the case (e.g. "NSPE Code of Ethics"). Each individual MUST reference a class via the resource_class field.
 
 CLASS LABEL CANONICALIZATION (with worked examples):
 Drop case-specific detail (named actors, case identifiers, topic) from the class label; put it in the definition and the individual record. Emit the short general right-hand form:
-- "The NSPE Code Provision on Public Safety Cited Against Engineer A" -> "Professional Code"
+- "The NSPE Code Provision on Public Safety Cited Against Engineer A" -> "Ethical Code"
 - "ASCE Standard the Reviewer Applied to the Soil Report" -> "Technical Standard"
 - "BER Case 76-4 Relied On as Precedent" -> "Case Precedent"
 Test: if a label could only ever apply to THIS case, generalize it until another case could reuse it.
@@ -46,17 +46,17 @@ Test: if a label could only ever apply to THIS case, generalize it until another
 CLASS SCHEMA (new_resource_classes array) -- each class is a JSON object:
 
   {
-    "label": "Professional Code",
-    "definition": "A formal code of professional ethics promulgated by a professional society that states the duties of its members.",
-    "resource_category": "professional_code",
+    "label": "Ethical Code",
+    "definition": "A formal document that codifies ethical principles and professional conduct requirements for a profession.",
+    "resource_category": "ethical_code",
     "text_references": ["the NSPE Code of Ethics requires engineers to hold paramount public safety"],
     "confidence": 0.9,
     "match_decision": {
-      "matches_existing": false,
+      "matches_existing": true,
       "matched_uri": null,
-      "matched_label": null,
-      "confidence": 0,
-      "reasoning": "Professional Code is the canonical source kind for a society's ethics code; no narrower existing class is required."
+      "matched_label": "Ethical Code",
+      "confidence": 0.95,
+      "reasoning": "Ethical Code is the canonical source kind for a society's ethics code and already exists in the ontology; no narrower class is required."
     }
   }
 
@@ -64,7 +64,7 @@ INDIVIDUAL SCHEMA (resource_individuals array) -- each individual is a JSON obje
 
   {
     "identifier": "NSPE Code of Ethics",
-    "resource_class": "Professional Code",
+    "resource_class": "Ethical Code",
     "document_title": "NSPE Code of Ethics",
     "topic": "professional duties of engineers",
     "used_by": "Engineer A",

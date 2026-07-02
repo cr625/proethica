@@ -94,8 +94,8 @@
       "description": "The LIGHT event field schema, resolved live from the SHACL EventDefinitionShape (single source shared with the OntServe Event entity page). event_origin drives the three-way origin subClassOf typing; initiates/terminates resolve to the fluent edges; temporal_marker is a literal"
     },
     "pass_directive": {
-      "source": "_PASS_DIRECTIVES[('events', section_type)] in prompt_variable_resolver",
-      "description": "Single-pass component: no per-pass directive is registered, so this slot resolves empty"
+      "source": "_augment_pass_directive in prompt_variable_resolver (no per-pass base for events)",
+      "description": "Shared cross-component directives: no-fabrication, actor-scope, quote fidelity (single-pass component, so the slot carries only the shared block)"
     }
   },
   "passes": {

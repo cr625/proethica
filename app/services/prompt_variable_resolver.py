@@ -864,8 +864,18 @@ def _component_schema_block(component_class: str) -> str:
                 continue
             desc = next(g.objects(pshape, SH.description), None)
             order = next(g.objects(pshape, SH.order), None)
-            rows.append((int(order) if order is not None else 999, str(name), str(desc) if desc else ''))
-        return [f'- {n}: {d}' for _o, n, d in sorted(rows)]
+            # Generic informational-field marker: a sh:property annotated
+            # pcsh:informationalOnly true (e.g. governedByCode on the Resource shape) is a
+            # field the COMMIT stage assigns (a TBox restriction or resolver-produced edge),
+            # not one the extraction LLM fills, so it renders as non-fillable context instead
+            # of a fillable field. Declared once in core-shapes.ttl; any shape can opt in.
+            info = next(g.objects(pshape, PCSH.informationalOnly), None)
+            informational = info is not None and str(info).strip().lower() == 'true'
+            rows.append((int(order) if order is not None else 999, str(name),
+                         str(desc) if desc else '', informational))
+        return [f'- {n}: {d} (assigned at commit; do not output)' if info_only
+                else f'- {n}: {d}'
+                for _o, n, d, info_only in sorted(rows)]
 
     definitional = fields(f'{component_class}DefinitionShape')
     per_case = fields(f'{component_class}PropertyShape')

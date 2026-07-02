@@ -76,3 +76,27 @@ def test_converter_emits_fluent_and_extent_fields():
     assert erdf["proeth:initiates"] == ["Acute Runoff Risk"]
     assert "proeth:terminates" not in erdf  # empty terminates not emitted
     assert erdf["proeth:temporalExtent"] == "interval"
+
+
+def test_event_converter_emits_text_references_and_confidence():
+    """Stage-2 audit convergence: events must carry verbatim grounding + confidence to temp
+    storage under the same proeth:textReferences key the commit serializer routes for the
+    pass-1/2 components (events committed with zero textReference in both case-7 runs)."""
+    event = {
+        "label": "Structural Failure", "temporal_marker": "Month 5",
+        "text_references": ["a critical structural flaw was found", "  ", ""],
+        "confidence": 0.92,
+    }
+    erdf = convert_event_to_rdf(event, 15)
+    assert erdf["proeth:textReferences"] == ["a critical structural flaw was found"]
+    assert erdf["proeth:confidence"] == 0.92
+
+    # Absent / empty grounding fields are not emitted; a bool confidence is rejected.
+    bare = convert_event_to_rdf({"label": "Permit Denial", "confidence": True}, 15)
+    assert "proeth:textReferences" not in bare
+    assert "proeth:confidence" not in bare
+
+    # A single-string text_references (model drift) is normalized to a one-item list.
+    single = convert_event_to_rdf(
+        {"label": "Permit Denial", "text_references": "the permit was denied"}, 15)
+    assert single["proeth:textReferences"] == ["the permit was denied"]

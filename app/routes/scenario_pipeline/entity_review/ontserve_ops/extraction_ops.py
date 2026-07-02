@@ -255,6 +255,10 @@ def register_ontserve_extraction_ops(bp):
                         'initiates': rdf_data.get('proeth:initiates', []),
                         'terminates': rdf_data.get('proeth:terminates', []),
                         'temporal_extent': rdf_data.get('proeth:temporalExtent', ''),
+                        # Verbatim grounding + confidence (Stage-2 audit convergence with the
+                        # seeded events contract).
+                        'text_references': rdf_data.get('proeth:textReferences', []),
+                        'confidence': rdf_data.get('proeth:confidence'),
                         'rdf_json': rdf_data
                     })
 

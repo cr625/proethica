@@ -210,6 +210,10 @@ COMPETING PRIORITIES:
     _slots = concept_ontology_slots('actions', 'all')
     definition_block = (_slots.get('action_definition') or '').strip()
     typing_block = "\n".join(s for s in (_slots.get('action_boundary'), _slots.get('action_individuation')) if s).strip()
+    # Shared cross-component extraction directives (no-fabrication, actor-scope, quote fidelity),
+    # the same {{ pass_directive }} block every other component prompt renders. A/E were the only
+    # components whose live prompts lacked them (Stage-2 audit item 7).
+    directives_block = (_slots.get('pass_directive') or '').strip()
 
     return f"""Extract ACTIONS (volitional professional decisions) from this ethics case.
 {source_text_section}{narrative_section}{temporal_context}
@@ -218,6 +222,9 @@ COMPETING PRIORITIES:
 
 TYPING (rules the ontology enforces):
 {typing_block}
+
+EXTRACTION DIRECTIVES (shared across components):
+{directives_block}
 
 For each ACTION, extract:
 1. label: A SHORT, GENERAL action name of AT MOST 4 words. Name the KIND of action,
@@ -238,6 +245,10 @@ For each ACTION, extract:
    violatesObligation / guidedByPrinciple edges). Do NOT list constraints or competing
    obligation pairs here; constraint activation is carried by the State an action
    initiates, and obligation competition by the case's defeasibility edges.
+   Each guiding_principles entry must name a Principle extracted for this case (a label
+   match to one of the case's principle individuals). A motive, goal, or adverb such as
+   "Speed", "Efficiency", or "Meeting the deadline" is NOT a principle and is invalid
+   here; an empty list is correct when no extracted principle guided the action.
 8. professional_context: {{within_competence, required_capabilities}}
 9. initiates: list of STATES (fluents) this action brings into holding. In the Event
    Calculus (Kowalski & Sergot 1986; Berreby et al. 2017) a happening initiates a fluent
@@ -245,7 +256,9 @@ For each ACTION, extract:
    of this action (for example "Conflict of Interest", "Public Safety Risk Disclosed"),
    using the same state names used elsewhere in the case. Empty list if it changes no state.
 10. terminates: list of STATES (fluents) this action ends (conditions that stop holding).
-    Empty list if none.
+    Empty list if none. An action must not terminate a state it initiates: never list the
+    same state in both initiates and terminates; if a state would appear in both, keep it
+    only in initiates.
 11. temporal_extent: "instant" if the action is a point occurrence, "interval" if it
     extends over a period. This anchors the action in OWL-Time; temporal_marker stays the
     textual when.
@@ -268,7 +281,7 @@ Return JSON:
     "ethical_context": {{
       "obligations_fulfilled": [],
       "obligations_violated": ["Competence", "Supervision"],
-      "guiding_principles": ["Efficiency"]
+      "guiding_principles": []
     }},
     "professional_context": {{
       "within_competence": true,

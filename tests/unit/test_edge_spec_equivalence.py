@@ -42,7 +42,11 @@ def _ind(g, iri, label, category=None, rdf_type=None):
     g.add((iri, RDF.type, __import__("rdflib").OWL.NamedIndividual))
     g.add((iri, RDFS.label, Literal(label)))
     if category:
-        g.add((iri, PROETH.conceptCategory, Literal(category)))
+        # CMT-1 (re-extraction Phase 2): the commit materializes a direct
+        # rdf:type proeth-core:<Category> on every individual, and
+        # _individuals_in_category reads THAT (the proeth:conceptCategory
+        # literal is retired and no longer consulted).
+        g.add((iri, RDF.type, CORE[category]))
     if rdf_type:
         g.add((iri, RDF.type, rdf_type))
 
@@ -310,6 +314,79 @@ def test_fluent_edges_golden(monkeypatch):
     _assert_golden(out, expected_edges, expected_prov)
 
 
+def test_fluent_terminates_vetoed_when_same_state_initiated(monkeypatch):
+    """Coherence guard: a happening must not terminate a state it initiates. When the
+    extraction lists the same state under both initiates and terminates (Fable case-7
+    Design_Defect_Discovery, Stage-2 audit), the applier keeps initiates, DROPS the
+    terminates edge (no edge, no PROV node), and reports the veto count."""
+    g = Graph()
+    _ind(g, CASE["Event_Discovery"], "Design Defect Discovery", category="Event")
+    _ind(g, CASE["State_Risk"], "Public Safety Risk", category="State")
+    _ind(g, CASE["State_Halted"], "Project Halted", category="State")
+
+    sel = {"Public Safety Risk; Project Halted": [CASE["State_Risk"], CASE["State_Halted"]],
+           "Public Safety Risk": [CASE["State_Risk"]]}
+
+    def reader(cid, spec):
+        return [es.SubjectRow(label="Design Defect Discovery",
+                              fields={"initiates": ["Public Safety Risk", "Project Halted"],
+                                      "terminates": ["Public Safety Risk"]})]
+
+    _install_deterministic_resolver(monkeypatch, sel)
+    path = _write(g)
+    saved_reader = es._FLUENT_SPEC.reader
+    object.__setattr__(es._FLUENT_SPEC, "reader", reader)
+    try:
+        res = es.materialize_edge_family(CASE_ID, path, es._FLUENT_SPEC, write_back=True)
+    finally:
+        object.__setattr__(es._FLUENT_SPEC, "reader", saved_reader)
+    out = Graph()
+    out.parse(path, format="turtle")
+    os.unlink(path)
+
+    assert (CASE["Event_Discovery"], CORE.initiates, CASE["State_Risk"]) in out
+    assert (CASE["Event_Discovery"], CORE.initiates, CASE["State_Halted"]) in out
+    assert (CASE["Event_Discovery"], CORE.terminates, CASE["State_Risk"]) not in out
+    assert res["initiates"]["edges"] == 2
+    assert res["terminates"]["edges"] == 0
+    assert res["terminates"]["vetoed"] == 1
+    # No orphan PROV node for the vetoed terminates edge.
+    assert not any("_terminates_" in node for node in _prov_structure(out))
+
+
+def test_fluent_terminates_vetoed_by_preexisting_initiates(monkeypatch):
+    """The veto also holds across runs: an initiates edge already committed in the graph
+    blocks a later terminates resolution onto the same (happening, state) pair."""
+    g = Graph()
+    _ind(g, CASE["Action_Suspend"], "Project Suspension", category="Action")
+    _ind(g, CASE["State_Suspended"], "Project Suspended", category="State")
+    g.add((CASE["Action_Suspend"], CORE.initiates, CASE["State_Suspended"]))
+
+    sel = {"Project Suspended": [CASE["State_Suspended"]]}
+
+    def reader(cid, spec):
+        return [es.SubjectRow(label="Project Suspension",
+                              fields={"initiates": [],
+                                      "terminates": ["Project Suspended"]})]
+
+    _install_deterministic_resolver(monkeypatch, sel)
+    path = _write(g)
+    saved_reader = es._FLUENT_SPEC.reader
+    object.__setattr__(es._FLUENT_SPEC, "reader", reader)
+    try:
+        res = es.materialize_edge_family(CASE_ID, path, es._FLUENT_SPEC, write_back=True)
+    finally:
+        object.__setattr__(es._FLUENT_SPEC, "reader", saved_reader)
+    out = Graph()
+    out.parse(path, format="turtle")
+    os.unlink(path)
+
+    assert (CASE["Action_Suspend"], CORE.terminates, CASE["State_Suspended"]) not in out
+    assert res["terminates"]["edges"] == 0
+    assert res["terminates"]["vetoed"] == 1
+    assert res["total"] == 0
+
+
 # ===========================================================================
 # obligation_edges  (Action -> Obligation/Principle, mixed namespaces)
 # ===========================================================================
@@ -332,10 +409,12 @@ def test_obligation_edges_golden(monkeypatch):
 
     out = _run_family(monkeypatch, g, es._OBLIGATION_SPEC, reader, sel)
 
-    # fulfillsObligation is declared in CORE; guidedByPrinciple in PROETH.
+    # All four obligation-family predicates land in CORE: fulfillsObligation was
+    # already core, and violates/raises/guidedByPrinciple were promoted from
+    # intermediate to core in v2.8.0 (see _OBLIGATION_SPEC).
     expected_edges = {
         (CASE["Action_Disclose"], CORE.fulfillsObligation, CASE["Obl_PublicSafety"]),
-        (CASE["Action_Disclose"], PROETH.guidedByPrinciple, CASE["Prin_Honesty"]),
+        (CASE["Action_Disclose"], CORE.guidedByPrinciple, CASE["Prin_Honesty"]),
     }
 
     def _norm_comment(p):

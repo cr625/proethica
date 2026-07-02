@@ -27,13 +27,16 @@ def extract_events(state: TemporalDynamicsState) -> Dict:
     logger.info(f"[Stage 4] Extracting events for case {state['case_id']}")
 
     try:
-        # Extract events using narrative, temporal markers, and actions
+        # Extract events using narrative, temporal markers, actions, and the raw case
+        # text (grounding for verbatim text_references, mirroring the Stage-3 actions node)
         events = extract_events_with_classification(
             narrative=state['unified_narrative'],
             temporal_markers=state['temporal_markers'],
             actions=state['actions'],
             case_id=state['case_id'],
-            llm_trace=state.get('llm_trace', [])
+            llm_trace=state.get('llm_trace', []),
+            facts_text=state.get('facts_text', ''),
+            discussion_text=state.get('discussion_text', '')
         )
 
         logger.info(f"[Stage 4] Extracted {len(events)} events")

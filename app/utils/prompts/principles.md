@@ -22,7 +22,7 @@ PRINCIPLE EXTRACTION DIRECTIVES (rules the ontology enforces):
 - The five per-case narrative fields are the load-bearing per-individual signal and the provenance the defeasibility pass consumes: interpretation (what the principle requires here), concrete_expression (how it appears in this case), applied_to (the situation or party it bears on), balancing_with (the competing principle or value), tension_resolution (how the case resolves the tension). Populate each where the text supports it.
 - invoked_by names the actor who invokes the principle (e.g. "Engineer A", or the NSPE Board of Ethical Review in the discussion). It resolves to the invokedBy edge at commit; name the actor, reusing a role-bearer identity from the cross-concept context where one fits.
 - extensional_examples is an optional class-mint field carrying prior cases that instantiate the principle (McLaren extensional grounding); supply it only when minting a new class.
-- Do not assert principle competition, defeat, or precedence here. The defeasibility relations are produced by a separate pass.
+- Record the competing principle or value in balancing_with; do NOT assert defeat, precedence, or competition edges here. The defeasibility relations (competesWith, prevailsOver, defeasibleUnder) are produced by a separate pass from these literals.
 
 MATCH DECISION RULES:
 For each principle class, evaluate ONLY against the EXISTING PRINCIPLES IN ONTOLOGY list above. Cross-concept context from other extraction sections is provided so you can ground invoked_by and avoid re-extracting duplicates, but do NOT reference those entities in match_decision; that field is strictly for matching against the ontology list above.

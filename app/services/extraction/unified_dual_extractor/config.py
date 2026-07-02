@@ -355,7 +355,7 @@ _FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
         'class_required': (
             'label, definition, confidence (float 0-1), match_decision, '
             'obligation_type (disclosure | safety | competence | '
-            'confidentiality | reporting | collegial | legal | ethical), '
+            'confidentiality | reporting | collegial | attribution | legal | ethical), '
             'derived_from_principle, text_references'
         ),
         'individual_required': (
@@ -451,6 +451,10 @@ _CATEGORY_INFERENCE: Dict[str, Tuple[str, list]] = {
         ('collegial', {
             'collegial', 'peer', 'colleague', 'fellow engineer',
             'professional relationship', 'mutual respect',
+        }),
+        ('attribution', {
+            'attribution', 'give credit', 'credit for engineering work',
+            'citation', 'authorship', 'proprietary interests',
         }),
         ('legal', {
             'law', 'statute', 'regulation', 'legal requirement',

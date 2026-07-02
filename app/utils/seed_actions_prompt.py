@@ -34,7 +34,7 @@ def seed_actions_prompt(replace_existing: bool = False):
     # (the disjointness boundary + the scope-note individuation). Fail the seed loudly if either is
     # empty so a silent "{{ action_boundary }} renders to ''" cannot reach extraction.
     from app.services.prompt_variable_resolver import concept_ontology_slots
-    _required = ('action_definition', 'action_boundary', 'action_individuation')
+    _required = ('action_definition', 'action_boundary', 'action_individuation', 'pass_directive')
     for st in meta["passes"]:
         slots = concept_ontology_slots('actions', st)
         missing = [k for k in _required if not slots.get(k)]

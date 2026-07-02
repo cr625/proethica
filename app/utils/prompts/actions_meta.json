@@ -6,64 +6,99 @@
       "fields": {
         "label": {
           "type": "string",
-          "required": true
-        },
-        "confidence": {
-          "type": "number",
           "required": true,
-          "description": "0.0-1.0"
-        },
-        "action_type": {
-          "type": "string",
-          "required": true,
-          "description": "Communication, Prevention, Maintenance, Performance, Evaluation, Collaboration, Creation, Monitoring"
+          "description": "Short general action KIND name, at most 4 words (becomes the URI; case detail goes in description)"
         },
         "description": {
           "type": "string",
-          "required": true
+          "required": true,
+          "description": "1-2 sentences with the case-specific detail (rdfs:comment)"
         },
-        "pass_integration": {
-          "type": "object",
-          "fields": {
-            "constrained_by": {
-              "type": "array"
-            },
-            "appropriate_states": {
-              "type": "array"
-            },
-            "fulfills_obligations": {
-              "type": "array"
-            },
-            "requires_capabilities": {
-              "type": "array"
-            }
-          },
-          "required": true
-        },
-        "volitional_nature": {
+        "agent": {
           "type": "string",
           "required": true,
-          "description": "Explanation of deliberate choice involved"
+          "description": "Person and role performing the action"
         },
-        "professional_context": {
+        "temporal_marker": {
           "type": "string",
-          "required": true,
-          "description": "How action operates within professional practice"
+          "required": false,
+          "description": "When the action occurred (the textual when)"
         },
-        "temporal_relationship": {
+        "source_section": {
+          "type": "string",
+          "required": false,
+          "description": "facts or discussion"
+        },
+        "intention": {
           "type": "object",
           "fields": {
-            "becomes_event": {
+            "mental_state": {
               "type": "string"
             },
-            "triggered_by_events": {
+            "intended_outcome": {
+              "type": "string"
+            },
+            "foreseen_unintended_effects": {
+              "type": "array"
+            },
+            "agent_knowledge": {
+              "type": "string"
+            }
+          },
+          "required": true,
+          "description": "DCEC double-effect intention analysis"
+        },
+        "ethical_context": {
+          "type": "object",
+          "fields": {
+            "obligations_fulfilled": {
+              "type": "array"
+            },
+            "obligations_violated": {
+              "type": "array"
+            },
+            "guiding_principles": {
+              "type": "array",
+              "description": "Labels of Principles extracted for this case; a motive word (Speed, Efficiency) is invalid; empty when no extracted principle guided the action"
+            }
+          },
+          "required": true,
+          "description": "Obligation engagement + guiding principles, resolved downstream to fulfillsObligation / violatesObligation / guidedByPrinciple edges"
+        },
+        "professional_context": {
+          "type": "object",
+          "fields": {
+            "within_competence": {
+              "type": "boolean"
+            },
+            "required_capabilities": {
               "type": "array"
             }
           },
-          "required": false
+          "required": true,
+          "description": "Competence + capabilities context"
+        },
+        "initiates": {
+          "type": "array",
+          "range": "State",
+          "required": false,
+          "description": "States (fluents) the action brings into holding; resolve to the initiates edge (Action->State)",
+          "range_ontology": "proethica-core"
+        },
+        "terminates": {
+          "type": "array",
+          "range": "State",
+          "required": false,
+          "description": "States (fluents) the action ends; never a state the same action initiates; resolve to the terminates edge (Action->State)",
+          "range_ontology": "proethica-core"
+        },
+        "temporal_extent": {
+          "type": "string",
+          "required": false,
+          "description": "'instant' for a point occurrence or 'interval' for one extending over a period (anchors OWL-Time)"
         }
       },
-      "description": "Array of action entities"
+      "description": "Action occurrences in the case (volitional professional decisions); individuals only, no action classes and no topical action_type taxonomy (ONT-4)"
     }
   },
   "variable_builders": {
@@ -72,25 +107,33 @@
     },
     "section_type": {
       "values": [
-        "facts",
-        "discussion"
+        "all"
       ],
-      "description": "Section type"
-    },
-    "existing_actions_text": {
-      "description": "Existing actions from ontology"
+      "description": "Actions run in a single Step-3 pass (no facts/discussion split)"
     },
     "action_definition": {
       "source": "OntServe proethica-core.ttl core:Action iao:0000115 + iao:0000116 via concept_ontology_slots -> _component_definition_block('Action')",
       "description": "Governing definitional anchor: the ontology iao:0000115 definition plus the iao:0000116 extraction framing, citation-trimmed at injection (the generalized Role definition pattern)"
+    },
+    "action_boundary": {
+      "source": "concept_ontology_slots -> _component_exclude_directive('Action')",
+      "description": "Ontology-derived disjointness boundary (what an Action is not)"
+    },
+    "action_individuation": {
+      "source": "concept_ontology_slots -> _component_individuation_directive('Action')",
+      "description": "Ontology-derived scope-note individuation rule"
+    },
+    "pass_directive": {
+      "source": "_augment_pass_directive in prompt_variable_resolver (no per-pass base for actions)",
+      "description": "Shared cross-component directives: no-fabrication, actor-scope, quote fidelity (single-pass component, so the slot carries only the shared block)"
     }
   },
   "step_number": 3,
   "domain": "engineering",
   "passes": {
     "all": {
-      "name": "Dual Actions Extraction",
-      "description": "Extract new action classes and action instances from case text",
+      "name": "Actions (Step 3)",
+      "description": "Extract action occurrences (volitional professional decisions) from the case in a single Step-3 pass (individuals only; no action classes). NOTE: the live Step-3 LangGraph path builds its action prompt in app/services/temporal_dynamics/extractors/action_extractor.py (the editable-prompt exception); this seeded template is the single-source field contract and prompt-editor surface, not the live runtime prompt.",
       "template_file": "actions.md"
     }
   }

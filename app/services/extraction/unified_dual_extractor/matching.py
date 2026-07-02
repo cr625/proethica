@@ -34,6 +34,44 @@ class MatchingMixin:
     # Ontology matching
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _existing_source_rank(existing: Dict) -> int:
+        """Label-tie preference (definition-prompt audit Stage 2): when candidates tie on
+        label similarity, prefer a curated proethica-intermediate class (rank 0) over an
+        intermediate-extended discovery (rank 2) over a concepts# review row (rank 3, the
+        worst: a concepts# row's type chain may not reach the component's core category at
+        all). Other curated sources (core, domain ontologies) rank 1. Lower is preferred;
+        ties within a rank keep the original list order."""
+        uri = str(existing.get('uri') or '')
+        name = str(
+            existing.get('ontology_name') or existing.get('source')
+            or (existing.get('metadata') or {}).get('ontology') or ''
+        ).lower()
+        if '/ontology/concepts#' in uri or name == 'concepts':
+            return 3
+        if 'intermediate-extended' in name:
+            return 2
+        if 'proethica-intermediate' in name or uri.startswith(
+                'http://proethica.org/ontology/intermediate#'):
+            return 0
+        return 1
+
+    def _build_existing_by_label(self) -> Dict[str, Dict]:
+        """Normalized label -> preferred existing entity. On a label tie the
+        best-ranked source wins (see _existing_source_rank); previously the
+        LAST list entry silently won via dict overwrite."""
+        existing_by_label: Dict[str, Dict] = {}
+        for existing in self.existing_classes:
+            lbl = existing.get('label', '')
+            if not lbl:
+                continue
+            norm = lbl.lower().replace('_', ' ').replace('-', ' ').strip()
+            incumbent = existing_by_label.get(norm)
+            if incumbent is None or (self._existing_source_rank(existing)
+                                     < self._existing_source_rank(incumbent)):
+                existing_by_label[norm] = existing
+        return existing_by_label
+
     def _check_existing_matches(self, classes: List[BaseModel]) -> None:
         """
         Check candidate classes against existing ontology classes.
@@ -48,12 +86,8 @@ class MatchingMixin:
             return
 
         # Build label -> existing entity lookup for URI resolution
-        existing_by_label = {}
-        for existing in self.existing_classes:
-            lbl = existing.get('label', '')
-            if lbl:
-                norm = lbl.lower().replace('_', ' ').replace('-', ' ').strip()
-                existing_by_label[norm] = existing
+        # (tie preference: intermediate > extended > concepts#)
+        existing_by_label = self._build_existing_by_label()
 
         for candidate in classes:
             if candidate.match_decision.matches_existing:
@@ -81,17 +115,22 @@ class MatchingMixin:
                         )
                 continue
 
-            for existing in self.existing_classes:
-                existing_label = existing.get('label', '')
-                if self._labels_match(candidate.label, existing_label):
-                    candidate.match_decision.matches_existing = True
-                    candidate.match_decision.matched_uri = existing.get('uri')
-                    candidate.match_decision.matched_label = existing_label
-                    candidate.match_decision.confidence = 0.9
-                    candidate.match_decision.reasoning = (
-                        'Label match with existing ontology class'
-                    )
-                    break
+            # Collect ALL label matches, then prefer by source rank
+            # (intermediate > extended > concepts#); min() is stable, so ties
+            # within a rank keep the first list entry (the old break behavior).
+            label_matches = [
+                existing for existing in self.existing_classes
+                if self._labels_match(candidate.label, existing.get('label', ''))
+            ]
+            if label_matches:
+                best = min(label_matches, key=self._existing_source_rank)
+                candidate.match_decision.matches_existing = True
+                candidate.match_decision.matched_uri = best.get('uri')
+                candidate.match_decision.matched_label = best.get('label', '')
+                candidate.match_decision.confidence = 0.9
+                candidate.match_decision.reasoning = (
+                    'Label match with existing ontology class'
+                )
 
         # Cleanup: zero out ALL orphaned match data where no URI was resolved.
         # The LLM sometimes matches against sibling extractions (from prior
@@ -297,12 +336,8 @@ class MatchingMixin:
             candidate_by_label[norm] = c
 
         # Build lookup: normalized label -> existing ontology class dict
-        existing_by_label = {}
-        for existing in self.existing_classes:
-            lbl = existing.get('label', '')
-            if lbl:
-                norm = lbl.lower().replace('_', ' ').replace('-', ' ').strip()
-                existing_by_label[norm] = existing
+        # (tie preference: intermediate > extended > concepts#)
+        existing_by_label = self._build_existing_by_label()
 
         for individual in individuals:
             ref_value = getattr(individual, class_ref_field, None)

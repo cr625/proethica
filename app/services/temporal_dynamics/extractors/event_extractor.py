@@ -27,7 +27,9 @@ def extract_events_with_classification(
     temporal_markers: Dict,
     actions: List[Dict],
     case_id: int,
-    llm_trace: List[Dict]
+    llm_trace: List[Dict],
+    facts_text: str = '',
+    discussion_text: str = ''
 ) -> List[Dict]:
     """
     Extract events (occurrences, outcomes) with origin classification.
@@ -38,6 +40,8 @@ def extract_events_with_classification(
         actions: Actions extracted in Stage 3
         case_id: Case ID for logging
         llm_trace: List to append LLM interactions to
+        facts_text: Raw facts section text (grounding for verbatim text_references)
+        discussion_text: Raw discussion section text (grounding for verbatim text_references)
 
     Returns:
         List of event dictionaries with classification
@@ -58,8 +62,10 @@ def extract_events_with_classification(
         logger.error(f"[Stage 4] Failed to initialize LLM client: {e}")
         raise RuntimeError(f"No LLM client available: {e}")
 
-    # Build prompt with action context
-    prompt = _build_event_extraction_prompt(narrative, temporal_markers, actions)
+    # Build prompt with action context + raw case text (verbatim-quote grounding)
+    prompt = _build_event_extraction_prompt(narrative, temporal_markers, actions,
+                                            facts_text=facts_text,
+                                            discussion_text=discussion_text)
 
     # Record prompt in trace
     trace_entry = {
@@ -118,7 +124,9 @@ def extract_events_with_classification(
 def _build_event_extraction_prompt(
     narrative: Dict,
     temporal_markers: Dict,
-    actions: List[Dict]
+    actions: List[Dict],
+    facts_text: str = '',
+    discussion_text: str = ''
 ) -> str:
     """Build the LLM prompt for event extraction."""
 
@@ -126,6 +134,19 @@ def _build_event_extraction_prompt(
     action_summary = []
     for action in actions[:10]:  # Limit to first 10 actions to avoid token overflow
         action_summary.append(f"- {action.get('label', 'Unknown')} (by {action.get('agent', 'Unknown')})")
+
+    # Raw case text: required for verbatim text_references (the fidelity directive demands
+    # exact contiguous spans, which the narrative summary alone cannot supply). Mirrors the
+    # action extractor's grounding section.
+    source_text_section = ""
+    if facts_text or discussion_text:
+        source_text_section = f"""
+CASE FACTS:
+{facts_text}
+
+CASE DISCUSSION:
+{discussion_text}
+"""
 
     # Ontology-sourced definition anchor + typing boundary (disjointness + scope-note individuation),
     # single-sourced from the ontology via concept_ontology_slots so the live Step-4 typing matches the
@@ -137,9 +158,13 @@ def _build_event_extraction_prompt(
     _slots = concept_ontology_slots('events', 'all')
     definition_block = (_slots.get('event_definition') or '').strip()
     typing_block = "\n".join(s for s in (_slots.get('event_boundary'), _slots.get('event_individuation')) if s).strip()
+    # Shared cross-component extraction directives (no-fabrication, actor-scope, quote fidelity),
+    # the same {{ pass_directive }} block every other component prompt renders. A/E were the only
+    # components whose live prompts lacked them (Stage-2 audit item 7).
+    directives_block = (_slots.get('pass_directive') or '').strip()
 
     prompt = f"""You are analyzing an engineering ethics case to extract EVENTS (occurrences, not volitional decisions).
-
+{source_text_section}
 CASE NARRATIVE:
 {narrative.get('unified_timeline_summary', '')}
 
@@ -154,6 +179,9 @@ Extract all EVENTS (occurrences, outcomes, automatic occurrences - NOT volitiona
 
 TYPING (rules the ontology enforces):
 {typing_block}
+
+EXTRACTION DIRECTIVES (shared across components):
+{directives_block}
 
 For each event, identify:
 
@@ -188,11 +216,19 @@ For each event, identify:
      from these initiated states, not from free-text names. Empty list if the event changes
      no state.
    - terminates: list of STATES (fluents) this event ends (conditions that stop holding).
+     An event must not terminate a state it initiates: never list the same state in both
+     initiates and terminates; if a state would appear in both, keep it only in initiates.
    - temporal_extent: "instant" if the event is a point occurrence, "interval" if it
      extends over a period (anchors the event in OWL-Time; temporal_marker stays the textual when).
 
 4. CAUSAL CONTEXT:
    - Caused by action (reference action label if applicable)
+
+5. GROUNDING:
+   - text_references: verbatim quotes from the CASE FACTS / CASE DISCUSSION text grounding
+     this event. Each must be an EXACT contiguous span copied from the case text (not the
+     narrative summary); never paraphrase, summarize, or stitch fragments together.
+   - confidence: extraction confidence 0.0-1.0
 
 {STYLE_FORMATTING_LINE}
 
@@ -217,7 +253,10 @@ Return your analysis as a JSON array:
 
       "causal_context": {{
         "caused_by_action": "Task Assignment Decision"
-      }}
+      }},
+
+      "text_references": ["a critical structural flaw was found in the detailed review"],
+      "confidence": 0.92
     }}
   ]
 }}

@@ -92,6 +92,12 @@ class EdgePredicate:
     prompt_builder_factory: Optional[Callable[["EdgePredicate", "EdgeSpec"], Callable]] = None
     verb: str = ""                     # human phrasing used by the prompt builder
     target_noun: str = ""              # human noun for the target (prompt wording)
+    # Coherence veto: local name of a sibling property (same namespace) whose presence on the
+    # SAME (subject, target) pair drops this edge instead of asserting it. Used by the fluent
+    # family: a happening must not terminate a state it initiates, so terminates carries
+    # veto_if_present="initiates" (initiates is emitted first in predicate order, so a
+    # same-run initiates edge is already in the graph when terminates resolves).
+    veto_if_present: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -257,6 +263,7 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
         resolver = "llm" if selections is not None else "embedding"
 
         edges = 0
+        vetoed = 0
         for it in items:
             subj, desc, sl, row = it["subj"], it["desc"], it["shortlist"], it["row"]
             if selections is not None:
@@ -271,6 +278,16 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
                             spec.name, pred.prop, resolver, desc[:80])
                 continue
             for tgt in targets:
+                if (pred.veto_if_present is not None
+                        and (subj, pred.namespace[pred.veto_if_present], tgt) in g):
+                    vetoed += 1
+                    logger.warning(
+                        "%s[%s]: dropped %s -> %s: the same subject already carries %s to "
+                        "this target (incoherent transition; a happening must not %s a "
+                        "state it %s)",
+                        spec.name, pred.prop, subj, tgt, pred.veto_if_present,
+                        pred.prop, pred.veto_if_present)
+                    continue
                 if (subj, pred.namespace[pred.prop], tgt) not in g:
                     g.add((subj, pred.namespace[pred.prop], tgt))
                     prov_desc = row.extra.get("prov_desc") or desc
@@ -281,6 +298,8 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
                 if spec.extra_emit is not None:
                     spec.extra_emit(g, spec, subj, pred.prop, tgt, row)
         res[pred.prop] = {"edges": edges, "resolver": resolver, "unresolved": unresolved}
+        if vetoed:
+            res[pred.prop]["vetoed"] = vetoed
         any_pred_emitted = any_pred_emitted or edges > 0
 
     total = sum(v.get("edges", 0) for v in res.values() if isinstance(v, dict))
@@ -703,7 +722,11 @@ _FLUENT_SPEC = EdgeSpec(
                       prompt_builder_factory=_fluent_prompt_factory),
         EdgePredicate("terminates", CORE, ("proeth:terminates", "terminates"), "State",
                       pool_fields=("stateClass", "caseContext"),
-                      prompt_builder_factory=_fluent_prompt_factory),
+                      prompt_builder_factory=_fluent_prompt_factory,
+                      # Coherence guard (Stage-2 audit, Fable case-7 Design_Defect_Discovery
+                      # initiated AND terminated the same two states): drop terminates when
+                      # the same happening initiates the same state; keep initiates.
+                      veto_if_present="initiates"),
     ),
     prov_prefix="fluent_edge_provenance_",
     prov_label=lambda p: f"Fluent edge ({p})",

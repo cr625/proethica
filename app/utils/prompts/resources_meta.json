@@ -20,7 +20,7 @@
         "resource_category": {
           "type": "string",
           "required": true,
-          "description": "Controlled source kind that drives the six-kind subClassOf typing: ethical_code, professional_code, technical_standard, case_precedent, legal_resource, reference_material. EthicalCode is typed subClassOf Guideline subClassOf Resource; the other five subClassOf Resource. A routing input, not stored as a literal"
+          "description": "Controlled source kind that drives the five-kind subClassOf typing: ethical_code, technical_standard, case_precedent, legal_resource, reference_material. EthicalCode is typed subClassOf Guideline subClassOf Resource; the other four subClassOf Resource. A routing input, not stored as a literal"
         },
         "match_decision": {
           "type": "object",
@@ -150,7 +150,7 @@
     },
     "resource_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ResourceDefinitionShape via concept_ontology_slots -> _component_schema_block('Resource')",
-      "description": "Resource definitional/individual field schema, resolved live from the SHACL ResourceDefinitionShape (single source shared with the OntServe Resource entity page). resource_category drives the six-kind subClassOf typing; document_title and topic are literals; used_by and cited_by resolve to the availableTo and citedByAgent edges"
+      "description": "Resource definitional/individual field schema, resolved live from the SHACL ResourceDefinitionShape (single source shared with the OntServe Resource entity page). resource_category drives the five-kind subClassOf typing; document_title and topic are literals; used_by and cited_by resolve to the availableTo and citedByAgent edges"
     },
     "pass_directive": {
       "source": "_PASS_DIRECTIVES[('resources', section_type)] in prompt_variable_resolver",

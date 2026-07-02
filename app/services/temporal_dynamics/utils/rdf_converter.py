@@ -251,6 +251,21 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
         'proeth:temporalMarker': event.get('temporal_marker', 'Unknown time')
     }
 
+    # Verbatim grounding + confidence (Stage-2 audit: events committed with zero
+    # textReference in both case-7 runs while every other component carries them).
+    # Stored under the same proeth:textReferences key the commit serializer already
+    # routes for the pass-1/2 components, so committed events carry the file-wide
+    # proeth:textReferences predicate.
+    refs = event.get('text_references') or []
+    if not isinstance(refs, list):
+        refs = [refs]
+    refs = [str(x).strip() for x in refs if str(x).strip()]
+    if refs:
+        rdf_entity['proeth:textReferences'] = refs
+    confidence = event.get('confidence')
+    if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+        rdf_entity['proeth:confidence'] = float(confidence)
+
     # Add origin classification. eventType is the load-bearing Event Calculus origin signal
     # (Berreby et al. 2017): "outcome" (agent-caused), "exogenous" (external), "automatic"
     # (precondition-triggered). The commit bridge maps the value to the three disjoint origin

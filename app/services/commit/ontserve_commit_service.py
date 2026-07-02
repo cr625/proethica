@@ -216,6 +216,62 @@ class OntServeCommitService:
             return disambiguated
         return class_local_name
 
+    def _matched_class_override(self, rdf_data: Dict, concept_cat: Optional[str],
+                                minted_type_uris) -> Optional[str]:
+        """Matched-class honoring (definition-prompt audit Stage 2): the local name of the
+        EXISTING ontology class to type this individual to instead of the minted
+        near-duplicate, or None to keep the minted types exactly as today.
+
+        The matcher's decision (matchesExisting + matchedOntologyClass) previously reached
+        the case TTL only as XAI annotation provenance while the rdf:type still came from
+        the minted class ref, so a run could commit proeth:DisclosureObligation while its
+        own matchedOntologyClass said proeth:AttributionObligation with matchesExisting
+        true. Honor the match, but ONLY after the matched class's curated subClassOf*
+        chain (the same CategoryResolver the subclass-emission guard uses) resolves to the
+        SAME core category as the component being committed -- the KI2026 lesson: never
+        assert a class whose chain conflicts, and concepts# rows may have no chain to the
+        component category at all. On chain failure, an unsafe local name, or any lookup
+        error: fall back to the minted class exactly as today, logging the fallback.
+        """
+        try:
+            md = (rdf_data or {}).get('match_decision') or {}
+            if not md.get('matches_existing'):
+                return None
+            matched_uri = md.get('matched_uri')
+            if not matched_uri or not concept_cat:
+                return None
+            matched_local = str(matched_uri).rsplit('#', 1)[-1].rsplit('/', 1)[-1]
+            if not matched_local:
+                return None
+            if self._safe_local_name(matched_local) != matched_local:
+                # A local name the URI sanitizer would mangle (e.g. concepts#Non_Deception)
+                # cannot round-trip through the minted-IRI conventions; keep the minted type.
+                logger.info(
+                    "Matched-class honoring fallback: matched class %s has a non-URI-safe "
+                    "local name; keeping minted type(s).", matched_uri)
+                return None
+            minted_locals = {
+                self._safe_local_name(str(u).rsplit('#', 1)[-1].rsplit('/', 1)[-1])
+                for u in (minted_type_uris or [])
+            }
+            if matched_local in minted_locals:
+                return None  # already typed to the matched class; nothing to honor
+            chain_cat = self._established_core_category(matched_local)
+            if chain_cat != concept_cat:
+                logger.info(
+                    "Matched-class honoring fallback: matched class %s chains to %s but the "
+                    "component being committed is %s; keeping minted type(s) %s.",
+                    matched_uri, chain_cat, concept_cat, sorted(minted_locals))
+                return None
+            logger.info(
+                "Honoring matched ontology class %s (chain=%s) instead of minted type(s) %s.",
+                matched_local, chain_cat, sorted(minted_locals))
+            return matched_local
+        except Exception as e:
+            logger.warning(
+                "Matched-class honoring lookup failed (%s); keeping minted type(s).", e)
+            return None
+
     @staticmethod
     def _enforce_role_suffix(local_name: str, label: str, category: Optional[str]) -> Tuple[str, str]:
         """Every role CLASS ends in 'Role' (URI local-name + rdfs:label). Deterministic hard
@@ -824,7 +880,16 @@ class OntServeCommitService:
 
                 # Add type based on the class from rdf_json_ld
                 if rdf_data and rdf_data.get('types'):
-                    for type_uri in rdf_data['types']:
+                    type_uris = rdf_data['types']
+                    # Matched-class honoring: when the matcher matched an EXISTING class
+                    # (matchesExisting + matchedOntologyClass) whose curated chain resolves
+                    # to this component's core category, type the individual to that class
+                    # instead of the minted near-duplicate (chain-validated; falls back to
+                    # the minted types on any failure -- see _matched_class_override).
+                    _honored = self._matched_class_override(rdf_data, concept_cat, type_uris)
+                    if _honored is not None:
+                        type_uris = [str(PROETHICA[_honored])]
+                    for type_uri in type_uris:
                         # Extract class name from URI
                         if '#' in type_uri:
                             class_name = type_uri.split('#')[-1]
@@ -1907,7 +1972,13 @@ class OntServeCommitService:
 
                 # Add type based on rdf_json_ld types
                 if rdf_data and rdf_data.get('types'):
-                    for type_uri in rdf_data['types']:
+                    type_uris = rdf_data['types']
+                    # Matched-class honoring (same rule as the append path): honor the
+                    # matcher's chain-validated existing class over the minted near-duplicate.
+                    _honored = self._matched_class_override(rdf_data, concept_cat, type_uris)
+                    if _honored is not None:
+                        type_uris = [str(PROETHICA[_honored])]
+                    for type_uri in type_uris:
                         if '#' in type_uri:
                             class_name = type_uri.split('#')[-1]
                         else:

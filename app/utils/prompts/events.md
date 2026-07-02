@@ -21,8 +21,9 @@ EVENT EXTRACTION DIRECTIVES (rules the ontology enforces):
 - label is a SHORT, GENERAL name of at most 4 words naming the KIND of event, not the case scenario: write "Structural Failure", not "Single-Client Conflict Mitigation Recognized". The label becomes the event's URI; put case-specific detail in the description.
 - description is 1-2 sentences carrying the case-specific detail.
 - temporal_marker is when the event occurred (the textual when); temporal_extent is "instant" for a point occurrence or "interval" for one that extends over a period.
-- initiates and terminates name the STATES (fluents) the event brings into or out of holding (Event Calculus). Name the conditions that become or stop being true (for example "Public Safety Risk State", "Project Halted State"), using the same state names used elsewhere in the case. An event initiates a state, not an obligation; the obligation and constraint links are recovered downstream from the state.
+- initiates and terminates name the STATES (fluents) the event brings into or out of holding (Event Calculus). Name the conditions that become or stop being true (for example "Public Safety Risk State", "Project Halted State"), using the same state names used elsewhere in the case. An event initiates a state, not an obligation; the obligation and constraint links are recovered downstream from the state. An event must not terminate a state it initiates: never list the same state in both initiates and terminates; if a state would appear in both, keep it only in initiates.
 - caused_by_action references the action label that caused this event, when one applies.
+- text_references are verbatim quotes from the case text grounding this event: each an EXACT contiguous span copied from the case text, never a paraphrase, summary, or stitched fragment. confidence is the extraction confidence 0.0-1.0.
 - Do NOT emit severity, an automatic-trigger boolean, preconditions, NESS test factors, or a causal chain here. Severity is dropped for events, and the NESS causal analysis is owned by the separate Stage-5 causal pass.
 
 OUTPUT FORMAT:

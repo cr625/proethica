@@ -422,7 +422,7 @@ class PrincipleExtractionResult(BaseModel):
 # BFO: iao:0000033 (directive information entity)
 # Ontology: DisclosureObligation, SafetyObligation, CompetenceObligation,
 #   ConfidentialityObligation, ReportingObligation, CollegialObligation,
-#   LegalObligation, EthicalObligation
+#   AttributionObligation, LegalObligation, EthicalObligation
 # Literature: Dennis et al. (specification requirements), Anderson (duty
 #   quantification), Donohue (ICBO 2017, DIE classification)
 # ---------------------------------------------------------------------------
@@ -439,6 +439,10 @@ class ObligationType(str, Enum):
     confidentiality = "confidentiality"
     reporting = "reporting"
     collegial = "collegial"
+    # attribution added 2026-07-02 (definition-prompt audit Stage 2): the NSPE III.9 credit
+    # duty (give credit for engineering work, incl. tool-assisted content). Previously forked
+    # between disclosure and a minted near-duplicate because the enum lacked the value.
+    attribution = "attribution"
     legal = "legal"
     ethical = "ethical"
 
@@ -1205,6 +1209,7 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         'confidentiality': f'{INTERMEDIATE_NS}ConfidentialityObligation',
         'reporting': f'{INTERMEDIATE_NS}ReportingObligation',
         'collegial': f'{INTERMEDIATE_NS}CollegialObligation',
+        'attribution': f'{INTERMEDIATE_NS}AttributionObligation',  # NSPE III.9 credit duty (added 2026-07-02)
         'legal': f'{INTERMEDIATE_NS}LegalObligation',
         'ethical': f'{INTERMEDIATE_NS}EthicalObligation',
     },
