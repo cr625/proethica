@@ -589,7 +589,9 @@ def _role_directives_block() -> str:
     # D-AGENT  <- proeth-core:Agent owl:disjointWith proeth-core:Role
     D.append("- The ACTOR and the ROLE are disjoint: put the actor's stable identity in `actor` (e.g. "
              "Engineer A) and the role facet in `identifier`; a person is never a role class.")
-    # D-TELEO  <- proeth-core:Role rdfs:subClassOf (hasObligation some Obligation) + scopeNote
+    # D-TELEO  <- proeth:ProfessionalRole rdfs:subClassOf (hasObligation some Obligation)
+    # (proethica-intermediate.ttl) + core:Role skos:scopeNote; the core-level Role
+    # restriction was removed in core v2.10.0 (participant roles carry no such axiom).
     D.append("- Every PROFESSIONAL role generates at least one obligation: name at least one obligation it "
              "generates (each becomes a hasObligation edge to an Obligation). If you cannot name one, the "
              "role is participant/stakeholder, not professional.")
