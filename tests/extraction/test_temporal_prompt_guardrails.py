@@ -128,10 +128,15 @@ def test_action_prompt_requests_grounding_fields():
 def test_action_prompt_guiding_principles_referent_rule():
     prompt = _action_prompt()
     assert "must name a Principle extracted for this case" in prompt
-    assert "an empty list is correct when no extracted principle guided the action" in prompt
-    # The worked example must not teach the motive-word anti-pattern.
+    # Empty is the exception, not the norm (the R2 regression fix: the [] worked example
+    # plus "an empty list is correct" wording taught emptiness and zeroed guidedByPrinciple).
+    assert "use an empty list only when no extracted principle applies" in prompt
+    assert "an empty list is correct when no extracted principle guided the action" not in prompt
+    # The worked example must not teach the motive-word anti-pattern, and must not teach
+    # emptiness: it names a realistic extracted-principle label consistent with its scenario.
     assert '"guiding_principles": ["Efficiency"]' not in prompt
-    assert '"guiding_principles": []' in prompt
+    assert '"guiding_principles": []' not in prompt
+    assert '"guiding_principles": ["Loyalty Principle"]' in prompt
 
 
 # ---------------------------------------------------------------------------

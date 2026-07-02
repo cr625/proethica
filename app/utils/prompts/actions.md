@@ -18,7 +18,7 @@ Actions are extracted as case individuals only. This pass mints NO action classe
 - Extract atomic actions: split compound descriptions.
 - Capture the intention behind each action (Doctrine of Double Effect): mental state, intended outcome, foreseen unintended effects, agent knowledge.
 - Name obligations and principles using the SAME names they carry elsewhere in the case (the obligation/principle individuals already extracted), not fresh paraphrases; they are resolved downstream to the actual individuals (Action fulfillsObligation / violatesObligation / guidedByPrinciple edges). Do NOT list constraints or competing obligation pairs; constraint activation is carried by the State an action initiates, and obligation competition by the case's defeasibility edges.
-- Each guiding_principles entry must name a Principle extracted for this case (a label match to one of the case's principle individuals). A motive, goal, or adverb such as "Speed", "Efficiency", or "Meeting the deadline" is NOT a principle and is invalid; an empty list is correct when no extracted principle guided the action.
+- Each guiding_principles entry must name a Principle extracted for this case (a label match to one of the case's principle individuals). When an extracted principle plausibly guided the action, name it here; most deliberate professional actions are guided by at least one of the case's principles. A motive, goal, or adverb such as "Speed", "Efficiency", or "Meeting the deadline" is NOT a principle and is invalid; use an empty list only when no extracted principle applies.
 - initiates / terminates name the STATES (fluents) the action brings into or out of holding (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017), using the same state names used elsewhere in the case. An action must not terminate a state it initiates: never list the same state in both; if a state would appear in both, keep it only in initiates.
 - text_references are verbatim quotes from the case text grounding this action: each an EXACT contiguous span copied from the case text, never a paraphrase, summary, or stitched fragment.
 
@@ -48,7 +48,7 @@ Each extracted item is a JSON object:
     "ethical_context": {
       "obligations_fulfilled": ["Obligation names as extracted for this case"],
       "obligations_violated": ["Obligation names as extracted for this case"],
-      "guiding_principles": ["Principle labels extracted for this case, or empty"]
+      "guiding_principles": ["Principle labels extracted for this case"]
     },
     "professional_context": {
       "within_competence": true,

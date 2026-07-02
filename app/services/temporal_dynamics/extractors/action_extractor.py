@@ -246,9 +246,11 @@ For each ACTION, extract:
    obligation pairs here; constraint activation is carried by the State an action
    initiates, and obligation competition by the case's defeasibility edges.
    Each guiding_principles entry must name a Principle extracted for this case (a label
-   match to one of the case's principle individuals). A motive, goal, or adverb such as
+   match to one of the case's principle individuals). When an extracted principle
+   plausibly guided the action, name it here; most deliberate professional actions are
+   guided by at least one of the case's principles. A motive, goal, or adverb such as
    "Speed", "Efficiency", or "Meeting the deadline" is NOT a principle and is invalid
-   here; an empty list is correct when no extracted principle guided the action.
+   here; use an empty list only when no extracted principle applies.
 8. professional_context: {{within_competence, required_capabilities}}
 9. initiates: list of STATES (fluents) this action brings into holding. In the Event
    Calculus (Kowalski & Sergot 1986; Berreby et al. 2017) a happening initiates a fluent
@@ -284,7 +286,7 @@ Return JSON:
     "ethical_context": {{
       "obligations_fulfilled": [],
       "obligations_violated": ["Competence", "Supervision"],
-      "guiding_principles": []
+      "guiding_principles": ["Loyalty Principle"]
     }},
     "professional_context": {{
       "within_competence": true,
