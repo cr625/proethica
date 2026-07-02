@@ -16,11 +16,17 @@ ambiguous). Deterministic, no LLM.
 from __future__ import annotations
 
 import re
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 NSPE_NS = "http://proethica.org/ontology/nspe#"
 INTERMEDIATE_NS = "http://proethica.org/ontology/intermediate#"
+CORE_NS = "http://proethica.org/ontology/core#"
 CORE_CITES_PROVISION = "http://proethica.org/ontology/core#citesProvision"
+# Constraint proeth:source -> the provision that establishes it. establishedBy has
+# domain union(Principle, Obligation, Constraint) and range CodeProvision in
+# proethica-core; the extraction stores the provision source on Constraint
+# individuals, so the applier below is Constraint-scoped.
+CORE_ESTABLISHED_BY = "http://proethica.org/ontology/core#establishedBy"
 # A code resource (Guideline) contains the provisions the case cites for it. containsProvision has
 # domain Guideline, range CodeProvision -- the precise property for resource provision_codes (NOT
 # refersToDocument, whose range is an IAO document, nor citesProvision, which is for analysis).
@@ -29,6 +35,13 @@ CORE_CONTAINS_PROVISION = "http://proethica.org/ontology/core#containsProvision"
 # Roman-numeral section, optional dotted numeric subsections, optional single
 # lowercase letter: I, I.1, II.1, II.1.a, III.9.d
 _DOTTED = re.compile(r"^[IVX]+(\.[0-9]+)*(\.[a-z])?$")
+
+# Dotted-code token EMBEDDED in a free-text source literal ("NSPE Code II.2.b",
+# "NSPE Code III.8.a; BER Case 98-3"). Requires at least one dotted numeric
+# component so a bare roman numeral inside prose can never resolve; a literal that
+# IS a bare section code ("II") still resolves via the whole-literal
+# normalize_citation path in extract_provision_fragments.
+_EMBEDDED_SECTION = re.compile(r"\b[IVX]+(?:\.[0-9]+)+(?:\.[a-z])?\b")
 
 
 def _frag(code: str) -> str:
@@ -47,6 +60,24 @@ def normalize_citation(literal: str) -> Optional[str]:
     if not s or not _DOTTED.match(s):
         return None
     return _frag(s)
+
+
+def extract_provision_fragments(literal: str) -> List[str]:
+    """Dotted NSPE section codes found in a source literal, as nspe fragments,
+    order-preserving and deduplicated. The whole literal is tried first (the
+    citedProvisionN form, e.g. 'II.4.a.'); otherwise embedded dotted tokens with at
+    least one numeric component are extracted ('NSPE Code III.8.a; BER Case 98-3'
+    -> ['III_8_a']). Non-code sources ('State Seal Law', 'Local regulations',
+    'NSPE Code of Ethics') yield []."""
+    whole = normalize_citation(literal)
+    if whole:
+        return [whole]
+    out: List[str] = []
+    for tok in _EMBEDDED_SECTION.findall(literal or ""):
+        frag = normalize_citation(tok)
+        if frag and frag not in out:
+            out.append(frag)
+    return out
 
 
 def valid_fragments_from_codes(codes) -> Set[str]:
@@ -75,6 +106,14 @@ class ProvisionCitationResolver:
         if frag and frag in self.valid:
             return NSPE_NS + frag
         return None
+
+    def resolve_all(self, literal: str) -> List[str]:
+        """All nspe: IRIs cited in a FREE-TEXT source literal (whole-literal dotted
+        code first, then embedded dotted tokens), validated against the existing
+        nspe nodes. Order-preserving, deduplicated. The multi-code counterpart of
+        resolve() for literals like 'NSPE Code III.8.a; BER Case 98-3'."""
+        return [NSPE_NS + frag for frag in extract_provision_fragments(literal)
+                if frag in self.valid]
 
 
 def _is_cited_provision_pred(p) -> bool:
@@ -128,6 +167,67 @@ def apply_cites_provision_on_ttl(ttl_path) -> int:
     g = Graph()
     g.parse(str(ttl_path), format="turtle")
     added = apply_cites_provision_edges(g, resolver)
+    if added:
+        g.serialize(destination=str(ttl_path), format="turtle")
+    return added
+
+
+def apply_established_by_edges(g, resolver: ProvisionCitationResolver) -> int:
+    """Add ``proeth-core:establishedBy nspe:<frag>`` for each dotted NSPE code found
+    in a Constraint individual's ``proeth:source`` literal(s). Returns the number of
+    new edges. Idempotent and ADDITIVE (the source literal is kept).
+
+    Endpoint validation: the subject must carry the materialized direct
+    ``rdf:type proeth-core:Constraint`` (core declares establishedBy on
+    union(Principle, Obligation, Constraint); the extraction stores provision
+    sources on Constraints, so a source literal on any other subject is ignored);
+    the object is validated by DB fragment membership exactly as citesProvision.
+    Non-code sources ("State Seal Law", "Local regulations", "NSPE Code of Ethics")
+    resolve to nothing and yield no edge. Deterministic, no LLM."""
+    from rdflib import RDF, URIRef, Literal
+
+    established = URIRef(CORE_ESTABLISHED_BY)
+    constraint_cls = URIRef(CORE_NS + "Constraint")
+    source_pred = URIRef(INTERMEDIATE_NS + "source")
+    new_edges = set()
+    for s in g.subjects(RDF.type, constraint_cls):
+        for o in g.objects(s, source_pred):
+            if not isinstance(o, Literal):
+                continue
+            for iri in resolver.resolve_all(str(o)):
+                edge = (s, established, URIRef(iri))
+                if edge not in g:
+                    new_edges.add(edge)
+    for e in new_edges:
+        g.add(e)
+    return len(new_edges)
+
+
+def apply_established_by_on_ttl(ttl_path) -> int:
+    """Resolve Constraint proeth:source literals to nspe: IRIs on one case TTL and
+    add proeth-core:establishedBy edges (constraint -> the provision that
+    establishes it), writing back when any are added.
+
+    Deterministic (no LLM), DB-validated against the live ai_ethical_dm
+    guideline_sections via the SAME provision resolver as citesProvision. Returns
+    the number of edges added. Raises on DB/parse errors; callers that must not
+    fail a commit should wrap this. Mirrors apply_cites_provision_on_ttl."""
+    from pathlib import Path
+    from rdflib import Graph
+    from sqlalchemy import text
+    from app.models import db
+
+    codes = [r[0] for r in db.session.execute(
+        text("SELECT section_code FROM guideline_sections WHERE guideline_id = 1")
+    ).fetchall()]
+    if not codes:
+        return 0
+    resolver = ProvisionCitationResolver(valid_fragments_from_codes(codes))
+
+    ttl_path = Path(ttl_path)
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+    added = apply_established_by_edges(g, resolver)
     if added:
         g.serialize(destination=str(ttl_path), format="turtle")
     return added

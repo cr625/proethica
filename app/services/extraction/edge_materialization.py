@@ -94,13 +94,24 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
 
     # 2d. Participant edges (DB-driven, embedding-resolved): the Pass-2 component
     # 'who' fields (obligation obligatedParty / constraint constrainedEntity /
-    # capability possessedBy / principle invokedBy) become Component -> Agent edges
-    # (obligatedParty / constrainedEntity / possessedBy / invokedBy). Additive: the
-    # literal is kept because rpo_edges/defeasibility read it as string context.
-    # Mirrors the state-affects applier (embedding shortlist + batched LLM select,
+    # capability possessedBy / principle invokedBy) plus the actor-edge additions
+    # (resource cited_by -> citedByAgent; Step-3 per-action hasAgent ->
+    # isPerformedBy) become Component -> Agent edges. Additive: the literal is kept
+    # because rpo_edges/defeasibility read it as string context. Mirrors the
+    # state-affects applier (embedding shortlist + batched LLM select,
     # prov:Derivation). Range Agent is OWL-DL-safe; the unified guard validates the
-    # component subject.
+    # component subject. invokedBy/citedByAgent Board-pattern literals resolve
+    # deterministically to the single case-scoped NSPE Board Agent (minted on first
+    # use, excluded from every actor candidate pool).
     _run_family(results, "participant_edges", case_id, ttl_path)
+
+    # 2d-bis. Obligation -> Capability requirement edges (DB-driven,
+    # embedding-resolved): the capability individuals' requiredForObligations labels
+    # become Obligation proeth-core:requiresCapability Capability edges (core v2.8.0:
+    # an obligation presupposes the capacity to discharge it). The family emits
+    # INVERTED (the row subject is the Capability); closes the O->Ca loop previously
+    # stranded as class-level literals with no commit consumer.
+    _run_family(results, "requires_capability_edges", case_id, ttl_path)
 
     # 2e. Fluent-transition edges (DB-driven, embedding-resolved): the Step-3 temporal
     # happenings' initiates / terminates State labels become Action/Event -> State edges
@@ -207,6 +218,18 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     except Exception as e:
         logger.exception("materialize: resource-provision applier failed for case %s", case_id)
         results["resource_provisions"] = {"error": str(e)}
+
+    # 3c. constraint source -> establishedBy edges (deterministic, DB-validated):
+    # dotted NSPE codes inside Constraint proeth:source literals resolve to nspe:
+    # CodeProvision IRIs via the SAME provision resolver as citesProvision
+    # (constraint -> the provision that establishes it). Non-code sources
+    # ("State Seal Law", "Local regulations") yield no edge; the literal is kept.
+    try:
+        from app.services.extraction.provision_citation_resolver import apply_established_by_on_ttl
+        results["established_by"] = {"edges_added": apply_established_by_on_ttl(ttl_path)}
+    except Exception as e:
+        logger.exception("materialize: establishedBy applier failed for case %s", case_id)
+        results["established_by"] = {"error": str(e)}
 
     # 4. Unified Pellet-safety guard over ALL edge families on the final TTL.
     # apply_rpo_edges guards its own edges, but a defeasibility edge can still

@@ -11,6 +11,9 @@ Locks four live-path repairs:
      the motive-word anti-pattern ("Efficiency").
   4. The terminates-coherence rule (a happening must not terminate a state it initiates) is
      stated on both prompts and in the seeded bodies.
+  5. Stage-3 action grounding parity: the action phase-1 prompt requests verbatim
+     text_references (mirroring the event convergence of item 2), and the seeded actions
+     body documents the same contract.
 
 DB/LLM-free: the builders only read the ontology TTL / SHACL files via concept_ontology_slots.
 """
@@ -101,6 +104,23 @@ def test_event_prompt_keeps_origin_triage_and_tie_break():
     assert "caused_by_action" in prompt
 
 
+def test_action_prompt_requests_grounding_fields():
+    """Stage-3 action grounding parity: the phase-1 prompt requests verbatim
+    text_references (mirroring the Stage-2 event convergence), the raw case text is
+    included so the quotes can be verbatim, and the worked example carries the field
+    (consistent with the verbatim rule, no paraphrase)."""
+    prompt = _action_prompt()
+    assert "text_references" in prompt
+    assert "EXACT contiguous span" in prompt
+    assert "never paraphrase" in prompt
+    # The raw case text is included so quotes can actually be verbatim.
+    assert "CASE FACTS:" in prompt
+    assert "The engineer sealed the report." in prompt
+    assert "CASE DISCUSSION:" in prompt
+    # The worked example shows the field.
+    assert '"text_references"' in prompt
+
+
 # ---------------------------------------------------------------------------
 # 3. guiding_principles referent rule + example fix
 # ---------------------------------------------------------------------------
@@ -139,6 +159,10 @@ def test_actions_body_purged_and_wired():
     assert "Every Action becomes an Event" not in body
     assert "becomes_event" not in body
     assert "ethics guideline" not in body
+    # Stage-3 grounding parity: the documented contract carries text_references with
+    # the verbatim rule (single source with the live phase-1 prompt).
+    assert "text_references" in body
+    assert "EXACT contiguous span" in body
     # Slots wired; mints-no-classes prominent.
     for slot in ("{{ action_definition }}", "{{ action_boundary }}",
                  "{{ action_individuation }}", "{{ pass_directive }}", "{{ case_text }}"):

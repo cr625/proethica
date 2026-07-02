@@ -224,6 +224,9 @@ def register_ontserve_extraction_ops(bp):
                         'initiates': rdf_data.get('proeth:initiates', []),
                         'terminates': rdf_data.get('proeth:terminates', []),
                         'temporal_extent': rdf_data.get('proeth:temporalExtent', ''),
+                        # Verbatim grounding (Stage-3 audit: action parity with the
+                        # event path; converter-mirror contract).
+                        'text_references': rdf_data.get('proeth:textReferences', []),
                         'rdf_json': rdf_data
                     })
 

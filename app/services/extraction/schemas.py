@@ -947,16 +947,15 @@ class CandidateCapabilityClass(BaseCandidate):
     """A new capability class discovered in case text.
 
     Field set aligned to the extraction-architecture spec (Ca section, 2026-06): the canonical
-    competence kind (BaseCandidate.label) drives the subClassOf typing, and required_for_obligations
-    is the Ca->O capacity linkage that resolves to the requiresCapability edge (Obligation->Capability).
-    The earlier capability_category, enables_actions, skill_level, and domain_specificity fields were
-    dropped (spec "Not stored"). Only a competence the agent possesses or exercises is a Capability;
-    a lacked competence is dropped here and captured downstream as a CompetenceGapState.
+    competence kind (BaseCandidate.label) drives the subClassOf typing. The earlier
+    capability_category, enables_actions, skill_level, and domain_specificity fields were dropped
+    (spec "Not stored"), and required_for_obligations MOVED to CapabilityIndividual (Stage 3 of the
+    nine-component audit: the obligation linkage is per-case data per CapabilityPropertyShape, so
+    it lives on the individual, where the commit-time requiresCapability reader consumes it; at
+    class level it had no commit consumer). Only a competence the agent possesses or exercises is
+    a Capability; a lacked competence is dropped here and captured downstream as a
+    CompetenceGapState.
     """
-    required_for_obligations: List[str] = Field(
-        default_factory=list,
-        description="Obligations requiring this capability (Ca->O linkage; resolves to requiresCapability)"
-    )
 
 
 class CapabilityIndividual(BaseIndividual):
@@ -965,11 +964,23 @@ class CapabilityIndividual(BaseIndividual):
     Field set aligned to the extraction-architecture spec (Ca section, 2026-06): possessed_by
     resolves to the possessedBy edge and case_context is the grounding-context literal. The earlier
     capability_statement, demonstrated_through, and proficiency_level fields were dropped (spec
-    "Not stored").
+    "Not stored"). required_for_obligations (moved here from the class model, Stage 3 of the
+    nine-component audit) is the per-case Ca->O capacity linkage: it serializes to
+    proeth:requiredForObligations on the committed individual (the generic camelCase proeth:*
+    properties loop), which the commit-time reader resolves to the requiresCapability edge
+    (Obligation->Capability).
     """
     capability_class: str = Field("", description="Capability class label or URI", alias="instance_of")
     possessed_by: Optional[str] = Field(
         None, description="Who possesses this capability; resolves to the possessedBy edge"
+    )
+    required_for_obligations: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Name the extracted obligation(s) of THIS case that presuppose this capability "
+            "(obligation labels from this case; resolves to the requiresCapability edge, "
+            "Obligation->Capability); empty list when none"
+        ),
     )
     case_context: Optional[str] = Field(
         None, description="Grounding-context literal: how this capability manifests in the case"

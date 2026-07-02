@@ -386,12 +386,13 @@ _FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
     'capabilities': {
         'class_required': (
             'label (a tool/actor-neutral competence kind), definition, '
-            'confidence (float 0-1), match_decision, required_for_obligations, '
-            'text_references'
+            'confidence (float 0-1), match_decision, text_references'
         ),
         'individual_required': (
-            'identifier, capability_class, possessed_by, confidence (float 0-1), '
-            'text_references'
+            'identifier, capability_class, possessed_by, '
+            'required_for_obligations (extracted obligation labels of THIS case '
+            'that presuppose the capability; empty list when none), '
+            'confidence (float 0-1), text_references'
         ),
         'match_decision_note': (
             'Every new class MUST include a match_decision object. Extract only a '

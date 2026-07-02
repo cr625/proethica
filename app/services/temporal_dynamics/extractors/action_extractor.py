@@ -262,6 +262,9 @@ For each ACTION, extract:
 11. temporal_extent: "instant" if the action is a point occurrence, "interval" if it
     extends over a period. This anchors the action in OWL-Time; temporal_marker stays the
     textual when.
+12. text_references: verbatim quotes from the CASE FACTS / CASE DISCUSSION text grounding
+    this action. Each must be an EXACT contiguous span copied from the case text (not the
+    narrative summary); never paraphrase, summarize, or stitch fragments together.
 
 Return JSON:
 ```json
@@ -289,7 +292,8 @@ Return JSON:
     }},
     "initiates": ["Quality Risk State"],
     "terminates": [],
-    "temporal_extent": "instant"
+    "temporal_extent": "instant",
+    "text_references": ["assigned the complex bridge analysis to the intern"]
   }}
 ]}}
 ```

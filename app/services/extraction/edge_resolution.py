@@ -39,6 +39,13 @@ PROV = Namespace("http://www.w3.org/ns/prov#")
 
 AGENT_CLASS = CORE.Agent
 
+# The case-scoped NSPE Board Agent minted by edge_spec's Board-pattern fallback
+# (invokedBy / citedByAgent). It is deliberately EXCLUDED from _agent_pool so it can
+# never be matched as a used_by/availableTo reliance actor or by any other
+# embedding/LLM actor resolution; only the deterministic Board-pattern fallback in
+# edge_spec.materialize_edge_family reaches it.
+BOARD_AGENT_LOCALNAME = "Agent_NSPE_Board"
+
 
 # --- embedding helpers (moved verbatim from state_edges) -------------------
 
@@ -114,6 +121,10 @@ def _agent_pool(g: Graph, svc) -> List:
     facet labels let a descriptive `used_by` ("the peer reviewer") still resolve."""
     pool = []
     for ind in g.subjects(RDF.type, AGENT_CLASS):
+        if str(ind).rsplit("#", 1)[-1] == BOARD_AGENT_LOCALNAME:
+            # Materialized Board Agent: reachable only via the deterministic
+            # Board-pattern fallback, never as an embedding/LLM candidate.
+            continue
         text = _label(g, ind)
         for facet in g.objects(ind, CORE.hasRole):
             fl = _label(g, facet)

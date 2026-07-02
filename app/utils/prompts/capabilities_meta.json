@@ -17,13 +17,6 @@
           "required": true,
           "description": "Capability definition (rdfs:comment / skos:definition)"
         },
-        "required_for_obligations": {
-          "type": "array",
-          "range": "Obligation",
-          "required": false,
-          "description": "Obligations that presuppose this capacity (the Ca->O linkage); resolves to the requiresCapability edge (Obligation->Capability), not stored as a literal",
-          "range_ontology": "proethica-core"
-        },
         "match_decision": {
           "type": "object",
           "fields": {
@@ -89,6 +82,13 @@
           "description": "Stable actor identity who holds or exercises the capability; reused from the roles pass. Resolves to the possessedBy edge, not stored as a literal",
           "range_ontology": "proethica-core"
         },
+        "required_for_obligations": {
+          "type": "array",
+          "range": "Obligation",
+          "required": false,
+          "description": "Labels of the extracted obligations of THIS case that presuppose this capability (the per-case Ca->O linkage, moved from the class schema per CapabilityPropertyShape); serialized as proeth:requiredForObligations on the individual and resolved to the requiresCapability edge (Obligation->Capability) at commit; empty when none",
+          "range_ontology": "proethica-core"
+        },
         "case_context": {
           "type": "string",
           "required": false,
@@ -135,7 +135,7 @@
     },
     "capability_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) CapabilityDefinitionShape via concept_ontology_slots -> _component_schema_block('Capability')",
-      "description": "Capability definitional/individual field schema, resolved live from the SHACL CapabilityDefinitionShape (single source shared with the OntServe Capability entity page). capability_kind drives the subClassOf typing; possessed_by resolves to the possessedBy edge; required_for_obligations resolves to the requiresCapability edge; the Tolmeijer requirement is a class-level annotation"
+      "description": "Capability definitional/individual field schema, resolved live from the SHACL CapabilityDefinitionShape + CapabilityPropertyShape split (single source shared with the OntServe Capability entity page). capability_kind drives the subClassOf typing (type-level); possessed_by and required_for_obligations are per-case individual fields (PropertyShape) resolving to the possessedBy and requiresCapability edges; the Tolmeijer requirement is a class-level annotation"
     },
     "pass_directive": {
       "source": "_PASS_DIRECTIVES[('capabilities', section_type)] in prompt_variable_resolver",

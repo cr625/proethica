@@ -89,7 +89,9 @@ def test_event_converter_emits_text_references_and_confidence():
     }
     erdf = convert_event_to_rdf(event, 15)
     assert erdf["proeth:textReferences"] == ["a critical structural flaw was found"]
-    assert erdf["proeth:confidence"] == 0.92
+    # Plain string literal, not float: proeth:confidence declares rdfs:range xsd:string, and
+    # a float serializes as xsd:double at commit (made the run-17 commit Pellet-inconsistent).
+    assert erdf["proeth:confidence"] == "0.92"
 
     # Absent / empty grounding fields are not emitted; a bool confidence is rejected.
     bare = convert_event_to_rdf({"label": "Permit Denial", "confidence": True}, 15)
@@ -100,3 +102,26 @@ def test_event_converter_emits_text_references_and_confidence():
     single = convert_event_to_rdf(
         {"label": "Permit Denial", "text_references": "the permit was denied"}, 15)
     assert single["proeth:textReferences"] == ["the permit was denied"]
+
+
+def test_action_converter_emits_text_references():
+    """Stage-3 action grounding parity: the action converter stores verbatim grounding at
+    the top level of the action's rdf_json_ld under the same proeth:textReferences key as
+    the event path (shared _add_text_references helper), trimmed and with single-string
+    model drift normalized to a one-item list."""
+    action = {
+        "label": "Task Assignment", "agent": "Engineer A", "temporal_marker": "Month 3",
+        "text_references": ["assigned the complex bridge analysis to the intern", "  ", ""],
+    }
+    rdf = convert_action_to_rdf(action, 15)
+    assert rdf["proeth:textReferences"] == ["assigned the complex bridge analysis to the intern"]
+
+    # Absent / empty grounding is not emitted.
+    bare = convert_action_to_rdf({"label": "Report Sealing", "agent": "Engineer B"}, 15)
+    assert "proeth:textReferences" not in bare
+
+    # A single-string text_references (model drift) is normalized to a one-item list.
+    single = convert_action_to_rdf(
+        {"label": "Report Sealing", "agent": "Engineer B",
+         "text_references": "the engineer sealed the report"}, 15)
+    assert single["proeth:textReferences"] == ["the engineer sealed the report"]

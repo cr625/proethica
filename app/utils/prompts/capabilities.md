@@ -18,8 +18,9 @@ CAPABILITY EXTRACTION DIRECTIVES (rules the ontology enforces):
 {{ capability_individuation }}
 - capability_class is the canonical competence KIND and the controlled typing signal. Use a tool/actor-neutral head-noun label (e.g. "Structural Analysis Capability", "Ethical Reasoning Capability"), REUSE an existing capability class from the list above, and fold synonyms into it rather than minting a near-duplicate. The kind becomes the rdfs:subClassOf typing at commit. Do not put the tool, the actor, or the case scenario in the label.
 - GOVERNING directive: extract ONLY a competence the agent POSSESSES or exercises. A lacked, insufficient, or unexercised competence is NOT a capability and must not be emitted here. The competence gap is captured separately downstream as a state; do not mint a capability for it.
+- SALIENCE: extract a capability when the agent exercises it in the case conduct, or when an extracted Obligation of this case presupposes it; in the latter case name that obligation in the individual's required_for_obligations.
 - possessed_by names the agent who holds or exercises the capability (e.g. "Engineer A"), reused from the roles pass. It resolves to the possessedBy edge at commit; name the actor, not a role label.
-- required_for_obligations names the obligations that presuppose this capacity (the Ca->O capacity linkage; obligations are extracted earlier and appear in the cross-concept context). It resolves to the requiresCapability edge (Obligation->Capability). Name an obligation label where one fits.
+- required_for_obligations, a field on the capability INDIVIDUAL, names the extracted obligation(s) of THIS case that presuppose this capability (the Ca->O capacity linkage; obligations are extracted earlier and appear in the cross-concept context). Use the obligation labels as extracted for this case; it resolves to the requiresCapability edge (Obligation->Capability) at commit. Empty list when none.
 - Do not assert a skill level, proficiency, or the actions the capability enables; those are not stored.
 
 MATCH DECISION RULES:
@@ -44,7 +45,6 @@ CLASS SCHEMA (new_capability_classes array) -- each class is a JSON object:
   {
     "label": "Structural Analysis Capability",
     "definition": "The competence to analyze a structure's loads, stresses, and failure modes and judge its adequacy.",
-    "required_for_obligations": ["Competence Obligation"],
     "text_references": ["Engineer A performed the structural analysis of the proposed design"],
     "confidence": 0.9,
     "match_decision": {
@@ -62,6 +62,7 @@ INDIVIDUAL SCHEMA (capability_individuals array) -- each individual is a JSON ob
     "identifier": "Engineer A Structural Analysis",
     "capability_class": "Structural Analysis Capability",
     "possessed_by": "Engineer A",
+    "required_for_obligations": ["Competence Obligation"],
     "case_context": "Engineer A performed the structural analysis that detected the deficiency.",
     "text_references": ["Engineer A performed the structural analysis of the proposed design"],
     "confidence": 0.92

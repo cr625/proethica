@@ -30,14 +30,16 @@ remain hand-written. ``edge_materialization`` calls them alongside the registry 
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from rdflib import Graph, Namespace, RDF, URIRef
-from rdflib.namespace import TIME
+from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib.namespace import OWL, TIME
 
 from app.services.extraction.edge_resolution import (
+    BOARD_AGENT_LOCALNAME,
     _agent_pool,
     _candidate_pool,
     _embedding_service,
@@ -98,6 +100,29 @@ class EdgePredicate:
     # veto_if_present="initiates" (initiates is emitted first in predicate order, so a
     # same-run initiates edge is already in the graph when terminates resolves).
     veto_if_present: Optional[str] = None
+    # temp_rdf row shape for this predicate's reader rows: "properties" (Pass-1/2
+    # storage rows keep fields under a 'properties' wrapper) or "temporal" (Step-3
+    # rows store proeth: keys at the TOP level of rdf_json_ld -- the fluent-spec
+    # subject convention). Used by _read_participants for isPerformedBy, whose Action
+    # subjects live under extraction_type='temporal_dynamics_enhanced'.
+    row_shape: str = "properties"
+    row_type_filter: Tuple[str, ...] = ()      # @type substrings kept for temporal rows
+    # Optional per-party label normalizer applied by the reader BEFORE resolution
+    # (e.g. stripping the role parenthetical from a hasAgent literal: "Engineer A
+    # (Senior Engineer)" -> "Engineer A"). The stored literal itself is untouched.
+    normalize: Optional[Callable[[str], str]] = None
+    # Deterministic Board-pattern fallback (invokedBy / citedByAgent ONLY): a party
+    # literal matching the NSPE Board pattern is routed to the single case-scoped
+    # Board Agent individual instead of the embedding/LLM actor resolution (which can
+    # never resolve it: the Board is not an extracted case Agent and is excluded from
+    # _agent_pool).
+    board_agent_fallback: bool = False
+    # Inverted emission: the resolved TARGET is the edge SUBJECT and the row
+    # individual is the edge OBJECT. Used by requiresCapability, whose reader rows
+    # are Capability individuals while proethica-core declares the property
+    # Obligation -> Capability (an obligation presupposes the capacity to discharge
+    # it, v2.8.0).
+    invert: bool = False
 
 
 @dataclass(frozen=True)
@@ -172,6 +197,59 @@ def _pool_for(g: Graph, svc, spec: EdgeSpec, pred: EdgePredicate, cache: Dict[Tu
     return cache[key]
 
 
+# --- NSPE Board Agent (deterministic Board-pattern actor fallback) ----------
+# The Board of Ethical Review authors the analysis, so extraction never yields a
+# case Agent individual for it (Agent_NSPE* = 0 in both committed case-7 runs) while
+# Principle invokedBy / Resource citedBy literals keep naming it and stay unresolved.
+# A Board-pattern literal on a board_agent_fallback predicate is resolved
+# deterministically to ONE case-scoped Agent individual, minted on first use with
+# provenance. The individual is excluded from _agent_pool (edge_resolution), so no
+# embedding/LLM resolution -- used_by/availableTo included -- can ever select it.
+
+BOARD_AGENT_LABEL = "NSPE Board of Ethical Review"
+
+
+def _is_board_literal(text: str) -> bool:
+    """True iff a party literal names the NSPE Board of Ethical Review. Matches
+    "NSPE Board of Ethical Review" (anywhere in the literal), and the bare forms
+    "the Board" / "Board" / "NSPE Board" / "the NSPE Board" only as the WHOLE
+    literal, so "State Licensing Board" does not match."""
+    s = re.sub(r"\s+", " ", (text or "")).strip().lower().rstrip(".")
+    if "board of ethical review" in s:
+        return True
+    return re.fullmatch(r"(?:the )?(?:nspe )?board", s) is not None
+
+
+def _ensure_board_agent(g: Graph, case_id: int) -> URIRef:
+    """Get-or-create the single case-scoped NSPE Board Agent individual. Typed
+    proeth-core:Agent (the range the participant-family edges expect); idempotent
+    across predicates and re-materialization runs; carries provenance like the other
+    materialized nodes."""
+    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
+    board = case_ns[BOARD_AGENT_LOCALNAME]
+    if (board, RDF.type, CORE.Agent) in g:
+        return board
+    g.add((board, RDF.type, OWL.NamedIndividual))
+    g.add((board, RDF.type, CORE.Agent))
+    g.add((board, RDFS.label, Literal(BOARD_AGENT_LABEL)))
+    g.add((board, RDFS.comment, Literal(
+        "Case-scoped Agent individual materialized at commit for Board-pattern "
+        "invokedBy/citedByAgent actor literals. Not extracted from the case text; "
+        "excluded from the actor-resolution candidate pools, so it is never offered "
+        "to extraction prompts and never matches as a reliance actor "
+        "(used_by/availableTo).")))
+    g.add((board, PROV.wasAttributedTo, Literal(
+        f"Case {case_id} Edge Materialization (Board-pattern actor resolution)")))
+    return board
+
+
+# Strip a trailing role parenthetical from an actor literal before Agent resolution:
+# "John Smith (Senior Engineer)" -> "John Smith". Reader-side only; the stored
+# hasAgent literal is untouched (edges are additive).
+def _strip_role_parenthetical(s: str) -> str:
+    return re.sub(r"\s*\([^)]*\)\s*$", "", (s or "")).strip()
+
+
 # --- the template ----------------------------------------------------------
 
 def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: bool = True,
@@ -228,6 +306,9 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
         items: List[Dict[str, Any]] = []
         next_id = 1
         unresolved = 0
+        # (row subject IRI, verbatim Board literal) pairs deferred to the
+        # deterministic Board-pattern fallback (invokedBy / citedByAgent only).
+        board_refs: List[Tuple[URIRef, str]] = []
         for row in rows:
             labels = row.fields.get(pred.prop) or []
             if not labels:
@@ -237,6 +318,11 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
                 logger.info("%s[%s]: subject %r not in committed graph; skipped",
                             spec.name, pred.prop, (row.label or "")[:80])
                 continue
+            if pred.board_agent_fallback:
+                board_refs.extend((subj, lbl) for lbl in labels if _is_board_literal(lbl))
+                labels = [lbl for lbl in labels if not _is_board_literal(lbl)]
+                if not labels:
+                    continue
             desc = "; ".join(labels)
             sl = _shortlist(svc, desc, pool, SHORTLIST_FLOOR, SHORTLIST_K)
             if not sl:
@@ -278,28 +364,52 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
                             spec.name, pred.prop, resolver, desc[:80])
                 continue
             for tgt in targets:
+                # invert swaps the emission direction (requiresCapability: the
+                # resolved Obligation is the SUBJECT, the row Capability the OBJECT);
+                # dedupe, veto, and PROV all operate on the emitted direction.
+                s_node, o_node = (tgt, subj) if pred.invert else (subj, tgt)
                 if (pred.veto_if_present is not None
-                        and (subj, pred.namespace[pred.veto_if_present], tgt) in g):
+                        and (s_node, pred.namespace[pred.veto_if_present], o_node) in g):
                     vetoed += 1
                     logger.warning(
                         "%s[%s]: dropped %s -> %s: the same subject already carries %s to "
                         "this target (incoherent transition; a happening must not %s a "
                         "state it %s)",
-                        spec.name, pred.prop, subj, tgt, pred.veto_if_present,
+                        spec.name, pred.prop, s_node, o_node, pred.veto_if_present,
                         pred.prop, pred.veto_if_present)
                     continue
-                if (subj, pred.namespace[pred.prop], tgt) not in g:
-                    g.add((subj, pred.namespace[pred.prop], tgt))
+                if (s_node, pred.namespace[pred.prop], o_node) not in g:
+                    g.add((s_node, pred.namespace[pred.prop], o_node))
                     prov_desc = row.extra.get("prov_desc") or desc
-                    emit_edge_prov(g, case_id, spec.prov_prefix, pred.prop, subj, tgt,
+                    emit_edge_prov(g, case_id, spec.prov_prefix, pred.prop, s_node, o_node,
                                    prov_desc, spec.prov_label(pred.prop),
                                    spec.prov_comment(pred.prop))
                     edges += 1
                 if spec.extra_emit is not None:
                     spec.extra_emit(g, spec, subj, pred.prop, tgt, row)
+
+        # Deterministic Board-pattern fallback: each deferred Board literal becomes an
+        # edge to the single case-scoped Board Agent (minted on first use). Additive
+        # and idempotent, same PROV shape as the resolved edges, with the verbatim
+        # literal as the derivation value.
+        board_edges = 0
+        for b_subj, b_lit in board_refs:
+            board = _ensure_board_agent(g, case_id)
+            if (b_subj, pred.namespace[pred.prop], board) not in g:
+                g.add((b_subj, pred.namespace[pred.prop], board))
+                emit_edge_prov(g, case_id, spec.prov_prefix, pred.prop, b_subj, board,
+                               b_lit, spec.prov_label(pred.prop),
+                               spec.prov_comment(pred.prop)
+                               + "; Board-pattern literal resolved deterministically to "
+                                 "the case-scoped NSPE Board Agent")
+                edges += 1
+                board_edges += 1
+
         res[pred.prop] = {"edges": edges, "resolver": resolver, "unresolved": unresolved}
         if vetoed:
             res[pred.prop]["vetoed"] = vetoed
+        if board_edges:
+            res[pred.prop]["board_agent_edges"] = board_edges
         any_pred_emitted = any_pred_emitted or edges > 0
 
     total = sum(v.get("edges", 0) for v in res.values() if isinstance(v, dict))
@@ -362,10 +472,17 @@ def _read_state_affects(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
 
 
 def _read_participants(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
-    """The four Pass-2 'who' fields. Each predicate has its OWN extraction_type and
-    subject category, so this reader unions the per-predicate rows, keyed by predicate
-    local name. A list field (invokedBy) is joined with '; ' so multi-select can pick
-    several agents."""
+    """The Pass-2 'who' fields plus the actor-edge additions (citedByAgent,
+    isPerformedBy). Each predicate has its OWN extraction_type and subject category,
+    so this reader unions the per-predicate rows, keyed by predicate local name. A
+    list field (invokedBy) is joined with '; ' so multi-select can pick several
+    agents.
+
+    Row shape is per-predicate: Pass-1/2 rows keep fields under a 'properties'
+    wrapper; Step-3 temporal rows (isPerformedBy -- Action subjects are stored under
+    extraction_type='temporal_dynamics_enhanced', NOT 'actions') store proeth: keys
+    at the TOP level of rdf_json_ld and are @type-filtered, mirroring
+    _read_temporal."""
     from app.models.temporary_rdf_storage import TemporaryRDFStorage
     out: List[SubjectRow] = []
     for pred in spec.predicates:
@@ -374,10 +491,18 @@ def _read_participants(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
             storage_type="individual",
         ).all()
         for r in rows:
-            p = _props(r)
+            if pred.row_shape == "temporal":
+                src = r.rdf_json_ld or {}
+                at_type = src.get("@type", "") or ""
+                if pred.row_type_filter and not any(t in at_type for t in pred.row_type_filter):
+                    continue
+                label = r.entity_label or src.get("rdfs:label", "")
+            else:
+                src = _props(r)
+                label = r.entity_label or ""
             raw = None
             for k in pred.fields:
-                v = p.get(k)
+                v = src.get(k)
                 if v:
                     raw = v
                     break
@@ -387,10 +512,12 @@ def _read_participants(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
                 parties = [str(x).strip() for x in raw if str(x).strip()]
             else:
                 parties = [str(raw).strip()] if str(raw).strip() else []
+            if pred.normalize is not None:
+                parties = [p for p in (pred.normalize(x) for x in parties) if p]
             if parties:
-                out.append(SubjectRow(label=r.entity_label or "",
+                out.append(SubjectRow(label=label,
                                       fields={pred.prop: parties},
-                                      extra={"subj_label": r.entity_label or "",
+                                      extra={"subj_label": label,
                                              "_pred": pred.prop}))
     return out
 
@@ -431,6 +558,31 @@ def _read_temporal(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
             extra.update(spec.extra_read(rdf))
         out.append(SubjectRow(label=r.entity_label or rdf.get("rdfs:label", ""),
                               fields=fields, extra=extra))
+    return out
+
+
+def _read_capability_requirements(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
+    """Capability `requiredForObligations` -> requiresCapability. The row subject is
+    the CAPABILITY individual (Pass-2 'properties' wrapper) and the labels name the
+    obligations of THIS case whose discharge presupposes it; the emitted edge is
+    INVERTED (Obligation -> Capability) to conform to proethica-core's
+    requiresCapability domain/range (v2.8.0: an obligation presupposes the capacity
+    to discharge it)."""
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+    rows = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type=spec.extraction_type, storage_type="individual"
+    ).all()
+    out: List[SubjectRow] = []
+    for r in rows:
+        p = _props(r)
+        raw = p.get("requiredForObligations") or p.get("required_for_obligations") or []
+        labels = [str(x).strip() for x in (raw if isinstance(raw, list) else [raw])
+                  if str(x).strip()]
+        if labels:
+            out.append(SubjectRow(label=r.entity_label or "",
+                                  fields={"requiresCapability": labels},
+                                  extra={"subj_label": r.entity_label or ""}))
     return out
 
 
@@ -575,6 +727,38 @@ def _obligation_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
     return builder
 
 
+def _requires_capability_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
+    def builder(items: List[Dict[str, Any]]) -> str:
+        blocks = []
+        for it in items:
+            cands = "; ".join(
+                f"{i + 1}) {lbl[:90]}" for i, (iri, lbl, sim) in enumerate(it["shortlist"])
+            )
+            blocks.append(
+                f"[{it['id']}] capability: \"{(it.get('subj_label') or '')[:120]}\"\n"
+                f"  obligation(s) requiring it: \"{(it['desc'] or '')[:240]}\"\n"
+                f"  candidate obligations: {cands}"
+            )
+        return (
+            "Each REQUEST gives a CAPABILITY (a professional competence) in an "
+            "engineering-ethics case and the text naming the OBLIGATION(s) of that case "
+            "whose discharge presupposes the capability, plus the candidate obligations "
+            "extracted from that case.\n"
+            "For each request, choose ALL candidate obligations that require the "
+            "capability (the duty can be discharged only by an agent that possesses it). "
+            "The text may name several, one, or none.\n"
+            "Choose NONE (an empty list) when a named obligation does not correspond to "
+            "any listed candidate (it was not separately extracted, or the text is a "
+            "general phrase rather than one of the case's obligations). Match on the "
+            "substance of the duty, not on shared wording alone.\n\n"
+            "REQUESTS:\n" + "\n\n".join(blocks) +
+            "\n\nOUTPUT strict JSON only, one entry per request id, each value a JSON "
+            "array of the chosen candidate numbers (use [] for none): "
+            "{\"<id>\": [<n>, ...], ...}"
+        )
+    return builder
+
+
 def _temporal_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
     noun = pred.verb
 
@@ -671,9 +855,13 @@ _STATE_AFFECTS_SPEC = EdgeSpec(
     no_data_status="no_affected_parties",
 )
 
-# participant_edges: four Pass-2 'who' fields -> Component -> Agent. ADDITIVE (the literal
-# stays untouched; this only ADDS the edge). Each predicate has its OWN subject category
-# AND its own extraction_type.
+# participant_edges: the Pass-2 'who' fields plus the actor-edge additions -> Component
+# -> Agent. ADDITIVE (the literal stays untouched; this only ADDS the edge). Each
+# predicate has its OWN subject category AND its own extraction_type. invokedBy and
+# citedByAgent carry the deterministic Board-pattern fallback (the Board authors the
+# analysis, so it is never an extracted case Agent); isPerformedBy reads the Step-3
+# per-action hasAgent literal from the TEMPORAL rows (fluent-spec subject convention)
+# with the role parenthetical stripped before resolution.
 _PARTICIPANT_SPEC = EdgeSpec(
     name="participant_edges",
     extraction_type="",  # per-predicate (see subject_extraction_type)
@@ -698,7 +886,27 @@ _PARTICIPANT_SPEC = EdgeSpec(
                       subject_category="Principle", subject_extraction_type="principles",
                       prompt_builder_factory=_participant_prompt_factory,
                       target_noun="principle",
-                      verb="INVOKES the principle (appeals to it to justify or evaluate conduct)"),
+                      verb="INVOKES the principle (appeals to it to justify or evaluate conduct)",
+                      board_agent_fallback=True),
+        # Resource cited_by -> citedByAgent (the citing analytic authority; core
+        # v2.6.0 actor-edge family, distinguished from availableTo = reliance).
+        EdgePredicate("citedByAgent", CORE, ("citedBy", "cited_by"), "Agent",
+                      subject_category="Resource", subject_extraction_type="resources",
+                      prompt_builder_factory=_participant_prompt_factory,
+                      target_noun="resource",
+                      verb="CITED the resource as an authority in their ethical analysis",
+                      board_agent_fallback=True),
+        # Step-3 per-action hasAgent -> isPerformedBy (core declares the property and
+        # the Action someValuesFrom restriction). Action subjects are stored under
+        # extraction_type='temporal_dynamics_enhanced', NOT 'actions'.
+        EdgePredicate("isPerformedBy", CORE, ("proeth:hasAgent", "hasAgent"), "Agent",
+                      subject_category="Action",
+                      subject_extraction_type="temporal_dynamics_enhanced",
+                      row_shape="temporal", row_type_filter=("Action",),
+                      normalize=_strip_role_parenthetical,
+                      prompt_builder_factory=_participant_prompt_factory,
+                      target_noun="action",
+                      verb="PERFORMS the action (carries it out)"),
     ),
     prov_prefix="participant_edge_provenance_",
     prov_label=lambda p: f"Participant edge ({p})",
@@ -774,6 +982,36 @@ _OBLIGATION_SPEC = EdgeSpec(
     no_data_status="no_normative_engagement",
 )
 
+# requires_capability_edges: the capability individuals' requiredForObligations labels
+# -> Obligation proeth-core:requiresCapability Capability (INVERTED emission: the row
+# subject is the Capability, the resolved Obligation is the edge subject, conforming to
+# core v2.8.0 -- an obligation presupposes the capacity to discharge it). Labels resolve
+# against the case's committed Obligation individuals only; both endpoint pools are
+# built from materialized direct core types, and the unified guard validates both
+# (Obligation and Capability are both among the nine disjoint categories).
+_REQUIRES_CAPABILITY_SPEC = EdgeSpec(
+    name="requires_capability_edges",
+    extraction_type="capabilities",
+    subject_category="Capability",
+    predicates=(
+        EdgePredicate("requiresCapability", CORE,
+                      ("requiredForObligations", "required_for_obligations"), "Obligation",
+                      pool_fields=("obligationStatement", "obligationClass"),
+                      prompt_builder_factory=_requires_capability_prompt_factory,
+                      invert=True,
+                      target_noun="capability",
+                      verb="requires the capability (its discharge presupposes it)"),
+    ),
+    prov_prefix="capability_requirement_provenance_",
+    prov_label=lambda p: f"Capability requirement edge ({p})",
+    prov_comment=lambda p: ("property=requiresCapability; capability requiredForObligations text "
+                            "resolved to the case Obligation(s) by embedding shortlist + LLM "
+                            "multi-select; emitted Obligation -> Capability (the obligation "
+                            "presupposes the capacity to discharge it)"),
+    reader=_read_capability_requirements,
+    no_data_status="no_capability_requirements",
+)
+
 # temporal_relation_edges: TemporalRelation fromEntity/toEntity -> Action|Event, single-valued,
 # subject by rdf:type, plus the time:<allenProp> extra triple on toEntity.
 _TEMPORAL_RELATION_SPEC = EdgeSpec(
@@ -809,6 +1047,7 @@ EDGE_REGISTRY: List[EdgeSpec] = [
     _RESOURCE_SPEC,
     _STATE_AFFECTS_SPEC,
     _PARTICIPANT_SPEC,
+    _REQUIRES_CAPABILITY_SPEC,
     _FLUENT_SPEC,
     _OBLIGATION_SPEC,
     _TEMPORAL_RELATION_SPEC,

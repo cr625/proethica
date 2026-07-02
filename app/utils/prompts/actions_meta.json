@@ -96,6 +96,11 @@
           "type": "string",
           "required": false,
           "description": "'instant' for a point occurrence or 'interval' for one extending over a period (anchors OWL-Time)"
+        },
+        "text_references": {
+          "type": "array",
+          "required": false,
+          "description": "Verbatim quotes grounding this action; each an EXACT contiguous span copied from the case text, never a paraphrase or stitched fragment (stored as proeth:textReferences)"
         }
       },
       "description": "Action occurrences in the case (volitional professional decisions); individuals only, no action classes and no topical action_type taxonomy (ONT-4)"

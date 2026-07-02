@@ -190,8 +190,28 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         if prof_context.get('required_capabilities'):
             rdf_entity['proeth:requiresCapability'] = prof_context['required_capabilities']
 
+    # Verbatim grounding (Stage-3 audit: action parity with the event path; actions
+    # committed with zero textReference in both case-7 runs). Same top-level
+    # proeth:textReferences key the commit serializer already routes.
+    _add_text_references(rdf_entity, action)
+
     _add_fluent_and_time(rdf_entity, action)
     return rdf_entity
+
+
+def _add_text_references(rdf_entity: Dict, src: Dict) -> None:
+    """Attach the verbatim-grounding quotes a happening (action or event) carries, shared
+    by the action and event converters. Trims each span, drops empties, and normalizes
+    single-string model drift to a one-item list; absent/empty grounding is not emitted.
+    Stored under the same proeth:textReferences key the commit serializer already routes
+    for the pass-1/2 components, so committed happenings carry the file-wide
+    proeth:textReferences predicate."""
+    refs = src.get('text_references') or []
+    if not isinstance(refs, list):
+        refs = [refs]
+    refs = [str(x).strip() for x in refs if str(x).strip()]
+    if refs:
+        rdf_entity['proeth:textReferences'] = refs
 
 
 def _add_fluent_and_time(rdf_entity: Dict, src: Dict) -> None:
@@ -253,18 +273,15 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
 
     # Verbatim grounding + confidence (Stage-2 audit: events committed with zero
     # textReference in both case-7 runs while every other component carries them).
-    # Stored under the same proeth:textReferences key the commit serializer already
-    # routes for the pass-1/2 components, so committed events carry the file-wide
-    # proeth:textReferences predicate.
-    refs = event.get('text_references') or []
-    if not isinstance(refs, list):
-        refs = [refs]
-    refs = [str(x).strip() for x in refs if str(x).strip()]
-    if refs:
-        rdf_entity['proeth:textReferences'] = refs
+    # Emission shared with the action converter via _add_text_references.
+    _add_text_references(rdf_entity, event)
     confidence = event.get('confidence')
     if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
-        rdf_entity['proeth:confidence'] = float(confidence)
+        # Plain string literal, NOT float: proeth:confidence declares rdfs:range xsd:string
+        # (proethica-intermediate.ttl), and a float serializes as xsd:double at commit, which
+        # made the run-17 case-7 commit Pellet-INCONSISTENT (7 typed literals on the events).
+        # Every other component emits confidence as a plain literal.
+        rdf_entity['proeth:confidence'] = str(float(confidence))
 
     # Add origin classification. eventType is the load-bearing Event Calculus origin signal
     # (Berreby et al. 2017): "outcome" (agent-caused), "exogenous" (external), "automatic"

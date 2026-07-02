@@ -327,16 +327,34 @@ _RESOURCE_EDGE_RANGE = {
 _STATE_AFFECTS_RANGE = {
     PROETH_CORE.affects: ("State", "Agent"),
 }
-# Participant edges materialized by participant_edges.py from the Pass-2 component
-# 'who' fields (obligatedParty / constrainedEntity / possessedBy / invokedBy). Range
-# is Agent (outside the nine disjoint categories), so the object resolves to no
-# category and the range clause is skipped; the guard still validates that the
-# subject's type chain resolves to the declared component category.
+# Participant edges materialized by the participant family (edge_spec) from the
+# Pass-2 component 'who' fields (obligatedParty / constrainedEntity / possessedBy /
+# invokedBy) plus the actor-edge additions: resource cited_by -> citedByAgent and the
+# Step-3 per-action hasAgent -> isPerformedBy. Range is Agent (outside the nine
+# disjoint categories), so the object resolves to no category and the range clause is
+# skipped; the guard still validates that the subject's type chain resolves to the
+# declared component category.
 _PARTICIPANT_EDGE_RANGE = {
     PROETH_CORE.obligatedParty: ("Obligation", "Agent"),
     PROETH_CORE.constrainedEntity: ("Constraint", "Agent"),
     PROETH_CORE.possessedBy: ("Capability", "Agent"),
     PROETH_CORE.invokedBy: ("Principle", "Agent"),
+    PROETH_CORE.citedByAgent: ("Resource", "Agent"),
+    PROETH_CORE.isPerformedBy: ("Action", "Agent"),
+}
+# Obligation -> Capability requirement edges materialized by the requires_capability
+# family (edge_spec) from the capability individuals' requiredForObligations labels
+# (core v2.8.0: an obligation presupposes the capacity to discharge it). Both
+# endpoints are among the nine disjoint categories, so the guard validates both.
+# establishedBy: Constraint proeth:source -> nspe: CodeProvision, materialized by
+# provision_citation_resolver.apply_established_by_on_ttl. The declared domain is
+# union(Principle, Obligation, Constraint); CodeProvision is outside the nine (and
+# the nspe ontology is not loaded into the merged graph), so the object resolves to
+# no core category and the range clause is skipped -- the guard still validates the
+# P/O/Cs union subject.
+_CAPABILITY_PROVISION_RANGE = {
+    PROETH_CORE.requiresCapability: ("Obligation", "Capability"),
+    PROETH_CORE.establishedBy: ({"Principle", "Obligation", "Constraint"}, "CodeProvision"),
 }
 # Fluent transitions materialized by fluent_edges.py (Event Calculus initiates/terminates).
 # The subject is a happening, which is an Action OR an Event, so the subject slot is a SET
@@ -389,7 +407,8 @@ _TEMPORAL_RELATION_RANGE = {
 }
 ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
                   **_RESOURCE_EDGE_RANGE, **_STATE_AFFECTS_RANGE,
-                  **_PARTICIPANT_EDGE_RANGE, **_FLUENT_EDGE_RANGE,
+                  **_PARTICIPANT_EDGE_RANGE, **_CAPABILITY_PROVISION_RANGE,
+                  **_FLUENT_EDGE_RANGE,
                   **_NORMATIVE_EDGE_RANGE, **_CAUSAL_EDGE_RANGE,
                   **_TEMPORAL_RELATION_RANGE}
 
