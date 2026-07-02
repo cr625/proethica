@@ -1,5 +1,4 @@
-=== WHAT AN EVENT IS (ontology grounding) ===
-An event is an occurrence, not a volitional decision: a process (BFO bfo:0000015) that happens in the case and that an agent may or may not have caused. Its load-bearing signal is its ORIGIN. An event is distinct from an action (an act an agent deliberately performs) and from a state (the condition the event brings into or out of holding). An event does not create an obligation or activate a constraint directly; it initiates a STATE (a fluent) that then makes obligations or constraints apply.
+{{ event_definition }}
 
 EXISTING EVENTS IN ONTOLOGY:
 {{ existing_events_text }}
@@ -18,6 +17,7 @@ EVENT EXTRACTION DIRECTIVES (rules the ontology enforces):
 {{ event_boundary }}
 {{ event_individuation }}
 - event_type is the controlled ORIGIN and the load-bearing typing signal (Berreby/Sarmiento). Set exactly one of outcome (the result of a case agent's action), exogenous (external, not caused by any case agent), automatic (fires automatically when preconditions hold). It becomes the three-way subClassOf typing at commit (outcome to AgentCausedEvent, exogenous to ExogenousEvent, automatic to AutomaticEvent), so it carries weight for responsibility attribution: an exogenous event is no agent's doing, an outcome traces to an action. It is a routing input, not stored as a literal. Do not invent an origin outside this set.
+- Origin tie-break: when the proximate producer of a happening is a system executing set rules, type it AutomaticEvent even if an agent action supplied the preconditions, and record that enabling action via the caused_by_action link; AgentCausedEvent is reserved for consequences not mediated by automated rule-following.
 - label is a SHORT, GENERAL name of at most 4 words naming the KIND of event, not the case scenario: write "Structural Failure", not "Single-Client Conflict Mitigation Recognized". The label becomes the event's URI; put case-specific detail in the description.
 - description is 1-2 sentences carrying the case-specific detail.
 - temporal_marker is when the event occurred (the textual when); temporal_extent is "instant" for a point occurrence or "interval" for one that extends over a period.

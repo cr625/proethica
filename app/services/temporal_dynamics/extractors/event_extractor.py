@@ -127,12 +127,15 @@ def _build_event_extraction_prompt(
     for action in actions[:10]:  # Limit to first 10 actions to avoid token overflow
         action_summary.append(f"- {action.get('label', 'Unknown')} (by {action.get('agent', 'Unknown')})")
 
-    # Ontology-sourced typing boundary (disjointness + scope-note individuation), single-sourced from
-    # the ontology via concept_ontology_slots so the live Step-4 typing matches the other components.
-    # concept_ontology_slots reads the ontology TTL/SHACL files, so it works without a Flask app context
-    # (this extractor runs inside the context-free LangGraph pipeline).
+    # Ontology-sourced definition anchor + typing boundary (disjointness + scope-note individuation),
+    # single-sourced from the ontology via concept_ontology_slots so the live Step-4 typing matches the
+    # other components. concept_ontology_slots reads the ontology TTL/SHACL files, so it works without a
+    # Flask app context (this extractor runs inside the context-free LangGraph pipeline). event_definition
+    # is the same {{ event_definition }} block the seeded events prompt renders (iao:0000115 + the 116
+    # extraction framing, citation-trimmed at injection).
     from app.services.prompt_variable_resolver import concept_ontology_slots
     _slots = concept_ontology_slots('events', 'all')
+    definition_block = (_slots.get('event_definition') or '').strip()
     typing_block = "\n".join(s for s in (_slots.get('event_boundary'), _slots.get('event_individuation')) if s).strip()
 
     prompt = f"""You are analyzing an engineering ethics case to extract EVENTS (occurrences, not volitional decisions).
@@ -146,6 +149,8 @@ ACTIONS ALREADY IDENTIFIED:
 ---
 
 Extract all EVENTS (occurrences, outcomes, automatic occurrences - NOT volitional decisions).
+
+{definition_block}
 
 TYPING (rules the ontology enforces):
 {typing_block}
@@ -168,6 +173,11 @@ For each event, identify:
      and exogenous / automatic occurrences (Berreby et al. 2017); it carries weight for
      responsibility attribution (an exogenous event is no agent's doing; an outcome traces
      to an action).
+   - Origin tie-break: when the proximate producer of a happening is a system executing
+     set rules, type it "automatic" (AutomaticEvent) even if an agent action supplied the
+     preconditions, and record that enabling action via the caused_by_action link;
+     AgentCausedEvent ("outcome") is reserved for consequences not mediated by automated
+     rule-following.
 
 3. FLUENT TRANSITIONS (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017):
    - initiates: list of STATES (fluents) this event brings into holding. An event does not

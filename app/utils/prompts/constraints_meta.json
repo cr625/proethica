@@ -152,6 +152,10 @@
       "source": "format_cross_concept_context('constraints', case_id)",
       "description": "Obligations, states, and resources already extracted in this case, injected so constrained_entity and source ground in named entities"
     },
+    "constraint_definition": {
+      "source": "OntServe proethica-core.ttl core:Constraint iao:0000115 + iao:0000116 via concept_ontology_slots -> _component_definition_block('Constraint')",
+      "description": "Governing definitional anchor: the ontology iao:0000115 definition plus the iao:0000116 extraction framing, citation-trimmed at injection (the generalized Role definition pattern)"
+    },
     "constraint_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ConstraintDefinitionShape via concept_ontology_slots -> _component_schema_block('Constraint')",
       "description": "Constraint definitional/individual field schema, resolved live from the SHACL ConstraintDefinitionShape (single source shared with the OntServe Constraint entity page). boundary_type drives the subClassOf typing; severity and applicability_condition are literals; constrained_entity resolves to the constrainedEntity edge; source resolves to establishedBy"

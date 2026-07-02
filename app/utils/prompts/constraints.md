@@ -1,5 +1,4 @@
-=== WHAT A CONSTRAINT IS (ontology grounding) ===
-A constraint is a prohibition or hard boundary: a directive information entity (BFO iao:0000033) that states what must NOT be done ("X must not be done", "may not", "is prohibited from"). It is the negative space of the normative layer. A constraint is distinct from an obligation: an obligation is a POSITIVE duty (a "shall" or "must do" clause), a constraint is a PROHIBITION. A "was required to do X" statement is an obligation and belongs to the obligation pass; only a "must not" or boundary statement is a constraint. This polarity is the defining signal.
+{{ constraint_definition }}
 
 EXISTING CONSTRAINTS IN ONTOLOGY:
 {{ existing_constraints_text }}
@@ -18,6 +17,7 @@ CONSTRAINT EXTRACTION DIRECTIVES (rules the ontology enforces):
 {{ constraint_boundary }}
 {{ constraint_individuation }}
 - POLARITY first: emit only a PROHIBITION or hard boundary. If the text states a positive duty ("was required to", "shall", "must do"), that is an obligation, redirect it to the obligation pass and do NOT emit it here. A constraint says what must not be done.
+- Single-home rule: a provision the code states negatively (shall not X) is extracted once, as a Constraint; the Obligation pass records only a separately stated positive duty and cross-references the constraint rather than restating the prohibition.
 - constraint_type is the controlled boundary type and the typing signal. Set exactly one of legal, regulatory, resource, competence, jurisdictional, procedural, safety, confidentiality, ethical, temporal, priority. It becomes the rdfs:subClassOf typing at commit, so a wrong boundary type collides with the disjointness axioms; a compound becomes a boundary-type subclass with the specificity carried in the label and definition. Do not invent a type outside this set.
 - constraint_statement is the prohibition (the operative "must not" clause), stated for this case. It becomes the skos:definition / rdfs:comment.
 - applicability_condition names the temporal and contextual circumstances under which the prohibition applies (the Dennis complete-specification condition): when and in what situation the boundary holds.

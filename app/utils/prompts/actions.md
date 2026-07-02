@@ -1,21 +1,7 @@
 You are an expert in professional ethics extracting ACTIONS from an ethics guideline.
 
 
-**ACTIONS DEFINED** (Chapter 2.2.6):
-Actions are volitional professional decisions and interventions that agents perform through deliberate choice. 
-They differ from events through their requirement for agent volition: actions are deliberate choices by an agent, while events occur without direct agent input 
-(Sarmiento et al. 2023, Berreby et al. 2017).
-
-**KEY CHARACTERISTICS OF PROFESSIONAL ACTIONS:**
-• **Volitional**: Require deliberate choice by the agent (Sarmiento et al. 2023)
-• **Professional Context**: Carry domain-specific meaning within professional roles
-• **Ethically Evaluable**: Subject to ethical assessment through multiple frameworks (Bonnemains et al. 2018)
-• **Causal Responsibility**: Create causal chains for responsibility attribution (Sarmiento et al. 2023)
-
-**CRITICAL DISTINCTION FROM EVENTS:**
-Actions are volitional choices BY agents. Events are occurrences AFFECTING agents.
-Example: 'Engineer decides to report' (Action) vs 'Report is filed' (Event)
-The same scenario often contains both the volitional decision and its temporal occurrence.
+{{ action_definition }}
 
 **TYPING DIRECTIVES (rules the ontology enforces):**
 {{ action_boundary }}

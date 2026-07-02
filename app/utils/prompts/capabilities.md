@@ -1,5 +1,4 @@
-=== WHAT A CAPABILITY IS (ontology grounding) ===
-A capability is a competence an agent possesses: a disposition (BFO bfo:0000016) to perform a kind of professional work or ethical reasoning. Its canonical identity is the competence KIND, stated tool-neutrally and actor-neutrally. A capability is distinct from an action (the act that exercises it), from an obligation (the duty that presupposes it), and from a role (the position that bears it). Only a competence the agent actually POSSESSES or exercises is a capability.
+{{ capability_definition }}
 
 EXISTING CAPABILITIES IN ONTOLOGY:
 {{ existing_capabilities_text }}

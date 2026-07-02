@@ -510,6 +510,56 @@ def _role_definition_block() -> str:
     return "=== WHAT A ROLE IS (ontology definition) ===\n" + defn
 
 
+# Deterministic injection-time trim for the ontology definition annotations: an inline parenthetical
+# citation is any non-nested parenthetical carrying a 1900-2099 year (covers "(McLaren 2003)",
+# "(Kroll 2020; Wright 1985 NESS cause-in-fact)", and the bare "(2017)" after a possessive author name).
+_CITATION_PAREN_RE = re.compile(r'\s*\(([^()]*\b(?:19|20)\d{2}\b[^()]*)\)')
+# The "This is the X component of the formal specification D=(...)" sentence the 115s close with.
+_COMPONENT_SENTENCE_RE = re.compile(r'This is the \S+ component[^.]*\.')
+_TRAILING_COMPONENT_SENTENCE_RE = re.compile(r'\s*This is the \S+ component[^.]*\.\s*$')
+
+
+def _strip_inline_citations(text: str) -> str:
+    """Strip inline parenthetical author-year citations and tidy the whitespace/punctuation the
+    removal leaves behind. Deterministic (regex-only), applied at injection, never to the ontology."""
+    out = _CITATION_PAREN_RE.sub('', text)
+    out = re.sub(r'\s+([.,;:])', r'\1', out)
+    out = re.sub(r'\s{2,}', ' ', out)
+    return out.strip()
+
+
+def _component_definition_block(component_class: str) -> str:
+    """The governing definitional anchor for a non-Role component (the Role-pattern generalization):
+    the class's iao:0000115 textual definition plus the operational sentences of its iao:0000116
+    editor note, read from proethica-core.ttl (the same TTL read as _role_definition_block /
+    _component_schema_block). Deterministic TRIM at injection: inline parenthetical author-year
+    citations are stripped; a trailing "This is the X component..." sentence in the 116 is dropped
+    when the 115 already carries one; the skos:scopeNote is NEVER included (it has its own
+    {{ <comp>_individuation }} slot). Raises on unreadable TTL or a missing annotation (no silent
+    empty). Role keeps its bespoke _role_definition_block (Stage 4)."""
+    import rdflib
+    IAO_DEF = rdflib.URIRef('http://purl.obolibrary.org/obo/IAO_0000115')
+    IAO_NOTE = rdflib.URIRef('http://purl.obolibrary.org/obo/IAO_0000116')
+    CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+    g = rdflib.Graph()
+    g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
+    cls = CORE[component_class]
+    defn = next((str(o) for o in g.objects(cls, IAO_DEF)), None)
+    note = next((str(o) for o in g.objects(cls, IAO_NOTE)), None)
+    if not defn:
+        raise RuntimeError(f"core:{component_class} iao:0000115 definition not found in proethica-core.ttl")
+    if not note:
+        raise RuntimeError(f"core:{component_class} iao:0000116 editor note not found in proethica-core.ttl")
+    defn = _strip_inline_citations(defn)
+    note = _strip_inline_citations(note)
+    # The block supplies its own framing line; drop a leading "Extraction framing:" prefix in the 116.
+    note = re.sub(r'^\s*Extraction framing:\s*', '', note)
+    if _COMPONENT_SENTENCE_RE.search(defn):
+        note = _TRAILING_COMPONENT_SENTENCE_RE.sub('', note).strip()
+    return (f"=== {component_class.upper()} (ontology definition) ===\n{defn}\n"
+            f"Extraction framing:\n{note}")
+
+
 # Banned-example phrasing for the eight non-Role D-tuple components (D-EXCLUDE). The component LIST is read
 # from the ontology (so a new component appears automatically); only the example phrasing is maintained here.
 _ROLE_EXCLUDE_EXAMPLES = {
@@ -853,7 +903,10 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
     if comp:
         # Generic ontology-driven schema slot for the other eight components: {{ <concept>_schema }} read from
         # the component's DefinitionShape. The per-component prompt body wires this in (Phase-3 migration).
+        # {{ <concept>_definition }} is the generalized Role-pattern definitional anchor (iao:0000115 + the
+        # 116 extraction framing, trimmed at injection), registered here so preview == live by construction.
         return {
+            f'{comp.lower()}_definition': _component_definition_block(comp),
             f'{comp.lower()}_schema': _component_schema_block(comp),
             f'{comp.lower()}_boundary': _component_exclude_directive(comp),
             f'{comp.lower()}_individuation': _component_individuation_directive(comp),
@@ -862,8 +915,10 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
         }
     if concept_type == 'actions':
         # Action has no SHACL DefinitionShape (bare, per the spec), so no {{ action_schema }} slot; it
-        # still gets the disjointness boundary + the scope-note individuation derived from the ontology.
+        # still gets the ontology definition anchor, the disjointness boundary, and the scope-note
+        # individuation derived from the ontology.
         return {
+            'action_definition': _component_definition_block('Action'),
             'action_boundary': _component_exclude_directive('Action'),
             'action_individuation': _component_individuation_directive('Action'),
             'pass_directive': _augment_pass_directive(

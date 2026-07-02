@@ -1,5 +1,4 @@
-=== WHAT AN OBLIGATION IS (ontology grounding) ===
-An obligation is a specific professional duty: a requirement for action or restraint that binds a role-bearer (a directive information entity, BFO iao:0000033). It operationalizes a principle into a concrete "shall" or "must" clause owed by a particular party in the case. An obligation is distinct from a principle (the value it serves), from a constraint (a prohibition or hard boundary, "must not"), and from an action (the act that fulfills or violates it). A positive duty to do X is an obligation; a prohibition on doing X is a constraint and belongs to the constraint pass.
+{{ obligation_definition }}
 
 EXISTING OBLIGATIONS IN ONTOLOGY:
 {{ existing_obligations_text }}
@@ -22,6 +21,10 @@ OBLIGATION EXTRACTION DIRECTIVES (rules the ontology enforces):
 - derived_from_principle names the principle the duty operationalizes (the P side of R->P->O). It resolves to the derivedFromPrinciple edge. Use a principle label from the cross-concept context above where one fits.
 - obligation_statement is the concrete duty (the operative "shall" or "must" clause), stated for this case.
 - Distinguish an obligation from a constraint: a "was required to do X" or "shall do X" statement is an obligation; a "must not", "may not", or "is prohibited from" statement is a constraint and is left to the constraint pass. Do not emit a prohibition as an obligation.
+- A must-not or shall-not statement is a Constraint, not an Obligation.
+- Required-ness is the differentia: guidance the source treats as recommended best practice is not an Obligation and routes to the Principle pass.
+- A duty to comply with named requirements is a positive duty and is an Obligation even when the requirements themselves are Constraints.
+- Single-home rule: a provision the code states negatively (shall not X) is extracted once, as a Constraint; the Obligation pass records only a separately stated positive duty and cross-references the constraint rather than restating the prohibition.
 - Use a canonical, short, reusable obligation label (the D-LABEL rule below) and REUSE an existing obligation class from the list above rather than minting a near-duplicate compound.
 - Do not assert obligation competition, defeat, or precedence here. The defeasibility relations (competesWith, prevailsOver, defeasibleUnder) are produced by a separate pass.
 

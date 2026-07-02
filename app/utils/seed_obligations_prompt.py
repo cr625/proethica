@@ -40,7 +40,7 @@ def seed_obligations_prompt(replace_existing: bool = False):
     # production silently; the schema-wire is caught at seed time, not at extraction time. pass_directive
     # is checked alongside so a pass-split row never ships without its per-pass directive.
     from app.services.prompt_variable_resolver import concept_ontology_slots
-    _required = ('obligation_schema', 'pass_directive')
+    _required = ('obligation_definition', 'obligation_schema', 'pass_directive')
     for st in meta["passes"]:
         slots = concept_ontology_slots('obligations', st)
         missing = [k for k in _required if not slots.get(k)]

@@ -156,6 +156,10 @@
       "source": "format_cross_concept_context('obligations', case_id)",
       "description": "Roles and principles already extracted in this case, injected so obligated_party and derived_from_principle ground in named entities (R->P->O dependency)"
     },
+    "obligation_definition": {
+      "source": "OntServe proethica-core.ttl core:Obligation iao:0000115 + iao:0000116 via concept_ontology_slots -> _component_definition_block('Obligation')",
+      "description": "Governing definitional anchor: the ontology iao:0000115 definition plus the iao:0000116 extraction framing, citation-trimmed at injection (the generalized Role definition pattern)"
+    },
     "obligation_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ObligationDefinitionShape via concept_ontology_slots -> _component_schema_block('Obligation')",
       "description": "Obligation definitional/individual field schema, resolved live from the SHACL ObligationDefinitionShape (single source shared with the OntServe Obligation entity page). obligation_type drives the subClassOf typing; obligated_party and derived_from_principle resolve to edges; the rest are per-individual literals"

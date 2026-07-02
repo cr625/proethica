@@ -144,6 +144,10 @@
       "source": "format_cross_concept_context('resources', case_id)",
       "description": "Resources are extracted in Step 1 and carry no cross-concept dependency, so this slot is empty for resources; retained for template uniformity"
     },
+    "resource_definition": {
+      "source": "OntServe proethica-core.ttl core:Resource iao:0000115 + iao:0000116 via concept_ontology_slots -> _component_definition_block('Resource')",
+      "description": "Governing definitional anchor: the ontology iao:0000115 definition plus the iao:0000116 extraction framing, citation-trimmed at injection (the generalized Role definition pattern)"
+    },
     "resource_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ResourceDefinitionShape via concept_ontology_slots -> _component_schema_block('Resource')",
       "description": "Resource definitional/individual field schema, resolved live from the SHACL ResourceDefinitionShape (single source shared with the OntServe Resource entity page). resource_category drives the six-kind subClassOf typing; document_title and topic are literals; used_by and cited_by resolve to the availableTo and citedByAgent edges"

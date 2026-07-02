@@ -200,16 +200,21 @@ COMPETING PRIORITIES:
 {chr(10).join(f"- {cp}" for cp in competing)}
 """
 
-    # Ontology-sourced typing boundary (disjointness + scope-note individuation), single-sourced from
-    # the ontology via concept_ontology_slots so the live Step-3 typing matches the other components.
-    # concept_ontology_slots reads the ontology TTL/SHACL files, so it works without a Flask app context
-    # (this extractor runs inside the context-free LangGraph pipeline).
+    # Ontology-sourced definition anchor + typing boundary (disjointness + scope-note individuation),
+    # single-sourced from the ontology via concept_ontology_slots so the live Step-3 typing matches the
+    # other components. concept_ontology_slots reads the ontology TTL/SHACL files, so it works without a
+    # Flask app context (this extractor runs inside the context-free LangGraph pipeline). action_definition
+    # is the same {{ action_definition }} block the seeded actions prompt renders (iao:0000115 + the 116
+    # extraction framing, citation-trimmed at injection).
     from app.services.prompt_variable_resolver import concept_ontology_slots
     _slots = concept_ontology_slots('actions', 'all')
+    definition_block = (_slots.get('action_definition') or '').strip()
     typing_block = "\n".join(s for s in (_slots.get('action_boundary'), _slots.get('action_individuation')) if s).strip()
 
     return f"""Extract ACTIONS (volitional professional decisions) from this ethics case.
 {source_text_section}{narrative_section}{temporal_context}
+
+{definition_block}
 
 TYPING (rules the ontology enforces):
 {typing_block}
@@ -276,7 +281,7 @@ Return JSON:
 ]}}
 ```
 
-Only extract volitional decisions, not occurrences/events. Be specific with obligations and principles.
+Only extract volitional decisions, not occurrences/events. An omission, a required or expected act not performed, is extractable as an Action when the case treats the non-performance as the agent's conduct. Be specific with obligations and principles.
 
 {STYLE_FORMATTING_LINE}
 

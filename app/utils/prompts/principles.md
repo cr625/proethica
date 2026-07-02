@@ -1,5 +1,4 @@
-=== WHAT A PRINCIPLE IS (ontology grounding) ===
-A principle is a high-level ethical guideline that establishes a professional ideal: a directive information entity (BFO iao:0000033) that names a value the profession serves. It is more abstract than an obligation (the concrete "shall" the principle operationalizes) and is not itself an act, a condition, or a prohibition. A principle is invoked by a party, interpreted for the case, expressed concretely, and balanced against competing principles. The four ontology kinds are FundamentalEthicalPrinciple, ProfessionalVirtuePrinciple, RelationalPrinciple, and DomainSpecificPrinciple.
+{{ principle_definition }}
 
 EXISTING PRINCIPLES IN ONTOLOGY:
 {{ existing_principles_text }}
@@ -17,6 +16,7 @@ CASE TEXT:
 PRINCIPLE EXTRACTION DIRECTIVES (rules the ontology enforces):
 {{ principle_boundary }}
 {{ principle_individuation }}
+- GRANULARITY (per-value rule): a case yields at most one principle individual per distinct value, and distinct values remain separate individuals; each application of the value is recorded in that individual's applied_to and concrete_expression lists, and the balancing and tension narratives keep per-application entries.
 - principle_class is the high-reliability canonical signal: the short, reusable leaf label of the value (e.g. "Public Safety Principle", "Honesty Principle"). REUSE an existing principle class from the list above and fold synonyms into it rather than minting a near-duplicate compound. The canonical leaf becomes the rdf:type at commit; case-specific detail belongs in the narrative fields, not the label.
 - principle_category is the controlled kind and is used ONLY as the rdfs:subClassOf target when a genuinely new leaf class is minted. Set exactly one of fundamental_ethical, professional_virtue, relational, domain_specific. It is a routing input, not stored as a literal. Do not invent a kind outside this set.
 - The five per-case narrative fields are the load-bearing per-individual signal and the provenance the defeasibility pass consumes: interpretation (what the principle requires here), concrete_expression (how it appears in this case), applied_to (the situation or party it bears on), balancing_with (the competing principle or value), tension_resolution (how the case resolves the tension). Populate each where the text supports it.
@@ -32,7 +32,7 @@ For each principle class, evaluate ONLY against the EXISTING PRINCIPLES IN ONTOL
 - If genuinely NEW with no close equivalent: match_decision.matches_existing = false
 
 OUTPUT FORMAT:
-Return a JSON object with TWO arrays: new_principle_classes (reusable kinds of professional value) and principle_individuals (specific invocations of a principle in this case). A Principle Class is a general reusable value (e.g. "Public Safety Principle"); a Principle Individual is a specific invocation of that value in the case. Each individual MUST reference a class via the principle_class field.
+Return a JSON object with TWO arrays: new_principle_classes (reusable kinds of professional value) and principle_individuals (at most one individual per distinct value in this case). A Principle Class is a general reusable value (e.g. "Public Safety Principle"); a Principle Individual is the case's single record of that value: a case yields at most one principle individual per distinct value, with each application recorded in that individual's list fields, and distinct values remain separate individuals. Each individual MUST reference a class via the principle_class field.
 
 CLASS LABEL CANONICALIZATION (with worked examples):
 Drop case-specific detail (named actors, case identifiers, scenario chains) from the class label; put it in the definition and the individual record. Emit the short general right-hand form:

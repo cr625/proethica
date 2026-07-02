@@ -177,6 +177,10 @@
       "source": "format_cross_concept_context('states', case_id)",
       "description": "States are extracted in Step 1 and carry no cross-concept dependency, so this slot is empty for states; retained for template uniformity"
     },
+    "state_definition": {
+      "source": "OntServe proethica-core.ttl core:State iao:0000115 + iao:0000116 via concept_ontology_slots -> _component_definition_block('State')",
+      "description": "Governing definitional anchor: the ontology iao:0000115 definition plus the iao:0000116 extraction framing, citation-trimmed at injection (the generalized Role definition pattern)"
+    },
     "state_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) StateDefinitionShape via concept_ontology_slots -> _component_schema_block('State')",
       "description": "State definitional/individual field schema, resolved live from the SHACL StateDefinitionShape (single source shared with the OntServe State entity page). state_category drives the archetype subClassOf typing; persistence_type and urgency_level are attributes; the linkage fields resolve to edges; none are stored as the conceptCategory literal"

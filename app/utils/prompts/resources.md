@@ -1,5 +1,4 @@
-=== WHAT A RESOURCE IS (ontology grounding) ===
-A resource is accumulated professional knowledge a party relies on or cites: a code, standard, precedent, or reference document (BFO iao:0000030, an information content entity). Its canonical identity is its SOURCE KIND. The topic it addresses, who used it, and which specific document it is are context, not class identity. A resource is distinct from an obligation (the duty a code states) and from a principle (the value the code serves); the resource is the document itself.
+{{ resource_definition }}
 
 EXISTING RESOURCES IN ONTOLOGY:
 {{ existing_resources_text }}

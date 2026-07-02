@@ -152,6 +152,10 @@
       "source": "format_cross_concept_context('principles', case_id)",
       "description": "Roles already extracted in this case, injected so invoked_by grounds in a named role-bearer (R->P dependency)"
     },
+    "principle_definition": {
+      "source": "OntServe proethica-core.ttl core:Principle iao:0000115 + iao:0000116 via concept_ontology_slots -> _component_definition_block('Principle')",
+      "description": "Governing definitional anchor: the ontology iao:0000115 definition plus the iao:0000116 extraction framing, citation-trimmed at injection (the generalized Role definition pattern)"
+    },
     "principle_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) PrincipleDefinitionShape via concept_ontology_slots -> _component_schema_block('Principle')",
       "description": "Principle definitional/individual field schema, resolved live from the SHACL PrincipleDefinitionShape (single source shared with the OntServe Principle entity page). principle_category drives the four-kind subClassOf typing; the canonical leaf becomes the rdf:type; invoked_by resolves to the invokedBy edge; the five narrative fields are per-individual literals"

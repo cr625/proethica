@@ -85,6 +85,10 @@
       "source": "format_cross_concept_context('events', case_id)",
       "description": "Events carry no cross-concept dependency in the config map, so this slot is empty for events; retained for template uniformity"
     },
+    "event_definition": {
+      "source": "OntServe proethica-core.ttl core:Event iao:0000115 + iao:0000116 via concept_ontology_slots -> _component_definition_block('Event')",
+      "description": "Governing definitional anchor: the ontology iao:0000115 definition plus the iao:0000116 extraction framing, citation-trimmed at injection (the generalized Role definition pattern)"
+    },
     "event_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) EventDefinitionShape via concept_ontology_slots -> _component_schema_block('Event')",
       "description": "The LIGHT event field schema, resolved live from the SHACL EventDefinitionShape (single source shared with the OntServe Event entity page). event_origin drives the three-way origin subClassOf typing; initiates/terminates resolve to the fluent edges; temporal_marker is a literal"

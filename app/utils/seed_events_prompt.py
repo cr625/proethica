@@ -45,7 +45,7 @@ def seed_events_prompt(replace_existing: bool = False):
     # production silently; the schema-wire is caught at seed time, not at extraction time. Events are
     # single-pass, so pass_directive is intentionally empty and not required.
     from app.services.prompt_variable_resolver import concept_ontology_slots
-    _required = ('event_schema',)
+    _required = ('event_definition', 'event_schema')
     for st in meta["passes"]:
         slots = concept_ontology_slots('events', st)
         missing = [k for k in _required if not slots.get(k)]
