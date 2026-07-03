@@ -16,7 +16,7 @@ from datetime import datetime
 import os
 
 from model_config import ModelConfig
-from app.utils.llm_utils import text_from_message
+from app.utils.llm_utils import direct_call_params, text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -82,14 +82,14 @@ def analyze_causal_chains(
     try:
         # Call LLM with streaming to prevent WSL2 TCP idle timeout (60s)
         logger.info("[Stage 5] Calling LLM for causal chain analysis (streaming)")
+        # direct_call_params floors max_tokens at 16000 for thinking-by-default models
+        # (thinking spends from the same budget; 12000 stays the requested floor input
+        # for non-thinking models) and includes temperature=0.2 only when the model
+        # supports it (Opus 4.8 / Sonnet 5 / Fable 5 reject it with HTTP 400).
         stream_kwargs = dict(
-            model=model_name,
-            max_tokens=12000,
+            **direct_call_params(model_name, max_tokens=12000, temperature=0.2),
             messages=[{"role": "user", "content": prompt}],
         )
-        # Opus 4.8 rejects `temperature`; pass it only for models that accept it.
-        if ModelConfig.supports_temperature(model_name):
-            stream_kwargs["temperature"] = 0.2
         with llm_client.messages.stream(**stream_kwargs) as stream:
             response = stream.get_final_message()
 

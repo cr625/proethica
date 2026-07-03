@@ -284,8 +284,16 @@ def _placement_service(tmp_path, monkeypatch, chain_resolver):
     svc._record_edge_provenance = lambda *a, **k: None
     monkeypatch.setattr(edge_mat, 'materialize_edges_on_ttl',
                         lambda cid, f: {'stubbed': True})
-    monkeypatch.setattr(canon, 'canonicalize_ttl',
-                        lambda cid, f: {'stubbed': True})
+
+    # The canonicalize_ttl contract includes the post-rewrite graph under
+    # '_graph' (consumed by the post-canonicalization role-axis re-sweep);
+    # the stub honors it by parsing the on-disk TTL unchanged.
+    def _stub_canonicalize(cid, f):
+        g = Graph()
+        g.parse(str(f), format='turtle')
+        return {'stubbed': True, '_graph': g}
+
+    monkeypatch.setattr(canon, 'canonicalize_ttl', _stub_canonicalize)
     monkeypatch.setattr(category_resolver, 'resolve_role_axis',
                         lambda uri: None)
     return svc

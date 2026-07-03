@@ -432,6 +432,11 @@ class OntServeCommitService:
                 # veto: present in the stats only when it acted).
                 if individual_result.get('role_axis_vetoes'):
                     results['role_axis_vetoes'] = individual_result['role_axis_vetoes']
+                # Post-canonicalization re-sweep count (the ordering gap:
+                # canonicalization retyped a compound facet axis-sided).
+                if individual_result.get('role_axis_vetoes_post_canonicalization'):
+                    results['role_axis_vetoes_post_canonicalization'] = \
+                        individual_result['role_axis_vetoes_post_canonicalization']
 
                 # C3 pre-commit conformance gate: SHACL + OWL-RL check + deterministic Tier-0
                 # repair (via the OntServe repair_conformance_ttl MCP tool) over the just-
@@ -1062,15 +1067,21 @@ class OntServeCommitService:
             except Exception as e:
                 logger.exception(f"Edge materialization failed for case {case_id}: {e}")
             # Canonicalization: role+facet decomposition. Not swallowed (dev: fail loud); idempotent.
-            from app.services.extraction.canonicalization import canonicalize_ttl
-            logger.info(f"Canonicalization for case {case_id}: {canonicalize_ttl(case_id, case_file)}")
+            # Shared canonicalize + role-axis RE-SWEEP helper: canonicalization can retype a
+            # compound facet the pre-sweep above ignored (axis-unresolvable) onto an axis-sided
+            # canonical role, so the guard runs AGAIN on the post-canonicalization graph.
+            canon_stats = self._canonicalize_with_role_axis_resweep(
+                case_id, case_file, role_kind_by_uri)
+            logger.info(f"Canonicalization for case {case_id}: {canon_stats}")
 
             # The disk TTL -> OntServe DB sync is driven by the orchestrator
             # (commit_selected_entities), which runs after this returns so the
             # edge-bearing TTL is on disk before the version import.
 
             return {'count': count, 'file': str(case_file),
-                    'role_axis_vetoes': role_axis_vetoes}
+                    'role_axis_vetoes': role_axis_vetoes,
+                    'role_axis_vetoes_post_canonicalization':
+                        canon_stats['role_axis_vetoes_post_canonicalization']}
 
         except Exception as e:
             logger.error(f"Error committing individuals: {e}")
@@ -1435,6 +1446,48 @@ class OntServeCommitService:
             )
         return dropped_total
 
+    def _canonicalize_with_role_axis_resweep(
+        self, case_id, ttl_path, role_kind_by_uri: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """Canonicalization + post-canonicalization role-axis RE-SWEEP: the
+        single entry point for the commit-time canonicalization step.
+
+        The ordering gap (model-split adversarial review): canonicalize_ttl
+        runs AFTER _apply_role_axis_guard in every commit path and can retype
+        a role individual from a compound facet class the guard could not
+        classify (axis-unresolvable -> ignored) onto an AXIS-SIDED canonical
+        role, recreating a provable professional/participant both-sides
+        contradiction in the persisted TTL. The pre-canonicalization sweep is
+        kept in place (belt and braces -- it sees the extraction's role_kind
+        signal at full fidelity over the freshly built graph); this helper
+        re-runs the SAME guard over canonicalize_ttl's post-rewrite graph.
+        Cheap and idempotent: acts only on provable both-axes conflicts, logs
+        every veto (inside the guard), and re-serializes the TTL only when it
+        vetoed something.
+
+        Returns the canonicalization stats dict (without the internal _graph
+        handle) plus 'role_axis_vetoes_post_canonicalization'.
+        """
+        from app.services.extraction.canonicalization import canonicalize_ttl
+        stats = canonicalize_ttl(case_id, ttl_path)
+        # canonicalize_ttl contractually returns its post-rewrite graph under
+        # '_graph'; a missing key means the contract changed underneath this
+        # re-sweep, so fail loud (no re-parse fallback) via KeyError.
+        g = stats.pop('_graph')
+        post_vetoes = self._apply_role_axis_guard(g, role_kind_by_uri or {})
+        if post_vetoes:
+            logger.warning(
+                "Role-axis re-sweep AFTER canonicalization vetoed %d rdf:type "
+                "triple(s) for case %s: canonicalization retyped a compound "
+                "role facet onto an axis-sided canonical role, recreating a "
+                "professional/participant contradiction the pre-"
+                "canonicalization sweep could not see.",
+                post_vetoes, case_id,
+            )
+            g.serialize(destination=str(ttl_path), format='turtle')
+        stats['role_axis_vetoes_post_canonicalization'] = post_vetoes
+        return stats
+
     def _camelCase(self, text: str) -> str:
         """Convert a snake_case / spaced key to camelCase for a property local name.
 
@@ -1784,8 +1837,15 @@ class OntServeCommitService:
                     except Exception as e:
                         logger.exception(f"Edge materialization failed for case {case_id}: {e}")
                     # Canonicalization: role+facet decomposition. Not swallowed (dev: fail loud); idempotent.
-                    from app.services.extraction.canonicalization import canonicalize_ttl
-                    logger.info(f"Canonicalization for case {case_id}: {canonicalize_ttl(case_id, ttl_result['file'])}")
+                    # Shared canonicalize + role-axis RE-SWEEP helper (same ordering gap as the
+                    # append path): the guard runs AGAIN on the post-canonicalization graph,
+                    # keyed by the role_kind decisions _write_case_ttl_fresh recorded.
+                    canon_stats = self._canonicalize_with_role_axis_resweep(
+                        case_id, ttl_result['file'], ttl_result.get('role_kind_by_uri'))
+                    logger.info(f"Canonicalization for case {case_id}: {canon_stats}")
+                    if canon_stats['role_axis_vetoes_post_canonicalization']:
+                        results['role_axis_vetoes_post_canonicalization'] = \
+                            canon_stats['role_axis_vetoes_post_canonicalization']
 
             if classes_to_commit:
                 # For classes, we still append to intermediate-extended.ttl
@@ -2154,8 +2214,12 @@ class OntServeCommitService:
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Wrote fresh TTL file with {count} individuals to {case_file}")
 
+            # role_kind_by_uri travels with the result so the caller's
+            # post-canonicalization role-axis re-sweep keeps the extraction's
+            # own professional/participant decision (never surfaced to users).
             return {'count': count, 'file': str(case_file),
-                    'role_axis_vetoes': role_axis_vetoes}
+                    'role_axis_vetoes': role_axis_vetoes,
+                    'role_kind_by_uri': role_kind_by_uri}
 
         except Exception as e:
             logger.error(f"Error writing fresh case TTL: {e}")

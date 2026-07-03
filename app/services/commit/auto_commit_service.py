@@ -1015,8 +1015,15 @@ class AutoCommitService:
                     logger.exception(f"Edge materialization failed for case {case_id}: {e}")
                 # Canonicalization: role+facet decomposition over the committed TTL. Not swallowed
                 # (dev: fail loud) so calibration surfaces any issue; idempotent (no-op once canonical).
-                from app.services.extraction.canonicalization import canonicalize_ttl
-                logger.info(f"Canonicalization for case {case_id}: {canonicalize_ttl(case_id, case_file)}")
+                # Shared canonicalize + role-axis RE-SWEEP helper: canonicalization can retype a
+                # compound role facet onto an axis-sided canonical role, so the guard runs on the
+                # post-canonicalization graph. This lean fallback TTL harvested no role_kind
+                # signal, so on a provable both-sides conflict the guard keeps the participant
+                # side (its documented default, the weaker commitment).
+                logger.info(
+                    f"Canonicalization for case {case_id}: "
+                    f"{commit_service._canonicalize_with_role_axis_resweep(case_id, case_file, {})}"
+                )
                 sync_result = commit_service._sync_ontology_to_db(f"proethica-case-{case_id}")
                 if sync_result.get('success'):
                     logger.info(f"OntServe TTL sync successful for case {case_id}")

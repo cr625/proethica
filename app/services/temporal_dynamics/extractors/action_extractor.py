@@ -20,7 +20,7 @@ import os
 from model_config import ModelConfig
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from datetime import datetime
-from app.utils.llm_utils import text_from_message
+from app.utils.llm_utils import direct_call_params, text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +88,11 @@ def _call_llm_with_streaming(
     """
     logger.info(f"[Stage 3] {phase} - LLM streaming call")
 
+    # direct_call_params floors max_tokens at 16000 for thinking-by-default models
+    # (Fable 5 / Sonnet 5 spend thinking tokens from the same budget) and gates
+    # temperature; 8000 stays the requested floor input for non-thinking models.
     with llm_client.messages.stream(
-        model=model_name,
-        max_tokens=8000,
+        **direct_call_params(model_name, max_tokens=8000),
         messages=[{"role": "user", "content": prompt}]
     ) as stream:
         response = stream.get_final_message()
