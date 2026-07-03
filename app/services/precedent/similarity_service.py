@@ -312,10 +312,10 @@ class PrecedentSimilarityService:
         prompt = self._build_weight_prompt(features, focus)
 
         try:
+            from app.utils.llm_utils import direct_call_params
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=500,
-                temperature=0.1,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=500, temperature=0.1),
                 messages=[{"role": "user", "content": prompt}]
             )
 

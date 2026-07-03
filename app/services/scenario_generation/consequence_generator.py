@@ -16,7 +16,7 @@ import logging
 import re
 from typing import Dict, List, Any, Optional
 
-from app.utils.llm_utils import get_llm_client
+from app.utils.llm_utils import get_llm_client, text_from_message, direct_call_params
 from model_config import ModelConfig
 from app.services.narrative.scenario_seed_generator import (
     ScenarioSeeds, ScenarioBranch, ScenarioOption
@@ -62,12 +62,11 @@ def generate_consequences_for_seeds(
 
         try:
             response = client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=2000,
-                temperature=0.3,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=2000, temperature=0.3),
                 messages=[{"role": "user", "content": prompt}],
             )
-            response_text = response.content[0].text
+            response_text = text_from_message(response)
             parsed = _parse_consequence_response(response_text, num_options=len(branch.options))
         except Exception as e:
             logger.error(f"Consequence generation failed for {branch.branch_id}: {e}")

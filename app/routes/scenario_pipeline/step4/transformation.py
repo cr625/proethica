@@ -19,7 +19,7 @@ from flask import Blueprint, request, jsonify, Response, stream_with_context
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
 from app.utils.llm_utils import get_llm_client
 from app.routes.scenario_pipeline.step4.config import (
-    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL, STEP4_POWERFUL_MODEL,
+    STEP4_SECTION_TYPE, STEP4_DEFAULT_MODEL,
 )
 from app.utils.environment_auth import auth_required_for_llm
 
@@ -94,7 +94,8 @@ def register_transformation_routes(bp: Blueprint, get_all_case_entities: Callabl
                     'reasoning': result.reasoning
                 },
                 'metadata': {
-                    'model': STEP4_POWERFUL_MODEL,
+                    # The classifier runs on the default tier (2026-07 model split).
+                    'model': STEP4_DEFAULT_MODEL,
                     'timestamp': datetime.utcnow().isoformat()
                 }
             })

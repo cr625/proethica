@@ -181,12 +181,13 @@ class LLMManager:
         import anthropic
 
         try:
-            # Build API call
+            # Build API call. direct_call_params floors max_tokens for
+            # thinking-by-default models (Sonnet 5 / Fable 5 spend thinking from the
+            # same budget) and omits temperature for models that reject it (400).
+            from app.utils.llm_utils import direct_call_params, text_from_message
             api_kwargs = {
-                'model': model,
+                **direct_call_params(model, max_tokens, temperature),
                 'messages': messages,
-                'max_tokens': max_tokens,
-                'temperature': temperature,
                 'timeout': self.config.timeout.read  # Use read timeout for Anthropic
             }
 
@@ -196,8 +197,8 @@ class LLMManager:
             # Make the call
             response = self.client.messages.create(**api_kwargs)
 
-            # Extract response
-            text = response.content[0].text if response.content else ""
+            # Extract response (robust to thinking-first content blocks)
+            text = text_from_message(response) if response.content else ""
 
             # Build usage
             usage = Usage(

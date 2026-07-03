@@ -65,6 +65,36 @@ def text_from_message(message) -> str:
     )
 
 
+def direct_call_params(model: str, max_tokens: int,
+                       temperature: Optional[float] = None) -> Dict[str, Any]:
+    """Model/budget/sampling kwargs for a direct ``client.messages.create`` or
+    ``client.messages.stream`` call, hardened for the newer models the env tiers
+    can resolve to (shared so call sites do not copy-paste the two gates):
+
+    - Thinking-by-default models (Fable 5, Sonnet 5) spend thinking tokens from the
+      SAME ``max_tokens`` budget as the visible text, so a budget sized for the text
+      alone truncates the text mid-generation. Floor the budget at 16000, mirroring
+      ``streaming_completion`` (a cap is not a spend).
+    - Some models (Opus 4.8, Sonnet 5, Fable 5) reject ``temperature`` with HTTP 400
+      ("temperature is deprecated"). Include it only when the model supports it;
+      pass ``temperature=None`` to omit it entirely.
+
+    Usage::
+
+        client.messages.create(
+            **direct_call_params(model, max_tokens=4000, temperature=0.1),
+            messages=[...],
+        )
+    """
+    from model_config import ModelConfig
+    params: Dict[str, Any] = {"model": model, "max_tokens": max_tokens}
+    if ModelConfig.thinking_on_by_default(model):
+        params["max_tokens"] = max(max_tokens, 16000)
+    if temperature is not None and ModelConfig.supports_temperature(model):
+        params["temperature"] = temperature
+    return params
+
+
 def extract_json_from_response(response_text: str) -> Dict[str, Any]:
     """
     Extract and parse JSON from an LLM response.

@@ -11,7 +11,7 @@ import logging
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
-from app.utils.llm_utils import get_llm_client
+from app.utils.llm_utils import get_llm_client, text_from_message, direct_call_params
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 from app.academic_references.frameworks.transformation_classification import (
@@ -376,13 +376,12 @@ DESCRIPTION: [your description]"""
 
         try:
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=100,
-                temperature=0.3,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=100, temperature=0.3),
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            text = response.content[0].text.strip()
+            text = text_from_message(response).strip()
             lines = text.split('\n')
 
             label = "Choose this option"
@@ -469,13 +468,12 @@ OPTION2_DESC: [1 sentence description]"""
 
         try:
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=200,
-                temperature=0.3,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=200, temperature=0.3),
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            text = response.content[0].text.strip()
+            text = text_from_message(response).strip()
             lines = text.split('\n')
 
             opt1_label = opt1_desc = opt2_label = opt2_desc = ""
@@ -651,13 +649,12 @@ Output ONLY the opening context text, no commentary."""
         llm_trace = None
         try:
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=400,
-                temperature=0.3,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=400, temperature=0.3),
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            response_text = response.content[0].text.strip()
+            response_text = text_from_message(response).strip()
 
             # Strip markdown quotes the LLM might add
             if response_text.startswith('"') and response_text.endswith('"'):

@@ -252,10 +252,10 @@ Write a professional, objective summary that:
 Output ONLY the 2-3 sentence summary, no additional text."""
 
         try:
+            from app.utils.llm_utils import direct_call_params
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=300,
-                temperature=0.3,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=300, temperature=0.3),
                 messages=[{"role": "user", "content": summary_prompt}]
             )
 
@@ -308,10 +308,10 @@ Output as JSON array:
 ```"""
 
         try:
+            from app.utils.llm_utils import direct_call_params
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=800,
-                temperature=0.3,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=800, temperature=0.3),
                 messages=[{"role": "user", "content": timeline_prompt}]
             )
 

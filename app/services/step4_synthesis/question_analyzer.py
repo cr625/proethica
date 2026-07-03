@@ -332,14 +332,14 @@ class QuestionAnalyzer:
         self.last_prompt = prompt
 
         try:
+            from app.utils.llm_utils import text_from_message, direct_call_params
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=4000,
-                temperature=0.1,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=4000, temperature=0.1),
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            response_text = response.content[0].text
+            response_text = text_from_message(response)
             self.last_response = response_text
 
             questions = self._parse_board_questions_response(response_text, all_entities)

@@ -407,7 +407,9 @@ def register_templates_api(bp):
             rendered_system = template.render_system(**render_vars)
 
             # Call the LLM
-            from app.utils.llm_utils import get_llm_client
+            from app.utils.llm_utils import (
+                get_llm_client, text_from_message, direct_call_params,
+            )
             from model_config import ModelConfig
             import json as json_module
 
@@ -420,21 +422,15 @@ def register_templates_api(bp):
 
             # Call LLM using messages API
             call_kwargs = dict(
-                model=model_name,
-                max_tokens=4000,
-                temperature=0.3,
+                **direct_call_params(model_name, max_tokens=4000, temperature=0.3),
                 messages=[{"role": "user", "content": rendered_prompt}],
             )
             if rendered_system:
                 call_kwargs['system'] = rendered_system
             response = client.messages.create(**call_kwargs)
 
-            # Extract text from response
-            content = getattr(response, 'content', None)
-            if content and isinstance(content, list) and len(content) > 0:
-                raw_response = getattr(content[0], 'text', None) or str(content[0])
-            else:
-                raw_response = str(response)
+            # Extract text from response (robust to thinking-first content blocks)
+            raw_response = text_from_message(response)
 
             # Try to parse as JSON
             entities = {}

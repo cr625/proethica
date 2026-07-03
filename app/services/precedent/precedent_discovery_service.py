@@ -450,10 +450,10 @@ In 2-3 sentences, explain:
 2. How it might inform analysis of the source case"""
 
         try:
+            from app.utils.llm_utils import direct_call_params
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=200,
-                temperature=0.3,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=200, temperature=0.3),
                 messages=[{"role": "user", "content": prompt}]
             )
             text = text_from_message(response)
@@ -511,10 +511,10 @@ Analyze this precedent relationship:
 Format your response with clear section headers."""
 
         try:
+            from app.utils.llm_utils import direct_call_params
             response = self.llm_client.messages.create(
-                model=ModelConfig.get_claude_model("default"),
-                max_tokens=1000,
-                temperature=0.2,
+                **direct_call_params(ModelConfig.get_claude_model("default"),
+                                     max_tokens=1000, temperature=0.2),
                 messages=[{"role": "user", "content": prompt}]
             )
             text = text_from_message(response)

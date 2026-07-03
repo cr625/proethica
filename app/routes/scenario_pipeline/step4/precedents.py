@@ -18,7 +18,7 @@ from datetime import datetime
 from flask import jsonify, Response, stream_with_context
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
-from app.utils.llm_utils import get_llm_client
+from app.utils.llm_utils import get_llm_client, text_from_message, direct_call_params
 from app.utils.llm_json_utils import parse_json_response
 from app.utils.environment_auth import auth_required_for_llm
 from app.routes.scenario_pipeline.step4.config import (
@@ -156,12 +156,10 @@ def register_precedent_routes(bp):
 
                 # Call LLM
                 response = llm_client.messages.create(
-                    model=STEP4_DEFAULT_MODEL,
-                    max_tokens=4096,
-                    temperature=0.1,
+                    **direct_call_params(STEP4_DEFAULT_MODEL, max_tokens=4096, temperature=0.1),
                     messages=[{'role': 'user', 'content': prompt}]
                 )
-                raw_response = response.content[0].text
+                raw_response = text_from_message(response)
                 yield sse_msg({'stage': 'RECEIVED', 'progress': 60, 'messages': ['LLM response received, parsing...']})
 
                 # Parse JSON response
@@ -318,12 +316,10 @@ def register_precedent_routes(bp):
 
             # Call LLM
             response = llm_client.messages.create(
-                model=STEP4_DEFAULT_MODEL,
-                max_tokens=4096,
-                temperature=0.1,
+                **direct_call_params(STEP4_DEFAULT_MODEL, max_tokens=4096, temperature=0.1),
                 messages=[{'role': 'user', 'content': prompt}]
             )
-            raw_response = response.content[0].text
+            raw_response = text_from_message(response)
 
             # Parse
             precedents = parse_json_response(raw_response, context="precedent_extraction")

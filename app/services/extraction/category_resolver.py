@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, Optional
 
-from rdflib import Graph, RDFS
+from rdflib import Graph, RDFS, URIRef
 
 from app.services.ontserve.ontserve_config import get_ontserve_base_path
 
@@ -120,10 +120,85 @@ class CategoryResolver:
         return self._map.get(self._local_name(class_local_name_or_uri))
 
 
+# Occupational role-axis heads (intermediate namespace). The axis sits BELOW
+# the nine core categories: both heads chain to core:Role, so CategoryResolver
+# cannot tell them apart, yet they are owl:disjointWith each other -- the
+# case-4 (run 20) Pellet inconsistency, where one individual was typed to a
+# descendant of each.
+ROLE_AXIS_HEADS = {
+    "ProfessionalRole": "professional",
+    "ParticipantRole": "participant",
+}
+
+
+class RoleAxisResolver(CategoryResolver):
+    """Lazily-built local-name -> occupational-axis map over the curated tiers.
+
+    Mirrors CategoryResolver (same TTL tiers, same local-name keying), but the
+    rdfs:subClassOf* closure targets the intermediate ProfessionalRole /
+    ParticipantRole heads instead of the nine core categories. resolve()
+    returns 'professional' or 'participant'; a class with no chain to either
+    head resolves to None (unresolvable classes are deliberately ignored by
+    guards), and a class whose chain reaches BOTH heads (inconsistent in the
+    curated base) also resolves to None with a warning, so guards only ever
+    act on an unambiguous side.
+    """
+
+    def _build_map(self) -> Dict[str, str]:
+        g = Graph()
+        ontologies_dir = self._dir()
+        for fname in _FOUNDATION_TTLS:
+            p = ontologies_dir / fname
+            if p.exists():
+                try:
+                    g.parse(str(p), format="turtle")
+                except Exception as e:
+                    logger.warning(
+                        "Could not parse %s for role-axis map: %s", fname, e
+                    )
+
+        heads = {
+            URIRef(PROETHICA_NS + local): axis
+            for local, axis in ROLE_AXIS_HEADS.items()
+        }
+
+        def reach_axes(cls) -> set:
+            seen, stack, found = set(), [cls], set()
+            while stack:
+                c = stack.pop()
+                if c in seen:
+                    continue
+                seen.add(c)
+                axis = heads.get(c)
+                if axis:
+                    found.add(axis)
+                    continue
+                stack.extend(g.objects(c, RDFS.subClassOf))
+            return found
+
+        out: Dict[str, str] = {}
+        for cls in set(g.subjects(RDFS.subClassOf, None)) | set(heads):
+            if not str(cls).startswith(PROETHICA_NS):
+                continue
+            axes = reach_axes(cls)
+            if len(axes) == 1:
+                out[str(cls).rsplit("#", 1)[-1]] = next(iter(axes))
+            elif len(axes) == 2:
+                logger.warning(
+                    "Role-axis map: %s chains to BOTH ProfessionalRole and "
+                    "ParticipantRole in the curated tiers (disjointness "
+                    "violation in the base); leaving it unresolved.", cls,
+                )
+        logger.info("Loaded %d class -> role-axis mappings", len(out))
+        return out
+
+
 # Module-level singleton so the (relatively expensive) TTL parse happens once
 # per process. Callers that need an isolated map (tests) can construct their own
 # CategoryResolver instance.
 _resolver: Optional[CategoryResolver] = None
+
+_axis_resolver: Optional[RoleAxisResolver] = None
 
 
 def get_resolver() -> CategoryResolver:
@@ -142,3 +217,20 @@ def resolve_core_category(class_local_name_or_uri: str) -> Optional[str]:
     tiers or has no core ancestor.
     """
     return get_resolver().resolve(class_local_name_or_uri)
+
+
+def get_axis_resolver() -> RoleAxisResolver:
+    global _axis_resolver
+    if _axis_resolver is None:
+        _axis_resolver = RoleAxisResolver()
+    return _axis_resolver
+
+
+def resolve_role_axis(class_local_name_or_uri: str) -> Optional[str]:
+    """Resolve a role class's curated-chain occupational axis.
+
+    Accepts the same forms as resolve_core_category. Returns 'professional'
+    or 'participant', or None when the class has no unambiguous asserted
+    rdfs:subClassOf* chain to either head in the curated tiers.
+    """
+    return get_axis_resolver().resolve(class_local_name_or_uri)

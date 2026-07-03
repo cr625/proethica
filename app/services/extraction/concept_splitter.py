@@ -219,11 +219,10 @@ class GeneralizedConceptSplitter:
         try:
             # Call LLM
             if hasattr(client, 'messages') and hasattr(client.messages, 'create'):
+                from app.utils.llm_utils import direct_call_params
                 model = ModelConfig.get_default_model()
                 response = client.messages.create(
-                    model=model,
-                    max_tokens=500,
-                    temperature=0.1,  # Low temperature for consistent analysis
+                    **direct_call_params(model, max_tokens=500, temperature=0.1),
                     system=system_prompt,
                     messages=[{"role": "user", "content": analysis_prompt}],
                 )

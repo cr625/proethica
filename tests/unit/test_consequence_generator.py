@@ -152,8 +152,10 @@ def test_generate_consequences_populates_fields(
     """generate_consequences_for_seeds populates consequence fields on the ScenarioSeeds object."""
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
+    # type="text" required: the generator reads via text_from_message, which skips
+    # non-text blocks (thinking-model hardening, 2026-07).
     mock_client.messages.create.return_value = MagicMock(
-        content=[MagicMock(text=json.dumps({
+        content=[MagicMock(type="text", text=json.dumps({
             "options": [
                 {
                     "option_id": "opt_0_0",

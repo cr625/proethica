@@ -214,8 +214,9 @@ def _llm_classify(individuals, flags, crit, client=None, model=None) -> Optional
             return None
         prompt = _build_prompt(individuals, flags, crit)
         chunks: List[str] = []
+        from app.utils.llm_utils import direct_call_params
         with client.messages.stream(
-            model=model, max_tokens=2048, temperature=0.0,
+            **direct_call_params(model, max_tokens=2048, temperature=0.0),
             system=(f"You decide whether each {crit.component} individual is a genuine "
                     "individual (keep) or a type/wrong-component entry (drop). Strict JSON only."),
             messages=[{"role": "user", "content": prompt}],

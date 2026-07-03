@@ -188,11 +188,11 @@ class ObligationEngagementExtractor:
             return None
 
         try:
+            from app.utils.llm_utils import direct_call_params
             chunks: List[str] = []
             with client.messages.stream(
-                model=model,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
+                **direct_call_params(model, max_tokens=self.max_tokens,
+                                     temperature=self.temperature),
                 system=_load_obligation_engagement_template().render_system(),
                 messages=[{"role": "user", "content": user_prompt}],
             ) as stream:

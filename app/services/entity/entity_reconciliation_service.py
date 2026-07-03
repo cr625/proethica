@@ -698,7 +698,9 @@ class EntityReconciliationService:
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """Call Haiku for dedup evaluation."""
         from model_config import ModelConfig
-        from app.utils.llm_utils import extract_json_from_response
+        from app.utils.llm_utils import (
+            extract_json_from_response, text_from_message, direct_call_params,
+        )
 
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
@@ -718,13 +720,11 @@ class EntityReconciliationService:
         logger.info(f"Calling {model} for entity reconciliation")
 
         response = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            temperature=0,
+            **direct_call_params(model, max_tokens=4096, temperature=0),
             messages=[{"role": "user", "content": prompt}]
         )
 
-        response_text = response.content[0].text
+        response_text = text_from_message(response)
         usage = response.usage
         logger.info(
             f"LLM reconciliation: {usage.input_tokens} input, "

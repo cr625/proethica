@@ -14,8 +14,8 @@ STEP4_SECTION_TYPE = 'synthesis'
 
 # LLM model constants -- all Step 4 code should use these instead of
 # hardcoded model ID strings.  Resolved once at import time from ModelConfig.
-STEP4_DEFAULT_MODEL = ModelConfig.get_claude_model("default")    # claude-sonnet-4-6
-STEP4_POWERFUL_MODEL = ModelConfig.get_claude_model("powerful")  # claude-opus-4-6
+STEP4_DEFAULT_MODEL = ModelConfig.get_claude_model("default")    # CLAUDE_DEFAULT_MODEL env
+STEP4_POWERFUL_MODEL = ModelConfig.get_claude_model("powerful")  # CLAUDE_POWERFUL_MODEL env
 
 # All extraction_type values produced by Step 4 (used for scoped counts/queries).
 STEP4_EXTRACTION_TYPES = [

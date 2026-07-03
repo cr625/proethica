@@ -434,13 +434,13 @@ class LLMSectionTripleAssociator:
                     
                 # If messages API (v1.5)
                 elif hasattr(client, 'messages') and hasattr(client.messages, 'create'):
+                    from app.utils.llm_utils import text_from_message, direct_call_params
                     response = client.messages.create(
-                        model=client.available_models[0],
+                        **direct_call_params(client.available_models[0],
+                                             max_tokens=500, temperature=0.1),
                         messages=[{"role": "user", "content": prompt}],
-                        temperature=0.1,
-                        max_tokens=500
                     )
-                    result = response.content[0].text
+                    result = text_from_message(response)
                     
                 # If old API (v1)
                 else:

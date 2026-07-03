@@ -428,6 +428,10 @@ class OntServeCommitService:
                 results['individuals_committed'] = individual_result['count']
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
+                # Role-axis contradiction guard count (like the terminates
+                # veto: present in the stats only when it acted).
+                if individual_result.get('role_axis_vetoes'):
+                    results['role_axis_vetoes'] = individual_result['role_axis_vetoes']
 
                 # C3 pre-commit conformance gate: SHACL + OWL-RL check + deterministic Tier-0
                 # repair (via the OntServe repair_conformance_ttl MCP tool) over the just-
@@ -743,6 +747,10 @@ class OntServeCommitService:
             # (which would make the case ontology OWL-DL inconsistent).
             class_core_category: Dict[str, str] = {}
 
+            # Role individual URI -> the extraction's own role_kind decision,
+            # consumed by the finalized-graph role-axis contradiction guard.
+            role_kind_by_uri: Dict[URIRef, Optional[str]] = {}
+
             # Load existing graph or create new one
             g = Graph()
             if case_file.exists():
@@ -864,6 +872,11 @@ class OntServeCommitService:
                 # Add individual as NamedIndividual
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))
                 g.add((individual_uri, RDFS.label, Literal(label)))
+
+                # Record the extraction's professional-vs-participant call for
+                # the finalized-graph role-axis guard.
+                if self._is_role_individual(entity):
+                    role_kind_by_uri[individual_uri] = self._extract_role_kind(rdf_data)
 
                 # Add full description if we used a short label
                 if full_description:
@@ -1026,6 +1039,12 @@ class OntServeCommitService:
             # each role facet) once all facets have been written.
             self._emit_agent_layer(g)
 
+            # Role-axis contradiction guard (case-4 lesson): runs on the
+            # finalized graph so it sees every rdf:type source, including the
+            # role_category relational-archetype fallback. Acts only on
+            # provable both-sides contradictions; logs every drop.
+            role_axis_vetoes = self._apply_role_axis_guard(g, role_kind_by_uri)
+
             # Save the graph
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Committed {count} individuals to {case_file}")
@@ -1050,7 +1069,8 @@ class OntServeCommitService:
             # (commit_selected_entities), which runs after this returns so the
             # edge-bearing TTL is on disk before the version import.
 
-            return {'count': count, 'file': str(case_file)}
+            return {'count': count, 'file': str(case_file),
+                    'role_axis_vetoes': role_axis_vetoes}
 
         except Exception as e:
             logger.error(f"Error committing individuals: {e}")
@@ -1310,17 +1330,110 @@ class OntServeCommitService:
         if occ:
             parents.append(occ)
         else:
-            props = (rdf_data or {}).get('properties', {}) or {}
-            rk = (props.get('roleKind') or props.get('role_kind')
-                  or (rdf_data or {}).get('role_kind'))
-            if isinstance(rk, list):
-                rk = rk[0] if rk else None
-            rk = str(rk).lower().strip() if rk else None
+            rk = self._extract_role_kind(rdf_data)
             if rk == 'professional':
                 parents.append(f'{PROETHICA}ProfessionalRole')
             elif rk == 'participant':
                 parents.append(f'{PROETHICA}ParticipantRole')
         return parents
+
+    @staticmethod
+    def _extract_role_kind(rdf_data: Dict) -> Optional[str]:
+        """The extraction's own professional-vs-participant call for a role
+        individual (an R1 commit routing input, never stored as a literal),
+        normalized to 'professional' / 'participant', or None when the signal
+        is absent or unrecognized. Single reader shared by the occupational
+        backstop and the role-axis contradiction guard."""
+        props = (rdf_data or {}).get('properties', {}) or {}
+        rk = (props.get('roleKind') or props.get('role_kind')
+              or (rdf_data or {}).get('role_kind'))
+        if isinstance(rk, list):
+            rk = rk[0] if rk else None
+        rk = str(rk).lower().strip() if rk else None
+        return rk if rk in ('professional', 'participant') else None
+
+    def _apply_role_axis_guard(self, g: Graph, role_kind_by_uri: Dict) -> int:
+        """Professional/participant occupational-axis contradiction guard (the
+        case-4 lesson).
+
+        Run 20 committed a role individual typed BOTH proeth:PublicRole (a
+        ParticipantRole descendant) AND proeth:PublicResponsibilityRole
+        (rdfs:subClassOf ProfessionalRole -- explicit in intermediate since
+        2026-07-02, previously only entailed via owesDutyToward's domain),
+        which the ProfessionalRole owl:disjointWith ParticipantRole axiom makes
+        Pellet-inconsistent. The Stage-2 chain guard cannot catch this: both
+        classes chain to core:Role; the professional/participant axis sits
+        BELOW the nine core categories.
+
+        Runs once per commit over the FINALIZED graph, after every rdf:type
+        source (the minted/matched type list, the edge-derived relational
+        archetype, and the role_category fallback -- where public_responsibility
+        lands). Each asserted class resolves to the axis via the curated
+        subclass closure (RoleAxisResolver, the same tiers CategoryResolver
+        reads), extended through case-local rdfs:subClassOf edges in THIS graph
+        so a genuinely-new class parented onto an axis head by the role_kind
+        backstop resolves too. The guard acts ONLY when one individual's
+        classes provably land on BOTH sides: classes with no path to either
+        head are ignored, and a one-sided individual passes through untouched
+        (no count-reducing filter -- individuals are never dropped, only the
+        contradicting type triples). On contradiction the side contradicting
+        the extraction's own role_kind decision is dropped; with no role_kind
+        signal the professional side is dropped (participant standing is the
+        weaker commitment). Every drop is logged and surfaced in the commit
+        stats (role_axis_vetoes), like the terminates veto.
+
+        Returns the number of rdf:type triples removed.
+        """
+        from app.services.extraction.category_resolver import resolve_role_axis
+
+        def _axes_of(cls) -> set:
+            seen, stack, found = set(), [cls], set()
+            while stack:
+                c = stack.pop()
+                if c in seen or not isinstance(c, URIRef):
+                    continue
+                seen.add(c)
+                axis = resolve_role_axis(str(c))
+                if axis:
+                    found.add(axis)
+                    continue
+                stack.extend(g.objects(c, RDFS.subClassOf))
+            return found
+
+        dropped_total = 0
+        for subj in set(g.subjects(RDF.type, None)):
+            by_axis: Dict[str, list] = {}
+            for t in set(g.objects(subj, RDF.type)):
+                if not isinstance(t, URIRef):
+                    continue
+                axes = _axes_of(t)
+                if len(axes) == 1:
+                    by_axis.setdefault(next(iter(axes)), []).append(t)
+                # len(axes) == 2 means the CLASS itself is two-sided; that is a
+                # base/case-graph defect for Pellet to flag, not attributable to
+                # one side here, so the class is left alone.
+            prof = by_axis.get('professional')
+            part = by_axis.get('participant')
+            if not prof or not part:
+                continue  # no provable two-sided contradiction; never touch
+            rk = role_kind_by_uri.get(subj)
+            drop, keep = (part, prof) if rk == 'professional' else (prof, part)
+            for t in sorted(drop):
+                g.remove((subj, RDF.type, t))
+                dropped_total += 1
+            logger.warning(
+                "Role-axis guard: %s carried rdf:type classes on BOTH sides of "
+                "the ProfessionalRole/ParticipantRole disjointness "
+                "(professional=%s, participant=%s); role_kind=%s -> dropped %s, "
+                "kept %s (the case-4 run-20 lesson).",
+                str(subj).split('#')[-1],
+                sorted(str(u).split('#')[-1] for u in prof),
+                sorted(str(u).split('#')[-1] for u in part),
+                rk,
+                sorted(str(u).split('#')[-1] for u in drop),
+                sorted(str(u).split('#')[-1] for u in keep),
+            )
+        return dropped_total
 
     def _camelCase(self, text: str) -> str:
         """Convert a snake_case / spaced key to camelCase for a property local name.
@@ -1654,6 +1767,10 @@ class OntServeCommitService:
                 if ttl_result.get('error'):
                     results['errors'].append(ttl_result['error'])
                 results['ttl_file'] = ttl_result.get('file')
+                # Role-axis contradiction guard count (like the terminates
+                # veto: present in the stats only when it acted).
+                if ttl_result.get('role_axis_vetoes'):
+                    results['role_axis_vetoes'] = ttl_result['role_axis_vetoes']
 
                 # Materialize the relational edge layer on the FINAL TTL (this is
                 # the persisted writer for the versioned path). Shared helper, so
@@ -1936,6 +2053,10 @@ class OntServeCommitService:
             # R1 edge-primary relational archetype tracker (see the append path).
             self._role_edge_archetyped = set()
 
+            # Role individual URI -> role_kind decision, for the finalized-graph
+            # role-axis contradiction guard (see the append path).
+            role_kind_by_uri: Dict[URIRef, Optional[str]] = {}
+
             count = 0
             for entity, rdf_data in individuals:
                 # Use the existing individual serialization logic
@@ -1960,6 +2081,10 @@ class OntServeCommitService:
                 # Add individual
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))
                 g.add((individual_uri, RDFS.label, Literal(label)))
+
+                # Record the role_kind decision for the role-axis guard.
+                if self._is_role_individual(entity):
+                    role_kind_by_uri[individual_uri] = self._extract_role_kind(rdf_data)
 
                 # Base concept category for this entity (from its extraction pass).
                 concept_cat = self._get_concept_category(entity)
@@ -2020,11 +2145,17 @@ class OntServeCommitService:
             # Emit the Agent layer (one proeth-core:Agent per actor + hasRole).
             self._emit_agent_layer(g)
 
+            # Role-axis contradiction guard (case-4 lesson): finalized-graph
+            # sweep, same as the append path. Provable both-sides
+            # contradictions only; every drop is logged.
+            role_axis_vetoes = self._apply_role_axis_guard(g, role_kind_by_uri)
+
             # Write file (overwrites existing)
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Wrote fresh TTL file with {count} individuals to {case_file}")
 
-            return {'count': count, 'file': str(case_file)}
+            return {'count': count, 'file': str(case_file),
+                    'role_axis_vetoes': role_axis_vetoes}
 
         except Exception as e:
             logger.error(f"Error writing fresh case TTL: {e}")

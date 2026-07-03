@@ -163,9 +163,10 @@ def _llm_labels(paras: List[Paragraph]) -> Optional[List[str]]:
         # The segmentation prompt is an editable DB template (prompt editor -> Shared prompts ->
         # Discussion segmenter). Render it with the numbered paragraph list.
         prompt = _load_segmenter_template().render(numbered=numbered)
+        from app.utils.llm_utils import direct_call_params
         text = client.messages.create(
-            model=ModelConfig.get_claude_model("powerful"),
-            max_tokens=1024,
+            **direct_call_params(ModelConfig.get_claude_model("default"),
+                                 max_tokens=1024),
             messages=[{"role": "user", "content": prompt}],
         )
         raw = text_from_message(text)

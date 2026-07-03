@@ -189,8 +189,9 @@ def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=
             return None
         prompt = prompt_builder(items)
         chunks: List[str] = []
+        from app.utils.llm_utils import direct_call_params
         with client.messages.stream(
-            model=model, max_tokens=4096, temperature=0.0,
+            **direct_call_params(model, max_tokens=4096, temperature=0.0),
             system=("You select the single matching entity for each request, "
                     "respecting the relation's direction and polarity. Output strict JSON only."),
             messages=[{"role": "user", "content": prompt}],
@@ -246,8 +247,9 @@ def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None,
             return None
         prompt = (prompt_builder or _build_multi_select_prompt)(items)
         chunks: List[str] = []
+        from app.utils.llm_utils import direct_call_params
         with client.messages.stream(
-            model=model, max_tokens=4096, temperature=0.0,
+            **direct_call_params(model, max_tokens=4096, temperature=0.0),
             system=("You select all matching agents for each request, distinguishing "
                     "users of a resource from institutions, generic classes, and "
                     "agents merely analyzed. Output strict JSON only."),
