@@ -163,6 +163,119 @@ def _shortlist(svc, description: str, pool, floor: float, k: int):
 
 # --- batched LLM select (single + multi; moved verbatim) --------------------
 
+# Below this batch size an all-"none" selection is a plausible judgment; at or
+# above it (run 21: 34 items, 0 resolved, where an identical-prompt replay on
+# the identical model resolved 28) it is treated as an anomalous generation:
+# retry once, then fall back to the calibrated embedding thresholds so a single
+# bad generation can never zero a whole edge family.
+ALLNONE_RETRY_MIN_ITEMS = 5
+
+
+def _resolved_count(selections: Dict[str, Any], items: List[Dict[str, Any]]) -> int:
+    """How many items the selection mapping resolves to a candidate (missing
+    ids count as unresolved, matching the caller's ``selections.get`` read)."""
+    return sum(1 for it in items if selections.get(str(it["id"])) is not None)
+
+
+def _coerce_choice(v: Any, item: Dict[str, Any]):
+    """One raw selection value -> shortlist IRI or None (explicit rejection).
+
+    Tolerates the shapes select models actually emit: an int, a numeric string
+    or float ("2", 2.0), the explicit "none"/""/0/null rejections, or the
+    candidate LABEL echoed back instead of its number (full or 90-char
+    prompt-truncated form). An unrecognized shape is logged at WARNING --
+    previously it collapsed to a silent None, which made a format-drifted
+    response indistinguishable from an all-none judgment (run-21 F2b)."""
+    shortlist = item["shortlist"]
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        logger.warning("edge_resolution: select item %s got boolean %r; treating as none",
+                       item.get("id"), v)
+        return None
+    if isinstance(v, str):
+        s = v.strip()
+        if s.lower() in ("none", "0", ""):
+            return None
+        try:
+            f = float(s)
+        except ValueError:
+            folded = s.casefold()
+            for iri, lbl, _sim in shortlist:
+                lbl_fold = str(lbl).casefold().strip()
+                if folded == lbl_fold or folded == lbl_fold[:90]:
+                    return iri
+            logger.warning(
+                "edge_resolution: select item %s got unrecognized value %r "
+                "(not a number, 'none', or a candidate label); treating as none",
+                item.get("id"), s[:120])
+            return None
+        v = f
+    if isinstance(v, (int, float)):
+        if isinstance(v, float) and not v.is_integer():
+            logger.warning("edge_resolution: select item %s got non-integer %r; treating as none",
+                           item.get("id"), v)
+            return None
+        n = int(v)
+        if 1 <= n <= len(shortlist):
+            return shortlist[n - 1][0]
+        logger.warning("edge_resolution: select item %s chose out-of-range candidate %d "
+                       "(shortlist has %d); treating as none",
+                       item.get("id"), n, len(shortlist))
+        return None
+    logger.warning("edge_resolution: select item %s got unrecognized value type %s; "
+                   "treating as none", item.get("id"), type(v).__name__)
+    return None
+
+
+def _map_selection_data(data: Dict[str, Any], items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Parsed JSON object -> {item id: IRI or None}, with format tolerance."""
+    by_id = {str(it["id"]): it for it in items}
+    # Tolerate a single-key wrapper object whose value is the real mapping
+    # (e.g. {"selections": {...}}); an unrecognized wrapper previously yielded
+    # an empty mapping, indistinguishable from all-none.
+    if len(data) == 1:
+        (k, v), = data.items()
+        if isinstance(v, dict) and str(k) not in by_id:
+            logger.warning("edge_resolution: unwrapping select response wrapper key %r", k)
+            data = v
+    out: Dict[str, Any] = {}
+    unknown_keys: List[str] = []
+    for k, v in data.items():
+        it = by_id.get(str(k))
+        if it is None:
+            unknown_keys.append(str(k))
+            continue
+        out[str(k)] = _coerce_choice(v, it)
+    if unknown_keys:
+        logger.warning("edge_resolution: select returned %d key(s) matching no request id: %s",
+                       len(unknown_keys), unknown_keys[:10])
+    return out
+
+
+def _select_attempt(client, model, prompt: str, items: List[Dict[str, Any]]):
+    """One streamed select call. Returns the mapped selection dict, or None
+    when the response is not a JSON object (the caller falls back)."""
+    from app.utils.llm_utils import direct_call_params, extract_json_from_response
+    chunks: List[str] = []
+    with client.messages.stream(
+        **direct_call_params(model, max_tokens=4096, temperature=0.0),
+        system=("You select the single matching entity for each request, "
+                "respecting the relation's direction and polarity. Output strict JSON only."),
+        messages=[{"role": "user", "content": prompt}],
+    ) as stream:
+        for t in stream.text_stream:
+            chunks.append(t)
+    raw = "".join(chunks)
+    logger.debug("edge_resolution: select raw response (%d chars): %r", len(raw), raw[:2000])
+    data = extract_json_from_response(raw)
+    if not isinstance(data, dict):
+        logger.warning("edge_resolution: select response parsed to %s, not a JSON object",
+                       type(data).__name__)
+        return None
+    return _map_selection_data(data, items)
+
+
 def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=None,
                 model_tier: str = "fast"):
     """Map each item id -> ONE chosen candidate IRI (or None) via one LLM call.
@@ -173,8 +286,11 @@ def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=
     default model when ``model`` is not supplied (the constrained pick-from-shortlist
     task fits the fast tier).
 
-    Moved verbatim from state_edges._llm_select; only the prompt text was already
-    parameterised out via prompt_builder."""
+    Run-21 hardening (F2b): the raw response is logged at DEBUG, unrecognized
+    value shapes / unknown keys are logged at WARNING instead of silently
+    coerced to None, a single-key wrapper object is unwrapped, and an all-none
+    selection over >= ALLNONE_RETRY_MIN_ITEMS items is retried once and then
+    handed to the caller's calibrated embedding fallback (return None)."""
     if not items:
         return {}
     try:
@@ -188,35 +304,21 @@ def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=
             logger.warning("edge_resolution: no Anthropic streaming client; embedding fallback")
             return None
         prompt = prompt_builder(items)
-        chunks: List[str] = []
-        from app.utils.llm_utils import direct_call_params
-        with client.messages.stream(
-            **direct_call_params(model, max_tokens=4096, temperature=0.0),
-            system=("You select the single matching entity for each request, "
-                    "respecting the relation's direction and polarity. Output strict JSON only."),
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for t in stream.text_stream:
-                chunks.append(t)
-        from app.utils.llm_utils import extract_json_from_response
-        data = extract_json_from_response("".join(chunks))
-        if not isinstance(data, dict):
+        out = _select_attempt(client, model, prompt, items)
+        if out is None:
             return None
-        by_id = {str(it["id"]): it for it in items}
-        out: Dict[str, Any] = {}
-        for k, v in data.items():
-            it = by_id.get(str(k))
-            if it is None:
-                continue
-            if isinstance(v, str) and v.strip().lower() in ("none", "0", ""):
-                out[str(k)] = None
-                continue
-            try:
-                n = int(v)
-            except (TypeError, ValueError):
-                out[str(k)] = None
-                continue
-            out[str(k)] = it["shortlist"][n - 1][0] if 1 <= n <= len(it["shortlist"]) else None
+        if len(items) >= ALLNONE_RETRY_MIN_ITEMS and _resolved_count(out, items) == 0:
+            logger.warning(
+                "edge_resolution: select resolved 0 of %d items (all-none); retrying once",
+                len(items))
+            out = _select_attempt(client, model, prompt, items)
+            if out is None:
+                return None
+            if _resolved_count(out, items) == 0:
+                logger.warning(
+                    "edge_resolution: select all-none again on retry (%d items); "
+                    "falling back to the calibrated embedding thresholds", len(items))
+                return None
         return out
     except Exception as e:
         logger.warning("edge_resolution: LLM select failed (%s); embedding fallback", e)

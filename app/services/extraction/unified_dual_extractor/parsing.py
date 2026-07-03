@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Tuple
 
 from pydantic import BaseModel, ValidationError
 
+from app.services.extraction.schemas import SOURCE_TEXT_MAX_LENGTH
 from app.services.extraction.unified_dual_extractor.config import (
     _CATEGORY_INFERENCE,
     _infer_category_enum,
@@ -170,6 +171,43 @@ class ParsingMixin:
         elif item.get('source_text') and not refs:
             item['text_references'] = [item['source_text']]
 
+        # --- source_text length tolerance (case-7 run-21 parse-drop fix) ---
+        # The Anthropic structured-outputs grammar rejects maxLength, so
+        # _clean_structured_output_node strips the SOURCE_TEXT_MAX_LENGTH cap
+        # from the LLM-facing schema: the model is never format-constrained to
+        # it and can paste a longer verbatim quote. Re-applying the strict cap
+        # at validation discarded whole items (run 21: 1 principle + 1
+        # obligation + 2 constraints, each failing ONLY string_too_long).
+        # Tolerate instead of reject: preserve the full quote in
+        # text_references (which has no max_length), then truncate source_text
+        # to the cap at a whitespace boundary with NO ellipsis, so the snippet
+        # stays a verbatim substring of the case text for the verbatim
+        # re-ground verifier. Idempotent (a clamped value passes the length
+        # check on the second normalize).
+        src = item.get('source_text')
+        if isinstance(src, str) and len(src) > SOURCE_TEXT_MAX_LENGTH:
+            full_refs = (item.get('text_references')
+                         or item.get('examples_from_case') or [])
+            if not isinstance(full_refs, list):
+                full_refs = [full_refs]
+            if src not in full_refs:
+                full_refs = full_refs + [src]
+            item['text_references'] = full_refs
+            head = src[:SOURCE_TEXT_MAX_LENGTH]
+            if not src[SOURCE_TEXT_MAX_LENGTH].isspace():
+                # Mid-word cut: retreat to the last whitespace so the snippet
+                # ends on a word boundary (still a verbatim prefix).
+                ws = max(head.rfind(' '), head.rfind('\n'), head.rfind('\t'))
+                if ws > 0:
+                    head = head[:ws]
+            item['source_text'] = head.rstrip()
+            logger.info(
+                "Clamped over-long source_text (%d chars) to %d for %r; full "
+                "quote preserved in text_references",
+                len(src), len(item['source_text']),
+                item.get('label') or item.get('identifier') or item.get('name'),
+            )
+
         # name/label -> identifier (for individuals)
         if 'identifier' not in item:
             if 'name' in item:
@@ -195,6 +233,14 @@ class ParsingMixin:
         # --- Default confidence when LLM omits it ---
         if 'confidence' not in item:
             item['confidence'] = 0.75
+        else:
+            # ge/le are stripped from the structured-output grammar exactly
+            # like maxLength above (schemas._STRUCTURED_OUTPUT_UNSUPPORTED_KEYS),
+            # so an out-of-range numeric confidence must be clamped, not allowed
+            # to drop the whole item at validation.
+            conf = item['confidence']
+            if isinstance(conf, (int, float)) and not isinstance(conf, bool):
+                item['confidence'] = min(1.0, max(0.0, float(conf)))
 
         # --- Ensure match_decision has required subfields ---
         md = item.get('match_decision')

@@ -61,6 +61,17 @@ class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
     log_label = "Defeasibility"
     default_max_tokens = 16384
 
+    def _default_model(self) -> str:
+        """The ratified model split (2026-07-01) places the defeasibility
+        extractor on the DEFAULT tier alongside the other mechanical edge
+        passes. The StreamingEdgeExtractor base pins un-pinned extractors to
+        the powerful tier, which run 21 showed deterministically judging zero
+        edges on this prompt (F2a); the default tier is the intended
+        assignment. Explicit override here rather than a base change so RPO
+        keeps its powerful-tier default."""
+        from model_config import ModelConfig
+        return ModelConfig.get_claude_model("default")
+
     def _system_prompt(self) -> str:
         return defeasibility_system_prompt()
 

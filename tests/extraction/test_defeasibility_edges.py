@@ -480,6 +480,241 @@ class TestSchemaValidation:
             )
 
 
+class TestRun21ZeroYield:
+    """Run-21 F2a regression suite: the extractor rode the powerful tier and
+    returned a clean, well-formed empty edge list ({"edges": []}) while the
+    lowercase-only narrative harvest starved the prompt of 14 of the 22
+    available fragments. These tests lock the three fixes: the default-tier
+    model assignment, the two-spelling harvest, and the zero-edge
+    diagnostics/persistence."""
+
+    def test_wellformed_empty_edges_is_clean_zero(
+        self, case72_obligations, case72_states
+    ):
+        """Run 21's exact zero-yield shape: {"edges": []} parses cleanly,
+        yields no edges, and leaves the raw response inspectable."""
+        client = _make_mock_client_raw_text('{"edges": []}')
+        extractor = DefeasibilityEdgeExtractor(
+            llm_client=client, model="claude-test-model"
+        )
+        edges = extractor.extract(
+            case_id=7,
+            obligations=case72_obligations,
+            states=case72_states,
+        )
+        assert edges == []
+        assert extractor.last_raw_response == '{"edges": []}'
+
+    def test_default_model_is_default_tier(self):
+        """The ratified model split places the defeasibility extractor on the
+        DEFAULT tier; the base-class powerful-tier default is overridden."""
+        from model_config import ModelConfig
+        extractor = DefeasibilityEdgeExtractor(llm_client=MagicMock())
+        assert extractor._resolve_model() == ModelConfig.get_claude_model("default")
+        # An explicitly pinned model still wins.
+        pinned = DefeasibilityEdgeExtractor(llm_client=MagicMock(), model="claude-pinned")
+        assert pinned._resolve_model() == "claude-pinned"
+
+    def test_parse_case_graph_harvests_both_predicate_spellings(self):
+        """The committed TTLs emit camelCase proeth:concreteExpression /
+        proeth:constraintStatement; the harvest reads both spellings, keeps
+        the canonical lowercase source_field, and dedupes a value asserted
+        under both spellings on the same subject."""
+        from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
+        from app.services.extraction.defeasibility_pipeline import (
+            PROETH, PROETH_CORE, parse_case_graph,
+        )
+        case_ns = Namespace("http://proethica.org/ontology/case/7#")
+        g = Graph()
+        principle = case_ns["Principle_P"]
+        g.add((principle, RDFS.label, Literal("Principle P")))
+        g.add((principle, PROETH["interpretation"], Literal("interpretation fragment")))
+        g.add((principle, PROETH["concreteExpression"], Literal("camelCase concrete expression")))
+        # Same value under BOTH spellings -> one narrative, not two.
+        g.add((principle, PROETH["concreteexpression"], Literal("camelCase concrete expression")))
+        constraint = case_ns["Constraint_C"]
+        g.add((constraint, RDFS.label, Literal("Constraint C")))
+        g.add((constraint, PROETH["constraintStatement"], Literal("camelCase constraint statement")))
+
+        ents = parse_case_graph(g, 7)
+        by_field = {}
+        for n in ents.narratives:
+            by_field.setdefault(n.source_field, []).append(n.text)
+        assert by_field == {
+            "interpretation": ["interpretation fragment"],
+            "concreteexpression": ["camelCase concrete expression"],
+            "constraintstatement": ["camelCase constraint statement"],
+        }
+        # Every harvested source_field is valid for the DefeasibilityEdge Literal.
+        valid_fields = {"tensionresolution", "balancingwith", "interpretation",
+                        "concreteexpression", "constraintstatement"}
+        assert {n.source_field for n in ents.narratives} <= valid_fields
+
+    _TTL_TWO_OBLIGATIONS = """\
+@prefix proeth-core: <http://proethica.org/ontology/core#> .
+@prefix proeth: <http://proethica.org/ontology/intermediate#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix case: <http://proethica.org/ontology/case/7#> .
+
+case:Obl_A a proeth-core:Obligation ;
+    rdfs:label "Obligation A" ;
+    proeth:obligationStatement "A must do X." .
+
+case:Obl_B a proeth-core:Obligation ;
+    rdfs:label "Obligation B" .
+
+case:Principle_P a proeth-core:Principle ;
+    rdfs:label "Principle P" ;
+    proeth:interpretation "lowercase-spelling fragment" ;
+    proeth:concreteExpression "camelCase concrete expression fragment" .
+
+case:Constraint_C a proeth-core:Constraint ;
+    rdfs:label "Constraint C" ;
+    proeth:constraintStatement "camelCase constraint statement fragment" .
+"""
+
+    class _StubExtractor:
+        """Duck-typed extractor: fixed edge list, recorded prompt/response."""
+        def __init__(self, edges, raw='{"edges": []}'):
+            self._edges = edges
+            self.last_raw_response = raw
+            self.last_prompt = "STUB PROMPT"
+
+        def extract(self, **_kw):
+            return self._edges
+
+        def _resolve_model(self):
+            return "claude-stub-model"
+
+    def _patched_save_prompt(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            "app.models.extraction_prompt.ExtractionPrompt.save_prompt",
+            classmethod(lambda _cls, **kw: calls.append(kw)),
+        )
+        return calls
+
+    def test_zero_edges_logs_raw_response_and_persists(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        """A zero-edge run now leaves two diagnostics: a WARNING carrying the
+        (truncated) raw response, and an extraction_prompts record
+        (concept_type='defeasibility_edges') with prompt + raw response."""
+        import logging
+        from app.services.extraction.defeasibility_pipeline import (
+            apply_defeasibility_edges,
+        )
+        ttl = tmp_path / "proethica-case-7.ttl"
+        ttl.write_text(self._TTL_TWO_OBLIGATIONS, encoding="utf-8")
+        calls = self._patched_save_prompt(monkeypatch)
+
+        with caplog.at_level(
+            logging.WARNING,
+            logger="app.services.extraction.defeasibility_pipeline",
+        ):
+            res = apply_defeasibility_edges(
+                7, ttl, extractor=self._StubExtractor([]), write_back=False,
+            )
+
+        assert res["status"] == "no_edges"
+        # The two-spelling harvest fed all 3 fragments (1 lowercase + 2 camelCase).
+        assert res["narratives"] == 3
+        zero_warnings = [r for r in caplog.records if "ZERO edges" in r.getMessage()]
+        assert len(zero_warnings) == 1
+        assert '{"edges": []}' in zero_warnings[0].getMessage()
+        assert len(calls) == 1
+        kw = calls[0]
+        assert kw["case_id"] == 7
+        assert kw["concept_type"] == "defeasibility_edges"
+        assert kw["prompt_text"] == "STUB PROMPT"
+        assert kw["raw_response"] == '{"edges": []}'
+        assert kw["llm_model"] == "claude-stub-model"
+        assert kw["results_summary"] == {"edges_emitted": 0}
+
+    def test_nonzero_edges_also_persist_without_zero_warning(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        import logging
+        from app.services.extraction.defeasibility_pipeline import (
+            apply_defeasibility_edges,
+        )
+        ttl = tmp_path / "proethica-case-7.ttl"
+        ttl.write_text(self._TTL_TWO_OBLIGATIONS, encoding="utf-8")
+        calls = self._patched_save_prompt(monkeypatch)
+        case_ns = "http://proethica.org/ontology/case/7#"
+        edge = DefeasibilityEdge(
+            predicate="prevailsOver",
+            subject_iri=f"{case_ns}Obl_A",
+            object_iri=f"{case_ns}Obl_B",
+            source_field="interpretation",
+            source_text="A prevails",
+            confidence=0.8,
+        )
+
+        with caplog.at_level(
+            logging.WARNING,
+            logger="app.services.extraction.defeasibility_pipeline",
+        ):
+            res = apply_defeasibility_edges(
+                7, ttl, extractor=self._StubExtractor([edge], raw='{"edges": [...]}'),
+                write_back=False,
+            )
+
+        assert res["status"] == "ok"
+        assert res["edges_emitted"] == 1
+        assert res["narratives"] == 3
+        assert not [r for r in caplog.records if "ZERO edges" in r.getMessage()]
+        assert len(calls) == 1
+        assert calls[0]["results_summary"] == {"edges_emitted": 1}
+
+    def test_persistence_failure_never_fails_the_applier(
+        self, tmp_path, monkeypatch
+    ):
+        """Best-effort contract: a DB failure in the persistence hook is
+        logged, not raised (the applier runs in the commit path and in
+        standalone replays without an app context)."""
+        from app.services.extraction.defeasibility_pipeline import (
+            apply_defeasibility_edges,
+        )
+        ttl = tmp_path / "proethica-case-7.ttl"
+        ttl.write_text(self._TTL_TWO_OBLIGATIONS, encoding="utf-8")
+
+        def _boom(_cls, **_kw):
+            raise RuntimeError("no app context")
+
+        monkeypatch.setattr(
+            "app.models.extraction_prompt.ExtractionPrompt.save_prompt",
+            classmethod(_boom),
+        )
+        res = apply_defeasibility_edges(
+            7, ttl, extractor=self._StubExtractor([]), write_back=False,
+        )
+        assert res["status"] == "no_edges"
+
+    def test_seed_template_carries_decision_rubric_and_no_fabrication(self):
+        """The editable template's decision rubric (worked competition/defeat
+        example grounded in narrative fields) is present, and the
+        no-fabrication posture is retained in both prompts."""
+        import importlib.util
+        from pathlib import Path
+        seed_path = (
+            Path(__file__).resolve().parents[2]
+            / "docs-internal/scripts/seed_defeasibility_edges_template.py"
+        )
+        spec = importlib.util.spec_from_file_location("seed_def_tmpl", seed_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        assert "DECISION RUBRIC" in mod.TEMPLATE_TEXT
+        assert "empty edges array ONLY" in mod.TEMPLATE_TEXT
+        # Worked example maps narrative wording to all three predicates.
+        assert "competesWith" in mod.TEMPLATE_TEXT
+        assert "prevailsOver" in mod.TEMPLATE_TEXT
+        assert "defeasibleUnder" in mod.TEMPLATE_TEXT
+        # No-fabrication posture retained.
+        assert "Do NOT invent edges" in mod.TEMPLATE_TEXT
+        assert "verbatim source_text" in mod.SYSTEM_TEXT
+
+
 @pytest.mark.llm
 class TestRealLLMIntegration:
     """End-to-end test against a real Anthropic client. Requires

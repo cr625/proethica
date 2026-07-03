@@ -119,7 +119,9 @@ def _build_select_prompt(items: List[Dict[str, Any]]) -> str:
         "description is hypothetical or no candidate genuinely matches.\n\n"
         "REQUESTS:\n" + "\n\n".join(blocks) +
         "\n\nOUTPUT strict JSON only, one entry per request id: "
-        "{\"<id>\": <candidate number>|\"none\", ...}"
+        "{\"<id>\": <candidate number>|\"none\", ...}\n"
+        "The mapping must be the TOP-LEVEL JSON object (no wrapper key) and "
+        "must include an entry for EVERY request id above."
     )
 
 

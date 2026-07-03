@@ -50,6 +50,19 @@ INTERMEDIATE_NS = "http://proethica.org/ontology/intermediate#"
 # Common models
 # ---------------------------------------------------------------------------
 
+#: Snippet-size cap for source_text on the parse models (BaseCandidate /
+#: BaseIndividual). Enforced by Field(max_length=...) at validation time, but
+#: STRIPPED from the LLM-facing structured-output grammar by
+#: _clean_structured_output_node (the Anthropic grammar rejects maxLength), so
+#: a model can emit a longer verbatim quote than the cap. The parse-side clamp
+#: in unified_dual_extractor.parsing._normalize_field_names truncates such a
+#: value to this cap (preserving the full quote in text_references) instead of
+#: letting validation drop the whole item (case-7 run 21: 4 individuals lost
+#: to string_too_long). Keep the Field constraints and this constant in sync
+#: by using the constant in both places.
+SOURCE_TEXT_MAX_LENGTH = 500
+
+
 class MatchDecision(BaseModel):
     """Standardized ontology match decision across all 9 component types.
 
@@ -136,7 +149,7 @@ class BaseCandidate(BaseModel):
         validation_alias=AliasChoices('text_references', 'examples_from_case'),
         description="Direct quotes from case text where this concept appears",
     )
-    source_text: Optional[str] = Field(None, max_length=500)
+    source_text: Optional[str] = Field(None, max_length=SOURCE_TEXT_MAX_LENGTH)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     match_decision: MatchDecision = Field(default_factory=MatchDecision)
 
@@ -150,7 +163,7 @@ class BaseIndividual(BaseModel):
         default_factory=list,
         description="Direct quotes from case text where this individual appears",
     )
-    source_text: Optional[str] = Field(None, max_length=500)
+    source_text: Optional[str] = Field(None, max_length=SOURCE_TEXT_MAX_LENGTH)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     match_decision: MatchDecision = Field(default_factory=MatchDecision)
 

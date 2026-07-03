@@ -1,7 +1,7 @@
 """Tests for matched-class honoring and the label-tie source preference
 (nine-component definition-prompt audit, Stage 2, work package 3C).
 
-Two behaviors:
+Three behaviors:
 
 1. Commit-time honoring (OntServeCommitService._matched_class_override): when an
    individual's match decision says matchesExisting=true with a matchedOntologyClass,
@@ -15,12 +15,20 @@ Two behaviors:
    tie on label similarity, prefer proethica-intermediate over intermediate-extended
    over concepts# rows.
 
+3. Dual-channel placement (the run-21 review finding): an INDIVIDUAL temp row
+   always commits as a case NamedIndividual carrying the match annotation --
+   matching an existing class re-types it, it never demotes it to class-level-
+   only. The class-level-only TTL blocks are the D15 anchor declarations of the
+   CLASS channel (storage_type='class' rows), which by design dedup against the
+   curated base and never become individuals.
+
 DB/MCP-free: services are built with object.__new__ to bypass __init__, mirroring
 tests/extraction/test_matcher_category_gate.py.
 """
 from types import SimpleNamespace
 
 import pytest
+from rdflib import Graph, Namespace, OWL, RDF, RDFS, URIRef
 
 from app.services.commit.ontserve_commit_service import OntServeCommitService
 from app.services.extraction import category_resolver
@@ -28,6 +36,8 @@ from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
 
 INT_NS = "http://proethica.org/ontology/intermediate#"
 CONCEPTS_NS = "http://proethica.org/ontology/concepts#"
+CORE_NS = "http://proethica.org/ontology/core#"
+PROV_NS = Namespace("http://proethica.org/provenance#")
 
 
 # ---------------------------------------------------------------------------
@@ -238,3 +248,172 @@ def test_rank_tie_keeps_first_list_entry(monkeypatch):
     ext._check_existing_matches([cand])
 
     assert cand.match_decision.matched_uri == f"{INT_NS}FirstObligation"
+
+
+# ---------------------------------------------------------------------------
+# Dual-channel placement (run-21 review): matched individuals stay individuals
+# ---------------------------------------------------------------------------
+
+def _placement_entity(label, extraction_type='principles'):
+    """Stand-in for a TemporaryRDFStorage row (the attributes the commit
+    paths read)."""
+    return SimpleNamespace(
+        extraction_type=extraction_type,
+        entity_type=extraction_type,
+        entity_label=label,
+        entity_definition='A test definition.',
+        iao_document_uri=None,
+        iao_document_label=None,
+        cited_by_role=None,
+        available_to_role=None,
+        extraction_model=None,
+    )
+
+
+def _placement_service(tmp_path, monkeypatch, chain_resolver):
+    """OntServeCommitService wired to a tmp ontologies dir with the DB / LLM /
+    OntServe touchpoints stubbed (edge materialization, canonicalization, the
+    role-axis resolver, the case-title lookup, edge provenance)."""
+    import app.services.extraction.canonicalization as canon
+    import app.services.extraction.edge_materialization as edge_mat
+
+    svc = object.__new__(OntServeCommitService)
+    svc.ontologies_dir = tmp_path
+    svc._established_core_category = chain_resolver
+    svc._case_title = lambda case_id: 'Mock Case'
+    svc._record_edge_provenance = lambda *a, **k: None
+    monkeypatch.setattr(edge_mat, 'materialize_edges_on_ttl',
+                        lambda cid, f: {'stubbed': True})
+    monkeypatch.setattr(canon, 'canonicalize_ttl',
+                        lambda cid, f: {'stubbed': True})
+    monkeypatch.setattr(category_resolver, 'resolve_role_axis',
+                        lambda uri: None)
+    return svc
+
+
+def test_matched_class_principle_individual_commits_as_case_individual(
+        tmp_path, monkeypatch):
+    """The run-21 misread, locked as a regression test: a principle INDIVIDUAL
+    whose matcher matched an existing curated class (the ToolSubstitution-
+    ProhibitionPrinciple case) must commit as a case NamedIndividual typed to
+    the matched class and carrying the match annotation -- honoring re-types
+    the individual, it never demotes it to a class-level-only declaration."""
+    matched_local = 'ToolSubstitutionProhibitionPrinciple'
+    svc = _placement_service(
+        tmp_path, monkeypatch,
+        lambda local: 'Principle' if local == matched_local else None)
+
+    rdf_data = {
+        'types': [f'{INT_NS}JudgmentPrimacyPrinciple'],  # minted near-duplicate
+        'match_decision': {
+            'matches_existing': True,
+            'matched_uri': f'{INT_NS}{matched_local}',
+            'matched_label': 'Professional Judgment Primacy Principle',
+            'confidence': 0.9,
+            'reasoning': 'folds into the curated base class per the reuse policy',
+        },
+    }
+    entity = _placement_entity('Judgment Primacy over AI Outputs')
+
+    result = svc._commit_individuals_to_case_ontology(7, [(entity, rdf_data)])
+
+    assert result.get('error') is None, result
+    assert result['count'] == 1
+
+    g = Graph()
+    g.parse(result['file'], format='turtle')
+    case_ns = Namespace('http://proethica.org/ontology/case/7#')
+    ind = case_ns['Judgment_Primacy_over_AI_Outputs']
+    matched_cls = URIRef(f'{INT_NS}{matched_local}')
+
+    # The individual EXISTS in the case TTL (not class-level-only) ...
+    assert (ind, RDF.type, OWL.NamedIndividual) in g
+    # ... typed to the HONORED existing class, not the minted near-duplicate ...
+    assert (ind, RDF.type, matched_cls) in g
+    assert (ind, RDF.type, URIRef(f'{INT_NS}JudgmentPrimacyPrinciple')) not in g
+    # ... with the materialized direct core type ...
+    assert (ind, RDF.type, URIRef(f'{CORE_NS}Principle')) in g
+    # ... and the match annotation (XAI provenance) on the INDIVIDUAL.
+    assert (ind, PROV_NS['matchedOntologyClass'], matched_cls) in g
+    assert (ind, PROV_NS['matchReasoning'], None) in g
+
+    # The shared class is anchored in the case TTL (owl:Class + subClassOf
+    # core) -- the block the run-21 review misread as a lost entity. It
+    # coexists WITH the committed individual.
+    assert (matched_cls, RDF.type, OWL.Class) in g
+    assert (matched_cls, RDFS.subClassOf, URIRef(f'{CORE_NS}Principle')) in g
+
+
+def test_unmatched_individual_still_commits_with_minted_type(
+        tmp_path, monkeypatch):
+    """Recall guard: an individual with NO match commits exactly as before
+    (minted type + local class declaration), so the honoring path cannot
+    reduce counts elsewhere."""
+    svc = _placement_service(tmp_path, monkeypatch, lambda local: None)
+    rdf_data = {
+        'types': [f'{INT_NS}ReviewAdequacyPrinciple'],
+        'match_decision': {'matches_existing': False, 'confidence': 0.0,
+                           'reasoning': 'no candidate'},
+    }
+    entity = _placement_entity('Review Adequacy of AI Outputs')
+
+    result = svc._commit_individuals_to_case_ontology(7, [(entity, rdf_data)])
+
+    assert result.get('error') is None, result
+    assert result['count'] == 1
+    g = Graph()
+    g.parse(result['file'], format='turtle')
+    ind = Namespace('http://proethica.org/ontology/case/7#')[
+        'Review_Adequacy_of_AI_Outputs']
+    minted = URIRef(f'{INT_NS}ReviewAdequacyPrinciple')
+    assert (ind, RDF.type, OWL.NamedIndividual) in g
+    assert (ind, RDF.type, minted) in g
+    # Genuinely-new class: declared locally with its subClassOf-core.
+    assert (minted, RDF.type, OWL.Class) in g
+    assert (minted, RDFS.subClassOf, URIRef(f'{CORE_NS}Principle')) in g
+
+
+def test_class_channel_row_dedups_against_curated_base_without_individual(
+        tmp_path, monkeypatch):
+    """The other half of the run-21 finding: a CLASS-channel temp row whose
+    label already lives in the curated base is skipped by the D15 rule (no
+    copy into the extended store) and can never become an individual -- that
+    is the intended dedup, not entity loss."""
+    svc = object.__new__(OntServeCommitService)
+    svc.ontologies_dir = tmp_path
+    # Curated-base stand-in: the label chains to Principle in the base.
+    svc._base_cat_cache = {'TransparencyPrinciple': 'Principle'}
+    entity = _placement_entity('Transparency Principle')
+
+    result = svc._commit_classes_to_intermediate([(entity, {})])
+
+    assert result.get('error') is None, result
+    assert result['count'] == 0  # D15 skip: already in the curated base
+
+    extended = tmp_path / 'proethica-intermediate-extended.ttl'
+    assert extended.exists()
+    g = Graph()
+    g.parse(extended, format='turtle')
+    cls = URIRef(f'{INT_NS}TransparencyPrinciple')
+    assert (cls, RDF.type, OWL.Class) not in g
+    # The class channel never mints individuals, matched or not.
+    assert not list(g.subjects(RDF.type, OWL.NamedIndividual))
+
+
+def test_new_class_channel_row_still_writes_to_extended(tmp_path, monkeypatch):
+    """Recall guard for the class channel: a genuinely-new class (not in the
+    curated base) still lands in the extended store."""
+    svc = object.__new__(OntServeCommitService)
+    svc.ontologies_dir = tmp_path
+    svc._base_cat_cache = {}  # nothing reserved in the base
+    entity = _placement_entity('Novel AI Verification Principle')
+
+    result = svc._commit_classes_to_intermediate([(entity, {})])
+
+    assert result.get('error') is None, result
+    assert result['count'] == 1
+    g = Graph()
+    g.parse(tmp_path / 'proethica-intermediate-extended.ttl', format='turtle')
+    cls = URIRef(f'{INT_NS}NovelAIVerificationPrinciple')
+    assert (cls, RDF.type, OWL.Class) in g
+    assert not list(g.subjects(RDF.type, OWL.NamedIndividual))

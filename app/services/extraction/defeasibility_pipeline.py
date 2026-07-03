@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.namespace import PROV, RDF, RDFS, XSD
@@ -35,6 +35,9 @@ PROETH_CORE = Namespace("http://proethica.org/ontology/core#")
 
 # Datatype fields that may carry defeasibility narrative on any individual
 # (typically Principles, Constraints, sometimes Obligations themselves).
+# The canonical names are all-lowercase: they key the DefeasibilityEdge
+# source_field Literal (schemas.py) and the PROV-O provenance comments, and
+# must stay stable.
 NARRATIVE_FIELDS = (
     "tensionresolution",
     "balancingwith",
@@ -42,6 +45,22 @@ NARRATIVE_FIELDS = (
     "concreteexpression",
     "constraintstatement",
 )
+
+# Committed case TTLs carry these fields under two predicate spellings: the
+# all-lowercase forms above (older emitters) and the camelCase forms the
+# current commit path writes (proeth:concreteExpression,
+# proeth:constraintStatement, ...). Harvesting only the lowercase spelling
+# silently dropped most of the available narrative (case-7 run 21: 14 of 22
+# fragments lost; run 19: 16 of 27), starving the prompt's verbatim-grounding
+# constraint. Every spelling is queried; NarrativeContext.source_field keeps
+# the canonical lowercase name.
+NARRATIVE_PREDICATE_SPELLINGS: Dict[str, Tuple[str, ...]] = {
+    "tensionresolution": ("tensionresolution", "tensionResolution"),
+    "balancingwith": ("balancingwith", "balancingWith"),
+    "interpretation": ("interpretation",),
+    "concreteexpression": ("concreteexpression", "concreteExpression"),
+    "constraintstatement": ("constraintstatement", "constraintStatement"),
+}
 
 
 @dataclass
@@ -107,22 +126,29 @@ def parse_case_graph(g: Graph, case_id: int) -> CaseEntities:
     ]
 
     narratives: List[NarrativeContext] = []
+    seen: Set[Tuple[str, str, str]] = set()
     for field in NARRATIVE_FIELDS:
-        pred = PROETH[field]
-        for s, _, o in g.triples((None, pred, None)):
-            if not isinstance(o, Literal):
-                continue
-            text = str(o).strip()
-            if not text:
-                continue
-            narratives.append(
-                NarrativeContext(
-                    source_iri=str(s),
-                    source_label=_label(g, s) if isinstance(s, URIRef) else str(s),
-                    source_field=field,
-                    text=text,
+        for spelling in NARRATIVE_PREDICATE_SPELLINGS[field]:
+            pred = PROETH[spelling]
+            for s, _, o in g.triples((None, pred, None)):
+                if not isinstance(o, Literal):
+                    continue
+                text = str(o).strip()
+                if not text:
+                    continue
+                key = (str(s), field, text)
+                if key in seen:
+                    # Same value asserted under both spellings on one subject.
+                    continue
+                seen.add(key)
+                narratives.append(
+                    NarrativeContext(
+                        source_iri=str(s),
+                        source_label=_label(g, s) if isinstance(s, URIRef) else str(s),
+                        source_field=field,
+                        text=text,
+                    )
                 )
-            )
     return CaseEntities(
         case_id=case_id,
         obligations=obligations,
@@ -250,12 +276,27 @@ def apply_defeasibility_edges(
         states=entities.states,
         additional_narratives=entities.narratives,
     )
+    model_used = extractor._resolve_model()
+    if not edges:
+        # Run-21 F2a was undiagnosable post hoc: a clean-parse-empty response
+        # leaves no parser/filter warning and the raw response was never
+        # recorded. Log it (truncated) so an anomalous zero is inspectable.
+        raw = (extractor.last_raw_response or "").strip()
+        logger.warning(
+            "Case %s: defeasibility extractor returned ZERO edges "
+            "(model=%s, %d obligations, %d states, %d narrative fragments); "
+            "raw response (truncated): %r",
+            case_id, model_used, len(entities.obligations),
+            len(entities.states), len(entities.narratives), raw[:500],
+        )
+    _persist_extraction_record(case_id, extractor, model_used, len(edges))
     if not edges:
         return {
             "case_id": case_id,
             "status": "no_edges",
             "obligations": len(entities.obligations),
             "states": len(entities.states),
+            "narratives": len(entities.narratives),
         }
 
     pre = count_edges(g)
@@ -273,8 +314,54 @@ def apply_defeasibility_edges(
         "status": "ok",
         "obligations": len(entities.obligations),
         "states": len(entities.states),
+        "narratives": len(entities.narratives),
         "edges_emitted": len(edges),
         "triples_added": added,
         "pre_counts": pre,
         "post_counts": post,
     }
+
+
+def _persist_extraction_record(
+    case_id: int, extractor: DefeasibilityEdgeExtractor,
+    model: str, edges_emitted: int,
+) -> None:
+    """Store the defeasibility prompt + raw LLM response in extraction_prompts
+    (concept_type='defeasibility_edges'), mirroring the per-pass records the
+    concept extractors write via store_extraction_result. Best-effort like the
+    rest of the applier family: a persistence failure (e.g. no app/DB context
+    in a standalone replay script) is logged and never fails the applier.
+
+    section_type must satisfy the extraction_prompts valid_section_type CHECK
+    constraint (facts/discussion/questions/conclusions/dissenting_opinion/
+    references/synthesis/temporal). 'synthesis' is what the other commit-time
+    mechanical passes use; concept_type='defeasibility_edges' disambiguates.
+    The initial 'edges' value violated the constraint, and the session left
+    un-rolled-back poisoned every later applier in the same materialization
+    (case-7 blocker-fix recommit, 2026-07-02) -- hence the rollback below."""
+    try:
+        from app.models.extraction_prompt import ExtractionPrompt
+        ExtractionPrompt.save_prompt(
+            case_id=case_id,
+            concept_type="defeasibility_edges",
+            prompt_text=extractor.last_prompt or "",
+            step_number=0,
+            section_type="synthesis",
+            llm_model=model,
+            raw_response=extractor.last_raw_response,
+            results_summary={"edges_emitted": edges_emitted},
+        )
+    except Exception as e:
+        logger.warning(
+            "Case %s: could not persist defeasibility prompt/response to "
+            "extraction_prompts: %s", case_id, e,
+        )
+        # A failed flush leaves the shared scoped session in a pending-rollback
+        # state; without an explicit rollback every subsequent DB read in this
+        # materialization (state_edges temp_rdf reads, RPO template load,
+        # cites_provision, band index) raises PendingRollbackError.
+        try:
+            from app.models import db
+            db.session.rollback()
+        except Exception:
+            pass

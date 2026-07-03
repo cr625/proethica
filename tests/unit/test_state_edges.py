@@ -92,6 +92,119 @@ def test_llm_select_returns_none_without_streaming_client():
                            client=object(), model="x") is None
 
 
+# --- run-21 F2b regression suite: batched select anomalies ------------------
+# Run 21 sent 34 shortlisted items in one call and got None for all 34; an
+# identical-prompt replay on the identical model resolved 28/34 three times
+# over. The select layer now retries an all-none batch (>= 5 items) once and
+# then hands control to the caller's calibrated embedding fallback, and
+# tolerates the format drifts that were previously silent Nones.
+
+class _SeqClient:
+    """Fake Anthropic client returning queued responses across successive
+    stream() calls (the last response repeats if the queue empties)."""
+    def __init__(self, *texts):
+        self._texts = list(texts)
+        self.calls = 0
+        outer = self
+
+        class _M:
+            def stream(_self, **_kw):
+                outer.calls += 1
+                text = outer._texts.pop(0) if len(outer._texts) > 1 else outer._texts[0]
+                return _FakeStream(text)
+        self.messages = _M()
+
+
+def _mk_items(n, prop="activatedByEvent"):
+    """n items, each with a 2-deep shortlist (E<i>a, E<i>b)."""
+    return [
+        {"id": i + 1, "prop": prop, "subj": CASE["S"], "desc": f"description {i + 1}",
+         "shortlist": [(CASE[f"E{i + 1}a"], f"event {i + 1} alpha", 0.55),
+                       (CASE[f"E{i + 1}b"], f"event {i + 1} beta", 0.45)]}
+        for i in range(n)
+    ]
+
+
+def _allnone_json(n):
+    """Run 21's zero-yield selection shape: every request id mapped to "none"."""
+    return "{" + ", ".join(f'"{i}": "none"' for i in range(1, n + 1)) + "}"
+
+
+def test_llm_select_run21_allnone_batch_retries_then_embedding_fallback():
+    """A persistent all-none batch (>= 5 items) is retried once, then returns
+    None so the caller falls back to the calibrated embedding thresholds --
+    a single anomalous generation can no longer zero the whole family."""
+    items = _mk_items(6)
+    client = _SeqClient(_allnone_json(6))
+    out = se._llm_select(items, client=client, model="x")
+    assert out is None
+    assert client.calls == 2
+
+
+def test_llm_select_allnone_retry_recovers_healthy_generation():
+    """First generation anomalous (all-none), retry healthy (the replay
+    evidence shape: most items resolve, a few legitimate nones)."""
+    items = _mk_items(6)
+    healthy = '{"1": 1, "2": 2, "3": 1, "4": 1, "5": "none", "6": 2}'
+    client = _SeqClient(_allnone_json(6), healthy)
+    out = se._llm_select(items, client=client, model="x")
+    assert client.calls == 2
+    assert out["1"] == CASE["E1a"]
+    assert out["2"] == CASE["E2b"]
+    assert out["5"] is None
+    assert sum(1 for v in out.values() if v is not None) == 5
+
+
+def test_llm_select_small_allnone_is_a_judgment_not_retried():
+    """Below the guard size an all-none selection is a plausible judgment and
+    is accepted on the first call."""
+    items = _mk_items(2)
+    client = _SeqClient(_allnone_json(2))
+    out = se._llm_select(items, client=client, model="x")
+    assert out == {"1": None, "2": None}
+    assert client.calls == 1
+
+
+def test_llm_select_unwraps_single_key_wrapper():
+    """A {"selections": {...}} wrapper previously mapped to {} (indistinguishable
+    from all-none); it is now unwrapped on the first call."""
+    items = _mk_items(6)
+    wrapped = ('{"selections": {"1": 1, "2": "none", "3": 2, "4": 1, "5": 1, "6": 1}}')
+    client = _SeqClient(wrapped)
+    out = se._llm_select(items, client=client, model="x")
+    assert client.calls == 1
+    assert out["1"] == CASE["E1a"]
+    assert out["2"] is None
+    assert out["3"] == CASE["E3b"]
+
+
+def test_llm_select_coerces_numeric_strings_floats_and_labels():
+    """Numeric strings, integral floats, and a candidate label echoed back all
+    resolve; previously each was a silent None."""
+    items = _mk_items(3)
+    resp = '{"1": "2", "2": 1.0, "3": "Event 3 Beta"}'
+    out = se._llm_select(items, client=_SeqClient(resp), model="x")
+    assert out["1"] == CASE["E1b"]     # numeric string
+    assert out["2"] == CASE["E2a"]     # integral float
+    assert out["3"] == CASE["E3b"]     # label matched case-insensitively
+
+
+def test_llm_select_warns_on_unrecognized_values(caplog):
+    """Unrecognized shapes still resolve to None (never raise) but now leave a
+    WARNING trail instead of being silently coerced."""
+    import logging
+    items = _mk_items(2)
+    resp = '{"1": {"choice": 1}, "2": 9, "99": 1}'
+    with caplog.at_level(logging.WARNING,
+                         logger="app.services.extraction.edge_resolution"):
+        out = se._llm_select(items, client=_SeqClient(resp), model="x")
+    assert out == {"1": None, "2": None}
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("unrecognized value type" in m for m in messages)   # dict value
+    assert any("out-of-range" in m for m in messages)              # 9 of 2
+    assert any("matching no request id" in m for m in messages)    # key "99"
+
+
 def test_emit_prov_idempotent():
     """The state-edge prov node is deterministic from (subj, prop, obj); a second
     emission must not duplicate the node or multi-value its fields."""
