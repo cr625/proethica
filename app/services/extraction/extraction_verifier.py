@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from app.services.extraction.quote_grounding import _tokens
 
@@ -70,7 +70,7 @@ class QuoteVerdict:
     unsupported: List[str] = field(default_factory=list)     # paraphrases with no case span (fabrication)
 
 
-def verify_and_reground(case_text: str, entities: List[Dict], model: str = 'claude-opus-4-8') -> List[QuoteVerdict]:
+def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[str] = None) -> List[QuoteVerdict]:
     """Re-ground each entity's paraphrased quotes to verified verbatim spans.
 
     ``entities`` is a list of dicts with 'label', 'definition', 'quotes'. Returns one QuoteVerdict
@@ -78,6 +78,8 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: str = 'clau
     sent to Opus for span-finding in ONE batched call, and a returned span is accepted only if it
     is a real substring of the case. Raises rather than silently degrading if no LLM client is
     available (dev-mode contract: surface misconfiguration, do not paper over it)."""
+    from model_config import ModelConfig
+    model = model or ModelConfig.get_claude_model("gate")
     # The verifier needs only the verbatim substring test, so build the normalized token string
     # directly rather than build_grounding_index (which also embeds every case sentence for the
     # semantic test -- pure waste here).
@@ -227,13 +229,15 @@ def _overreach_once(case_text: str, duty_entities: List[Dict], model: str) -> Di
             for r in data.get("results", [])}
 
 
-def detect_overreach(case_text: str, duty_entities: List[Dict], model: str = 'claude-opus-4-8',
+def detect_overreach(case_text: str, duty_entities: List[Dict], model: Optional[str] = None,
                      votes: int = 1) -> List[OverreachVerdict]:
     """Flag duty entities (obligations + constraints) whose definition over-reaches what the case holds.
 
     LLM judgment, so it supports multi-vote: runs ``votes`` independent passes and flags an entity when
     a strict majority call it over-reach (votes=1 is a single pass). The limiting quote is taken from a
     flagging pass and confirmed to be a real case substring, so the flag cites an actual holding."""
+    from model_config import ModelConfig
+    model = model or ModelConfig.get_claude_model("gate")
     ts = " ".join(_tokens(case_text))
     tally: List[List[tuple]] = [[] for _ in duty_entities]
     for _ in range(max(1, votes)):

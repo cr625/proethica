@@ -15,6 +15,13 @@ class ModelConfig:
         "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001"),
         "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-8"),
         "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-6"),
+        # The verification/commit-gate judge. Deliberately a DIFFERENT model from the
+        # powerful extraction tier (judge-extractor diversity: with Fable extracting, an
+        # Opus judge audits work it did not produce) and the model the 4/5-5/5 vote
+        # thresholds were calibrated on. Change deliberately via CLAUDE_GATE_MODEL, and
+        # only after an offline report-only judge A/B against the labeled drop outcomes
+        # (parked 2026-07-02 until there is a reason to doubt the judge).
+        "gate": os.getenv("CLAUDE_GATE_MODEL", "claude-opus-4-8"),
 
         # Specific versions (for testing/compatibility)
         "sonnet-4.6": "claude-sonnet-4-6",  # Latest Sonnet 4.6 (Feb 2026)

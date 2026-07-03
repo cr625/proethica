@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from app.services.extraction.extraction_verifier import verify_and_reground, detect_overreach
 
@@ -45,12 +45,14 @@ class GateResult:
         return {d[0] for d in self.dropped}
 
 
-def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: str = 'claude-opus-4-8') -> GateResult:
+def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: Optional[str] = None) -> GateResult:
     """Decide the commit fate of a case's entities.
 
     ``entities``: dicts with 'id', 'label', 'definition', 'quotes' (list), 'component' (extraction_type),
     'storage_type' ('class'|'individual'), and 'class_ref' (the class label a duty individual instantiates).
     Returns a GateResult; the caller applies the drops and quote rewrites. Pure / no side effects."""
+    from model_config import ModelConfig
+    model = model or ModelConfig.get_claude_model("gate")
     res = GateResult()
 
     # 0. Null/empty labels -> drop (deterministic).
