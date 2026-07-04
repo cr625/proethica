@@ -25,6 +25,25 @@ def is_read_only_request():
     return request.method in ['GET', 'HEAD', 'OPTIONS']
 
 
+def is_demo_user():
+    """Whether the current user is the read-only demo account.
+
+    The demo role exists to show the full authenticated surface (conference
+    and reviewer walkthroughs) without permitting mutation. It is read-only
+    in EVERY environment, so the checks below run before any development
+    bypass.
+    """
+    return current_user.is_authenticated and getattr(current_user, 'role', None) == 'demo'
+
+
+def _reject_demo_write(message):
+    """Shared rejection for demo-account mutation attempts."""
+    if request.is_json or request.path.startswith('/api/'):
+        abort(403)
+    flash(message, 'warning')
+    return redirect(request.referrer or url_for('index.index'))
+
+
 def auth_required_for_write(f):
     """
     Decorator that requires authentication only for write operations (POST, PUT, DELETE, PATCH).
@@ -35,6 +54,9 @@ def auth_required_for_write(f):
     """
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
+        if not is_read_only_request() and is_demo_user():
+            return _reject_demo_write('The demo account is read-only.')
+
         # In development mode, bypass authentication
         if not is_production():
             return f(*args, **kwargs)
@@ -64,6 +86,9 @@ def auth_required_for_llm(f):
     """
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
+        if is_demo_user():
+            return _reject_demo_write('The demo account is read-only; AI operations are disabled.')
+
         # In development mode, bypass authentication
         if not is_production():
             return f(*args, **kwargs)
@@ -116,6 +141,9 @@ def admin_required_production(f):
     """
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
+        if is_demo_user():
+            abort(403)  # The demo account never reaches admin surfaces
+
         if is_production():
             if not current_user.is_authenticated:
                 if request.is_json or request.path.startswith('/api/'):
@@ -139,6 +167,9 @@ def auth_required_for_create(f):
     """
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
+        if is_demo_user():
+            return _reject_demo_write('The demo account is read-only.')
+
         # In development mode, bypass authentication
         if not is_production():
             return f(*args, **kwargs)

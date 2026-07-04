@@ -254,10 +254,12 @@ def create_app(config_name=None):
     @app.context_processor
     def inject_environment():
         """Add environment variables to template context."""
+        from app.utils.environment_auth import is_demo_user
         return {
             'environment': app.config.get('ENVIRONMENT', 'development'),
             'app_name': 'ProEthica',
             'ontserve_web_url': app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003'),
+            'demo_readonly': is_demo_user(),
         }
 
     @app.context_processor

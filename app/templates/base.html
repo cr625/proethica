@@ -225,6 +225,13 @@
                             </li>
 
                             <!-- User/Login Section -->
+                            {% if demo_readonly %}
+                            <li class="nav-item d-flex align-items-center me-2">
+                                <span class="badge bg-warning text-dark" title="Demo account: all pages visible, all actions disabled">
+                                    <i class="bi bi-eye"></i> Demo (read-only)
+                                </span>
+                            </li>
+                            {% endif %}
                             {% if current_user and current_user.is_authenticated %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
@@ -369,6 +376,31 @@
             });
         });
     </script>
+
+    {% if demo_readonly %}
+    <script>
+        // Demo (read-only) account: server-side decorators reject every
+        // mutation; this guard makes that visible by disabling the submit
+        // controls of mutating forms and intercepting anything that slips
+        // through, so the demo shows affordances without firing them.
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form[method="post" i], form[method="put" i], form[method="delete" i]').forEach(function (form) {
+                form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type])').forEach(function (btn) {
+                    btn.disabled = true;
+                    btn.title = 'Read-only demo account';
+                    btn.classList.add('opacity-50');
+                });
+            });
+        });
+        document.addEventListener('submit', function (e) {
+            var m = (e.target.getAttribute('method') || 'get').toLowerCase();
+            if (m !== 'get') {
+                e.preventDefault();
+                alert('This is a read-only demo account; actions are disabled.');
+            }
+        }, true);
+    </script>
+    {% endif %}
 
     {% block scripts %}
     <script>

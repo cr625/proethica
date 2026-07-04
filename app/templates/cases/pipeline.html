@@ -34,6 +34,18 @@
                     onclick="runAll()" title="Run all remaining substeps">
                 <i class="bi bi-play-fill me-1"></i>Run All
             </button>
+            {# Extractor hub: the working-store inspection loop, in workflow order #}
+            <div class="btn-group btn-group-sm ms-2" role="group" aria-label="Extraction review">
+                <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-secondary" title="Per-case extraction overview">
+                    <i class="bi bi-grid me-1"></i>Overview
+                </a>
+                <a href="{{ url_for('entity_review.review_all_case_entities', case_id=case.id) }}" class="btn btn-outline-secondary" title="All extracted entities (working store)">
+                    <i class="bi bi-list-check me-1"></i>Review
+                </a>
+                <a href="{{ url_for('entity_review.reconcile_and_commit', case_id=case.id) }}" class="btn btn-outline-secondary" title="Deduplicate and commit to OntServe">
+                    <i class="bi bi-check2-square me-1"></i>Reconcile
+                </a>
+            </div>
         </div>
         {% endif %}
     </div>
