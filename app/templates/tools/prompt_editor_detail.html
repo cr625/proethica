@@ -672,22 +672,20 @@ div.reference-panel {
                 <div class="ref-section">
                     <div class="ref-section-title d-flex justify-content-between align-items-center">
                         <span>Template Variables</span>
-                        {% if can_edit %}
                         <button class="btn btn-xs btn-outline-primary" onclick="previewVariables()" title="Preview all resolved values">
                             <i class="bi bi-eye"></i>
                         </button>
-                        {% endif %}
                     </div>
                     <div id="detectedVariables">
                         {% if template %}
                         {% set detected_vars = template.get_template_variables() %}
                         {% if detected_vars %}
                         {% for var_name in detected_vars %}
-                        <div class="var-item {% if can_edit %}var-clickable{% endif %}"
-                             {% if can_edit %}onclick="previewSingleVariable('{{ var_name }}')" title="Click to preview value"{% endif %}>
+                        <div class="var-item var-clickable"
+                             onclick="previewSingleVariable('{{ var_name }}')" title="Click to preview value">
                             <div class="var-name d-flex justify-content-between">
                                 <span>{{ "{{ " ~ var_name ~ " }}" }}</span>
-                                {% if can_edit %}<i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.7rem;"></i>{% endif %}
+                                <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.7rem;"></i>
                             </div>
                             {% if template.variable_builders and var_name in template.variable_builders %}
                             <div class="var-desc">{{ template.variable_builders[var_name].get('description', '') }}</div>

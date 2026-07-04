@@ -230,7 +230,8 @@ def register_templates_api(bp):
     @bp.route('/api/prompts/template/<int:template_id>/render', methods=['POST'])
     def render_template_with_case(template_id):
         # Public: read-only prompt Preview for the Prompt Viewer (no writes, no LLM call). The
-        # write/LLM endpoints (update / test-run / revert / resolve-variables) stay auth-gated.
+        # write/LLM endpoints (update / test-run / revert) stay auth-gated;
+        # resolve-variables is public for the same reason as this endpoint.
         """Render a template with auto-resolved variables from case context.
 
     Expects JSON body:
@@ -568,8 +569,10 @@ def register_templates_api(bp):
             ]
         })
     @bp.route('/api/prompts/template/<int:template_id>/resolve-variables', methods=['POST'])
-    @login_required
     def resolve_template_variables(template_id):
+        # Public since 2026-07-04, same rationale as /render: read-only variable
+        # resolution for the Prompt Viewer (no writes, no LLM call). The
+        # write/LLM endpoints (update / test-run / revert) stay auth-gated.
         """Resolve all template variables for a given case.
 
     Expects JSON body:
