@@ -29,13 +29,18 @@
 
 <div class="container-fluid">
     <div class="row">
+        {# The pipeline sidebar is builder navigation (working-store reviews,
+           reconcile, extraction); anonymous readers get the content full-width #}
+        {% set show_pipeline_nav = current_user and current_user.is_authenticated %}
+        {% if show_pipeline_nav %}
         <!-- Navigation Sidebar -->
         <div class="col-md-3">
             {% include 'scenario_pipeline/_pipeline_steps.html' %}
         </div>
+        {% endif %}
 
         <!-- Main Content Area -->
-        <div class="col-md-9">
+        <div class="{% if show_pipeline_nav %}col-md-9{% else %}col-md-12{% endif %}">
             <div class="mb-4">
                 <div class="case-title">{{ case.title }}</div>
                 <div class="step-info">
@@ -57,6 +62,9 @@
 
             <!-- Navigation buttons at bottom - override with step_navigation_bottom block -->
             {% block step_navigation_bottom %}
+            {# Builder-only prev/next chain (blocks do not inherit the outer
+               show_pipeline_nav set; recomputed inline) #}
+            {% if current_user and current_user.is_authenticated %}
             {# Determine if next step is available based on current step completion #}
             {% set next_step_available = true %}
             {% if current_step == 1 %}
@@ -97,6 +105,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endblock %}
         </div>
     </div>
