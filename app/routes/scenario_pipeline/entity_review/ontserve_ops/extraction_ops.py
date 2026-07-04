@@ -353,10 +353,14 @@ def register_ontserve_extraction_ops(bp):
                 if marker:
                     timeline_entity_map[marker] = {'label': e['label'], 'kind': 'event'}
 
+            from flask import current_app
+            from app.services.entity.committed_case_graph import committed_case_status
             context = {
                 'case': case,
                 'current_step': 3,
                 'step_title': 'Enhanced Temporal Dynamics - Review',
+                'commit_status': committed_case_status(case_id),
+                'ontserve_web_url': current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003'),
                 'extraction_complete': extraction_complete,
                 'actions': actions,
                 'events': events,

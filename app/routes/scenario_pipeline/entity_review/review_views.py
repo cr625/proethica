@@ -10,6 +10,7 @@ import os
 from flask import render_template, request, redirect, url_for, flash, current_app
 from app.models import Document, db, TemporaryRDFStorage
 from app.services.entity.case_entity_storage_service import CaseEntityStorageService
+from app.services.entity.committed_case_graph import committed_case_status
 from app.utils.environment_auth import auth_optional
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,9 @@ def register_review_view_routes(bp):
                 'scenario_pipeline/entity_review_all.html',
                 case=case_doc,
                 entities_summary=entities_summary,
-                current_step=3.5
+                current_step=3.5,
+                commit_status=committed_case_status(case_id),
+                ontserve_web_url=current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
             )
 
         except Exception as e:
@@ -316,7 +319,8 @@ def register_review_view_routes(bp):
                 ontserve_classes=ontserve_classes,  # Pass OntServe classes for reference
                 pipeline_status=pipeline_status,  # For navigation toggle
                 ontserve_web_url=ontserve_web_url,
-                changed_entity_uris=changed_entity_uris
+                changed_entity_uris=changed_entity_uris,
+                commit_status=committed_case_status(case_id)
             )
 
         except Exception as e:
@@ -425,7 +429,8 @@ def register_review_view_routes(bp):
                                  ontserve_classes=ontserve_classes,
                                  pipeline_status=pipeline_status,
                                  ontserve_web_url=ontserve_web_url,
-                                 changed_entity_uris=changed_entity_uris)
+                                 changed_entity_uris=changed_entity_uris,
+                                 commit_status=committed_case_status(case_id))
 
         except Exception as e:
             logger.error(f"Error displaying Pass 2 entity review for case {case_id}: {e}")

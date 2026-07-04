@@ -32,6 +32,23 @@ def committed_case_exists(case_id: int) -> bool:
     return case_ttl_path(case_id).exists()
 
 
+def committed_case_status(case_id: int) -> dict:
+    """Commit status for review-page banners.
+
+    Review pages show the pre-commit working store; when a committed ontology
+    exists they must say so, or they misrepresent the case record. The TTL file
+    is the commit artifact, so its mtime is the commit timestamp.
+    """
+    path = case_ttl_path(case_id)
+    if not path.exists():
+        return {'committed': False}
+    from datetime import datetime
+    return {
+        'committed': True,
+        'committed_at': datetime.fromtimestamp(path.stat().st_mtime),
+    }
+
+
 def load_case_graph(case_id: int) -> rdflib.Graph:
     path = case_ttl_path(case_id)
     if not path.exists():

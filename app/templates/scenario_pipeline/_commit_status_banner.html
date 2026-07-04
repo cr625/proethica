@@ -1,0 +1,24 @@
+{#
+Commit-status banner for extraction review pages.
+
+Review pages display the pre-commit working store (temporary_rdf_storage).
+Once a case is committed, the committed record diverges by design
+(deduplication, typing resolution, agent binding happen at commit), so the
+page states which store it shows and links the committed record.
+
+Required context: commit_status (from committed_case_status), case,
+ontserve_web_url.
+#}
+{% if commit_status and commit_status.committed %}
+<div class="alert alert-info d-flex align-items-start gap-2 py-2 mb-3">
+    <i class="bi bi-info-circle mt-1"></i>
+    <div>
+        This page shows the pre-commit working store (the raw extraction under review).
+        This case was committed to OntServe on {{ commit_status.committed_at.strftime('%Y-%m-%d %H:%M') }};
+        the committed record differs by design (deduplication, typing, and agent binding are applied at commit).
+        <a href="{{ ontserve_web_url }}/ontology/proethica-case-{{ case.id }}" target="_blank" rel="noopener">
+            View the committed record <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+    </div>
+</div>
+{% endif %}
