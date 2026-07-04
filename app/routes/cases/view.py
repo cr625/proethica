@@ -104,9 +104,17 @@ def register_view_routes(bp):
         question_count = 0
         conclusion_count = 0
         transformation_type = None
+        entities_typed_total = 0
         try:
             from app.models import TemporaryRDFStorage
             entity_count = TemporaryRDFStorage.query.filter_by(case_id=document.id).count()
+
+            # User-facing entity number: the typed Steps 1-3 summary total, not the
+            # raw storage row count (which also counts links, markers, and other
+            # extraction artifacts and so overstates the entity inventory).
+            if entity_count > 0:
+                from app.routes.scenario_pipeline.step4.helpers import get_entities_summary
+                entities_typed_total = get_entities_summary(document.id).get('total', 0)
 
             if metadata:
                 questions_list = metadata.get('questions_list', [])
@@ -171,6 +179,7 @@ def register_view_routes(bp):
                               annotation_count=annotation_count,
                               pipeline_status=pipeline_status,
                               entity_count=entity_count,
+                              entities_typed_total=entities_typed_total,
                               question_count=question_count,
                               conclusion_count=conclusion_count,
                               transformation_type=transformation_type,

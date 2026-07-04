@@ -31,10 +31,12 @@ Required context variables:
                 <span class="text-muted small fw-bold">
                     <i class="bi bi-diagram-3"></i> Analysis Pipeline
                 </span>
-                {% if entity_count is defined and entity_count > 0 %}
-                <span class="badge bg-primary" title="Entities Extracted">
-                    <i class="bi bi-node-plus"></i> {{ entity_count }}
-                </span>
+                {% if entities_typed_total is defined and entities_typed_total > 0 %}
+                <a href="{{ url_for('entity_review.review_all_case_entities', case_id=case.id) }}"
+                   class="badge bg-primary text-decoration-none"
+                   title="Typed entities from extraction Steps 1-3; click to review all">
+                    <i class="bi bi-node-plus"></i> {{ entities_typed_total }}
+                </a>
                 {% endif %}
                 {# Transformation-type badge intentionally lives only in the case
                    context bar above; it was duplicated here until 2026-07-04. #}

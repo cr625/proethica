@@ -52,9 +52,9 @@
                    class="btn btn-primary text-decoration-none entity-link" title="View {{ ontserve_individual_count }} named individuals in OntServe">
                     <i class="bi bi-diagram-3 me-1"></i>{{ ontserve_individual_count }} Individuals <i class="bi bi-box-arrow-up-right ms-1"></i>
                 </a>
-                {% elif entity_count is defined and entity_count > 0 %}
+                {% elif entities_typed_total is defined and entities_typed_total > 0 %}
                 <span class="badge bg-secondary fs-6 py-2 px-3">
-                    <i class="bi bi-diagram-3 me-1"></i>{{ entity_count }} Entities (not yet committed)
+                    <i class="bi bi-diagram-3 me-1"></i>{{ entities_typed_total }} Entities (not yet committed)
                 </span>
                 {% endif %}
                 {% if transformation_type is defined and transformation_type %}
