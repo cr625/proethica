@@ -95,6 +95,13 @@ function displayPipeline(data) {
         }
     });
 
+    // Consolidation & commit trail (reconcile, enrichment, edge
+    // materialization, guards, conformance) -- the activities that turn the
+    // working store into the committed record.
+    if (data.consolidation && data.consolidation.length > 0) {
+        container.appendChild(createConsolidationCard(data.consolidation));
+    }
+
     // QC Verification results
     if (data.qc_verification) {
         container.appendChild(createQCCard(data.qc_verification));
@@ -303,6 +310,83 @@ function createReviewLogCard(entries) {
                     </h5>
                 </div>
                 ${rows}
+            </div>
+        </div>`;
+    return div;
+}
+
+const CONSOLIDATION_TYPE_STYLES = {
+    reconciliation: { color: '#0d6efd', icon: 'bi-arrows-collapse' },
+    enrichment: { color: '#20c997', icon: 'bi-stars' },
+    materialization: { color: '#6f42c1', icon: 'bi-diagram-3' },
+    guard: { color: '#dc3545', icon: 'bi-shield-check' },
+    filter: { color: '#fd7e14', icon: 'bi-funnel' },
+    validation: { color: '#198754', icon: 'bi-patch-check' }
+};
+
+// One-line human summary from an activity's execution_plan JSON: show the
+// first few short string-valued fields (the recorders store rule/what text).
+function summarizeExecutionPlan(plan) {
+    if (!plan || typeof plan !== 'object') return '';
+    const parts = [];
+    for (const [k, v] of Object.entries(plan)) {
+        if (parts.length >= 3) break;
+        if (typeof v === 'string' && v.length <= 160) {
+            parts.push(`${k}: ${v}`);
+        } else if (typeof v === 'number' || typeof v === 'boolean') {
+            parts.push(`${k}: ${v}`);
+        } else if (Array.isArray(v) && v.length <= 8 && v.every(x => typeof x === 'string')) {
+            parts.push(`${k}: ${v.join(', ')}`);
+        }
+    }
+    return parts.join(' | ');
+}
+
+function createConsolidationCard(activities) {
+    const div = document.createElement('div');
+    div.className = 'pipeline-card';
+    div.dataset.step = 'consolidation';
+    div.dataset.type = 'consolidation';
+
+    const rows = activities.map(a => {
+        const style = CONSOLIDATION_TYPE_STYLES[a.activity_type] || { color: '#6c757d', icon: 'bi-gear' };
+        const when = a.started_at
+            ? new Date(a.started_at).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+            : '';
+        const statusBadge = a.status === 'failed'
+            ? '<span class="badge bg-danger">failed</span>'
+            : (a.status === 'completed' ? '' : `<span class="badge bg-secondary">${escapeHtml(a.status || '')}</span>`);
+        const summary = a.error_message
+            ? `<span class="text-danger">${escapeHtml(a.error_message)}</span>`
+            : escapeHtml(summarizeExecutionPlan(a.execution_plan));
+        return `<tr>
+            <td class="text-nowrap"><span class="badge" style="background-color: ${style.color};"><i class="bi ${style.icon} me-1"></i>${escapeHtml(a.activity_type)}</span></td>
+            <td><code>${escapeHtml(a.activity_name)}</code> ${statusBadge}</td>
+            <td class="small text-muted">${summary}</td>
+            <td class="text-nowrap small text-muted">${when}</td>
+        </tr>`;
+    }).join('');
+
+    div.innerHTML = `
+        <div class="card" style="border-left: 4px solid #6f42c1;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0" style="color: #6f42c1;">
+                        <i class="bi bi-box-seam me-2"></i>Consolidation &amp; Commit
+                    </h5>
+                    <span class="text-muted small">${activities.length} recorded activities, newest first</span>
+                </div>
+                <p class="text-muted small mb-2">
+                    Post-extraction activities that turn the working store into the committed
+                    ontology: deduplication and merge, enrichment, edge materialization,
+                    guards, and conformance validation.
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Stage</th><th>Activity</th><th>What it did</th><th>When</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
             </div>
         </div>`;
     return div;

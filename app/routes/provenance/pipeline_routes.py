@@ -138,6 +138,31 @@ def register_pipeline_routes(bp):
             'created_at': r[7].isoformat() if r[7] else None,
         } for r in review_rows]
 
+        # Consolidation-and-commit trail: the post-extraction activities
+        # (reconcile, enrichment, edge materialization, guards, SHACL/OWL
+        # conformance) that turn the working store into the committed record.
+        # Recorded in the PROV tables all along but previously not displayed.
+        consolidation_rows = db.session.execute(text("""
+        SELECT activity_type, activity_name, started_at, duration_ms, status,
+               execution_plan, error_message
+        FROM provenance_activities
+        WHERE case_id = :case_id
+          AND activity_type IN ('reconciliation', 'enrichment', 'materialization',
+                                'guard', 'filter', 'validation')
+        ORDER BY started_at DESC
+        LIMIT 30
+    """), {'case_id': case_id}).fetchall()
+
+        consolidation = [{
+            'activity_type': r[0],
+            'activity_name': r[1],
+            'started_at': r[2].isoformat() if r[2] else None,
+            'duration_ms': r[3],
+            'status': r[4],
+            'execution_plan': r[5] if isinstance(r[5], dict) else (json.loads(r[5]) if r[5] else None),
+            'error_message': r[6],
+        } for r in consolidation_rows]
+
         return jsonify({
             'case': {
                 'id': document.id,
@@ -146,5 +171,6 @@ def register_pipeline_routes(bp):
             'pipeline': pipeline,
             'entity_colors': ENTITY_COLORS,
             'qc_verification': qc_result,
+            'consolidation': consolidation,
             'review_log': review_log
         })
