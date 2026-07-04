@@ -187,7 +187,7 @@
                                                 class="bi bi-box-arrow-up-right ms-1"></i>
                                         </a></li>
                                     {% if not (current_user and current_user.is_authenticated and current_user.is_admin) %}
-                                    <li><a class="dropdown-item" href="/tools/prompts">
+                                    <li><a class="dropdown-item" href="{{ url_for('prompt_editor.edit_template', step=1, concept='roles') }}?pass=facts">
                                             <i class="bi bi-eye me-2"></i>Prompt Viewer
                                         </a></li>
                                     {% endif %}
@@ -203,7 +203,7 @@
                                     <li><a class="dropdown-item" href="/admin/validation">
                                             <i class="bi bi-clipboard-check me-2"></i>Validation Studies
                                         </a></li>
-                                    <li><a class="dropdown-item" href="/tools/prompts">
+                                    <li><a class="dropdown-item" href="{{ url_for('prompt_editor.edit_template', step=1, concept='roles') }}?pass=facts">
                                             <i class="bi bi-pencil-square me-2"></i>Prompt Editor
                                         </a></li>
                                     {% endif %}
