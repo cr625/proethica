@@ -487,6 +487,12 @@ class OntServeCommitService:
                 else:
                     results['ontserve_synced'] = True
 
+            # Retrieval metadata: entity_classes for the case-overlap Jaccard.
+            # Derived from the now-published rows, so it works for every commit
+            # path (previously only AutoCommitService wrote it). Never raises.
+            from app.services.commit.precedent_features import update_entity_classes_from_storage
+            results['entity_class_types'] = update_entity_classes_from_storage(case_id)
+
             return results
 
         except Exception as e:
@@ -2542,75 +2548,26 @@ class OntServeCommitService:
         if extraction_type not in self._DEF_SKIP_TYPES and 'temporal_dynamics' not in extraction_type:
             self._emit_definitions(g, uri, entity, rdf_data)
 
-        if extraction_type == 'argument_generated' and rdf_data:
-            g.add((uri, RDF.type, PROETHICA_CASES.Argument))
-            if rdf_data.get('argument_type'):
-                g.add((uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
-            if rdf_data.get('decision_point_id'):
-                g.add((uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
-            if rdf_data.get('option_description'):
-                g.add((uri, PROETHICA['optionDescription'], Literal(rdf_data['option_description'])))
-            if rdf_data.get('confidence_score'):
-                g.add((uri, PROETHICA['confidenceScore'], Literal(float(rdf_data['confidence_score']), datatype=XSD.decimal)))
-            claim = rdf_data.get('claim', {})
-            if isinstance(claim, dict) and claim.get('text'):
-                g.add((uri, PROETHICA['claimText'], Literal(claim['text'])))
-                if claim.get('entity_label'):
-                    g.add((uri, PROETHICA['claimEntity'], Literal(claim['entity_label'])))
-            warrant = rdf_data.get('warrant', {})
-            if isinstance(warrant, dict) and warrant.get('entity_label'):
-                g.add((uri, PROETHICA['warrantEntity'], Literal(warrant['entity_label'])))
-                if warrant.get('entity_type'):
-                    g.add((uri, PROETHICA['warrantType'], Literal(warrant['entity_type'])))
-            backing = rdf_data.get('backing', {})
-            if isinstance(backing, dict) and backing.get('entity_label'):
-                g.add((uri, PROETHICA['backingProvision'], Literal(backing['entity_label'])))
-            qualifier = rdf_data.get('qualifier', {})
-            if isinstance(qualifier, dict) and qualifier.get('entity_label'):
-                g.add((uri, PROETHICA['qualifierConstraint'], Literal(qualifier['entity_label'])))
-            if rdf_data.get('role_label'):
-                g.add((uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
-            if rdf_data.get('founding_good_analysis'):
-                g.add((uri, PROETHICA['foundingGoodAnalysis'], Literal(rdf_data['founding_good_analysis'])))
+        # Analysis-layer typing (2026-07-04): the Step-4 phase-2 artifacts and the
+        # citation stubs previously fell through the dispatch below untyped (bare
+        # owl:NamedIndividual), invisible to SHACL, the reasoner, and the case
+        # display's Analysis Elements section. Typed here, ahead of the dispatch,
+        # so the generic properties fallback still serializes their fields. The
+        # classes are declared in proethica-cases v3.0.0. The former
+        # argument_generated / argument_validation branches (retired argument
+        # stage, zero rows ever committed) were removed at the same time.
+        _ANALYSIS_TYPE_CLASSES = {
+            'question_emergence': 'QuestionEmergence',
+            'resolution_pattern': 'ResolutionPattern',
+            'causal_normative_link': 'CausalNormativeLink',
+            'code_provision_reference': 'CodeProvisionReference',
+            'precedent_case_reference': 'PrecedentCaseReference',
+        }
+        _analysis_cls = _ANALYSIS_TYPE_CLASSES.get(extraction_type)
+        if _analysis_cls:
+            g.add((uri, RDF.type, PROETHICA_CASES[_analysis_cls]))
 
-        elif extraction_type == 'argument_validation' and rdf_data:
-            g.add((uri, RDF.type, PROETHICA_CASES.ArgumentValidation))
-            if rdf_data.get('argument_id'):
-                arg_id = rdf_data['argument_id']
-                g.add((uri, PROETHICA['validatesArgument'], case_ns[arg_id]))
-                g.add((uri, PROETHICA['argumentId'], Literal(arg_id)))
-            if rdf_data.get('decision_point_id'):
-                g.add((uri, PROETHICA['decisionPointId'], Literal(rdf_data['decision_point_id'])))
-            if rdf_data.get('argument_type'):
-                g.add((uri, PROETHICA['argumentType'], Literal(rdf_data['argument_type'])))
-            if 'is_valid' in rdf_data:
-                g.add((uri, PROETHICA['isValid'], Literal(rdf_data['is_valid'], datatype=XSD.boolean)))
-            if rdf_data.get('validation_score') is not None:
-                g.add((uri, PROETHICA['validationScore'], Literal(float(rdf_data['validation_score']), datatype=XSD.decimal)))
-            for i, note in enumerate(rdf_data.get('validation_notes', []) or []):
-                g.add((uri, PROETHICA[f'validationNote{i+1}'], Literal(note)))
-            entity_val = rdf_data.get('entity_validation', {}) or {}
-            if entity_val:
-                if 'is_valid' in entity_val:
-                    g.add((uri, PROETHICA['entityValidationPassed'], Literal(entity_val['is_valid'], datatype=XSD.boolean)))
-                for i, m in enumerate(entity_val.get('missing_entities', []) or []):
-                    g.add((uri, PROETHICA[f'missingEntity{i+1}'], Literal(m)))
-            founding_val = rdf_data.get('founding_value_validation', {}) or {}
-            if founding_val:
-                if 'is_compliant' in founding_val:
-                    g.add((uri, PROETHICA['foundingValueCompliant'], Literal(founding_val['is_compliant'], datatype=XSD.boolean)))
-                if founding_val.get('founding_good'):
-                    g.add((uri, PROETHICA['foundingGood'], Literal(founding_val['founding_good'])))
-                if founding_val.get('analysis'):
-                    g.add((uri, PROETHICA['foundingValueAnalysis'], Literal(founding_val['analysis'])))
-            virtue_val = rdf_data.get('virtue_validation', {}) or {}
-            if virtue_val:
-                if 'is_valid' in virtue_val:
-                    g.add((uri, PROETHICA['virtueValidationPassed'], Literal(virtue_val['is_valid'], datatype=XSD.boolean)))
-                for i, v in enumerate(virtue_val.get('missing_virtues', []) or []):
-                    g.add((uri, PROETHICA[f'missingVirtue{i+1}'], Literal(v)))
-
-        elif extraction_type == 'canonical_decision_point' and rdf_data:
+        if extraction_type == 'canonical_decision_point' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.DecisionPoint))
             if rdf_data.get('focus_id'):
                 g.add((uri, PROETHICA['decisionPointId'], Literal(rdf_data['focus_id'])))
