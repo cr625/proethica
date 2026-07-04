@@ -572,6 +572,21 @@ class UnifiedEntityResolver:
                         best_def = d
                         primary_source = s
 
+            # Contributing entities, for the popover's linked list. Ordered by
+            # the same type priority as the primary pick, then label.
+            def _type_rank(t):
+                return type_priority.index(t) if t in type_priority else len(type_priority)
+            alias_entities = [
+                {
+                    'label': s.get('label', ''),
+                    'extraction_type': s.get('extraction_type', ''),
+                    'uri': s.get('uri', ''),
+                    'ontology_target': s.get('ontology_target', ''),
+                }
+                for s in sorted(sources, key=lambda s: (_type_rank(s.get('extraction_type', '')),
+                                                        s.get('label', '')))
+            ]
+
             self._label_index[key] = {
                 'label': phrase,
                 'definition': best_def or f'Referenced in {len(sources)} entities',
@@ -582,6 +597,7 @@ class UnifiedEntityResolver:
                 'uri': primary_source.get('uri', ''),
                 'is_published': any(s.get('is_published') for s in sources),
                 'alias_types': alias_types,
+                'alias_entities': alias_entities,
                 'ontology_target': primary_source.get('ontology_target', ''),
                 'ontserve_path': primary_source.get('ontserve_path', ''),
             }

@@ -10,7 +10,7 @@
  * Reads data-entity-* attributes from .onto-label elements:
  *   data-entity-type, data-entity-pass, data-entity-source,
  *   data-entity-definition, data-entity-uri, data-alias-types,
- *   data-ontology-target
+ *   data-alias-entities, data-ontology-target
  */
 
 function getPopoverPassClass(pass) {
@@ -52,6 +52,24 @@ function buildOntserveEntityUrl(ontserveBaseUrl, ontTarget, uri) {
     return ontserveBaseUrl + '/entity/' + encodeURIComponent(ontTarget) + '/' + encodeURIComponent(fragment);
 }
 
+function escapePopoverHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+}
+
+/**
+ * Parse the contributing entities of a text-grounded alias span.
+ * Returns [] for ordinary single-entity spans.
+ */
+function getAliasEntities(el) {
+    try {
+        return JSON.parse(el.dataset.aliasEntities || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
 function buildPopoverContent(el, ontserveBaseUrl) {
     var entityType = el.dataset.entityType || '';
     var entityPass = el.dataset.entityPass || '';
@@ -62,6 +80,7 @@ function buildPopoverContent(el, ontserveBaseUrl) {
     var aliasTypesRaw = el.dataset.aliasTypes || '[]';
     var aliasTypes;
     try { aliasTypes = JSON.parse(aliasTypesRaw); } catch(e) { aliasTypes = []; }
+    var aliasEntities = getAliasEntities(el);
 
     // Unknown entities
     if (el.classList.contains('onto-label-unknown')) {
@@ -74,16 +93,6 @@ function buildPopoverContent(el, ontserveBaseUrl) {
         return unknownContent;
     }
 
-    // Build type badges
-    var typeBadgesHtml = '';
-    if (aliasTypes.length > 1) {
-        typeBadgesHtml = aliasTypes.map(function(t) {
-            return '<span class="badge onto-type-badge ' + getPopoverTypeClass(t) + '">' + t + '</span>';
-        }).join('');
-    } else if (entityType) {
-        typeBadgesHtml = '<span class="badge onto-type-badge ' + getPopoverTypeClass(entityType) + '">' + entityType + '</span>';
-    }
-
     // Source badge
     var sourceBadge = '';
     if (entitySource === 'ontology') {
@@ -92,6 +101,38 @@ function buildPopoverContent(el, ontserveBaseUrl) {
         sourceBadge = '<span class="badge ' + getPopoverPassClass(entityPass) + ' onto-type-badge">Pass ' + entityPass + '</span>';
     } else {
         sourceBadge = '<span class="badge bg-secondary onto-type-badge">Case</span>';
+    }
+
+    // Text-grounded alias shared by several entities: list every contributor
+    // (type badge + label linking to its own OntServe page) instead of showing
+    // one entity's borrowed definition.
+    if (aliasEntities.length > 1) {
+        var listContent = '<div class="onto-popover-content onto-popover-alias">';
+        listContent += '<div class="d-flex gap-1 flex-wrap align-items-center mb-2">' + sourceBadge
+            + '<span class="text-muted small">' + aliasEntities.length + ' case entities share this phrase</span></div>';
+        listContent += '<ul class="onto-alias-list">';
+        aliasEntities.forEach(function(ent) {
+            var url = buildOntserveEntityUrl(ontserveBaseUrl || '', ent.ontology_target || '', ent.uri || '');
+            var badge = '<span class="badge onto-type-badge ' + getPopoverTypeClass(ent.extraction_type)
+                + '">' + escapePopoverHtml(ent.extraction_type || 'entity') + '</span>';
+            var name = escapePopoverHtml(ent.label || '');
+            listContent += '<li>' + badge
+                + (url ? '<a href="' + url + '" target="_blank" rel="noopener">' + name + '</a>'
+                       : '<span>' + name + '</span>')
+                + '</li>';
+        });
+        listContent += '</ul></div>';
+        return listContent;
+    }
+
+    // Build type badges
+    var typeBadgesHtml = '';
+    if (aliasTypes.length > 1) {
+        typeBadgesHtml = aliasTypes.map(function(t) {
+            return '<span class="badge onto-type-badge ' + getPopoverTypeClass(t) + '">' + t + '</span>';
+        }).join('');
+    } else if (entityType) {
+        typeBadgesHtml = '<span class="badge onto-type-badge ' + getPopoverTypeClass(entityType) + '">' + entityType + '</span>';
     }
 
     // Truncate long definitions
@@ -127,6 +168,15 @@ function initializePopovers(container, ontserveBaseUrl) {
     labels.forEach(function(el) {
         // Skip elements that already have a popover instance
         if (bootstrap.Popover.getInstance(el)) return;
+
+        // Multi-entity alias spans render a linked contributor list, so the
+        // popover must stay open while the pointer is inside it and there is
+        // no single click-through target for the span itself.
+        if (getAliasEntities(el).length > 1) {
+            attachInteractivePopover(el, ontserveBaseUrl);
+            return;
+        }
+
         new bootstrap.Popover(el, {
             container: 'body',
             sanitize: false,
@@ -144,6 +194,45 @@ function initializePopovers(container, ontserveBaseUrl) {
                 window.open(ontserveUrl, '_blank', 'noopener');
             });
         }
+    });
+}
+
+/**
+ * Wide popover that stays open while the pointer (or keyboard focus) is inside
+ * it, so the in-popover links of the alias contributor list are usable.
+ * Manual trigger: enter/focus on the span shows; leaving span or tip hides
+ * after a grace period, cancelled when the pointer reaches the tip.
+ */
+function attachInteractivePopover(el, ontserveBaseUrl) {
+    var popover = new bootstrap.Popover(el, {
+        container: 'body',
+        sanitize: false,
+        content: buildPopoverContent(el, ontserveBaseUrl),
+        html: true,
+        trigger: 'manual',
+        customClass: 'onto-popover-wide'
+    });
+    var hideTimer = null;
+    function cancelHide() {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    }
+    function scheduleHide() {
+        cancelHide();
+        hideTimer = setTimeout(function() { popover.hide(); }, 300);
+    }
+    function show() { cancelHide(); popover.show(); }
+    el.addEventListener('mouseenter', show);
+    el.addEventListener('focus', show);
+    el.addEventListener('mouseleave', scheduleHide);
+    el.addEventListener('blur', scheduleHide);
+    // The tip element is recreated on every show; wire its handlers each time
+    el.addEventListener('inserted.bs.popover', function() {
+        var tip = popover.tip;
+        if (!tip) return;
+        tip.addEventListener('mouseenter', cancelHide);
+        tip.addEventListener('mouseleave', scheduleHide);
+        tip.addEventListener('focusin', cancelHide);
+        tip.addEventListener('focusout', scheduleHide);
     });
 }
 
@@ -246,6 +335,7 @@ function scanTextForEntities(container, entityLookup, options) {
                 span.setAttribute('data-entity-definition', m.entity.definition || '');
                 span.setAttribute('data-entity-uri', m.entity.uri || '');
                 span.setAttribute('data-alias-types', JSON.stringify(m.entity.aliasTypes || []));
+                span.setAttribute('data-alias-entities', JSON.stringify(m.entity.aliasEntities || []));
                 span.setAttribute('data-ontology-target', m.entity.ontologyTarget || '');
                 span.setAttribute('title', m.entity.label || m.text);
 

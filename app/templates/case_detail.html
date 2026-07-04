@@ -5,6 +5,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/structure-viewer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/case_detail.css') }}">
 {% endblock %}
 
@@ -445,6 +446,7 @@
             sourcePass: {{ entity.source_pass or 'null' }},
             uri: "{{ (entity.uri or '')|e }}",
             aliasTypes: {{ (entity.alias_types or [])|tojson }},
+            aliasEntities: {{ (entity.alias_entities or [])|tojson }},
             ontologyTarget: "{{ (entity.ontology_target or '')|e }}"
         }{% if not loop.last %},{% endif %}
         {% endfor %}
