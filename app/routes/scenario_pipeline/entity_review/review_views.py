@@ -35,7 +35,8 @@ def register_review_view_routes(bp):
             return render_template(
                 'scenario_pipeline/entity_review_all.html',
                 case=case_doc,
-                entities_summary=entities_summary
+                entities_summary=entities_summary,
+                current_step=3.5
             )
 
         except Exception as e:
