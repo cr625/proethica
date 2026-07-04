@@ -364,16 +364,6 @@ div.reference-panel {
 .status-unsaved { background: #ffc107; }
 .status-saving { background: #17a2b8; }
 
-/* Extractor info */
-.extractor-badge {
-    font-size: 0.7rem;
-    color: #6c757d;
-    background: #e9ecef;
-    padding: 0.15rem 0.4rem;
-    border-radius: 0.2rem;
-    font-family: monospace;
-}
-
 /* Clickable variables */
 .var-clickable {
     cursor: pointer;
@@ -425,9 +415,6 @@ div.reference-panel {
                 <span class="badge" style="background-color: {{ concept_color }};">{{ concept | title }}</span>
                 {% if template %}v{{ template.version }}{% endif %}
             </h5>
-            {% if template and template.extractor_file %}
-            <span class="extractor-badge">{{ template.extractor_file.split('/')[-1] }}</span>
-            {% endif %}
             {% if not can_edit %}
             <span class="badge bg-secondary" title="Read-only view of the extraction prompts. Log in as an admin to edit.">
                 <i class="bi bi-eye"></i> Viewer
