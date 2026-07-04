@@ -68,15 +68,12 @@
                 {% endif %}
             </div>
             <div class="d-flex align-items-center gap-2">
-                {% if pipeline_status.step4.complete %}
-                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-sm btn-outline-primary" title="View aggregated synthesis: entities, provisions, precedents, Q&amp;C, analysis, decisions, narrative">
-                    <i class="bi bi-journal-richtext me-1"></i>Synthesis
-                </a>
-                {% endif %}
+                {# Synthesis is reachable via the pipeline card's Step 4 button and
+                   the per-section deep links; a top-bar duplicate was removed 2026-07-04. #}
                 <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-sm btn-outline-info" title="Find similar precedent cases by component embedding, provision overlap, and topics">
                     <i class="bi bi-diagram-2 me-1"></i>Find Similar
                 </a>
-                {% if ontserve_individual_count %}
+                {% if has_obligation_conflicts %}
                 <a href="{{ url_for('cases.case_defeasibility', id=case.id) }}" class="btn btn-sm btn-outline-primary" title="Obligation conflicts: which duty prevails, under what context, and how comparable cases resolved the same tension">
                     <i class="bi bi-shuffle me-1"></i>Obligation Conflicts
                 </a>

@@ -171,6 +171,18 @@ def _featured_index(conflicts):
     return 0 if conflicts else None
 
 
+def case_has_conflicts(case_id: int) -> bool:
+    """Whether the committed case graph carries any obligation-competition edge
+    (prevailsOver or competesWith), i.e. whether the conflicts view has content.
+    False when the case has no committed ontology. defeasibleUnder alone does not
+    count: it enriches a conflict but cannot render one by itself."""
+    try:
+        g = load_case_graph(case_id)
+    except FileNotFoundError:
+        return False
+    return any(_local(p) in ("prevailsOver", "competesWith") for p in g.predicates())
+
+
 def get_case_conflicts(case_id: int) -> dict:
     g = load_case_graph(case_id)
     competes, prevails, defeasible = _trio_edges(g)

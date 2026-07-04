@@ -172,6 +172,15 @@ def register_view_routes(bp):
         except Exception as e:
             logger.debug(f"Could not query OntServe for case {document.id}: {str(e)}")
 
+        # Obligation Conflicts navigation only renders when the committed graph
+        # actually carries competition edges; an empty conflicts view helps nobody.
+        has_obligation_conflicts = False
+        try:
+            from app.services.defeasibility_view_service import case_has_conflicts
+            has_obligation_conflicts = case_has_conflicts(document.id)
+        except Exception as e:
+            logger.warning(f"Could not check obligation conflicts for case {document.id}: {e}")
+
         return render_template('case_detail.html', case=case, world=world,
                               entity_triples=entity_triples,
                               knowledge_graph_connections=knowledge_graph_connections,
@@ -185,7 +194,8 @@ def register_view_routes(bp):
                               transformation_type=transformation_type,
                               entity_lookup=entity_lookup,
                               entity_lookup_by_label=entity_lookup_by_label,
-                              ontserve_individual_count=ontserve_individual_count)
+                              ontserve_individual_count=ontserve_individual_count,
+                              has_obligation_conflicts=has_obligation_conflicts)
 
     @bp.route('/<int:id>/annotations', methods=['GET'])
     def view_case_annotations(id):
