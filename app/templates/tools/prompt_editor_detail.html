@@ -919,8 +919,21 @@ function restoreCaseSelection() {
     // No cases available
     if (!caseSelect || caseSelect.options.length === 0) return;
 
+    // ?case=latest (the main-nav entry) forces the newest case over any saved
+    // selection; ?case=<id> deep-links a specific case.
+    const urlCase = new URLSearchParams(window.location.search).get('case');
+    if (urlCase && urlCase !== 'latest' && caseSelect.querySelector(`option[value="${urlCase}"]`)) {
+        caseSelect.value = urlCase;
+        localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify({
+            caseId: urlCase,
+            section: passSection || (sectionSelect ? sectionSelect.value : 'facts')
+        }));
+        renderPreview();
+        return;
+    }
+
     try {
-        const saved = localStorage.getItem(CASE_STORAGE_KEY);
+        const saved = urlCase === 'latest' ? null : localStorage.getItem(CASE_STORAGE_KEY);
         if (saved) {
             const { caseId, section } = JSON.parse(saved);
             // Check if the saved case exists in the dropdown
