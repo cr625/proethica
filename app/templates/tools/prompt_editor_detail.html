@@ -922,13 +922,17 @@ function onSectionChange() {
     }
 }
 
-// Restore case selection from localStorage on page load, or default to first case
+// Restore case selection from localStorage on page load, or default to the
+// most recent case (the dropdown is ordered latest-extraction first).
 function restoreCaseSelection() {
     const caseSelect = document.getElementById('globalCaseSelect');
+    // Pass-split prompts do not render the section dropdown; the section is
+    // the template's pass (same rule as getGlobalCase).
     const sectionSelect = document.getElementById('globalSectionSelect');
+    const passSection = (TEMPLATE_PASS === 'facts' || TEMPLATE_PASS === 'discussion') ? TEMPLATE_PASS : null;
 
     // No cases available
-    if (caseSelect.options.length === 0) return;
+    if (!caseSelect || caseSelect.options.length === 0) return;
 
     try {
         const saved = localStorage.getItem(CASE_STORAGE_KEY);
@@ -937,7 +941,7 @@ function restoreCaseSelection() {
             // Check if the saved case exists in the dropdown
             if (caseId && caseSelect.querySelector(`option[value="${caseId}"]`)) {
                 caseSelect.value = caseId;
-                if (section && sectionSelect.querySelector(`option[value="${section}"]`)) {
+                if (section && sectionSelect && sectionSelect.querySelector(`option[value="${section}"]`)) {
                     sectionSelect.value = section;
                 }
                 // Trigger preview render
@@ -949,13 +953,13 @@ function restoreCaseSelection() {
         console.warn('Failed to restore case selection:', e);
     }
 
-    // No saved selection or saved case not found - default to first case
+    // No saved selection or saved case not found - default to the latest case
     const firstCase = caseSelect.options[0];
     if (firstCase) {
         caseSelect.value = firstCase.value;
         localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify({
             caseId: firstCase.value,
-            section: sectionSelect.value
+            section: passSection || (sectionSelect ? sectionSelect.value : 'facts')
         }));
         renderPreview();
     }
