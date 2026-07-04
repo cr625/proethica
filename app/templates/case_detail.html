@@ -86,7 +86,7 @@
                     <a href="{{ url_for('cases.view_case_structure', id=case.id) }}" class="btn btn-outline-secondary" title="Document sections and embeddings">
                         <i class="bi bi-layers me-1"></i>Structure
                     </a>
-                    <a href="{{ url_for('provenance.provenance_cases', selected=case.id) }}" class="btn btn-outline-secondary" title="Processing history">
+                    <a href="{{ url_for('provenance.case_provenance', case_id=case.id) }}" class="btn btn-outline-secondary" title="Processing history">
                         <i class="bi bi-clock-history me-1"></i>Provenance
                     </a>
                 </div>

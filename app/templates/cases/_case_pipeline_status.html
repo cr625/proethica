@@ -36,15 +36,8 @@ Required context variables:
                     <i class="bi bi-node-plus"></i> {{ entity_count }}
                 </span>
                 {% endif %}
-                {% if transformation_type is defined and transformation_type %}
-                <span class="badge bg-purple text-white" title="Transformation Type" style="background-color: #6f42c1 !important;">
-                    {% if transformation_type == 'transfer' %}Transfer
-                    {% elif transformation_type == 'stalemate' %}Stalemate
-                    {% elif transformation_type == 'oscillation' %}Oscillation
-                    {% elif transformation_type == 'phase_lag' %}Phase Lag
-                    {% else %}{{ transformation_type|title }}{% endif %}
-                </span>
-                {% endif %}
+                {# Transformation-type badge intentionally lives only in the case
+                   context bar above; it was duplicated here until 2026-07-04. #}
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap pipeline-steps-row">
                 {# Step 1: Contextual Framework #}
