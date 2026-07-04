@@ -68,8 +68,14 @@
                 {% endif %}
             </div>
             <div class="d-flex align-items-center gap-2">
-                {# Synthesis is reachable via the pipeline card's Step 4 button and
-                   the per-section deep links; a top-bar duplicate was removed 2026-07-04. #}
+                {# Builders reach Synthesis via the pipeline card's Step 4 button; that
+                   card is auth-gated in production, so anonymous readers get the
+                   Synthesis entry here instead. Exactly one of the two renders. #}
+                {% if pipeline_status.step4.complete and environment == 'production' and not (current_user and current_user.is_authenticated) %}
+                <a href="{{ url_for('step4.step4_review', case_id=case.id) }}" class="btn btn-sm btn-primary" title="The extracted results: entities, provisions, precedents, questions and conclusions, decision points, narrative">
+                    <i class="bi bi-journal-richtext me-1"></i>Synthesis
+                </a>
+                {% endif %}
                 <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-sm btn-outline-info" title="Find similar precedent cases by component embedding, provision overlap, and topics">
                     <i class="bi bi-diagram-2 me-1"></i>Find Similar
                 </a>
