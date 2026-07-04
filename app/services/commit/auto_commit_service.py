@@ -515,6 +515,7 @@ class AutoCommitService:
                   AND uri LIKE 'http://proethica.org/ontology/%'
                   AND uri NOT LIKE 'http://proethica.org/ontology/core#%'
                   AND embedding IS NOT NULL
+                  AND properties->>'deprecated' IS DISTINCT FROM 'true'
                   {marker_sql}
                 ORDER BY embedding <=> CAST(:vec AS vector)
                 LIMIT 1
@@ -558,6 +559,12 @@ class AutoCommitService:
                 WHERE uri LIKE 'http://proethica.org/ontology/%'
                   AND uri NOT LIKE 'http://proethica.org/ontology/core#%'
                   AND entity_type = 'class'
+                  -- Same serving-side deprecation predicate as the category
+                  -- inventories (concept_manager) and the web hierarchy/search:
+                  -- the matcher must never link a fresh extraction to retired
+                  -- vocabulary (owl:deprecated classes stay resolvable, but are
+                  -- not match candidates).
+                  AND properties->>'deprecated' IS DISTINCT FROM 'true'
             """)
 
             # Use a separate connection to ontserve database
