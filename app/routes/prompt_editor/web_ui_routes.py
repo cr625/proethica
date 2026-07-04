@@ -93,20 +93,37 @@ def register_web_ui(bp):
 
         # Get cases that have extraction prompts for this concept
         try:
-            cases_with_extractions = db.session.query(
-                Document.id,
-                Document.title,
+            # Presented in the case-repository order (NSPE year desc, case number
+            # asc, matching listing.py) so the first option -- the auto-selected
+            # default -- is the newest NSPE case, which is what "latest" means
+            # everywhere else in the app.
+            from types import SimpleNamespace
+            agg = db.session.query(
+                ExtractionPrompt.case_id,
                 func.count(ExtractionPrompt.id).label('extraction_count'),
                 func.max(ExtractionPrompt.created_at).label('last_extraction')
-            ).join(
-                ExtractionPrompt, ExtractionPrompt.case_id == Document.id
             ).filter(
                 ExtractionPrompt.concept_type == concept
-            ).group_by(
-                Document.id, Document.title
-            ).order_by(
-                func.max(ExtractionPrompt.created_at).desc()
-            ).limit(20).all()
+            ).group_by(ExtractionPrompt.case_id).all()
+            by_case = {a.case_id: a for a in agg}
+            docs = Document.query.filter(Document.id.in_(by_case.keys())).all() if by_case else []
+
+            def _repo_order(d):
+                meta = d.doc_metadata or {}
+                year = str(meta.get('year') or '')
+                return (-(int(year) if year.isdigit() else 0), str(meta.get('case_number') or ''))
+
+            docs.sort(key=_repo_order)
+            cases_with_extractions = [
+                SimpleNamespace(
+                    id=d.id,
+                    title=d.title,
+                    case_number=(d.doc_metadata or {}).get('case_number'),
+                    extraction_count=by_case[d.id].extraction_count,
+                    last_extraction=by_case[d.id].last_extraction,
+                )
+                for d in docs[:20]
+            ]
         except Exception as e:
             logger.warning(f"Could not get cases with extractions: {e}")
             cases_with_extractions = []

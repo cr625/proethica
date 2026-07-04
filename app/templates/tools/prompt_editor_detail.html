@@ -435,7 +435,7 @@ div.reference-panel {
         <label class="form-label mb-0 text-muted small fw-bold">Test Case:</label>
         <select class="form-select form-select-sm" id="globalCaseSelect" style="width: 300px;" onchange="onGlobalCaseChange()">
             {% for case in cases_with_extractions %}
-            <option value="{{ case.id }}">{{ case.title[:60] }}{% if case.title|length > 60 %}...{% endif %}</option>
+            <option value="{{ case.id }}">{% if case.case_number %}{{ case.case_number }} &middot; {% endif %}{{ case.title[:55] }}{% if case.title|length > 55 %}...{% endif %}</option>
             {% endfor %}
         </select>
         {% if template_pass not in ['facts', 'discussion'] %}
