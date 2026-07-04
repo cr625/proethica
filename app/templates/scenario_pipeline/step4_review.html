@@ -19,9 +19,12 @@
 
 <!-- Navigation -->
 <div class="d-flex flex-wrap gap-2 mb-4">
+    {# Working-store review is builder navigation; readers stay on the synthesis view #}
+    {% if current_user and current_user.is_authenticated %}
     <a href="{{ url_for('step4.step4_entities', case_id=case.id) }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Entity Review
     </a>
+    {% endif %}
     {% if validation_study_mode %}
     <button id="validationDemoToggle" class="btn btn-outline-info" onclick="toggleValidationDemo()">
         <i class="bi bi-clipboard-check"></i> Validation Demo

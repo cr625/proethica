@@ -135,9 +135,11 @@ def register_view_routes(bp):
             from app.services.entity.entity_change_detector import get_changed_entity_uris
             changed_entity_uris = get_changed_entity_uris(case_id) if published_count > 0 else set()
 
+            from app.services.entity.committed_case_graph import committed_case_status
             return render_template(
                 'scenario_pipeline/step4_entities.html',
                 case=case,
+                commit_status=committed_case_status(case_id),
                 phase_groups=phase_groups,
                 narrative_data=narrative_data,
                 synthesis_status=synthesis_status,
