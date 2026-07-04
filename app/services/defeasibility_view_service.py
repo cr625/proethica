@@ -20,12 +20,11 @@ Predicates are matched by local name so the service is robust to namespace form.
 """
 
 import logging
-from pathlib import Path
 
 import rdflib
 from rdflib import RDFS
 
-from app.services.ontserve.ontserve_config import get_ontserve_base_path
+from app.services.entity.committed_case_graph import case_ttl_path, load_case_graph
 
 logger = logging.getLogger(__name__)
 
@@ -46,34 +45,6 @@ CURATED_BANDS = {
         "case_ids": [8, 76, 71, 86],
     },
 }
-
-
-def _ontologies_dir() -> Path:
-    return get_ontserve_base_path() / "ontologies"
-
-
-def case_ttl_path(case_id: int) -> Path:
-    return _ontologies_dir() / f"proethica-case-{case_id}.ttl"
-
-
-_GRAPH_CACHE = {}
-
-
-def _load_graph(case_id: int) -> rdflib.Graph:
-    path = case_ttl_path(case_id)
-    if not path.exists():
-        # A missing committed TTL is a genuine state (not every case is extracted),
-        # surfaced to the caller rather than silently substituted.
-        raise FileNotFoundError(f"No committed ontology for case {case_id}: {path}")
-    # Cache the parsed graph per (path, mtime) so a single view render that reads the
-    # same case TTL more than once does not re-parse it. Read-only use only.
-    key = (str(path), path.stat().st_mtime_ns)
-    g = _GRAPH_CACHE.get(key)
-    if g is None:
-        g = rdflib.Graph()
-        g.parse(str(path), format="turtle")
-        _GRAPH_CACHE[key] = g
-    return g
 
 
 def _local(uri) -> str:
@@ -201,7 +172,7 @@ def _featured_index(conflicts):
 
 
 def get_case_conflicts(case_id: int) -> dict:
-    g = _load_graph(case_id)
+    g = load_case_graph(case_id)
     competes, prevails, defeasible = _trio_edges(g)
 
     seen = set()
@@ -254,7 +225,7 @@ def get_cross_case_band(theme_key: str, anchor_case_id: int) -> dict | None:
         if cid == anchor_case_id:
             continue
         try:
-            g = _load_graph(cid)
+            g = load_case_graph(cid)
         except FileNotFoundError:
             logger.warning("cross-case band: case %s has no committed TTL (skipped)", cid)
             continue
@@ -294,7 +265,7 @@ def refresh_band_index(case_id: int) -> int:
     DefeasibilityBandIndex.query.filter_by(case_id=case_id).delete()
 
     try:
-        g = _load_graph(case_id)
+        g = load_case_graph(case_id)
     except FileNotFoundError:
         # No committed TTL -> leave the case with no index rows.
         db.session.commit()
@@ -420,7 +391,7 @@ def build_defeasibility_view(case_id: int) -> dict:
     cids = [case_id] + ([r["case_id"] for r in cross_case["rows"]] if cross_case else [])
     for cid in cids:
         try:
-            g = _load_graph(cid)
+            g = load_case_graph(cid)
         except FileNotFoundError:
             continue
         for key, entry in _entity_index(g, cid).items():

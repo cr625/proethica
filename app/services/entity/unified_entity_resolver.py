@@ -55,14 +55,20 @@ class UnifiedEntityResolver:
         'Event': 'events',
     }
 
-    def __init__(self, case_id: int = None):
+    def __init__(self, case_id: int = None, case_source: str = 'working'):
         """
         Initialize resolver.
 
         Args:
             case_id: Optional case ID for case-specific entity resolution
+            case_source: Where case entities are read from. 'working' reads the
+                in-progress extraction in TemporaryRDFStorage (pipeline review
+                views). 'committed' reads the committed case TTL in OntServe,
+                the completed-state record; callers gate on
+                committed_case_graph.committed_case_exists first.
         """
         self.case_id = case_id
+        self.case_source = case_source
         self._lookup_cache = None
         self._label_index = None
 
@@ -94,7 +100,10 @@ class UnifiedEntityResolver:
 
         # 2. Load case entities (higher precedence, overwrites)
         if self.case_id:
-            case_entities = self._get_case_entities()
+            if self.case_source == 'committed':
+                case_entities = self._get_committed_case_entities()
+            else:
+                case_entities = self._get_case_entities()
             for uri, data in case_entities.items():
                 lookup[uri] = {
                     **data,
@@ -308,6 +317,93 @@ class UnifiedEntityResolver:
 
         return lookup
 
+    def _get_committed_case_entities(self) -> Dict[str, Dict]:
+        """
+        Build case-entity entries from the committed case TTL in OntServe.
+
+        Same entry shape as _get_case_entities so the label index, alias
+        extraction, and template serialization are shared. Only named
+        individuals are indexed; support nodes (prov:Derivation, OWL-Time
+        instants) carry no owl:NamedIndividual typing and are skipped.
+        Raises FileNotFoundError when the case has no committed ontology.
+        """
+        from rdflib import RDF, Namespace
+        from rdflib.namespace import OWL, RDFS, SKOS
+        from app.services.entity.committed_case_graph import load_case_graph
+
+        g = load_case_graph(self.case_id)
+        PROETH = Namespace('http://proethica.org/ontology/intermediate#')
+        PROETH_PROV = Namespace('http://proethica.org/provenance#')
+        core_ns = 'http://proethica.org/ontology/core#'
+        ont_target = f'proethica-case-{self.case_id}'
+
+        lookup = {}
+        exact_fragment = {}
+        for s in g.subjects(RDF.type, OWL.NamedIndividual):
+            label = g.value(s, RDFS.label)
+            if not label:
+                continue
+            label = str(label)
+
+            definition = str(
+                g.value(s, SKOS.definition)
+                or g.value(s, RDFS.comment)
+                or g.value(s, PROETH.caseInvolvement)
+                or ''
+            )
+
+            # Category from the materialized direct core type (CMT-1); analysis-layer
+            # individuals (EthicalQuestion, DecisionPoint, ...) fall back to their
+            # first non-core type's local name.
+            category = ''
+            other_type = ''
+            for t in g.objects(s, RDF.type):
+                tn = str(t)
+                if tn.startswith(core_ns) and tn[len(core_ns):] in self.ENTITY_TYPE_MAP:
+                    category = tn[len(core_ns):]
+                    break
+                if t != OWL.NamedIndividual and not other_type:
+                    other_type = tn.rsplit('#', 1)[-1].rsplit('/', 1)[-1]
+            extraction_type = self.ENTITY_TYPE_MAP.get(category, other_type)
+
+            source_pass = g.value(s, PROETH_PROV.discoveredInPass)
+            text_refs = [str(o) for o in g.objects(s, PROETH.textReferences)]
+            uri = str(s)
+
+            entity_data = {
+                'label': label,
+                'definition': definition,
+                'entity_type': category or other_type,
+                'extraction_type': extraction_type,
+                'is_published': True,
+                'source_pass': int(source_pass) if source_pass is not None else None,
+                'provenance': {},
+                'uri': uri,
+                'text_references': text_refs,
+                'ontology_target': ont_target,
+                'ontserve_path': self.compute_ontserve_path(uri, ont_target),
+                'rdf_agent': None,
+                'rdf_temporal': None,
+            }
+
+            # When two individuals share a display label (e.g. an Obligation and a
+            # like-named Capability), keep the one whose URI fragment matches the
+            # label exactly -- that is the primary entity case text refers to.
+            fragment = uri.rsplit('#', 1)[-1]
+            exact = fragment.replace('_', ' ').lower() == label.lower()
+            key_label = label.lower()
+            prior = exact_fragment.get(key_label)
+            if prior is not None:
+                prior_exact, prior_uri = prior
+                if prior_exact and not exact:
+                    continue
+                if exact and not prior_exact:
+                    lookup.pop(prior_uri, None)
+            exact_fragment[key_label] = (exact, uri)
+            lookup[uri] = entity_data
+
+        return lookup
+
     def _build_label_index(self, lookup: Dict[str, Dict]) -> None:
         """
         Build label-based index for text matching.
@@ -322,9 +418,13 @@ class UnifiedEntityResolver:
             definition = data.get('definition', '')
             if not label:
                 continue
-            # Skip ontology entries with no definition -- these are stale
-            # concepts that produce "No definition available" popovers
-            if not definition and data.get('source') == 'ontology':
+            # Skip entries with no definition -- they produce "No definition
+            # available" popovers. Ontology entries: stale concepts. Committed
+            # case entries: structural nodes (e.g. Agent individuals), whose
+            # label slots are better claimed by the text-grounded aliases of
+            # the definition-bearing entities. Working-mode entries always
+            # carry a definition (label fallback), so this never drops them.
+            if not definition:
                 continue
 
             # Lowercase for case-insensitive matching

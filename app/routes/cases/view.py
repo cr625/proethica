@@ -128,12 +128,17 @@ def register_view_routes(bp):
         except Exception as e:
             logger.warning(f"Could not get summary counts for case {document.id}: {str(e)}")
 
+        # Entity popovers read the committed case TTL in OntServe, never the
+        # in-progress temp_rdf: this page shows a case in its completed state,
+        # and the committed ontology existing IS the gate. Uncommitted cases
+        # render without entity annotations.
         entity_lookup = {}
         entity_lookup_by_label = {}
-        if entity_count > 0:
+        from app.services.entity.committed_case_graph import committed_case_exists
+        if committed_case_exists(document.id):
             try:
                 from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
-                resolver = UnifiedEntityResolver(case_id=document.id)
+                resolver = UnifiedEntityResolver(case_id=document.id, case_source='committed')
                 entity_lookup = resolver.get_lookup_dict()
                 entity_lookup_by_label = resolver.get_label_index()
             except Exception as e:
