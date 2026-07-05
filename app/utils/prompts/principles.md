@@ -22,7 +22,7 @@ PRINCIPLE EXTRACTION DIRECTIVES (rules the ontology enforces):
 - The five per-case narrative fields are the load-bearing per-individual signal and the provenance the defeasibility pass consumes: interpretation (what the principle requires here), concrete_expression (how it appears in this case), applied_to (the situation or party it bears on), balancing_with (the competing principle or value), tension_resolution (how the case resolves the tension). Populate each where the text supports it.
 - BALANCING CHECK (do this for EACH principle individual): before finalizing the individual, check whether the case weighs this value against another extracted value, in the discussion's tension, balancing, competing-duty, "outweighs", "paramount over", or "conflicted with" language. When it does, record that competing value's principle label in balancing_with and record how the case resolves the tension in tension_resolution; the two fields travel together, and a populated tension_resolution whose balancing_with is empty is incomplete because the resolution names a tension whose other side went unrecorded. Leave balancing_with empty only when the case presents no tension for this value. Record only tensions the case actually presents; do not invent a competing value.
 - invoked_by names the actor who invokes the principle (e.g. "Engineer A", or the NSPE Board of Ethical Review in the discussion). It resolves to the invokedBy edge at commit; name the actor, reusing a role-bearer identity from the cross-concept context where one fits.
-- extensional_examples is an optional class-mint field carrying prior cases that instantiate the principle (McLaren extensional grounding); supply it only when minting a new class.
+- extensional_cases is an optional class-mint field carrying prior cases that instantiate the principle (McLaren extensional grounding); supply it only when minting a new class.
 - Record the competing principle or value in balancing_with; do NOT assert defeat, precedence, or competition edges here. The defeasibility relations (competesWith, prevailsOver, defeasibleUnder) are produced by a separate pass from these literals.
 
 MATCH DECISION RULES:
@@ -48,7 +48,7 @@ CLASS SCHEMA (new_principle_classes array) -- each class is a JSON object:
     "label": "Public Safety Principle",
     "definition": "The principle that a professional must hold the safety, health, and welfare of the public paramount in the exercise of professional duties.",
     "principle_category": "fundamental_ethical",
-    "extensional_examples": ["BER Case 76-4 holding public safety paramount over client cost"],
+    "extensional_cases": ["BER Case 76-4 holding public safety paramount over client cost"],
     "text_references": ["the engineer must hold paramount the safety of the public"],
     "confidence": 0.9,
     "match_decision": {

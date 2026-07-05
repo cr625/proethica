@@ -430,15 +430,16 @@ class CandidatePrincipleClass(BaseCandidate):
 
     Field set aligned to the extraction-architecture spec (P section, 2026-06):
     principle_category drives the four-kind subClassOf typing when a new leaf is minted and
-    the canonical leaf label (BaseCandidate.label) becomes the rdf:type. extensional_examples
+    the canonical leaf label (BaseCandidate.label) becomes the rdf:type. extensional_cases
     is retained as an optional class-mint field (McLaren extensional grounding). The earlier
     abstract_nature, value_basis, operationalization, derived_obligations, and potential_conflicts
     fields were dropped (spec "Not stored": folded into the class definition or carried by edges).
     """
     principle_category: Optional[PrincipleCategory] = None
-    extensional_examples: List[str] = Field(
+    extensional_cases: List[str] = Field(
         default_factory=list,
-        description="Concrete application examples (McLaren extensional definition); optional class-mint field"
+        validation_alias=AliasChoices('extensional_cases', 'extensional_examples'),
+        description="Class-level prior cases that instantiate the principle (McLaren extensional grounding); optional class-mint field"
     )
 
 

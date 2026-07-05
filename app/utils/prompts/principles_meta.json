@@ -22,7 +22,7 @@
           "required": true,
           "description": "Controlled principle kind that drives the subClassOf typing when a new leaf is minted: fundamental_ethical, professional_virtue, relational, domain_specific. A routing input, not stored as a literal"
         },
-        "extensional_examples": {
+        "extensional_cases": {
           "type": "array",
           "required": false,
           "description": "Optional class-mint field: prior cases that instantiate the principle (McLaren extensional grounding)"
