@@ -47,9 +47,15 @@ class PromptBuildingMixin:
                     f"(v{template.version})"
                 )
             else:
-                logger.warning(
-                    f"No active DB template for step={self.config['step']}, "
-                    f"concept={self.concept_type}"
+                # Expected for pass-split components: their 'all'-pass row is
+                # deactivated by design and the per-pass (facts/discussion)
+                # template loads in _build_prompt. A warning here produced 14
+                # misleading log lines per case (the pilot's
+                # no_active_db_template signal).
+                logger.debug(
+                    f"No 'all'-pass DB template for step={self.config['step']}, "
+                    f"concept={self.concept_type}; the per-pass template loads "
+                    f"at prompt-build time"
                 )
             return template
         except Exception as e:

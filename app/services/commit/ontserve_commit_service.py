@@ -2583,7 +2583,7 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
             for i, opt in enumerate(rdf_data.get('options', []) or []):
                 if isinstance(opt, dict) and opt.get('description'):
-                    g.add((uri, PROETHICA[f'option{i+1}'], Literal(opt['description'])))
+                    g.add((uri, PROETHICA['option'], Literal(f"{i+1}. {opt['description']}")))
 
         elif extraction_type == 'ethical_conclusion' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.EthicalConclusion))
@@ -2596,9 +2596,9 @@ class OntServeCommitService:
             if rdf_data.get('extractionReasoning'):
                 g.add((uri, PROETHICA['extractionReasoning'], Literal(rdf_data['extractionReasoning'])))
             for i, prov in enumerate(rdf_data.get('citedProvisions', []) or []):
-                g.add((uri, PROETHICA[f'citedProvision{i+1}'], Literal(prov)))
+                g.add((uri, PROETHICA['citedProvision'], Literal(prov)))
             for i, q in enumerate(rdf_data.get('answersQuestions', []) or []):
-                g.add((uri, PROETHICA[f'answersQuestion{i+1}'], Literal(str(q))))
+                g.add((uri, PROETHICA['answersQuestion'], Literal(str(q))))
 
         elif extraction_type == 'ethical_question' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.EthicalQuestion))
@@ -2927,7 +2927,7 @@ class OntServeCommitService:
                     text = ' -- '.join(p for p in (element, desc) if p)
                     if text:
                         step_no += 1
-                        g.add((uri, PROETHICA[f'causalStep{step_no}'], Literal(text)))
+                        g.add((uri, PROETHICA['causalStep'], Literal(f"{step_no}. {text}")))
                 continue
             if local in ('discoveredInSection', 'sourceText', 'discoveredInPass'):
                 # Temporal individuals carry provenance inline (no 'properties' wrapper for
