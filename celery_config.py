@@ -66,7 +66,14 @@ def get_celery():
             task_soft_time_limit=6000,  # 100 minutes soft limit
             worker_prefetch_multiplier=1,  # One task at a time
             worker_max_tasks_per_child=20,  # Restart worker after 20 tasks
-            broker_connection_retry_on_startup=True
+            broker_connection_retry_on_startup=True,
+            # Eager (in-process) task runs -- the staged re-extraction harness'
+            # Task.apply() path -- must PROPAGATE raised exceptions instead of
+            # swallowing them into the EagerResult: the batch driver's abort
+            # contract depends on stage failures reaching the exit code
+            # (pipeline-optimality review, 2026-07-05). No effect on the
+            # worker/delay path the web pipeline uses.
+            task_eager_propagates=True
         )
 
         # Beat schedule for periodic tasks (monitoring heartbeat)
