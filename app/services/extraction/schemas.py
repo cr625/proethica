@@ -75,6 +75,11 @@ class MatchDecision(BaseModel):
     confidence: float = 0.0
     reasoning: Optional[str] = None
 
+    @model_validator(mode='before')
+    @classmethod
+    def _fold_empty_strings(cls, data: Any) -> Any:
+        return none_out_empty_optional_strings(cls, data)
+
 
 # ---------------------------------------------------------------------------
 # Structured-outputs-safe open collections
@@ -135,6 +140,41 @@ def fold_key_value_pairs(value: Any) -> Any:
     return folded
 
 
+def none_out_empty_optional_strings(model_cls: type[BaseModel], data: Any) -> Any:
+    """Fold ``""`` back to None for fields whose declared default is None.
+
+    Parse-time companion to the Optional[str] null-branch collapse in
+    _clean_structured_output_node: the LLM-facing grammar types optional
+    strings as plain ``string`` (no null branch), so under structured outputs
+    the model emits ``""`` for absent. This restores None so downstream
+    consumers (storage, commit bridge, ``is not None`` checks) see the same
+    values as the free-form path. Only fields with an explicit None default
+    are touched; required fields and ``""``-defaulted fields (identifier,
+    quote) keep empty strings. Runs in mode='before' validators, so alias
+    keys must be checked alongside field names.
+    """
+    if not isinstance(data, dict):
+        return data
+    for name, field in model_cls.model_fields.items():
+        if field.default is not None:  # PydanticUndefined (required) included
+            continue
+        keys = {name}
+        if field.alias:
+            keys.add(field.alias)
+        validation_alias = field.validation_alias
+        if isinstance(validation_alias, str):
+            keys.add(validation_alias)
+        elif isinstance(validation_alias, AliasChoices):
+            keys.update(
+                choice for choice in validation_alias.choices
+                if isinstance(choice, str)
+            )
+        for key in keys:
+            if data.get(key) == '':
+                data[key] = None
+    return data
+
+
 class BaseCandidate(BaseModel):
     """Fields common to all candidate class schemas."""
     model_config = ConfigDict(populate_by_name=True)
@@ -152,6 +192,11 @@ class BaseCandidate(BaseModel):
     source_text: Optional[str] = Field(None, max_length=SOURCE_TEXT_MAX_LENGTH)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     match_decision: MatchDecision = Field(default_factory=MatchDecision)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _fold_empty_strings(cls, data: Any) -> Any:
+        return none_out_empty_optional_strings(cls, data)
 
 
 class BaseIndividual(BaseModel):
@@ -173,6 +218,7 @@ class BaseIndividual(BaseModel):
         """Map common LLM field name variants to the expected names."""
         if not isinstance(data, dict):
             return data
+        none_out_empty_optional_strings(cls, data)
         # identifier / name can come from 'label'
         if not data.get('identifier') and not data.get('name'):
             data['identifier'] = data.get('label', '')
@@ -807,6 +853,11 @@ class ActionIndividual(BaseModel):
     raises_obligation: List[str] = Field(default_factory=list, alias="proeth:raisesObligation")
     temporal_sequence: Optional[int] = Field(None, alias="proeth:temporalSequence")
 
+    @model_validator(mode='before')
+    @classmethod
+    def _fold_empty_strings(cls, data: Any) -> Any:
+        return none_out_empty_optional_strings(cls, data)
+
 
 class ActionExtractionResult(BaseModel):
     """Top-level LLM output for action extraction."""
@@ -907,6 +958,11 @@ class EventIndividual(BaseModel):
 
     # Added by the wired temporal_sequence apply-hook at commit time
     temporal_sequence: Optional[int] = Field(None, alias="proeth:temporalSequence")
+
+    @model_validator(mode='before')
+    @classmethod
+    def _fold_empty_strings(cls, data: Any) -> Any:
+        return none_out_empty_optional_strings(cls, data)
 
 
 class EventExtractionResult(BaseModel):
@@ -1454,6 +1510,19 @@ def _clean_structured_output_node(node: Any) -> Any:
     encodes ``Optional`` fields as ``anyOf[..., {"type": "null"}]``, so requiring
     them is safe -- the value may still be null. $ref/enum/const/format/
     description/title are preserved.
+
+    Optional-STRING nullability is additionally collapsed: a node whose anyOf
+    is exactly ``[{"type": "string"}, {"type": "null"}]`` becomes a plain
+    ``{"type": "string"}``. The compiled grammar charges per branch, and the
+    ~12 optional strings in the roles schema alone cost more grammar budget
+    than the entire nested MatchDecision object (probed against the API,
+    2026-07-04: the full roles schema exceeds the size ceiling with the null
+    branches and fits without them). The LLM emits ``""`` for absent; the
+    parse-time companion ``none_out_empty_optional_strings`` folds ``""`` back
+    to None so every downstream consumer sees unchanged semantics. Optional
+    ENUMS are untouched by construction (their anyOf carries a $ref branch,
+    not a bare string branch), so three-state routing fields such as
+    role_kind/role_category keep real null.
     """
     if isinstance(node, list):
         return [_clean_structured_output_node(child) for child in node]
@@ -1480,6 +1549,22 @@ def _clean_structured_output_node(node: Any) -> Any:
     if is_object:
         cleaned['additionalProperties'] = False
         cleaned['required'] = list(cleaned.get('properties', {}).keys())
+
+    # Collapse Optional[str] nullability (see docstring). Strict by
+    # construction: both branches must be bare single-key {"type": ...} dicts,
+    # so enum $refs, constrained branches, and unions of other shapes never
+    # match.
+    any_of = cleaned.get('anyOf')
+    if isinstance(any_of, list) and len(any_of) == 2:
+        branch_types = sorted(
+            branch['type'] for branch in any_of
+            if isinstance(branch, dict) and set(branch) == {'type'}
+        )
+        if branch_types == ['null', 'string']:
+            cleaned.pop('anyOf')
+            cleaned['type'] = 'string'
+            if cleaned.get('default', '') is None:
+                cleaned.pop('default')
 
     return cleaned
 

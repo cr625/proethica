@@ -23,8 +23,11 @@ logger = logging.getLogger(__name__)
 # Concept types whose cleaned result schema compiles to a structured-outputs grammar that exceeds the
 # API's size ceiling (a 400 "compiled grammar is too large"). Learned at runtime on the first such 400
 # so the failed call is not repeated; those concepts fall back to free-form JSON for the rest of the
-# process. The actions schema (richest field set, the only one with a real DB template) is the known
-# case; the rest fit. Slimming the actions schema so it also gets the guarantee is a follow-up.
+# process. As of 2026-07-04 all nine per-concept schemas fit (probed against the API): the Optional[str]
+# null-branch collapse in schemas._clean_structured_output_node bought back the grammar budget that
+# previously pushed roles and actions over the ceiling. This set remains as the safety net for future
+# schema growth (only the legacy combined 'actions_events' schema, which the pipeline never dispatches,
+# still exceeds the ceiling).
 _GRAMMAR_TOO_LARGE: set = set()
 
 

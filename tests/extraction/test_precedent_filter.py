@@ -6,7 +6,6 @@ phantom actors pulled from cited precedent cases (e.g. the user-reported
 """
 from app.services.extraction.precedent_filter import (
     is_precedent_reference,
-    is_precedent_entity,
     is_contaminated_entity,
     drop_contaminated_entities,
     present_case_actor_letters,
@@ -118,10 +117,13 @@ def test_is_contaminated_entity_composes_all_rules():
     present = frozenset({"L"})
     # marker rule (any concept type)
     assert is_contaminated_entity("Defendant Attorney BER Case 19-3", present_letters=present)
-    # clean-label rule (fact concept, all quotes precedent)
-    assert is_contaminated_entity("Public Works Director",
-                                  quotes=["BER Case No. 00-5 centered on the bridge"],
-                                  concept_type="roles", present_letters=present)
+    # clean_label_precedent was RETIRED 2026-06-28 (498d316: unsound; conflated "the quote
+    # CITES a precedent" with "the entity BELONGS to a precedent") -- a clean-labeled fact
+    # concept is KEPT even when its every quote sits in cited-precedent context; present-case
+    # scoping is the discussion-pass prompt directive's job now.
+    assert not is_contaminated_entity("Public Works Director",
+                                      quotes=["BER Case No. 00-5 centered on the bridge"],
+                                      concept_type="roles", present_letters=present)
     # foreign-actor rule
     assert is_contaminated_entity("Engineer A Bird Species Omission", present_letters=present)
     # clean present-case entity is kept by every rule
@@ -158,47 +160,31 @@ def test_flags_case_number_with_no_token():
     assert not is_precedent_reference("No. 3 Pump Station Operator")
 
 
-def test_clean_label_fact_dropped_when_all_quotes_precedent():
-    # The motivating real case: a clean label whose sole supporting quote is precedent-only.
-    assert is_precedent_entity(
-        "Public Works Director",
-        ["BER Case No. 00-5 centered on the reopening of a dangerous, closed bridge "
-         "by a nonengineer public works director"],
-        concept_type="roles")
-
-
-def test_clean_label_fact_kept_with_one_present_case_quote():
-    # A present-case entity that merely mentions a precedent in ONE quote is preserved,
-    # because another quote attests it in the current case.
-    assert not is_precedent_entity(
-        "Engineer A",
-        ["Unlike the engineer in BER Case 19-3, Engineer A disclosed the risk",
-         "Engineer A and Engineer B presented the findings jointly"],
-        concept_type="roles")
-
-
-def test_clean_label_norm_kept_even_when_all_quotes_precedent():
-    # Norm concepts are exempt from the clean-label rule: a cited precedent's principle /
-    # obligation / constraint transfers to the present case.
-    for ct in ("principles", "obligations", "constraints"):
-        assert not is_precedent_entity(
-            "Public Welfare Paramount",
-            ["BER Case 19-3 held that public welfare is paramount"],
+def test_clean_label_kept_regardless_of_quote_provenance():
+    # clean_label_precedent RETIRED 2026-06-28 (498d316): a clean-labeled entity is kept even
+    # when its only quote is precedent-context (the A/B audit showed the rule discarded
+    # legitimate present-case entities whose evidence merely cited a prior BER case, with zero
+    # genuine contamination caught). This holds for fact and norm concepts alike.
+    for ct in ("roles", "principles", "obligations", "constraints"):
+        assert not is_contaminated_entity(
+            "Public Works Director",
+            quotes=["BER Case No. 00-5 centered on the reopening of a dangerous, closed "
+                    "bridge by a nonengineer public works director"],
             concept_type=ct)
 
 
 def test_marker_label_dropped_for_every_concept_type():
     # The label-marker rule applies to all types, including norms (a citation marker in the
     # label is a contamination artifact, not a transferable norm).
-    assert is_precedent_entity("BER Case 19-3 Public Welfare", concept_type="principles")
-    assert is_precedent_entity("Engineer Doe Obligation", concept_type="obligations")
+    assert is_contaminated_entity("BER Case 19-3 Public Welfare", concept_type="principles")
+    assert is_contaminated_entity("Engineer Doe Obligation", concept_type="obligations")
 
 
 def test_clean_label_no_quotes_is_label_only():
-    # No quotes -> fall back to the label rule (no clean-label judgment, no over-drop).
-    assert not is_precedent_entity("Engineer A", None, concept_type="roles")
-    assert not is_precedent_entity("Engineer A", [], concept_type="roles")
-    assert not is_precedent_entity("Engineer A", ["  "], concept_type="roles")
+    # No quotes -> the label rule alone judges (no over-drop).
+    assert not is_contaminated_entity("Engineer A", None, concept_type="roles")
+    assert not is_contaminated_entity("Engineer A", [], concept_type="roles")
+    assert not is_contaminated_entity("Engineer A", ["  "], concept_type="roles")
 
 
 def test_drop_partitions_with_quotes_and_concept_type():
@@ -207,17 +193,12 @@ def test_drop_partitions_with_quotes_and_concept_type():
             self.label = label
             self.text_references = quotes
     items = [
-        E("Engineer A", ["Engineer A disclosed the risk"]),                  # keep (clean)
-        E("Public Works Director", ["BER Case No. 00-5 centered on a bridge"]),  # drop (fact)
+        E("Engineer A", ["Engineer A disclosed the risk"]),                       # keep (clean)
+        E("Public Works Director", ["BER Case No. 00-5 centered on a bridge"]),   # keep (rule retired)
+        E("Defendant BER Case 19-3", ["BER Case 19-3"]),                          # drop (marker)
     ]
     kept, dropped = drop_contaminated_entities(
         items, lambda e: e.label,
         get_quotes=lambda e: e.text_references, concept_type="roles")
-    assert [e.label for e in kept] == ["Engineer A"]
-    assert dropped == ["Public Works Director"]
-    # Same items as a NORM concept: the clean-label fact is kept (norm exemption).
-    kept2, dropped2 = drop_contaminated_entities(
-        items, lambda e: e.label,
-        get_quotes=lambda e: e.text_references, concept_type="principles")
-    assert [e.label for e in kept2] == ["Engineer A", "Public Works Director"]
-    assert dropped2 == []
+    assert [e.label for e in kept] == ["Engineer A", "Public Works Director"]
+    assert dropped == ["Defendant BER Case 19-3"]

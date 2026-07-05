@@ -49,6 +49,7 @@ def _bare(concept_type, **attrs):
     ext.config = CONCEPT_CONFIG[concept_type]
     ext.existing_classes = []
     ext.injection_mode = "full"
+    ext.apply_filters = True  # __init__ default (live pipeline behavior)
     for k, v in attrs.items():
         setattr(ext, k, v)
     return ext
@@ -91,15 +92,30 @@ def test_build_prompt_golden(monkeypatch):
     # \x07 (BEL) is a non-printable control char -> stripped by _build_prompt.
     prompt = ext._build_prompt("Engineer L\x07 did things.", "facts", case_id=None)
 
-    # The variable dict assembled for the template (case_text control-char
-    # stripped; no cross-concept context for roles; existing entities formatted).
-    assert tmpl.last_variables == {
-        "case_text": "Engineer L did things.",
-        "section_type": "facts",
-        "existing_roles_text": _EXISTING_ROLES_TEXT,
-        "existing_entities_text": _EXISTING_ROLES_TEXT,
-        "cross_concept_context": "",
+    variables = tmpl.last_variables
+    # The plumbing variables, asserted exactly (case_text control-char
+    # stripped; no cross-concept context for roles; existing entities
+    # formatted).
+    assert variables["case_text"] == "Engineer L did things."
+    assert variables["section_type"] == "facts"
+    assert variables["existing_roles_text"] == _EXISTING_ROLES_TEXT
+    assert variables["existing_entities_text"] == _EXISTING_ROLES_TEXT
+    assert variables["cross_concept_context"] == ""
+    # The ontology-derived content blocks (architecture rebuild, 2026-06/07):
+    # their wording evolves with the ontology and the SHACL shapes, so this
+    # golden locks presence + signature header, not full text.
+    assert set(variables) == {
+        "case_text", "section_type", "existing_roles_text",
+        "existing_entities_text", "cross_concept_context",
+        "pass_directive", "role_category_vocab", "role_definition",
+        "role_directives", "role_relationships", "role_schema",
     }
+    assert variables["pass_directive"].startswith("THIS PASS (facts):")
+    assert variables["role_category_vocab"].startswith("=== ROLE CATEGORY")
+    assert variables["role_definition"].startswith("=== WHAT A ROLE IS")
+    assert variables["role_directives"].startswith("=== ROLE EXTRACTION DIRECTIVES")
+    assert variables["role_relationships"].startswith("=== ROLE RELATIONSHIPS")
+    assert variables["role_schema"].startswith("=== ROLE SCHEMA")
     # The final prompt = rendered body + the code-appended JSON wrapper suffix.
     assert prompt == "RENDERED_BODY" + _ROLES_JSON_SUFFIX
 
@@ -127,6 +143,35 @@ class _MockLLM:
         class _R:
             content = json.dumps(_LLM_JSON)
         return _R()
+
+
+# Default-valued fields the roles schemas declare beyond the fixture's inputs
+# (extraction-architecture spec, R section, 2026-06/07). Kept as shared
+# constants so the two transform goldens below assert the full current dump
+# without repeating the defaults.
+_ROLE_CLASS_DEFAULTS = {
+    "role_category": None,
+    "role_kind": None,
+    "distinguishing_features": [],
+    "professional_scope": None,
+    "typical_qualifications": [],
+    "associated_virtues": [],
+}
+
+_ROLE_INDIVIDUAL_DEFAULTS = {
+    "actor": None,
+    "role_category": None,
+    "role_kind": None,
+    "license": None,
+    "specialty": None,
+    "experience_level": None,
+    "employer": None,
+    "technical_background": None,
+    "attributes": {},
+    "relationships": [],
+    "additional_relationships": [],
+    "case_involvement": None,
+}
 
 
 def test_extract_transform_golden(monkeypatch):
@@ -167,14 +212,14 @@ def test_extract_transform_golden(monkeypatch):
              "matched_uri": "http://proethica.org/ontology/intermediate#EngineerRole",
              "matched_label": "Engineer Role", "confidence": 0.9,
              "reasoning": "Label match with existing ontology class"},
-         "role_category": None},
+         **_ROLE_CLASS_DEFAULTS},
         {"label": "Client Role", "definition": "The client.",
          "text_references": ["the client"], "source_text": "the client",
          "confidence": 0.8,
          "match_decision": {"matches_existing": False, "matched_uri": None,
                             "matched_label": None, "confidence": 0.0,
                             "reasoning": None},
-         "role_category": None},
+         **_ROLE_CLASS_DEFAULTS},
     ]
     assert [i.model_dump() for i in individuals] == [
         {"identifier": "Engineer L", "text_references": ["Engineer L"],
@@ -185,9 +230,8 @@ def test_extract_transform_golden(monkeypatch):
              "matched_label": "Engineer Role", "confidence": 0.9,
              "reasoning": "Via class 'Engineer Role': Label match with existing "
                           "ontology class"},
-         "name": "Engineer L", "actor": None, "role_class": "Engineer Role",
-         "role_category": None, "attributes": {}, "relationships": [],
-         "case_involvement": None},
+         "name": "Engineer L", "role_class": "Engineer Role",
+         **_ROLE_INDIVIDUAL_DEFAULTS},
     ]
 
 
@@ -214,7 +258,7 @@ def test_parse_and_validate_golden():
                             "matched_label": None, "confidence": 0.5,
                             "reasoning": "match_decision omitted by LLM; post-hoc "
                                          "matching will resolve"},
-         "role_category": None},
+         **_ROLE_CLASS_DEFAULTS},
         {"label": "Client Role", "definition": "The client.",
          "text_references": ["the client"], "source_text": "the client",
          "confidence": 0.8,
@@ -222,7 +266,7 @@ def test_parse_and_validate_golden():
                             "matched_label": None, "confidence": 0.5,
                             "reasoning": "match_decision omitted by LLM; post-hoc "
                                          "matching will resolve"},
-         "role_category": None},
+         **_ROLE_CLASS_DEFAULTS},
     ]
     assert [i.model_dump() for i in individuals] == [
         {"identifier": "Engineer L", "text_references": ["Engineer L"],
@@ -230,9 +274,8 @@ def test_parse_and_validate_golden():
          "match_decision": {"matches_existing": False, "matched_uri": None,
                             "matched_label": None, "confidence": 0.0,
                             "reasoning": None},
-         "name": "Engineer L", "actor": None, "role_class": "Engineer Role",
-         "role_category": None, "attributes": {}, "relationships": [],
-         "case_involvement": None},
+         "name": "Engineer L", "role_class": "Engineer Role",
+         **_ROLE_INDIVIDUAL_DEFAULTS},
     ]
 
 

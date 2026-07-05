@@ -32,7 +32,8 @@ from typing import Callable, List, Tuple, TypeVar
 #                         Case [No.] NN-N | Doe). The optional "No." token was added 2026-06-18
 #                         after a clean-labeled phantom ("Public Works Director", attested only by
 #                         "BER Case No. 00-5 centered on ...") slipped the "Case NN-N"-only pattern
-#                         once the clean-label rule below began testing quotes.
+#                         under the since-retired clean-label quote rule (the broadened pattern
+#                         still serves the label-marker rule).
 #   GENERIC_PRECEDENT_RE - whole-label generic precedent PLACEHOLDER ("BER Case Precedent",
 #                         "Precedent Reference"). End-anchored so it does NOT touch present-case
 #                         entities that merely mention precedent (e.g. "Engineer L BER Precedent
@@ -55,53 +56,19 @@ def is_precedent_reference(label: str | None) -> bool:
     return bool(label and (PRECEDENT_REF_RE.search(label) or GENERIC_PRECEDENT_RE.match(label)))
 
 
-# Concept types whose entities are NORMS. A cited precedent is invoked precisely because
-# its norms apply to the case under analysis, so a clean-labeled principle/obligation/
-# constraint is NOT dropped just because its supporting quote cites the precedent. Fact
-# concepts (roles, states, resources, capabilities; and the Step-3 actions/events) get the
-# clean-label provenance rule below: a fact attested ONLY in cited-precedent text belongs
-# to the precedent, not this case.
-NORM_CONCEPT_TYPES = frozenset({"principles", "obligations", "constraints"})
-
 # Concept types for which a cited precedent is legitimate CONTENT, not contamination. The Resources
 # component captures a cited BER opinion AS a case_precedent resource (the precedent IS the resource),
 # so a precedent-reference label or quote is the entity itself, not a phantom pulled from inside a
-# precedent. These types are exempt from the precedent-marker and clean-label-precedent rules; the
-# foreign-actor rule still applies (a resource carrying a foreign engineer letter is still a phantom).
+# precedent. These types are exempt from the precedent-marker rule; the foreign-actor rule still
+# applies (a resource carrying a foreign engineer letter is still a phantom).
 # Added 2026-06-28 after the case-7 pilot dropped BER Case 90-6 and 98-3, the two precedents the
 # case's entire analysis rests on.
 PRECEDENT_AS_CONTENT_TYPES = frozenset({"resources"})
 
-
-def _all_quotes_are_precedent(quotes: List[str] | None) -> bool:
-    """True iff there is at least one supporting quote and EVERY one is a precedent
-    reference -- i.e. the entity is attested only in cited-precedent context. A single
-    non-precedent quote keeps the entity (it appears in the present case too), so a
-    current-case entity that merely mentions a precedent in one quote is preserved."""
-    qs = [q for q in (quotes or []) if q and q.strip()]
-    return bool(qs) and all(is_precedent_reference(q) for q in qs)
-
-
-def is_precedent_entity(
-    label: str | None,
-    quotes: List[str] | None = None,
-    concept_type: str | None = None,
-) -> bool:
-    """Whether an extracted entity should be dropped as precedent contamination.
-
-    Combines the label-marker rule (every concept type -- a citation marker in the label
-    is itself a contamination artifact) with clean-label provenance detection (fact
-    concepts only): an entity whose label is clean but whose every supporting quote sits
-    in cited-precedent context is a phantom precedent entity (e.g. "Public Works Director"
-    attested only by "BER Case No. 00-5 centered on ..."). Norm concepts are exempt from
-    the clean-label rule because a cited precedent's norms transfer to the present case."""
-    if concept_type not in PRECEDENT_AS_CONTENT_TYPES and is_precedent_reference(label):
-        return True
-    if (concept_type not in NORM_CONCEPT_TYPES
-            and concept_type not in PRECEDENT_AS_CONTENT_TYPES
-            and _all_quotes_are_precedent(quotes)):
-        return True
-    return False
+# The former is_precedent_entity/_all_quotes_are_precedent pair (the clean-label quote-provenance
+# rule, with a NORM_CONCEPT_TYPES exemption) was removed 2026-07-04: the rule itself was retired
+# from PRECEDENT_RULES on 2026-06-28 (498d316, see the RuleSet note below), leaving the pair dead
+# and asserting a policy the live filter no longer enforces.
 
 
 # Present-case actor consistency (added 2026-06-18, case-8 Section-C pilot, Finding B). NSPE
@@ -187,10 +154,11 @@ def is_contaminated_entity(
     concept_type: str | None = None,
     present_letters=None,
 ) -> bool:
-    """True if the entity matches any PRECEDENT_RULES rule (precedent marker; for fact concepts,
-    all quotes in precedent context; or a foreign present-case actor). Pass present_letters (from
-    present_case_actor_letters over the facts/question/conclusion sections) to enable the actor
-    rule; omit it where the case context is unavailable -- the label/quote rules still apply."""
+    """True if the entity matches any PRECEDENT_RULES rule (a citation marker in the label, or
+    a foreign present-case actor). Pass present_letters (from present_case_actor_letters over
+    the facts/question/conclusion sections) to enable the actor rule; omit it where the case
+    context is unavailable -- the label rule still applies. quotes is accepted (EntityContext
+    carries it for future rules) but no live rule currently inspects it."""
     return PRECEDENT_RULES.matches(EntityContext(
         label=label, quotes=quotes, concept_type=concept_type,
         present_letters=present_letters or frozenset()))

@@ -190,14 +190,16 @@ def test_gate_rejects_cross_category_individual_direct_match(monkeypatch):
     assert "rejected cross-category match" in md.reasoning
 
 
-def test_resolve_core_category_professional_competence_is_capability():
-    # Real resolver over the curated TTLs: ProfessionalCompetence is declared
-    # subClassOf proeth-core:Capability in proethica-intermediate.
-    assert category_resolver.resolve_core_category("ProfessionalCompetence") == "Capability"
+def test_resolve_core_category_risk_assessment_is_capability():
+    # Real resolver over the curated TTLs: RiskAssessmentCapability chains to
+    # proeth-core:Capability in proethica-intermediate. (The earlier exemplar,
+    # ProfessionalCompetence, was removed in the 2026-06-28 Capability kind
+    # taxonomy rework.)
+    assert category_resolver.resolve_core_category("RiskAssessmentCapability") == "Capability"
     # URI and prefixed forms reduce to the same local name.
     assert category_resolver.resolve_core_category(
-        "http://proethica.org/ontology/intermediate#ProfessionalCompetence"
+        "http://proethica.org/ontology/intermediate#RiskAssessmentCapability"
     ) == "Capability"
     assert category_resolver.resolve_core_category(
-        "proeth:ProfessionalCompetence"
+        "proeth:RiskAssessmentCapability"
     ) == "Capability"
