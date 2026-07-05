@@ -150,8 +150,33 @@ def start_mcp_server():
         logger.error(f"Failed to start MCP server: {e}")
         return False
 
+def _maybe_listen_debugpy():
+    """Opt-in debugger endpoint: set DEBUGPY_PORT (e.g. 5678) and a debugpy
+    socket opens for VS Code's 'Attach: ProEthica' configuration. Attach AFTER
+    the app is warm, so breakpoints never fire during startup or page-assembly
+    churn; explicit debugpy.breakpoint() markers in code are no-ops until a
+    client attaches. Under the Werkzeug reloader only the serving CHILD listens
+    (the master would otherwise steal the port and breakpoints would land in
+    the wrong process); each reload restarts the child, so re-attach after an
+    edit. Set DEBUGPY_NO_RELOADER=1 when running with the reloader disabled."""
+    port = os.environ.get('DEBUGPY_PORT')
+    if not port:
+        return
+    serving_process = (os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+                       or os.environ.get('DEBUGPY_NO_RELOADER') == '1')
+    if not serving_process:
+        return
+    try:
+        import debugpy
+        debugpy.listen(('127.0.0.1', int(port)))
+        logger.info(f"debugpy listening on 127.0.0.1:{port} -- attach from VS Code any time")
+    except Exception as e:  # never let the debug convenience break a start
+        logger.warning(f"debugpy listen skipped: {e}")
+
+
 def main():
     """Main entry point for the ProEthica application."""
+    _maybe_listen_debugpy()
     # Skip service checks in the master reloader process.
     # When debug=True, Werkzeug spawns a master process (watches files) and a child
     # process (runs Flask). Only the child has WERKZEUG_RUN_MAIN=true.
