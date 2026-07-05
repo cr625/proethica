@@ -650,18 +650,35 @@ class OntServeCommitService:
                     self._cite_discovering_cases(g, class_uri, props)
 
                     # Domain properties: everything the class card displays beyond the
-                    # provenance keys handled above (e.g. valueBasis, obligationType,
-                    # capabilityCategory, textReferences, confidence). The class
-                    # serializer previously emitted only definitions + provenance, so
-                    # the entire "Properties" column was dropped at commit. Emit each
-                    # remaining key as a literal, mirroring the individual generic path
-                    # (same _camelCase predicate convention) so the class round-trips.
+                    # provenance keys handled above (e.g. valueBasis, textReferences,
+                    # confidence). The class serializer previously emitted only
+                    # definitions + provenance, so the entire "Properties" column was
+                    # dropped at commit. Emit each remaining key as a literal,
+                    # mirroring the individual generic path (same _camelCase predicate
+                    # convention) so the class round-trips.
                     for prop_name, prop_values in props.items():
                         if prop_name in self._PROV_PROP_KEYS:
                             continue
                         values = prop_values if isinstance(prop_values, list) else [prop_values]
                         safe_prop = self._camelCase(prop_name)
-                        prop_uri = PROETHICA[safe_prop]
+                        # Routing inputs are consumed by the subClassOf/type routing
+                        # and must not leak as class literals -- the individual loop
+                        # has carried this skip since CMT-3, the class loop had not
+                        # (correspondence audit T5/B3: principleCategory,
+                        # obligationType, stateCategory, ... appeared as literals on
+                        # every minted class, contra the shapes' not-stored-as-a-
+                        # literal contract).
+                        if safe_prop in self._CLASS_ROUTING_KEYS:
+                            continue
+                        # The four role definitional fields are DECLARED as core#
+                        # annotation properties (and the SHACL shapes point at core:
+                        # paths); the generic intermediate# emission left the declared
+                        # properties dataless and the emitted predicates undeclared
+                        # (correspondence-audit namespace-drift defect).
+                        if safe_prop in self._CORE_CLASS_FIELDS:
+                            prop_uri = PROETHICA_CORE[safe_prop]
+                        else:
+                            prop_uri = PROETHICA[safe_prop]
                         for value in values:
                             if value not in (None, '', [], {}):
                                 if safe_prop == 'confidence':
@@ -1656,6 +1673,29 @@ class OntServeCommitService:
         'discoveredInSection', 'discoveredInPass', 'sourceText',
     })
 
+    # Routing inputs the CLASS path must not store as literals (the shapes
+    # declare each "a routing input, not stored as a literal"; the typing they
+    # drive is the subClassOf/rdf:type routing). The individual path applies
+    # its own skip inline (roleCategory/roleKind + endswith('Class') + RELATION
+    # classification); this is the class-path counterpart, covering every
+    # class-minting component (correspondence audit T5/B3).
+    _CLASS_ROUTING_KEYS = frozenset({
+        'roleCategory', 'roleKind', 'principleCategory', 'obligationType',
+        'derivedFromPrinciple', 'stateCategory', 'obligationActivation',
+        'actionConstraints', 'activationConditions', 'terminationConditions',
+        'principleTransformation', 'resourceCategory', 'sourceKind',
+        'capabilityKind', 'constraintType', 'boundaryType', 'eventType',
+    })
+
+    # Class-level definitional fields declared in the CORE namespace
+    # (proethica-core annotation properties; the SHACL definition shapes point
+    # at core: paths). Emitted under PROETHICA_CORE so declaration, shape, and
+    # data agree.
+    _CORE_CLASS_FIELDS = frozenset({
+        'distinguishingFeatures', 'professionalScope',
+        'typicalQualifications', 'associatedVirtues',
+    })
+
     def _emit_provenance(self, g: Graph, subject_uri: URIRef, rdf_data: Dict) -> None:
         """Typed PROV-O / proeth-prov provenance from the extracted properties,
         shared by the class and individual paths (single source of truth). The
@@ -1722,6 +1762,18 @@ class OntServeCommitService:
         preds = list(((rdf_data or {}).get('properties', {}) or {}).keys())
         preds += [k for k in (rdf_data or {}).keys() if isinstance(k, str) and k.startswith('proeth:')]
         kept = synthesis_literals(preds)
+        # Mirror the generic-loop emission skip (CMT-3/R1) plus the re-shaped
+        # bags, so the marker lists exactly the literals the graph carries: a
+        # *Class key becomes the rdf:type, roleCategory/roleKind are routing
+        # inputs, and attributes/additionalRelationships are re-shaped into
+        # per-key / otherAttribute literals rather than kept under their own
+        # names. Without this the marker asserted triples that do not exist
+        # (correspondence audit T2, verified on case-8 Engineer L).
+        _reshaped = {'attributes', 'additionalRelationships', 'relationships'}
+        kept = [p for p in kept
+                if not self._camelCase(p).endswith('Class')
+                and self._camelCase(p) not in ('roleCategory', 'roleKind')
+                and self._camelCase(p) not in _reshaped]
         if not kept:
             return
         decl = (prov_ns['synthesisLiteral'], RDF.type, OWL.AnnotationProperty)
@@ -2628,8 +2680,6 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['focus'], Literal(rdf_data['focus'])))
             if rdf_data.get('decision_question'):
                 g.add((uri, PROETHICA['decisionQuestion'], Literal(rdf_data['decision_question'])))
-            if rdf_data.get('context'):
-                g.add((uri, PROETHICA['context'], Literal(rdf_data['context'])))
             if rdf_data.get('role_label'):
                 g.add((uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
             for i, opt in enumerate(rdf_data.get('options', []) or []):
@@ -2659,8 +2709,6 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
             if rdf_data.get('questionNumber'):
                 g.add((uri, PROETHICA['questionNumber'], Literal(int(rdf_data['questionNumber']), datatype=XSD.integer)))
-            if rdf_data.get('emergence'):
-                g.add((uri, PROETHICA['emergence'], Literal(rdf_data['emergence'])))
 
         # Step-3 temporal dynamics (Actions / Events). These arrive as a
         # JSON-LD record (@type + proeth:* predicates) from the LangGraph
@@ -2996,6 +3044,13 @@ class OntServeCommitService:
                             pass
                     else:
                         g.add((uri, PROETHICA_PROV[local], Literal(str(v))))
+                continue
+            if local == 'eventType':
+                # Routing input: drives the three-way origin subClassOf typing
+                # (AgentCausedEvent/ExogenousEvent/AutomaticEvent) and is not
+                # stored as a literal, matching the shape contract and the
+                # class-path routing skip (correspondence audit B5; events
+                # previously carried proeth:eventType literals).
                 continue
             values = value if isinstance(value, list) else [value]
             for v in values:

@@ -71,5 +71,8 @@ def test_event_typed_as_core_event():
         'proeth:createsObligation': ['Obtain_Licensure', 'Disclose_Status'],
     })
     assert (uri, RDF.type, URIRef(CORE + 'Event')) in g
-    assert (uri, URIRef(INT + 'eventType'), Literal('automatic_trigger')) in g
+    # eventType is a routing input (drives the origin subClassOf typing via
+    # resolve_event_origin_category, which reads the JSON record); it is NOT
+    # stored as a literal (B5, 2026-07-05).
+    assert (uri, URIRef(INT + 'eventType'), None) not in g
     assert len(list(g.triples((uri, URIRef(INT + 'createsObligation'), None)))) == 2

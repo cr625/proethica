@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 CORE = Namespace("http://proethica.org/ontology/core#")
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
+PROETH_PROV = Namespace("http://proethica.org/provenance#")
 
 # Cosine thresholds for resolving a free-text linkage description to a case
 # individual, calibrated on 483 descriptions across cases 5/7/8/15/17 (the local
@@ -299,6 +300,10 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
         _collect(subj, "terminatedByEvent", term_descs)
         if cls["principle_transformation"] and (subj, PROETH.principleTransformation, None) not in g:
             g.add((subj, PROETH.principleTransformation, Literal(cls["principle_transformation"])))
+            # The applier runs after the serializer wrote the synthesisLiteral
+            # marker, so the marker is extended here or it under-reports this
+            # kept literal (correspondence audit T2).
+            g.add((subj, PROETH_PROV.synthesisLiteral, Literal("principleTransformation")))
             res["principleTransformation"] += 1
 
     # Pass B: batched LLM confirm/select over the shortlists (hybrid precision
