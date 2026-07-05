@@ -20,7 +20,7 @@
         "constraint_type": {
           "type": "string",
           "required": true,
-          "description": "Controlled boundary type that drives the subClassOf typing: legal, regulatory, resource, competence, jurisdictional, procedural, safety, confidentiality, ethical, temporal, priority. A routing input, not stored as a literal"
+          "description": "Controlled boundary type that drives the subClassOf typing: legal, regulatory, resource, competence, jurisdictional, procedural, safety, confidentiality, ethical, temporal. A routing input, not stored as a literal"
         },
         "match_decision": {
           "type": "object",

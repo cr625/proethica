@@ -1070,7 +1070,7 @@ class CapabilityExtractionResult(BaseModel):
 # Ontology boundary types: LegalConstraint, RegulatoryConstraint,
 #   ResourceConstraint, CompetenceConstraint, JurisdictionalConstraint,
 #   ProceduralConstraint, SafetyConstraint, ConfidentialityConstraint,
-#   EthicalConstraint, TemporalConstraint, PriorityConstraint
+#   EthicalConstraint, TemporalConstraint
 # Ontology defeasibility types (orthogonal): DefeasibleConstraint,
 #   InviolableConstraint (mapped via flexibility field)
 # Literature: Ganascia (defeasible logic), Dennis et al. (hierarchical
@@ -1107,7 +1107,10 @@ class ConstraintType(str, Enum):
     confidentiality = "confidentiality"
     ethical = "ethical"
     temporal = "temporal"
-    priority = "priority"
+    # 'priority' retired 2026-07-05 with the PriorityConstraint class deletion:
+    # precedence between competing requirements is the obligation layer's job
+    # (competesWith / prevailsOver / defeasibleUnder); a boundary type for it
+    # duplicated that mechanism (2026-07-04 deprecation note; zero corpus use).
 
 
 class Flexibility(str, Enum):
@@ -1359,7 +1362,8 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         'confidentiality': f'{INTERMEDIATE_NS}ConfidentialityConstraint',
         'ethical': f'{INTERMEDIATE_NS}EthicalConstraint',
         'temporal': f'{INTERMEDIATE_NS}TemporalConstraint',
-        'priority': f'{INTERMEDIATE_NS}PriorityConstraint',
+        # 'priority' retired 2026-07-05 (PriorityConstraint deleted; see the
+        # ConstraintType enum note).
     },
     # Cs: Constraint defeasibility -> intermediate subclass IRIs
     # (orthogonal axis, applied in addition to boundary type)
