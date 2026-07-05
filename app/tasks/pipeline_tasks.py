@@ -1221,9 +1221,15 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
         # Get all unpublished entity IDs
+        # is_selected=False rows are excluded: that is both the review-UI
+        # deselect semantics (previously ignored here) and, since 2026-07-05,
+        # the verification gate's durable drop marker -- without it the second
+        # commit sub-task re-gated every unpublished row with a fresh vote
+        # panel, and a 5/5-dropped duty could RESURRECT on a 3/5 re-vote
+        # (pipeline-optimality review F1).
         entities = TemporaryRDFStorage.query.filter_by(
             case_id=run.case_id, is_published=False
-        ).all()
+        ).filter(TemporaryRDFStorage.is_selected.is_(True)).all()
         entity_ids = [e.id for e in entities]
 
         if not entity_ids:
@@ -1241,26 +1247,44 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         # Commit-time verification gate: the chokepoint just before commit_selected_entities
         # canonicalizes classes into the extended ontology (where an over-reaching class would be
         # written with discoveredInCase, then injected back into later extractions and recur). It
-        # (1) DROPS over-reaching duty classes (votes=3, drop at 3/3) and null-label classes by
-        # filtering entity_ids, and (2) RE-GROUNDS surviving entities' quotes to verified verbatim
-        # spans (rewriting the denormalized quote fields in rdf_json_ld), so nothing over-reaching
-        # canonicalizes and every committed quote is provably a span of the case.
+        # (1) DROPS over-reaching duty classes (a 5-vote panel, drop at 4/5) and null-label
+        # classes by filtering entity_ids, and (2) RE-GROUNDS surviving entities' quotes to
+        # verified verbatim spans (rewriting the denormalized quote fields in rdf_json_ld), so
+        # nothing over-reaching canonicalizes and every committed quote is provably a span of
+        # the case. Rows already vetted by an earlier sub-task of this commit are excluded from
+        # the gate input (the audit tag in review_notes), so the vote panel runs ONCE per row.
         from app.services.extraction.verification_gate import (
             verify_case_entities, quotes_of, class_ref_of, apply_corrected_quotes)
         from sqlalchemy.orm.attributes import flag_modified
         _sec = get_case_sections(run.case_id)
         _case_text = (_sec.get('facts') or '') + '\n\n' + (_sec.get('discussion_full') or _sec.get('discussion') or '')
+        _GATE_VETTED = 'verification-gate: vetted'
+        _gate_rows = [e for e in entities
+                      if not (e.review_notes or '').startswith(_GATE_VETTED)]
         _gate = verify_case_entities(
             [{'id': e.id, 'label': e.entity_label, 'definition': e.entity_definition,
               'component': (e.extraction_type or '').lower(), 'storage_type': e.storage_type,
               'quotes': quotes_of(e.rdf_json_ld), 'class_ref': class_ref_of(e.rdf_json_ld)}
-             for e in entities],
+             for e in _gate_rows],
             _case_text, run.case_id,
         )
+        _detail_by_id = {i: {'label': l, 'reason': r} for i, l, r in getattr(_gate, 'dropped', [])}
         if _gate.dropped_ids:
             entity_ids = [i for i in entity_ids if i not in _gate.dropped_ids]
             logger.info(f"[verification-gate] case {run.case_id} dropped {len(_gate.dropped_ids)} "
                         f"pre-commit: {_gate.report['dropped_detail']}")
+        # Durable outcomes: a drop deselects the row (never re-gated, never
+        # committed, review-visible with its reason); a vetted survivor is
+        # audit-tagged so later sub-tasks skip its vote panel.
+        for e in _gate_rows:
+            if e.id in _gate.dropped_ids:
+                e.is_selected = False
+                _d = _detail_by_id.get(e.id) or {}
+                _reason = _d.get('reason') or 'dropped by the verification gate'
+                e.review_notes = f"verification-gate: dropped run {run_id}: {_reason}"[:1000]
+            elif not e.review_notes:
+                e.review_notes = f"{_GATE_VETTED} run {run_id}"
+        db.session.commit()
         if _gate.corrected_quotes:
             _by_id = {e.id: e for e in entities}
             _regrounded = 0
