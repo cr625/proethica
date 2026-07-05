@@ -2294,14 +2294,20 @@ class OntServeCommitService:
     # map's EXACT-name matches to derive from the ontology (a key equal to a declared property name maps
     # to it automatically) and for the synonym rows below to migrate to skos:altLabel on the properties,
     # at which point this literal dict is deleted. Until promotion is live the synonym map stays.
+    # Targets use the SHACL ProfessionalRolePropertyShape spellings (license,
+    # specialty, employer) -- the same predicates the named-field path emits.
+    # The former hasLicense/hasSpecialty/hasEmployer twins were consolidated
+    # away 2026-07-05 (correspondence audit M4: the same datum reached a
+    # different predicate depending on extraction placement; zero corpus
+    # references to the has* forms existed).
     _ATTRIBUTE_VOCAB = {
-        'license': 'hasLicense', 'licensure': 'hasLicense', 'licensestatus': 'hasLicense',
-        'licensed': 'hasLicense', 'professionallicense': 'hasLicense', 'licensing': 'hasLicense',
-        'specialty': 'hasSpecialty', 'specialization': 'hasSpecialty',
-        'specialisation': 'hasSpecialty', 'specialties': 'hasSpecialty',
+        'license': 'license', 'licensure': 'license', 'licensestatus': 'license',
+        'licensed': 'license', 'professionallicense': 'license', 'licensing': 'license',
+        'specialty': 'specialty', 'specialization': 'specialty',
+        'specialisation': 'specialty', 'specialties': 'specialty',
         'experience': 'experienceLevel', 'yearsofexperience': 'experienceLevel',
         'experiencelevel': 'experienceLevel', 'yearsexperience': 'experienceLevel',
-        'employer': 'hasEmployer', 'employedby': 'hasEmployer', 'employment': 'hasEmployer',
+        'employer': 'employer', 'employedby': 'employer', 'employment': 'employer',
         'jurisdiction': 'hasJurisdiction',
         'registration': 'registrationStatus', 'registrationstatus': 'registrationStatus',
         'position': 'roleInOrganization', 'roleinorganization': 'roleInOrganization',
