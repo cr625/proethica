@@ -132,11 +132,6 @@
           "required": true,
           "description": "Unique instance descriptor (e.g. 'Engineer A Design Role')"
         },
-        "importance": {
-          "type": "string",
-          "required": false,
-          "description": "high, medium, low"
-        },
         "role_class": {
           "type": "string",
           "required": true,
