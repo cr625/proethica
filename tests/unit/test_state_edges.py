@@ -23,6 +23,9 @@ def test_cosine_and_norm():
     assert se._cosine([1, 0], [0, 1]) == 0.0
     assert se._cosine([], [1]) == 0.0
     assert se._norm("  Design_Error-Discovered  STATE ") == "design error discovered state"
+    # CamelCase split (states NEW-1): the CamelCase and spaced spellings of a
+    # state class label must key to the same class.
+    assert se._norm("EthicalDilemmaState") == se._norm("Ethical Dilemma State")
 
 
 def test_resolve_picks_best_above_threshold(monkeypatch):

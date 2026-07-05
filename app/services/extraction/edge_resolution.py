@@ -75,7 +75,14 @@ def _cosine(a: List[float], b: List[float]) -> float:
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"\s+", " ", (s or "").lower().replace("_", " ").replace("-", " ")).strip()
+    # Split CamelCase boundaries (lower-to-upper transitions) BEFORE lowercasing,
+    # so "EthicalDilemmaState" and "Ethical Dilemma State" normalize identically.
+    # Extracted state_class fields and committed class labels arrive in both
+    # spellings; without the split an individual resolves to the wrong class
+    # (states NEW-1: wrong principleTransformation copied). Already-spaced,
+    # underscored, and hyphenated labels are unaffected.
+    s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", s or "")
+    return re.sub(r"\s+", " ", s.lower().replace("_", " ").replace("-", " ")).strip()
 
 
 # --- graph helpers (mirror rpo_edges / defeasibility_pipeline) -------------

@@ -95,6 +95,23 @@ def test_llm_select_multi_none_without_streaming_client():
     assert er._llm_select_multi(_items(), client=object(), model="x") is None
 
 
+def test_norm_camelcase_and_spaced_labels_agree():
+    """CamelCase and spaced spellings of the same label must normalize identically
+    (states NEW-1): the state applier keys individuals to their classes via _norm,
+    and "EthicalDilemmaState" vs "Ethical Dilemma State" previously normalized
+    differently, resolving individuals to the wrong class (wrong
+    principleTransformation copied)."""
+    assert er._norm("EthicalDilemmaState") == er._norm("Ethical Dilemma State")
+    assert er._norm("EthicalDilemmaState") == "ethical dilemma state"
+    # Already-spaced / underscored / hyphenated / uppercase labels keep the
+    # pre-fix normalization.
+    assert er._norm("Ethical Dilemma State") == "ethical dilemma state"
+    assert er._norm("ethical_dilemma-state") == "ethical dilemma state"
+    assert er._norm("  Design_Error-Discovered  STATE ") == "design error discovered state"
+    assert er._norm("") == ""
+    assert er._norm(None) == ""
+
+
 def test_emit_edge_prov_idempotent_and_property_scoped():
     """emit_edge_prov is deterministic from (prefix, prop, subj, obj); a second emission
     must not duplicate the node or multi-value its fields, and two different properties

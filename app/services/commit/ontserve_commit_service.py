@@ -660,9 +660,13 @@ class OntServeCommitService:
                         if prop_name in self._PROV_PROP_KEYS:
                             continue
                         values = prop_values if isinstance(prop_values, list) else [prop_values]
-                        prop_uri = PROETHICA[self._camelCase(prop_name)]
+                        safe_prop = self._camelCase(prop_name)
+                        prop_uri = PROETHICA[safe_prop]
                         for value in values:
                             if value not in (None, '', [], {}):
+                                if safe_prop == 'confidence':
+                                    g.add((class_uri, prop_uri, self._confidence_literal(value)))
+                                    continue
                                 lit = value if isinstance(value, (str, int, float, bool)) else str(value)
                                 g.add((class_uri, prop_uri, Literal(lit)))
                 else:
@@ -1535,6 +1539,17 @@ class OntServeCommitService:
         """
         from app.utils.predicate_naming import to_camel_case
         return to_camel_case(text)
+
+    @staticmethod
+    def _confidence_literal(value) -> Literal:
+        """proeth:confidence typed xsd:decimal (B12). The extraction JSON carries
+        confidence as a string ("0.9"), which the generic property loops emitted
+        as an untyped literal, so the value was not numerically comparable in
+        SPARQL. A non-numeric value falls back to the plain literal."""
+        try:
+            return Literal(float(value), datatype=XSD.decimal)
+        except (TypeError, ValueError):
+            return Literal(value if isinstance(value, str) else str(value))
 
     # Synthesis / temporal individuals carry their text in dedicated predicates
     # (proeth:focus / questionText / conclusionText / description), so they are
@@ -2826,7 +2841,9 @@ class OntServeCommitService:
                 prop_uri = PROETHICA[safe_prop]
                 for value in prop_values:
                     if value:
-                        g.add((uri, prop_uri, Literal(value)))
+                        lit = (self._confidence_literal(value)
+                               if safe_prop == 'confidence' else Literal(value))
+                        g.add((uri, prop_uri, lit))
 
         # R1 relational-archetype FALLBACK: a role facet that did NOT receive an edge-derived archetype
         # falls back to its role_category (the four Kong archetypes) for the relational type. Materialized
@@ -2995,7 +3012,10 @@ class OntServeCommitService:
                 # Preserve native bool/int/float so declared datatype ranges are
                 # satisfied (e.g. proeth:temporalSequence has range xsd:nonNegativeInteger;
                 # a stringified "6" would violate it and make the case inconsistent).
-                lit = Literal(v) if isinstance(v, (bool, int, float)) else Literal(str(v))
+                if pred_local == 'confidence':
+                    lit = self._confidence_literal(v)
+                else:
+                    lit = Literal(v) if isinstance(v, (bool, int, float)) else Literal(str(v))
                 g.add((uri, PROETHICA[pred_local], lit))
 
     def get_case_version_history(self, case_id: int) -> Dict[str, Any]:

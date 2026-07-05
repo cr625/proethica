@@ -243,15 +243,19 @@ def pydantic_to_rdf_data(
         # Build individual definition from concept-specific descriptor fields.
         # Individuals don't have a 'definition' field like classes do -- the
         # meaningful descriptor varies by concept type (e.g. concrete_expression
-        # for principles, obligation_statement for obligations).
+        # for principles, obligation_statement for obligations). The field named
+        # here becomes rdfs:comment + skos:definition on the committed individual
+        # (via the definitions entry below), so it must be a description of the
+        # individual, not a pointer to another entity. States have no such
+        # descriptor field (subject is who the state is about, not a description),
+        # so they take the description/definition fallback or no comment at all.
         _INDIVIDUAL_DESCRIPTOR = {
             'roles': 'case_involvement',
-            'states': 'subject',
             'resources': 'used_in_context',
             'principles': 'concrete_expression',
             'obligations': 'obligation_statement',
             'constraints': 'constraint_statement',
-            'capabilities': 'capability_statement',
+            'capabilities': 'case_context',
         }
         ind_definition = ''
         descriptor_field = _INDIVIDUAL_DESCRIPTOR.get(concept_type)

@@ -25,6 +25,9 @@ from app.services.extraction.field_classification import (
     ("proeth:responsibleAgent", FieldKind.RELATION),
     ("proeth:guidedByPrinciple", FieldKind.RELATION),
     ("affectedParties", FieldKind.RELATION),
+    ("citedBy", FieldKind.RELATION),                  # resolved to the citedByAgent edge
+    ("requiredForObligations", FieldKind.RELATION),   # resolved to requiresCapability edges
+    ("proeth-core:requiresCapability", FieldKind.RELATION),  # the edge itself
     ("proeth-core:hasObligation", FieldKind.RELATION),
     ("answersQuestion3", FieldKind.RELATION),         # numbered, normalized
     ("claimEntity", FieldKind.RELATION),
@@ -37,6 +40,8 @@ from app.services.extraction.field_classification import (
     ("proeth:eventType", FieldKind.CONTENT),
     ("questionText", FieldKind.CONTENT),
     ("proeth:fulfillsObligationText", FieldKind.CONTENT),   # demoted literal of a relation
+    ("proeth:triggeringEvent", FieldKind.CONTENT),    # irregular shadow of activatedByEvent
+    ("terminatedBy", FieldKind.CONTENT),              # irregular shadow of terminatedByEvent
     # ASSESSMENT: LLM judgments
     ("proeth:confidence", FieldKind.ASSESSMENT),
     ("proeth:severity", FieldKind.ASSESSMENT),
@@ -52,7 +57,8 @@ from app.services.extraction.field_classification import (
     ("proeth:actionCount", FieldKind.DERIVED),
     ("owlTimeProperty", FieldKind.DERIVED),
     ("citedProvision1", FieldKind.DERIVED),
-    ("proeth:requiresCapability", FieldKind.DERIVED),
+    ("provisionCodes", FieldKind.DERIVED),
+    ("proeth:requiresCapabilityText", FieldKind.DERIVED),   # Text sibling registered DERIVED
     ("conclusionNumber", FieldKind.DERIVED),
     ("obligationActivation", FieldKind.DERIVED),
     ("fromEntityText", FieldKind.DERIVED),

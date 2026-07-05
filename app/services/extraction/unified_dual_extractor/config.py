@@ -128,6 +128,7 @@ CONCEPT_CONFIG: Dict[str, Dict[str, Any]] = {
 # Defines which prior concept extractions should be injected into the prompt
 # for each concept. Reflects the methodology's dependency chain:
 #   Roles -> Principles -> Obligations -> Constraints/Capabilities
+#   States/Actions -> Events (initiates/terminates and action-result links)
 
 CROSS_CONCEPT_DEPS: Dict[str, Dict[str, Any]] = {
     'principles': {
@@ -159,6 +160,15 @@ CROSS_CONCEPT_DEPS: Dict[str, Dict[str, Any]] = {
             'The following OBLIGATIONS and ROLES were identified. '
             'Identify capabilities needed by each role to fulfill '
             'these obligations.'
+        ),
+    },
+    'events': {
+        'depends_on': ['states', 'actions'],
+        'instruction': (
+            'The following STATES and ACTIONS were identified. '
+            'When an event initiates or terminates a state, reference '
+            'these state labels; when an event results from an action, '
+            'reference these action labels.'
         ),
     },
 }

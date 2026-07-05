@@ -55,7 +55,7 @@ _RELATION = {
     # actor-anchored (participant + role/resource/state actor edges)
     "hasRole", "actor",
     "obligatedParty", "constrainedEntity", "possessedBy", "invokedBy", "hasCapability",
-    "affects", "affectedParties", "availableTo", "usedBy",
+    "affects", "affectedParties", "availableTo", "usedBy", "citedBy",
     # generic per-individual relationship list (a temp_rdf field the serializer resolves into
     # peer / symmetric-property edges); structural, not a kept synthesis literal.
     "relationships", "relatedTo",
@@ -66,6 +66,11 @@ _RELATION = {
     "attributes",
     # R -> P -> O dependency chain
     "hasObligation", "adheresToPrinciple", "derivedFromPrinciple",
+    # obligation-capability presupposition: the capability rows' requiredForObligations
+    # labels resolve (inverted) to Obligation requiresCapability Capability edges;
+    # the bare requiresCapability is that edge. The Action-level requiresCapability
+    # literal is demoted to requiresCapabilityText at commit (registered in _DERIVED).
+    "requiresCapability", "requiredForObligations",
     # defeasibility
     "competesWith", "prevailsOver", "defeasibleUnder",
     # state-anchored activation/termination
@@ -105,7 +110,10 @@ _DERIVED = {
     "owlTimeProperty", "fromEntityText", "toEntityText",   # Allen-relation literal duplicates
     "conclusionNumber", "questionNumber", "argumentId",    # ordinals / handles == label
     "citedProvision",                                      # duplicated by the citesProvision edge
-    "requiresCapability",                                  # action competence: derivable from agent capabilities
+    "provisionCodes",                                      # duplicated by the provision edges resolved from it
+    "requiresCapabilityText",                              # the committed literal (commit-time demotion of the
+                                                           # Action requiresCapability field); derivable from
+                                                           # agent capabilities. The bare name is the edge.
     # State candidate-class activation lists, materialized instead as state/fluent edges
     "obligationActivation", "actionConstraints",
     "activationConditions", "terminationConditions",
@@ -123,6 +131,13 @@ _PROVENANCE = {
 }
 
 _TRAILING_DIGITS = re.compile(r"\d+$")
+
+# Kept raw-text literals that shadow a materialized edge under a DIFFERENT property name
+# (no '<relation>Text' spelling): state_edges resolves these free-text event descriptions
+# into the activatedByEvent / terminatedByEvent edges, while the committed literal keeps
+# the verbatim description (the intermediate ontology declares both as datatype properties
+# intended on State). They take the demoted-text treatment: content, not the edge.
+_DEMOTED_LITERALS = {"triggeringEvent", "terminatedBy"}
 
 
 def _normalize(predicate: str) -> str:
@@ -147,11 +162,17 @@ def _normalize(predicate: str) -> str:
 # The classification as a coherent, inspectable rule set over the bare local name (see
 # app.services.extraction.rules). Order IS the precedence: PROVENANCE > ASSESSMENT > DERIVED
 # > RELATION, with the demoted "<relation>Text" rule first (a literal shadow of an object
-# property is content, not the relation it mirrors). CONTENT is the default when none match.
+# property is content, not the relation it mirrors). The demoted rule also covers the
+# irregularly named shadows in _DEMOTED_LITERALS, and defers to an explicit _DERIVED
+# registration (requiresCapabilityText derives from the graph rather than carrying kept
+# content). CONTENT is the default when none match.
 FIELD_RULES: RuleSet[str] = RuleSet("field_classification", [
     Rule("demoted_text",
-         "a '<relation>Text' literal shadows its object property and is kept content",
-         lambda local: local.endswith("Text") and local[: -len("Text")] in _RELATION,
+         "a literal shadow of an object property ('<relation>Text' or an irregularly "
+         "named shadow) is kept content",
+         lambda local: local in _DEMOTED_LITERALS
+         or (local.endswith("Text") and local not in _DERIVED
+             and local[: -len("Text")] in _RELATION),
          payload=FieldKind.CONTENT),
     Rule("provenance", "extraction bookkeeping / XAI annotation",
          lambda local: local in _PROVENANCE, payload=FieldKind.PROVENANCE),
@@ -170,8 +191,10 @@ def classify(predicate: str) -> FieldKind:
     Precedence: PROVENANCE > ASSESSMENT > DERIVED > RELATION > CONTENT (default). A
     ``...Text`` datatype sibling of an object property (the commit-time demotion of a
     literal placed on an object property, e.g. ``fulfillsObligationText``) is the raw-text
-    literal form and classifies as CONTENT, not as the RELATION it shadows. Backed by
-    FIELD_RULES so the vocabulary is one inspectable registry."""
+    literal form and classifies as CONTENT, not as the RELATION it shadows; so do the
+    irregularly named state shadows (``triggeringEvent`` / ``terminatedBy``). A Text
+    sibling explicitly registered in _DERIVED (``requiresCapabilityText``) stays DERIVED.
+    Backed by FIELD_RULES so the vocabulary is one inspectable registry."""
     local = _normalize(predicate)
     if not local:
         return FieldKind.CONTENT

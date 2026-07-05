@@ -29,6 +29,7 @@ from app.services.extraction.rpo_edges import (
     Indiv,
     RPOEdgeExtractor,
     add_edges_to_graph,
+    gather,
 )
 
 CASE_NS = "http://proethica.org/ontology/case/86#"
@@ -227,6 +228,70 @@ class TestPartialRecovery:
         ).extract(86, roles, principles, obligations)
         preds = sorted(e["predicate"] for e in edges)
         assert preds == ["adheresToPrinciple", "hasObligation"]
+
+
+# ---------------------------------------------------------------------------
+# Principle context gathering from the committed-graph shape
+# ---------------------------------------------------------------------------
+
+class TestGatherPrincipleContext:
+    """The commit writes neither the proeth:principleClass nor the
+    proeth:invokedBy literal (CMT-3): the class is the rdf:type and invokedBy
+    is a proeth-core:invokedBy object edge. gather() must derive both from the
+    canonical triples instead of reading the absent literals."""
+
+    COMMITTED_TTL = """
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix proeth: <http://proethica.org/ontology/intermediate#> .
+        @prefix proeth-core: <http://proethica.org/ontology/core#> .
+        @prefix case: <http://proethica.org/ontology/case/86#> .
+
+        case:Public_Welfare_Principle a owl:NamedIndividual, proeth-core:Principle,
+                proeth:PublicWelfarePrinciple ;
+            rdfs:label "Public welfare paramount" ;
+            proeth:appliedTo "the design review" ;
+            proeth:concreteExpression "hold paramount the safety of the public" ;
+            proeth-core:invokedBy case:Agent_NSPE_Board, case:Agent_Engineer_A .
+
+        case:Agent_NSPE_Board rdfs:label "NSPE Board of Ethical Review" .
+        case:Agent_Engineer_A rdfs:label "Engineer A" .
+    """
+
+    def _principles(self):
+        g = Graph()
+        g.parse(data=self.COMMITTED_TTL, format="turtle")
+        _, principles, _ = gather(g)
+        return principles
+
+    def test_class_context_from_rdf_type(self):
+        (p,) = self._principles()
+        assert p.fields["principleClass"] == "PublicWelfarePrinciple"
+
+    def test_invoked_by_context_from_object_edges(self):
+        (p,) = self._principles()
+        assert p.fields["invokedBy"] == "Engineer A; NSPE Board of Ethical Review"
+
+    def test_literal_reads_unchanged(self):
+        (p,) = self._principles()
+        assert p.fields["appliedTo"] == "the design review"
+        assert p.fields["concreteExpression"] == "hold paramount the safety of the public"
+
+    def test_absent_context_omitted(self):
+        # No non-core type and no invokedBy edge: the keys are absent rather
+        # than empty, matching the literal-read behavior for missing fields.
+        g = Graph()
+        g.parse(data="""
+            @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+            @prefix owl: <http://www.w3.org/2002/07/owl#> .
+            @prefix proeth-core: <http://proethica.org/ontology/core#> .
+            @prefix case: <http://proethica.org/ontology/case/86#> .
+            case:P a owl:NamedIndividual, proeth-core:Principle ; rdfs:label "P" .
+        """, format="turtle")
+        _, principles, _ = gather(g)
+        (p,) = principles
+        assert "principleClass" not in p.fields
+        assert "invokedBy" not in p.fields
 
 
 # ---------------------------------------------------------------------------

@@ -101,12 +101,51 @@ def _fields(g: Graph, ind: URIRef, names: List[str]) -> Dict[str, str]:
     return d
 
 
+def _type_class_context(g: Graph, ind: URIRef) -> Optional[str]:
+    """Class context derived from the individual's non-core proeth:* rdf:type.
+    The commit never writes the *Class literal shadow (CMT-3: the class IS the
+    rdf:type), so a literal read of e.g. proeth:principleClass silently yields
+    nothing on committed graphs."""
+    locals_ = sorted(str(t).split("#")[-1] for t in g.objects(ind, RDF.type)
+                     if str(t).startswith(str(PROETH)))
+    return "; ".join(locals_) if locals_ else None
+
+
+def _invoked_by_context(g: Graph, ind: URIRef) -> Optional[str]:
+    """invokedBy context derived from the materialized proeth-core:invokedBy
+    object edges, with target labels resolved via rdfs:label in the same graph.
+    The commit never writes the proeth:invokedBy literal shadow (CMT-3: a
+    RELATION field is materialized as an object-property edge), so a literal
+    read silently yields nothing on committed graphs."""
+    labels = []
+    for tgt in g.objects(ind, PROETH_CORE.invokedBy):
+        lbl = g.value(tgt, RDFS.label)
+        labels.append(str(lbl) if lbl else str(tgt).split("#")[-1])
+    return "; ".join(sorted(labels)) if labels else None
+
+
 def gather(g: Graph) -> Tuple[List[Indiv], List[Indiv], List[Indiv]]:
-    def mk(ind, names):
+    def mk(ind, names, derived=None):
         lbl = g.value(ind, RDFS.label)
-        return Indiv(str(ind), str(lbl) if lbl else str(ind).split("#")[-1], _fields(g, ind, names))
+        fields = dict(derived) if derived else {}
+        fields.update(_fields(g, ind, names))
+        return Indiv(str(ind), str(lbl) if lbl else str(ind).split("#")[-1], fields)
+
+    def principle_context(ind):
+        # principleClass / invokedBy come from the canonical triples (rdf:type
+        # and the invokedBy object edges); only appliedTo / concreteExpression
+        # remain literal reads.
+        ctx = {}
+        cls = _type_class_context(g, ind)
+        if cls:
+            ctx["principleClass"] = cls
+        inv = _invoked_by_context(g, ind)
+        if inv:
+            ctx["invokedBy"] = inv
+        return ctx
+
     roles = [mk(r, ["roleClass", "caseContext", "relationships"]) for r in _individuals_in_category(g, "Role")]
-    principles = [mk(p, ["principleClass", "invokedBy", "appliedTo", "concreteExpression"])
+    principles = [mk(p, ["appliedTo", "concreteExpression"], principle_context(p))
                   for p in _individuals_in_category(g, "Principle")]
     obligations = [mk(o, ["obligationClass", "obligatedParty", "obligationStatement"])
                    for o in _individuals_in_category(g, "Obligation")]
