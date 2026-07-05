@@ -55,10 +55,11 @@ def test_attributes_become_per_key_triples():
         'attributes': ["{'license': 'PE in State X', 'experience': '20 years'}"],
     }}
     svc._add_individual_properties(g, uri, _entity('roles'), rdf_data, CASE)
-    # Recurring professional keys map to the controlled vocabulary (hasLicense,
-    # experienceLevel) so cross-case queries work and the datatype-predicate space
-    # stays closed.
-    assert (uri, PROETHICA['hasLicense'], Literal('PE in State X')) in g
+    # Recurring professional keys map to the controlled vocabulary (license,
+    # experienceLevel -- the SHACL bearer spellings; the hasLicense twin was
+    # consolidated away 2026-07-05) so cross-case queries work and the
+    # datatype-predicate space stays closed.
+    assert (uri, PROETHICA['license'], Literal('PE in State X')) in g
     assert (uri, PROETHICA['experienceLevel'], Literal('20 years')) in g
     # The opaque dead-text literal must NOT survive.
     assert (uri, PROETHICA['attributes'],
@@ -96,10 +97,12 @@ def test_peer_relationship_maps_to_symmetric_property():
     assert (subj_uri, CORE['professionalPeerOf'], tgt_uri) in g
 
 
-def test_argument_validation_rich_handler_emits():
-    """Regression guard: the rich synthesis handler ported into the unified
-    serializer still emits its triples (this used to live only in the live path).
-    """
+def test_argument_validation_retired_emits_nothing():
+    """The argument_validation synthesis family was retired with the cases-
+    ontology v3.0.0 slim (2026-07-04): cases#ArgumentValidation is deleted and
+    the rich handler with its numbered validationNoteN/missingEntityN
+    predicates is gone. This locks the retirement: the serializer emits no
+    triples for the extraction type."""
     svc = _svc()
     g = Graph()
     uri = CASE['Validation_DP1']
@@ -112,11 +115,7 @@ def test_argument_validation_rich_handler_emits():
         'virtue_validation': {'is_valid': True},
     }
     svc._add_individual_properties(g, uri, _entity('argument_validation'), rdf_data, CASE)
-    assert (uri, RDF.type, CASES['ArgumentValidation']) in g
-    assert (uri, PROETHICA['validatesArgument'], CASE['Arg_DP1_optA']) in g
-    assert (uri, PROETHICA['argumentId'], Literal('Arg_DP1_optA')) in g
-    assert (uri, PROETHICA['validationNote1'], Literal('note one')) in g
-    assert (uri, PROETHICA['missingEntity1'], Literal('EngineerB')) in g
+    assert len(list(g.triples((uri, None, None)))) == 0
 
 
 def test_decision_point_options_and_conclusion_provisions():
@@ -129,8 +128,10 @@ def test_decision_point_options_and_conclusion_provisions():
         'decision_question': 'Sign or not?',
         'options': [{'description': 'Sign'}, {'description': 'Refuse'}],
     }, CASE)
-    assert (dp, PROETHICA['option1'], Literal('Sign')) in g
-    assert (dp, PROETHICA['option2'], Literal('Refuse')) in g
+    # Repeated-singular predicate with ordinal prefixes (the numbered
+    # option1/option2 family was retired 2026-07-04).
+    assert (dp, PROETHICA['option'], Literal('1. Sign')) in g
+    assert (dp, PROETHICA['option'], Literal('2. Refuse')) in g
     assert (dp, PROETHICA['decisionQuestion'], Literal('Sign or not?')) in g
 
     g2 = Graph()
@@ -140,8 +141,8 @@ def test_decision_point_options_and_conclusion_provisions():
         'conclusionNumber': 1,
         'citedProvisions': ['II.1.a', 'III.2.b'],
     }, CASE)
-    assert (c, PROETHICA['citedProvision1'], Literal('II.1.a')) in g2
-    assert (c, PROETHICA['citedProvision2'], Literal('III.2.b')) in g2
+    assert (c, PROETHICA['citedProvision'], Literal('II.1.a')) in g2
+    assert (c, PROETHICA['citedProvision'], Literal('III.2.b')) in g2
 
 
 # --- Agent layer (Option C: cross-section actor identity) --------------------

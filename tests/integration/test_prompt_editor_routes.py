@@ -155,8 +155,10 @@ class TestRenderTemplateAPI:
         assert response.status_code != 302
 
     @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
-    def test_render_requires_case_id(self, mock_mcp, auth_client, create_test_template):
-        """Test that render endpoint requires case_id."""
+    def test_render_without_case_id_succeeds(self, mock_mcp, auth_client, create_test_template):
+        """Render no longer hard-requires case_id: the prompt-viewer defaults
+        the case selection (the ?case=latest dead-end-link fix, 2026-07-04),
+        so a render request without one succeeds instead of returning 400."""
         mock_mcp.return_value = MagicMock()
         template = create_test_template()
 
@@ -166,10 +168,7 @@ class TestRenderTemplateAPI:
             content_type='application/json'
         )
 
-        assert response.status_code == 400
-        data = json.loads(response.data)
-        assert data['success'] is False
-        assert 'case_id' in data['error'].lower()
+        assert response.status_code == 200
 
     @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     @patch('app.services.prompt_variable_resolver.get_prompt_variable_resolver')
@@ -223,8 +222,10 @@ class TestRenderTemplateAPI:
 class TestResolveVariablesAPI:
     """Tests for POST /api/prompts/template/<id>/resolve-variables endpoint."""
 
-    def test_resolve_variables_requires_auth(self, client, create_test_template):
-        """Test that resolve-variables requires authentication."""
+    def test_resolve_variables_public(self, client, create_test_template):
+        """resolve-variables is deliberately PUBLIC (2026-07-04): the anonymous
+        prompt viewer resolves template variables for transparency, so an
+        unauthenticated request succeeds instead of redirecting to login."""
         template = create_test_template()
 
         response = client.post(
@@ -233,7 +234,7 @@ class TestResolveVariablesAPI:
             content_type='application/json'
         )
 
-        assert response.status_code == 302
+        assert response.status_code == 200
 
     @patch('app.services.ontserve.external_mcp_client.get_external_mcp_client')
     def test_resolve_variables_requires_case_id(self, mock_mcp, auth_client, create_test_template):
