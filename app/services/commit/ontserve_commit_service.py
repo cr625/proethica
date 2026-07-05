@@ -644,6 +644,11 @@ class OntServeCommitService:
                     self._emit_provenance(g, class_uri, rdf_data)
                     props = rdf_data['properties']
 
+                    # Case citation: dcterms:source <case ontology IRI> per
+                    # discovering case (class path only -- an individual inside
+                    # its own case TTL would be self-citation).
+                    self._cite_discovering_cases(g, class_uri, props)
+
                     # Domain properties: everything the class card displays beyond the
                     # provenance keys handled above (e.g. valueBasis, obligationType,
                     # capabilityCategory, textReferences, confidence). The class
@@ -694,6 +699,29 @@ class OntServeCommitService:
             logger.error(f"Error committing classes: {e}")
             return {'count': 0, 'error': str(e)}
 
+    @staticmethod
+    def _case_ontology_iri(case_id) -> URIRef:
+        """The case ontology declaration IRI (<.../ontology/case/N>), used as the
+        machine-readable dcterms:source citation on case-discovered classes --
+        symmetric with the curated classes' literature dcterms:source (DOIs). A
+        discovered class is grounded extensionally by the case(s) it was found
+        in (McLaren), so the case IS its source."""
+        return URIRef(f"http://proethica.org/ontology/case/{int(case_id)}")
+
+    def _cite_discovering_cases(self, g: Graph, class_uri: URIRef, props: Dict) -> None:
+        """Emit one dcterms:source case citation per discoveredInCase value
+        (falling back to firstDiscoveredInCase), deduplicated against the graph."""
+        case_ids = props.get('discoveredInCase') or props.get('firstDiscoveredInCase') or []
+        if not isinstance(case_ids, list):
+            case_ids = [case_ids]
+        for case_id_val in case_ids:
+            try:
+                source = self._case_ontology_iri(case_id_val)
+            except (TypeError, ValueError):
+                continue
+            if (class_uri, DCTERMS.source, source) not in g:
+                g.add((class_uri, DCTERMS.source, source))
+
     def _accumulate_class_context(self, g: Graph, class_uri: URIRef,
                                      entity, rdf_data: Dict,
                                      PROETHICA_PROV: Namespace) -> None:
@@ -717,6 +745,8 @@ class OntServeCommitService:
             if (class_uri, PROETHICA_PROV.discoveredInCase, case_literal) not in g:
                 g.add((class_uri, PROETHICA_PROV.discoveredInCase, case_literal))
                 logger.info(f"Class {entity.entity_label}: added discoveredInCase {case_id_val}")
+        # Re-discovery extends the extensional grounding: cite the new case too.
+        self._cite_discovering_cases(g, class_uri, props)
 
         # Add case-specific definition as skos:scopeNote if it differs from existing
         new_definition = ''
