@@ -61,6 +61,37 @@ def _verbatim(quote: str | None, token_string: str) -> bool:
     return bool(q) and q in token_string
 
 
+def _structured_stream_json(client, model: str, prompt: str, schema: Dict,
+                            max_tokens: int) -> Dict:
+    """Stream one structured-output call and parse its JSON, retrying once on a partial response.
+
+    Structured outputs guarantee FORMAT only for a COMPLETE response: a stream cut by max_tokens
+    or a dropped connection delivers unparseable partial JSON (case-6 run 30 lost a whole commit
+    sub-task to one ~450-char partial over-reach vote response). The retry doubles the token cap
+    in case the cut was max_tokens; a second failure propagates -- the callers' contract is
+    surface-the-error, and the commit path re-runs the gate on its next sub-task."""
+    for attempt in range(2):
+        chunks: List[str] = []
+        with client.messages.stream(
+            model=model, max_tokens=max_tokens * (attempt + 1),
+            messages=[{"role": "user", "content": prompt}],
+            output_config={"format": {"type": "json_schema", "schema": schema}},
+        ) as stream:
+            for t in stream.text_stream:
+                chunks.append(t)
+            final = stream.get_final_message()
+        text = "".join(chunks)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            if attempt == 0:
+                logger.warning(
+                    f"structured stream returned unparseable JSON "
+                    f"(stop={final.stop_reason}, {len(text)} chars): {e}; retrying once")
+                continue
+            raise
+
+
 @dataclass
 class QuoteVerdict:
     """Per-entity outcome of the grounding pass."""
@@ -121,16 +152,7 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     if not client:
         raise RuntimeError("verify_and_reground: no LLM client available")
 
-    chunks: List[str] = []
-    with client.messages.stream(
-        model=model,
-        max_tokens=8000,
-        messages=[{"role": "user", "content": prompt}],
-        output_config={"format": {"type": "json_schema", "schema": _REGROUND_SCHEMA}},
-    ) as stream:
-        for t in stream.text_stream:
-            chunks.append(t)
-    data = json.loads("".join(chunks))
+    data = _structured_stream_json(client, model, prompt, _REGROUND_SCHEMA, max_tokens=8000)
 
     # 3. Confirm each returned span is a real substring before accepting; build per-entity verdicts.
     by_id = {r['id']: r for r in data.get('results', [])}
@@ -216,15 +238,7 @@ def _overreach_once(case_text: str, duty_entities: List[Dict], model: str) -> Di
     client = get_llm_client()
     if not client:
         raise RuntimeError("detect_overreach: no LLM client available")
-    chunks: List[str] = []
-    with client.messages.stream(
-        model=model, max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}],
-        output_config={"format": {"type": "json_schema", "schema": _OVERREACH_SCHEMA}},
-    ) as stream:
-        for t in stream.text_stream:
-            chunks.append(t)
-    data = json.loads("".join(chunks))
+    data = _structured_stream_json(client, model, prompt, _OVERREACH_SCHEMA, max_tokens=4000)
     return {r["id"]: (bool(r["overreach"]), r.get("reason", ""), r.get("limiting_quote", ""))
             for r in data.get("results", [])}
 
