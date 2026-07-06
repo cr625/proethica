@@ -1365,11 +1365,30 @@ class OntServeCommitService:
         if concept_type == 'roles':
             from app.services.extraction.role_archetype_resolver import resolve_occupational_archetype
             occ = resolve_occupational_archetype(entity.entity_label)
+            core_role = f'{PROETHICA_CORE}Role'
             if occ:
-                core_role = f'{PROETHICA_CORE}Role'
                 result = [r for r in result if r != core_role]
                 if occ not in result:
                     result.append(occ)
+            else:
+                # roleKind backstop for the CLASS path, mirroring
+                # _role_individual_occupational_parents (decision R1): when the
+                # occupational resolver matches no head, the extraction's own
+                # professional/participant call parents the minted class onto the
+                # occupational axis, so the class chain carries the axis the roleKind
+                # contract promises ("for a matched existing class the axis is carried
+                # by the class chain"). Before this, a novel head with a stated
+                # roleKind was minted at bare core:Role (the 2026-07-05 AffectedPartyRole/
+                # BusinessManagerRole/MunicipalityRole mints), so a later case matching
+                # it would inherit no axis. With neither signal the class stays bare
+                # core:Role for the conformance gate to flag.
+                rk = self._extract_role_kind(rdf_data)
+                axis = {'professional': f'{PROETHICA}ProfessionalRole',
+                        'participant': f'{PROETHICA}ParticipantRole'}.get(rk or '')
+                if axis:
+                    result = [r for r in result if r != core_role]
+                    if axis not in result:
+                        result.append(axis)
 
         return result
 
