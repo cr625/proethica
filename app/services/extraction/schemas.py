@@ -547,7 +547,7 @@ class ObligationIndividual(BaseIndividual):
     """A specific obligation instance in the case."""
     obligation_class: str = Field("", description="Obligation class label or URI", alias="instance_of")
     obligated_party: Optional[str] = Field(
-        None, description="Who bears the obligation (Dennis: 'by whom'); resolves to the obligatedParty edge"
+        None, description="Who bears the obligation (the by-whom slot of the Richardson 1990 specification scheme, adopted by Dennis et al. 2016); resolves to the obligatedParty edge"
     )
     obligation_statement: Optional[str] = Field(
         None, description="The specific duty statement"
@@ -557,7 +557,7 @@ class ObligationIndividual(BaseIndividual):
     )
     case_context: Optional[str] = None
     temporal_scope: Optional[str] = Field(
-        None, description="When the obligation applies (Dennis: 'when')"
+        None, description="When the obligation applies (the conditional-applicability slot; Dennis et al. 2016 model obligations as condition-dependent)"
     )
     compliance_status: Optional[ComplianceStatus] = None
 

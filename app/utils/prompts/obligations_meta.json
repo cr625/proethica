@@ -109,7 +109,7 @@
         "temporal_scope": {
           "type": "string",
           "required": false,
-          "description": "When the obligation is in force (Dennis: 'when')"
+          "description": "When the obligation is in force (the conditional-applicability slot; Dennis et al. 2016 model obligations as condition-dependent)"
         },
         "compliance_status": {
           "type": "string",
