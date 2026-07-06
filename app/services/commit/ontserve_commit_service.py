@@ -708,6 +708,7 @@ class OntServeCommitService:
                 count += 1
 
             # Save the graph
+            self._sanitize_graph_literals(g)
             g.serialize(destination=extracted_file, format='turtle')
             logger.info(f"Committed {count} classes to {extracted_file}")
 
@@ -1108,6 +1109,7 @@ class OntServeCommitService:
             role_axis_vetoes = self._apply_role_axis_guard(g, role_kind_by_uri)
 
             # Save the graph
+            self._sanitize_graph_literals(g)
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Committed {count} individuals to {case_file}")
 
@@ -1560,6 +1562,7 @@ class OntServeCommitService:
                 "canonicalization sweep could not see.",
                 post_vetoes, case_id,
             )
+            self._sanitize_graph_literals(g)
             g.serialize(destination=str(ttl_path), format='turtle')
         stats['role_axis_vetoes_post_canonicalization'] = post_vetoes
         return stats
@@ -1575,6 +1578,26 @@ class OntServeCommitService:
         """
         from app.utils.predicate_naming import to_camel_case
         return to_camel_case(text)
+
+    @staticmethod
+    def _sanitize_graph_literals(g: Graph) -> int:
+        """Strip C0 control characters (except tab/newline/CR) from every literal in the
+        graph, in place, before serialization. Source documents occasionally carry stray
+        control bytes (the case-56 probe found U+0002 inside question text propagated from
+        document_sections), which survive Turtle but break every XML-based consumer
+        (RDF/XML serialization, OWLAPI/Pellet explain). One chokepoint for all emission
+        paths rather than per-field cleaning. Returns the number of literals rewritten."""
+        import re
+        ctrl = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+        fixes = []
+        for s, p, o in g:
+            if isinstance(o, Literal) and ctrl.search(str(o)):
+                fixes.append((s, p, o,
+                              Literal(ctrl.sub('', str(o)), lang=o.language, datatype=o.datatype)))
+        for s, p, o, clean in fixes:
+            g.remove((s, p, o))
+            g.add((s, p, clean))
+        return len(fixes)
 
     @staticmethod
     def _confidence_literal(value) -> Literal:
@@ -2333,6 +2356,7 @@ class OntServeCommitService:
             role_axis_vetoes = self._apply_role_axis_guard(g, role_kind_by_uri)
 
             # Write file (overwrites existing)
+            self._sanitize_graph_literals(g)
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Wrote fresh TTL file with {count} individuals to {case_file}")
 
