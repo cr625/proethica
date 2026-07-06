@@ -214,11 +214,16 @@ class TestPromptBuilder:
     constraints survive serialization."""
 
     def test_property_axioms_present(self, case72_obligations, case72_states):
-        from app.services.extraction.enhanced_prompts_defeasibility import PROPERTY_AXIOMS_BLOCK
-        # The verbatim TTL block injected into the system prompt as {{ property_axioms_block }}.
-        assert "owl:SymmetricProperty" in PROPERTY_AXIOMS_BLOCK
-        assert "rdfs:domain proeth-core:Obligation" in PROPERTY_AXIOMS_BLOCK
-        assert "rdfs:range proeth-core:State" in PROPERTY_AXIOMS_BLOCK
+        from app.services.extraction.enhanced_prompts_defeasibility import property_axioms_block
+        # The TTL block injected into the system prompt as {{ property_axioms_block }},
+        # parsed live from proethica-core.ttl so it cannot drift (the hard-coded
+        # predecessor omitted the prevailsOver characteristics).
+        block = property_axioms_block()
+        assert "owl:SymmetricProperty" in block
+        assert "owl:AsymmetricProperty" in block
+        assert "owl:IrreflexiveProperty" in block
+        assert "rdfs:domain proeth-core:Obligation" in block
+        assert "rdfs:range proeth-core:State" in block
 
     def test_iris_passed_verbatim(self, case72_obligations, case72_states):
         prompt = create_defeasibility_prompt(

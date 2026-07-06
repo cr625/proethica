@@ -608,7 +608,9 @@ def run_step3_task(self, run_id: int):
             logger.info(f"[Task {self.request.id}] Obligation engagement: {eng_result}")
             _record_pass(run, 'reconciliation', 'obligation_engagement', eng_result,
                          plan={'repartitions': "each Action's obligations into fulfills / violates / "
-                               "raises, reconciled against the case's extracted obligations"})
+                               "raises, reconciled against that action's own input pool "
+                               "(label resolution to the case's Obligation individuals "
+                               "happens in the obligation_edges pass)"})
         except Exception as eng_err:
             logger.exception(f"[Task {self.request.id}] Obligation engagement hook failed: {eng_err}")
             results['obligation_engagement'] = 'error'

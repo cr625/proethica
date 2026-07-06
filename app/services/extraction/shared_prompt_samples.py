@@ -141,7 +141,7 @@ def _defeasibility_edges_sample() -> Dict[str, object]:
     system prompt injects."""
     from app.services.extraction.enhanced_prompts_defeasibility import (
         ObligationContext, StateContext, NarrativeContext,
-        _format_obligations, _format_states, _format_narratives, PROPERTY_AXIOMS_BLOCK)
+        _format_obligations, _format_states, _format_narratives, property_axioms_block)
     obligations = [
         ObligationContext(iri="http://proethica.org/case7#Safety_Obligation", label="Safety",
                           statement="protect the public welfare", obligated_party="Engineer A"),
@@ -154,7 +154,7 @@ def _defeasibility_edges_sample() -> Dict[str, object]:
                                    source_field="tensionresolution",
                                    text="public welfare overrides loyalty when safety is at stake")]
     return {
-        'property_axioms_block': PROPERTY_AXIOMS_BLOCK,
+        'property_axioms_block': property_axioms_block(),
         'case_tag': 'case 7',
         'obligations_block': _format_obligations(obligations),
         'states_block': _format_states(states),

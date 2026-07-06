@@ -1,7 +1,7 @@
 """Shared edge-materialization helper for committed case TTLs.
 
 A committed case TTL carries individuals + their subClassOf-core chains but no
-relational layer. This module adds, in one place, the three edge families the
+relational layer. This module adds, in one place, the edge families the
 KI2026 corpus relies on:
 
   - Defeasibility (competesWith / prevailsOver / defeasibleUnder), LLM-derived.
@@ -44,7 +44,8 @@ def _run_family(results: Dict[str, Any], key: str, case_id: int, ttl_path) -> No
 
 
 def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
-    """Run all three edge appliers over a just-written case TTL (in place).
+    """Run the full ordered edge-applier registry plus the deterministic appliers
+    and the unified domain/range guard over a just-written case TTL (in place).
 
     Args:
         case_id: numeric case id (used for PROV IRI minting).
@@ -139,7 +140,7 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # 2f-bis. Temporal (Allen) relation endpoints (DB-driven, embedding-resolved): each
     # reified TemporalRelation's fromEntity/toEntity free-text timeline phrasings are
     # resolved to the committed Action/Event individuals and the proeth:fromEntity /
-    # proeth:toEntity object edges + the time:* OWL-Time triple are materialised onto
+    # proeth:toEntity object edges + the time:* OWL-Time triple are materialized onto
     # real individuals. Before this the converter's pre-computed endpoint URIs (lossy
     # 50-char truncation, legacy namespace) dangled silently. Range is union(Action,
     # Event); the unified guard validates both endpoints, dropping any phrasing

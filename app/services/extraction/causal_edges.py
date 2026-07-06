@@ -13,7 +13,7 @@ responsibleAgentText once the properties became object properties), so the causa
 was not wired into the graph. This applier WIRES IT IN: it reads each CausalChain row's
 cause / effect / responsibleAgent labels from temporary_rdf_storage, resolves cause/effect
 to the matching case Action or Event individual and responsibleAgent to the case Agent
-individual(s), and materialises first-class edges with PROV-O provenance:
+individual(s), and materializes first-class edges with PROV-O provenance:
 
   CausalChain proeth:cause            Action|Event
   CausalChain proeth:effect           Action|Event
@@ -23,7 +23,7 @@ This is a fidelity refinement, not a relocation: the causal chain is the canonic
 irreducible-extraction content (the NESS analysis cannot be rebuilt from the graph), so it
 stays in extraction; this links its endpoints into the graph so the chain is traversable.
 
-Structurally identical to fluent_edges.py / obligation_edges.py: embedding shortlist over
+Structurally identical to the fluent_edges / obligation_edges families (edge_spec.py): embedding shortlist over
 the candidate pool + a batched LLM select per property. The subject is the CausalChain
 individual resolved by normalized rdfs:label (its label is "cause -> effect"; the
 committed URI derives from it). cause/effect resolve against the Action+Event pool (range
@@ -393,7 +393,7 @@ def apply_causal_normative_link_edges(case_id: int, ttl_path, write_back: bool =
     The synthesis link node carries the normative-significance reasoning, but the commit
     serializer drops its legacy `action_id`, leaving the reasoning ORPHANED from its action.
     The action's obligation profile is already URI-resolved on the action itself
-    (fulfils/violates edges from obligation_edges), so the link does not need to duplicate
+    (fulfills/violates edges from obligation_edges), so the link does not need to duplicate
     obligation references -- it just needs to point at the action. The link is named
     "CausalLink_<action label>", so the action resolves deterministically by label; once the
     edge exists, the reasoning -> action -> obligation-URIs chain is fully graph-reachable.

@@ -1,10 +1,11 @@
 """Reclassify Action obligation engagement (fulfills/violates/raises) for a case.
 
 Single source of truth shared by:
-  * the live Step-2 pipeline hook (`run_step2_task`, study-corrections A3), and
+  * the live Step-3 pipeline hook (`run_step3_task`, study-corrections A3; it runs at
+    the end of Step 3 because it consumes the Step-3 temporal Action rows), and
   * the corpus backfill driver (`docs-internal/scripts/backfill_obligation_engagement.py`).
 
-Step-2 extraction tags each Action's obligations as either fulfilled or violated.
+Step-3 temporal extraction tags each Action's obligations as either fulfilled or violated.
 That binary misses the common case where an Action merely *raises* (activates) an
 obligation without yet fulfilling or violating it. This pass asks the
 ObligationEngagementExtractor to re-partition each Action's obligations into

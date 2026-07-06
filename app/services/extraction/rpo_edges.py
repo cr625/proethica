@@ -53,32 +53,45 @@ _PRED_URI = {
     "derivedFromPrinciple": DERIVED_FROM,
 }
 
-def property_axioms_block(core_ttl=None) -> str:
-    """The three R->P->O property axiom blocks (domain, range, rdfs:comment),
-    parsed live from proethica-core.ttl at render time so the prompt text can
-    never drift from the ontology. The former hard-coded block had drifted: its
-    hasObligation comment kept the pre-v2.10.5 professional-only wording the
-    ontology repudiated, biasing the pass against participant-side edges.
-    Raises when a block is incomplete (no fallback)."""
+_RPO_PROMPT_PROPERTIES = ("hasObligation", "adheresToPrinciple", "derivedFromPrinciple")
+_OWL_NS = "http://www.w3.org/2002/07/owl#"
+
+
+def property_axioms_block(core_ttl=None, properties=_RPO_PROMPT_PROPERTIES) -> str:
+    """Property axiom blocks (rdf:type incl. characteristics, domain, range,
+    label, rdfs:comment), parsed live from proethica-core.ttl at render time so
+    prompt text can never drift from the ontology. Hard-coded predecessors
+    drifted twice: the R->P->O block kept the pre-v2.10.5 professional-only
+    hasObligation wording, and the defeasibility block omitted the prevailsOver
+    Asymmetric/Irreflexive characteristics added 2026-05-23 (the constraint
+    whose absence produced the case-110 bidirectional artifact). Shared by the
+    R->P->O and defeasibility passes (enhanced_prompts_defeasibility delegates
+    here). Raises when a block is incomplete (no fallback)."""
     from pathlib import Path
     path = Path(core_ttl) if core_ttl else _default_ontology_paths()[0]
     cg = Graph()
     cg.parse(str(path), format="turtle")
     blocks = []
-    for name in ("hasObligation", "adheresToPrinciple", "derivedFromPrinciple"):
-        uri = _PRED_URI[name]
+    for name in properties:
+        uri = PROETH_CORE[name]
         dom = cg.value(uri, RDFS.domain)
         rng = cg.value(uri, RDFS.range)
+        label = cg.value(uri, RDFS.label)
         comment = cg.value(uri, RDFS.comment)
         if dom is None or rng is None or comment is None:
             raise RuntimeError(
                 f"proethica-core.ttl lacks domain/range/comment for {name}")
-        blocks.append(
-            f"proeth-core:{name} a owl:ObjectProperty ;\n"
-            f"    rdfs:domain proeth-core:{str(dom).split('#')[-1]} ; "
-            f"rdfs:range proeth-core:{str(rng).split('#')[-1]} ;\n"
-            f'    rdfs:comment "{comment}"@en .')
-    return "\n".join(blocks)
+        extra = sorted(str(t)[len(_OWL_NS):] for t in cg.objects(uri, RDF.type)
+                       if str(t).startswith(_OWL_NS) and str(t) != _OWL_NS + "ObjectProperty")
+        type_str = ", ".join(["owl:ObjectProperty"] + [f"owl:{t}" for t in extra])
+        block = (f"proeth-core:{name} a {type_str} ;\n"
+                 f"    rdfs:domain proeth-core:{str(dom).split('#')[-1]} ; "
+                 f"rdfs:range proeth-core:{str(rng).split('#')[-1]} ;\n")
+        if label is not None:
+            block += f'    rdfs:label "{label}"@en ;\n'
+        block += f'    rdfs:comment "{comment}"@en .'
+        blocks.append(block)
+    return "\n\n".join(blocks)
 
 def _load_rpo_template():
     """Load the editable 'rpo_edges' prompt template (prompt editor -> Shared prompts -> Ontology edges
@@ -495,7 +508,7 @@ _CAPABILITY_PROVISION_RANGE = {
 }
 # Fluent transitions materialized by the fluent_edges family (edge_spec.py; Event Calculus initiates/terminates).
 # The subject is a happening, which is an Action OR an Event, so the subject slot is a SET
-# of allowed categories (the guard normalises a single string to a singleton, so only these
+# of allowed categories (the guard normalizes a single string to a singleton, so only these
 # need the set form). Object is State. A happening whose type resolves to neither Action nor
 # Event, or an object that is not a State, is dropped by the guard.
 _FLUENT_EDGE_RANGE = {

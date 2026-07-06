@@ -508,19 +508,6 @@ class ObligationType(str, Enum):
     ethical = "ethical"
 
 
-class EnforcementLevel(str, Enum):
-    """Deontic modality (orthogonal to obligation type).
-
-    Maps to ontology: mandatory -> MandatoryObligation,
-    conditional -> ConditionalObligation, prima_facie -> PrimaFacieObligation,
-    defeasible -> DefeasibleObligation.
-    """
-    mandatory = "mandatory"
-    defeasible = "defeasible"
-    conditional = "conditional"
-    prima_facie = "prima_facie"
-
-
 class ComplianceStatus(str, Enum):
     met = "met"
     unmet = "unmet"
@@ -950,7 +937,7 @@ class EventIndividual(BaseModel):
     # State change. The earlier causes_state_change prose was dropped (spec "Not stored"; folded
     # into the description). An event activates a constraint or makes an obligation apply only via
     # the State it initiates (the Event-Calculus path State proeth-core:activatesConstraint /
-    # activatesObligation, materialised by fluent_edges.py + state_edges.py).
+    # activatesObligation, materialized by the fluent_edges family (edge_spec.py) + state_edges.py).
     caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
 
     # Fluent transitions + OWL-Time extent (Event Calculus)
@@ -1036,10 +1023,10 @@ class CapabilityIndividual(BaseIndividual):
     resolves to the possessedBy edge and case_context is the grounding-context literal. The earlier
     capability_statement, demonstrated_through, and proficiency_level fields were dropped (spec
     "Not stored"). required_for_obligations (moved here from the class model, Stage 3 of the
-    nine-component audit) is the per-case Ca->O capacity linkage: it serializes to
-    proeth:requiredForObligations on the committed individual (the generic camelCase proeth:*
-    properties loop), which the commit-time reader resolves to the requiresCapability edge
-    (Obligation->Capability).
+    nine-component audit) is the per-case Ca->O capacity linkage: a temp_rdf carrier field the
+    commit-time requires_capability reader resolves (inverted) into the Obligation->Capability
+    requiresCapability edge; the literal itself is not persisted (the CMT-3 RELATION skip,
+    2026-07-05).
     """
     capability_class: str = Field("", description="Capability class label or URI", alias="instance_of")
     possessed_by: Optional[str] = Field(
@@ -1298,8 +1285,6 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         'legal': f'{INTERMEDIATE_NS}LegalObligation',
         'ethical': f'{INTERMEDIATE_NS}EthicalObligation',
     },
-    # O: Obligation deontic modality -> intermediate subclass IRIs
-    # (orthogonal axis, applied in addition to domain type)
     # S: State categories -> base class (individual states are specific subclasses)
     # The match_decision field handles mapping to specific state subclasses
     # (ConflictOfInterest, PublicSafetyAtRisk, etc.)
@@ -1672,14 +1657,14 @@ class PerActionEngagement(BaseModel):
         default_factory=list,
         description=(
             "Obligations that this action directly satisfies. Must be a "
-            "subset of the action's input fulfills+violates pool."
+            "subset of the action's input fulfills+violates+raises pool."
         ),
     )
     violates: List[str] = Field(
         default_factory=list,
         description=(
             "Obligations that this action directly breaches. Must be a "
-            "subset of the action's input fulfills+violates pool."
+            "subset of the action's input fulfills+violates+raises pool."
         ),
     )
     raises: List[str] = Field(
@@ -1687,7 +1672,7 @@ class PerActionEngagement(BaseModel):
         description=(
             "Obligations that this action puts in play but does not itself "
             "resolve; resolution happens at a downstream action. Must be "
-            "a subset of the action's input fulfills+violates pool."
+            "a subset of the action's input fulfills+violates+raises pool."
         ),
     )
 
@@ -1699,7 +1684,7 @@ class ObligationEngagementResult(BaseModel):
     actions: List[PerActionEngagement] = Field(
         ...,
         description=(
-            "One entry per Action in the case (Events are skipped — they "
+            "One entry per Action in the case (Events are skipped; they "
             "do not carry fulfills/violates). The action_iri must be "
             "present in the input list exactly once."
         ),

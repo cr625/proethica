@@ -439,7 +439,7 @@ def _safe_frag(iri) -> str:
 
 def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
                    desc: str, label: str, comment: str):
-    """Shared PROV-O Derivation emitter for a materialised (subj, prop, obj) edge --
+    """Shared PROV-O Derivation emitter for a materialized (subj, prop, obj) edge --
     the single home for the provenance-node shape the edge-applier family used to
     copy-paste eight times (rule of three). ``prefix`` is the LITERAL provenance-IRI
     prefix the family uses (e.g. ``"state_edge_provenance_"``); the node IRI is

@@ -111,7 +111,7 @@ class RichAnalyzer:
 
     def _committed_action_edges(self, case_id) -> Dict[str, Dict[str, list]]:
         """{normalized_action_label: {'fulfills', 'violates', 'guided', 'agent'}} from the
-        committed Step-3 temporal Action rows (obligation_engagement's output). The fulfils /
+        committed Step-3 temporal Action rows (obligation_engagement's output). The fulfills /
         violates pair IS the Step-3 causal-normative analysis; grounded synthesis consumes it
         rather than re-deriving it with a fresh LLM call."""
         from app.models.temporary_rdf_storage import TemporaryRDFStorage
@@ -165,14 +165,14 @@ class RichAnalyzer:
 
     def _committed_edges_by_label(self, case_id) -> Dict[str, list]:
         """{normalized_label: [(predicate, [target_labels]), ...]} of committed edges, for
-        format_subgraph. Surfaces the Step-3 action normative edges (fulfils / violates /
+        format_subgraph. Surfaces the Step-3 action normative edges (fulfills / violates /
         guided-by) so any synthesis prompt that injects the entity context also sees the
         committed normative structure and grounds its analysis in it rather than re-finding it."""
         edges: Dict[str, list] = {}
         for nl, ce in self._committed_action_edges(case_id).items():
             rels = []
             if ce.get('fulfills'):
-                rels.append(('fulfils', ce['fulfills']))
+                rels.append(('fulfills', ce['fulfills']))
             if ce.get('violates'):
                 rels.append(('violates', ce['violates']))
             if ce.get('guided'):
@@ -188,7 +188,7 @@ class RichAnalyzer:
         foundation: EntityFoundation,
         llm_traces: List[LLMTrace]
     ) -> List[CausalNormativeLink]:
-        """Grounded causal-normative reasoning. The action -> fulfils/violates/guided edges are
+        """Grounded causal-normative reasoning. The action -> fulfills/violates/guided edges are
         NOT re-derived here: they are taken from the committed Step-3 obligation_engagement
         output and injected as GIVEN, with the Step-3 causal chains. The LLM produces ONLY the
         normative-significance reasoning per action (the irreducible insight)."""
@@ -203,11 +203,11 @@ class RichAnalyzer:
             f = '; '.join(ce.get('fulfills', [])) or 'none'
             v = '; '.join(ce.get('violates', [])) or 'none'
             g = '; '.join(ce.get('guided', [])) or 'none'
-            blocks.append(f"A{i+1}. {a.label}\n   fulfils: {f}\n   violates: {v}\n   guided by: {g}")
+            blocks.append(f"A{i+1}. {a.label}\n   fulfills: {f}\n   violates: {v}\n   guided by: {g}")
         actions_text = "\n".join(blocks)
 
         prompt = f"""These ACTIONS and their normative relations were ALREADY extracted from
-this engineering-ethics case. The fulfils / violates / guided-by edges below are GIVEN -- do
+this engineering-ethics case. The fulfills / violates / guided-by edges below are GIVEN -- do
 not change or restate them. The CAUSAL CHAINS show what each action brings about.
 
 ## ACTIONS (with their committed normative edges)
@@ -274,7 +274,7 @@ Include all {len(batch_actions)} actions.
         committed: Dict[str, Dict[str, list]],
         entity_dict: Dict[str, list],
     ) -> List[CausalNormativeLink]:
-        """Build CausalNormativeLinks from the COMMITTED Step-3 edges (fulfils / violates /
+        """Build CausalNormativeLinks from the COMMITTED Step-3 edges (fulfills / violates /
         guided / agent) plus the LLM's per-action reasoning. No relation is re-derived here --
         the edges come straight from the temporal extraction; only the reasoning is new."""
         reason_by = {_normalize_label(d.get('action_label', '')): d

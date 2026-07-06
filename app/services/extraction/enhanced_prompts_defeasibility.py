@@ -65,28 +65,21 @@ class NarrativeContext:
 
 
 # ---------------------------------------------------------------------------
-# Property axioms (verbatim from proethica-core.ttl lines 241-263)
+# Property axioms, parsed live from proethica-core.ttl at render time. The
+# former hard-coded block had drifted: it omitted the prevailsOver
+# owl:AsymmetricProperty / owl:IrreflexiveProperty characteristics added
+# 2026-05-23, precisely the constraint whose absence produced the case-110
+# bidirectional prevailsOver artifact repaired by script.
 # ---------------------------------------------------------------------------
 
-PROPERTY_AXIOMS_BLOCK = """\
-proeth-core:competesWith a owl:ObjectProperty, owl:SymmetricProperty ;
-    rdfs:domain proeth-core:Obligation ;
-    rdfs:range proeth-core:Obligation ;
-    rdfs:label "competes with"@en ;
-    rdfs:comment "Relates an obligation to another obligation with which it stands in normative tension within a case. Symmetric: if O1 competes with O2 then O2 competes with O1. Does not itself specify which obligation prevails; use prevailsOver for the directed resolution."@en .
+_DEFEASIBILITY_PROPERTIES = ("competesWith", "prevailsOver", "defeasibleUnder")
 
-proeth-core:prevailsOver a owl:ObjectProperty ;
-    rdfs:domain proeth-core:Obligation ;
-    rdfs:range proeth-core:Obligation ;
-    rdfs:label "prevails over"@en ;
-    rdfs:comment "Relates an obligation to another obligation that it defeats under the conditions of the case. The prevailing obligation retains its force; the defeated obligation is subordinated to it. Use together with defeasibleUnder to record the State that licenses the resolution."@en .
 
-proeth-core:defeasibleUnder a owl:ObjectProperty ;
-    rdfs:domain proeth-core:Obligation ;
-    rdfs:range proeth-core:State ;
-    rdfs:label "defeasible under"@en ;
-    rdfs:comment "Relates an obligation to a State whose obtaining renders the obligation defeasible -- that is, subject to override by a competing obligation with stronger normative support. The State specifies the context in which the obligation yields."@en .\
-"""
+def property_axioms_block(core_ttl=None) -> str:
+    """The three defeasibility property axiom blocks rendered live from core
+    (types including characteristics, domain, range, label, comment)."""
+    from app.services.extraction.rpo_edges import property_axioms_block as _base
+    return _base(core_ttl, properties=_DEFEASIBILITY_PROPERTIES)
 
 
 def _load_defeasibility_template():
@@ -104,9 +97,9 @@ def _load_defeasibility_template():
 
 def defeasibility_system_prompt() -> str:
     """Render the defeasibility system prompt from the editable template. The property axioms are
-    injected from PROPERTY_AXIOMS_BLOCK (verbatim from proethica-core.ttl), keeping the ontology as
+    injected from property_axioms_block() (parsed live from proethica-core.ttl), keeping the ontology as
     the canonical source rather than baking the axioms into the editable text."""
-    return _load_defeasibility_template().render_system(property_axioms_block=PROPERTY_AXIOMS_BLOCK)
+    return _load_defeasibility_template().render_system(property_axioms_block=property_axioms_block())
 
 
 # ---------------------------------------------------------------------------

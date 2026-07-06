@@ -1244,8 +1244,6 @@ class OntServeCommitService:
 
     # Maps extraction_type (or entity_type for temporal_dynamics) to:
     #   (category_field_name, CATEGORY_TO_ONTOLOGY_IRI key, fallback core class URI)
-    # Multi-axis concepts (obligations, constraints) have a second entry for the
-    # orthogonal axis (enforcement_level, flexibility).
     # Maps extraction_type (+ entity_type for temporal_dynamics) to the base
     # concept name used for display categorization in OntServe case views.
     _EXTRACTION_TO_CONCEPT = {

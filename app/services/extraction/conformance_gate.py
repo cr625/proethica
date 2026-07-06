@@ -1,6 +1,6 @@
 """Pre-commit conformance gate (C3 + deterministic Tier-0 repair).
 
-After the commit serializer materialises a case TTL, this gate sends it to OntServe's
+After the commit serializer materializes a case TTL, this gate sends it to OntServe's
 ``repair_conformance_ttl`` MCP tool (SHACL + OWL-RL check + deterministic Tier-0 repair, no
 LLM), writes any repaired TTL back to disk so the disk->DB sync persists the conforming
 version, and records the conformance status in the commit result.

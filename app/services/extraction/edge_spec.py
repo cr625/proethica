@@ -695,7 +695,7 @@ def _fluent_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
 
 
 _OBLIGATION_VERB = {
-    "fulfillsObligation": "FULFILS (directly satisfies)",
+    "fulfillsObligation": "FULFILLS (directly satisfies)",
     "violatesObligation": "VIOLATES (directly breaches)",
     "raisesObligation": "RAISES (puts in force / at stake, resolved later)",
     "guidedByPrinciple": "is GUIDED BY (the principle directing it)",

@@ -5,19 +5,23 @@ Splits each Action's fulfills+violates pool into three buckets:
 fulfills (directly satisfied), violates (directly breached), and raises
 (put in play but resolved downstream). The pipeline writes back
 `proeth:raisesObligation` and rewrites `proeth:fulfillsObligation` and
-`proeth:violatesObligation` so the same obligation never appears with
-contradictory polarity on adjacent steps in the chain.
+`proeth:violatesObligation` so an upstream choice that merely puts an obligation
+at stake is not mis-tagged as fulfilling or violating it; within each action the
+three buckets partition that action's own obligation pool (genuine sequential
+fulfil-then-breach across different actions remains representable).
 
 Literature grounding. The fulfills / violates pair is the causal-normative
 mapping of an action to the obligations it satisfies or breaches (Sarmiento et
-al. 2023, NESS causal responsibility; Berreby et al. 2017, obligations as
-fulfilled/violated fluents). The third bucket, `raises`, is the temporal
-refinement: rather than statically satisfying or breaching a duty, an action can
-PUT AN OBLIGATION IN FORCE (at stake) that a later action resolves. This is the
-Event Calculus view of an obligation as a fluent INITIATED by one happening and
-fulfilled or violated by a subsequent one (Berreby et al. 2017), under the
-defeasible/contextual account of obligations that come into force under
-conditions (Dennis et al. 2016; Dennis & del Olmo 2021). It is the action-side
+al. 2023, NESS causal responsibility). The third bucket, `raises`, is the
+temporal refinement: rather than statically satisfying or breaching a duty, an
+action can PUT AN OBLIGATION IN FORCE (at stake) that a later action resolves.
+That reading is this design's own synthesis: Event Calculus fluents are
+initiated and terminated by happenings (Kowalski and Sergot 1986; applied to
+computational ethics by Berreby et al. 2017, whose paper carries no deontic
+fluents itself), and obligations come into force under conditions on the
+in-force account of Dennis et al. 2016 and Dennis and Perea del Olmo 2021;
+treating an obligation as a fluent a happening puts in force combines the two.
+It is the action-side
 analog of the core State linkage proeth-core:activatesObligation /
 defeasibleUnder: a happening raises an obligation just as a State activates one.
 

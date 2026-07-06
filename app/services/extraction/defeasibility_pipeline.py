@@ -33,11 +33,13 @@ logger = logging.getLogger(__name__)
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
 PROETH_CORE = Namespace("http://proethica.org/ontology/core#")
 
-# Datatype fields that may carry defeasibility narrative on any individual
+# Datatype fields harvested for defeasibility narrative on any individual
 # (typically Principles, Constraints, sometimes Obligations themselves).
-# The canonical names are all-lowercase: they key the DefeasibilityEdge
-# source_field Literal (schemas.py) and the PROV-O provenance comments, and
-# must stay stable.
+# The canonical names are all-lowercase and must stay stable. This is the
+# narrative HARVEST set, a proper subset of the DefeasibilityEdge source_field
+# Literal (schemas.py), which also admits obligationstatement and casecontext,
+# sourced from the obligation context blocks (_format_obligations), not from
+# this harvest.
 NARRATIVE_FIELDS = (
     "tensionresolution",
     "balancingwith",
@@ -101,6 +103,26 @@ def _individuals_in_category(g: Graph, category: str) -> List[URIRef]:
 # Parse + emit
 # ---------------------------------------------------------------------------
 
+def _obligated_party_from_edges(g: Graph, s) -> str:
+    """obligatedParty context from the materialized proeth-core:obligatedParty
+    object edges, label-resolved. The commit never writes the proeth:obligatedParty
+    literal shadow (CMT-3), so the former literal read silently yielded nothing on
+    committed graphs (the dead-read class fixed for the R->P->O pass 2026-07-06)."""
+    labels = []
+    for tgt in g.objects(s, PROETH_CORE.obligatedParty):
+        lbl = g.value(tgt, RDFS.label)
+        labels.append(str(lbl) if lbl else str(tgt).split("#")[-1])
+    return "; ".join(sorted(labels))
+
+
+def _state_class_from_types(g: Graph, s) -> str:
+    """State-kind context from the non-core proeth:* rdf:type locals (CMT-3: the
+    class IS the rdf:type; the proeth:stateClass literal shadow is never written)."""
+    locals_ = sorted(str(t).split("#")[-1] for t in g.objects(s, RDF.type)
+                     if str(t).startswith(str(PROETH)))
+    return "; ".join(locals_)
+
+
 def parse_case_graph(g: Graph, case_id: int) -> CaseEntities:
     """Extract obligation, state, and narrative entries from a parsed graph."""
     obligations = [
@@ -109,7 +131,7 @@ def parse_case_graph(g: Graph, case_id: int) -> CaseEntities:
             label=_label(g, s),
             statement=_lit(g, s, "obligationStatement"),
             case_context=_lit(g, s, "caseContext"),
-            obligated_party=_lit(g, s, "obligatedParty"),
+            obligated_party=_obligated_party_from_edges(g, s),
             temporal_scope=_lit(g, s, "temporalScope"),
         )
         for s in _individuals_in_category(g, "Obligation")
@@ -118,7 +140,7 @@ def parse_case_graph(g: Graph, case_id: int) -> CaseEntities:
         StateContext(
             iri=str(s),
             label=_label(g, s),
-            state_class=_lit(g, s, "stateClass"),
+            state_class=_state_class_from_types(g, s),
             triggering_event=_lit(g, s, "triggeringEvent"),
             subject=_lit(g, s, "subject"),
         )
