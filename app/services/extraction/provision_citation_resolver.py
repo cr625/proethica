@@ -175,7 +175,11 @@ def apply_cites_provision_on_ttl(ttl_path) -> int:
 def apply_established_by_edges(g, resolver: ProvisionCitationResolver) -> int:
     """Add ``proeth-core:establishedBy nspe:<frag>`` for each dotted NSPE code found
     in a Constraint individual's ``proeth:source`` literal(s). Returns the number of
-    new edges. Idempotent and ADDITIVE (the source literal is kept).
+    new edges. Idempotent and ADDITIVE (the source literal is kept). Deliberately
+    emits no prov:Derivation nodes, unlike the LLM-resolved edge families: the
+    mapping is deterministic (dotted code to DB-validated fragment) and the
+    untouched ``proeth:source`` literal on the same subject is the derivation
+    record.
 
     Endpoint validation: the subject must carry the materialized direct
     ``rdf:type proeth-core:Constraint`` (core declares establishedBy on

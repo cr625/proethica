@@ -50,9 +50,9 @@ Connect guidelines to ethical concepts:
 
 | Property | Domain | Range | Description |
 |----------|--------|-------|-------------|
-| `:establishes` | Resource | Principle/Obligation/Constraint | Provision establishes ethical concept |
-| `:establishedBy` | Principle/Obligation/Constraint | Resource | Inverse of establishes |
-| `:governedByCode` | Role | EthicalCode | Role governed by code of ethics |
+| `proeth-core:establishes` | CodeProvision | Principle/Obligation/Constraint | Provision establishes ethical concept |
+| `proeth-core:establishedBy` | Principle/Obligation/Constraint | CodeProvision | Inverse of establishes |
+| `:governedByCode` | ProfessionalRole | EthicalCode | Professional role governed by code of ethics |
 
 ## Case Analysis Relations (Step 4)
 

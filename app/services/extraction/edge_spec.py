@@ -198,9 +198,11 @@ def _pool_for(g: Graph, svc, spec: EdgeSpec, pred: EdgePredicate, cache: Dict[Tu
 
 
 # --- NSPE Board Agent (deterministic Board-pattern actor fallback) ----------
-# The Board of Ethical Review authors the analysis, so extraction never yields a
+# The Board of Ethical Review authors the analysis, so extraction rarely yields a
 # case Agent individual for it (Agent_NSPE* = 0 in both committed case-7 runs) while
 # Principle invokedBy / Resource citedBy literals keep naming it and stay unresolved.
+# Case 10 is the exception (the Board answers its own conflict question and IS an
+# extracted case Agent); _ensure_board_agent reuses such an Agent instead of minting.
 # A Board-pattern literal on a board_agent_fallback predicate is resolved
 # deterministically to ONE case-scoped Agent individual, minted on first use with
 # provenance. The individual is excluded from _agent_pool (edge_resolution), so no
@@ -229,6 +231,12 @@ def _ensure_board_agent(g: Graph, case_id: int) -> URIRef:
     board = case_ns[BOARD_AGENT_LOCALNAME]
     if (board, RDF.type, CORE.Agent) in g:
         return board
+    # Extraction can yield a case Agent that IS the Board (case 10); reuse it
+    # instead of minting a same-label duplicate that splits the edge targets.
+    for existing in sorted(g.subjects(RDF.type, CORE.Agent)):
+        lbl = g.value(existing, RDFS.label)
+        if lbl is not None and _is_board_literal(str(lbl)):
+            return existing
     g.add((board, RDF.type, OWL.NamedIndividual))
     g.add((board, RDF.type, CORE.Agent))
     g.add((board, RDFS.label, Literal(BOARD_AGENT_LABEL)))
