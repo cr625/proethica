@@ -532,8 +532,8 @@ class CandidateObligationClass(BaseCandidate):
     """A new obligation class discovered in case text.
 
     Field set aligned to the extraction-architecture spec (O section, 2026-06):
-    obligation_type drives the subClassOf core:Obligation typing and derived_from_principle
-    resolves to the O->P edge. The earlier enforcement_level (the retired modality axis),
+    obligation_type drives the subClassOf core:Obligation typing; derived_from_principle
+    is stored and fed to the dedicated R->P->O pass as grounding for the O->P edge. The earlier enforcement_level (the retired modality axis),
     violation_consequences, stakeholders_affected, monitoring_criteria, and nspe_reference
     fields were dropped (all 0/59 populated, spec "Not stored").
     """
@@ -553,7 +553,7 @@ class ObligationIndividual(BaseIndividual):
         None, description="The specific duty statement"
     )
     derived_from_principle: Optional[str] = Field(
-        None, description="Principle the duty operationalizes (derivedFromPrinciple edge; the P side of R->P->O)"
+        None, description="Principle the duty operationalizes (the P side of R->P->O; fed to the dedicated R->P->O pass, which derives the derivedFromPrinciple edge at commit)"
     )
     case_context: Optional[str] = None
     temporal_scope: Optional[str] = Field(

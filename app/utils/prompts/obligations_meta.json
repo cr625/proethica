@@ -103,7 +103,7 @@
           "type": "string",
           "range": "Principle",
           "required": false,
-          "description": "Principle the duty operationalizes (derivedFromPrinciple edge)",
+          "description": "Principle the duty operationalizes (fed to the R->P->O pass, which derives the derivedFromPrinciple edge at commit)",
           "range_ontology": "proethica-core"
         },
         "temporal_scope": {
@@ -162,7 +162,7 @@
     },
     "obligation_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ObligationDefinitionShape via concept_ontology_slots -> _component_schema_block('Obligation')",
-      "description": "Obligation definitional/individual field schema, resolved live from the SHACL ObligationDefinitionShape (single source shared with the OntServe Obligation entity page). obligation_type drives the subClassOf typing; obligated_party and derived_from_principle resolve to edges; the rest are per-individual literals"
+      "description": "Obligation definitional/individual field schema, resolved live from the SHACL ObligationDefinitionShape (single source shared with the OntServe Obligation entity page). obligation_type drives the subClassOf typing; obligated_party resolves to the obligatedParty edge at commit; derived_from_principle is fed to the dedicated R->P->O pass as grounding; the rest are per-individual literals"
     },
     "pass_directive": {
       "source": "_PASS_DIRECTIVES[('obligations', section_type)] in prompt_variable_resolver",

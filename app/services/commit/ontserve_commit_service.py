@@ -1715,9 +1715,11 @@ class OntServeCommitService:
         'discoveredInSection', 'discoveredInPass', 'sourceText',
     })
 
-    # Routing inputs the CLASS path must not store as literals (the shapes
-    # declare each "a routing input, not stored as a literal"; the typing they
-    # drive is the subClassOf/rdf:type routing). The individual path applies
+    # Routing inputs and commit-resolved carrier fields the CLASS path must not
+    # store as literals. The shapes declare the routing inputs "a routing input,
+    # not stored as a literal" (the typing they drive is the subClassOf/rdf:type
+    # routing); the carrier fields (e.g. derivedFromPrinciple,
+    # principleTransformation) resolve via the dedicated edge passes instead. The individual path applies
     # its own skip inline (roleCategory/roleKind + endswith('Class') + RELATION
     # classification); this is the class-path counterpart, covering every
     # class-minting component (correspondence audit T5/B3).

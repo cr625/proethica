@@ -116,9 +116,9 @@ def _rpo_edges_sample() -> Dict[str, object]:
     blocks come from the live rpo_edges formatters so the sample tracks the real prompt; property_axioms
     is the verbatim ontology block the system prompt injects."""
     from app.services.extraction.rpo_edges import (
-        Indiv, _fmt, _fmt_transformations, PROPERTY_AXIOMS)
+        Indiv, _fmt, _fmt_transformations, property_axioms_block)
     roles = [Indiv("http://proethica.org/case7#Engineer_A_Role", "Engineer A",
-                   {"roleClass": "EngineerRole", "caseContext": "lead designer on the project"})]
+                   {"roleClass": "EngineerRole", "caseInvolvement": "lead designer on the project"})]
     principles = [Indiv("http://proethica.org/case7#Public_Welfare_Principle", "Public Welfare",
                         {"principleClass": "PublicWelfare", "invokedBy": "Engineer A"})]
     obligations = [Indiv("http://proethica.org/case7#Report_Findings_Obligation", "Report Findings",
@@ -126,7 +126,7 @@ def _rpo_edges_sample() -> Dict[str, object]:
     transformations = [("Risk State", "the risk state turns the public-welfare principle into a "
                         "concrete reporting obligation")]
     return {
-        'property_axioms': PROPERTY_AXIOMS,
+        'property_axioms': property_axioms_block(),
         'case_id': 7,
         'roles_block': _fmt(roles),
         'principles_block': _fmt(principles),

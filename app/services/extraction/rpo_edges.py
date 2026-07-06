@@ -53,23 +53,39 @@ _PRED_URI = {
     "derivedFromPrinciple": DERIVED_FROM,
 }
 
-PROPERTY_AXIOMS = """\
-proeth-core:hasObligation a owl:ObjectProperty ;
-    rdfs:domain proeth-core:Role ; rdfs:range proeth-core:Obligation ;
-    rdfs:comment "Relates a role to its professional obligations."@en .
-proeth-core:adheresToPrinciple a owl:ObjectProperty ;
-    rdfs:domain proeth-core:Role ; rdfs:range proeth-core:Principle ;
-    rdfs:comment "Relates a role to principles that guide its conduct."@en .
-proeth-core:derivedFromPrinciple a owl:ObjectProperty ;
-    rdfs:domain proeth-core:Obligation ; rdfs:range proeth-core:Principle ;
-    rdfs:comment "Links obligation to the principle(s) it operationalizes."@en .\
-"""
+def property_axioms_block(core_ttl=None) -> str:
+    """The three R->P->O property axiom blocks (domain, range, rdfs:comment),
+    parsed live from proethica-core.ttl at render time so the prompt text can
+    never drift from the ontology. The former hard-coded block had drifted: its
+    hasObligation comment kept the pre-v2.10.5 professional-only wording the
+    ontology repudiated, biasing the pass against participant-side edges.
+    Raises when a block is incomplete (no fallback)."""
+    from pathlib import Path
+    path = Path(core_ttl) if core_ttl else _default_ontology_paths()[0]
+    cg = Graph()
+    cg.parse(str(path), format="turtle")
+    blocks = []
+    for name in ("hasObligation", "adheresToPrinciple", "derivedFromPrinciple"):
+        uri = _PRED_URI[name]
+        dom = cg.value(uri, RDFS.domain)
+        rng = cg.value(uri, RDFS.range)
+        comment = cg.value(uri, RDFS.comment)
+        if dom is None or rng is None or comment is None:
+            raise RuntimeError(
+                f"proethica-core.ttl lacks domain/range/comment for {name}")
+        blocks.append(
+            f"proeth-core:{name} a owl:ObjectProperty ;\n"
+            f"    rdfs:domain proeth-core:{str(dom).split('#')[-1]} ; "
+            f"rdfs:range proeth-core:{str(rng).split('#')[-1]} ;\n"
+            f'    rdfs:comment "{comment}"@en .')
+    return "\n".join(blocks)
 
 def _load_rpo_template():
     """Load the editable 'rpo_edges' prompt template (prompt editor -> Shared prompts -> Ontology edges
     -> R->P->O edges). A separate function so a test can inject a stub without a DB / app context.
-    Raises (no fallback) if unseeded. The property axioms (PROPERTY_AXIOMS) are injected at render time
-    as the {{ property_axioms }} system variable, keeping the ontology as the canonical source."""
+    Raises (no fallback) if unseeded. The property axioms are injected at render time as the
+    {{ property_axioms }} system variable, parsed live from proethica-core.ttl
+    (property_axioms_block), keeping the ontology as the canonical source."""
     from app.models.extraction_prompt_template import ExtractionPromptTemplate
     tmpl = ExtractionPromptTemplate.get_active_template(0, 'rpo_edges')
     if tmpl is None:
@@ -124,7 +140,57 @@ def _invoked_by_context(g: Graph, ind: URIRef) -> Optional[str]:
     return "; ".join(sorted(labels)) if labels else None
 
 
-def gather(g: Graph) -> Tuple[List[Indiv], List[Indiv], List[Indiv]]:
+def _actor_edge_context(g: Graph, ind: URIRef) -> Optional[str]:
+    """Role relationship context derived from the materialized typed actor
+    edges. The commit never writes the proeth:relationships literal (the
+    relationships field resolves to the actor-edge family at commit), so a
+    literal read silently yields nothing on committed graphs."""
+    parts = []
+    for pred in ("hasClient", "professionalPeerOf", "employedBy",
+                 "reviewsWorkOf", "workReviewedBy"):
+        for tgt in g.objects(ind, PROETH_CORE[pred]):
+            lbl = g.value(tgt, RDFS.label)
+            parts.append(f"{pred} {str(lbl) if lbl else str(tgt).split('#')[-1]}")
+    return "; ".join(sorted(parts)) if parts else None
+
+
+def _obligated_party_context(g: Graph, ind: URIRef) -> Optional[str]:
+    """obligatedParty context derived from the materialized proeth-core:obligatedParty
+    object edges (the participant family), label-resolved. The commit never
+    writes the proeth:obligatedParty literal shadow (CMT-3)."""
+    labels = []
+    for tgt in g.objects(ind, PROETH_CORE.obligatedParty):
+        lbl = g.value(tgt, RDFS.label)
+        labels.append(str(lbl) if lbl else str(tgt).split("#")[-1])
+    return "; ".join(sorted(labels)) if labels else None
+
+
+def _derived_from_principle_hints(case_id: int) -> Dict[str, str]:
+    """Obligation label -> the obligations prompt's own derived_from_principle
+    answer, read from the temp_rdf rows. The commit deliberately skips the
+    field (RELATION classification), so without this read the already-paid LLM
+    signal is discarded; here it grounds the derivedFromPrinciple derivation
+    the same way state principleTransformation does. Empty when temp storage
+    has been cleared or the run is TTL-only with no app context (backfill-style
+    invocations outside the app; the committed graph is then the sole input)."""
+    from flask import has_app_context
+    if not has_app_context():
+        logger.debug("R->P->O: no app context; skipping derived_from_principle temp hints")
+        return {}
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+    hints: Dict[str, str] = {}
+    rows = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type="obligations", storage_type="individual").all()
+    for r in rows:
+        props = ((r.rdf_json_ld or {}).get("properties") or {})
+        v = props.get("derivedFromPrinciple") or props.get("derived_from_principle")
+        label = (r.entity_label or "").strip()
+        if v and label:
+            hints[label] = str(v[0]) if isinstance(v, list) else str(v)
+    return hints
+
+
+def gather(g: Graph, case_id: Optional[int] = None) -> Tuple[List[Indiv], List[Indiv], List[Indiv]]:
     def mk(ind, names, derived=None):
         lbl = g.value(ind, RDFS.label)
         fields = dict(derived) if derived else {}
@@ -144,10 +210,42 @@ def gather(g: Graph) -> Tuple[List[Indiv], List[Indiv], List[Indiv]]:
             ctx["invokedBy"] = inv
         return ctx
 
-    roles = [mk(r, ["roleClass", "caseContext", "relationships"]) for r in _individuals_in_category(g, "Role")]
+    def role_context(ind):
+        # roleClass / relationships come from the canonical triples (rdf:type
+        # and the typed actor edges); caseInvolvement is the literal the commit
+        # actually writes (the former caseContext read named a field stored
+        # only on other categories).
+        ctx = {}
+        cls = _type_class_context(g, ind)
+        if cls:
+            ctx["roleClass"] = cls
+        rel = _actor_edge_context(g, ind)
+        if rel:
+            ctx["relationships"] = rel
+        return ctx
+
+    def obligation_context(ind):
+        # obligationClass / obligatedParty come from the canonical triples
+        # (rdf:type and the participant edges); the temp_rdf hint carries the
+        # obligation extractor's own principle linkage as derivation grounding.
+        ctx = {}
+        cls = _type_class_context(g, ind)
+        if cls:
+            ctx["obligationClass"] = cls
+        party = _obligated_party_context(g, ind)
+        if party:
+            ctx["obligatedParty"] = party
+        lbl = g.value(ind, RDFS.label)
+        hint = hints.get(str(lbl).strip()) if lbl else None
+        if hint:
+            ctx["statedDerivedFromPrinciple"] = hint
+        return ctx
+
+    hints = _derived_from_principle_hints(case_id) if case_id is not None else {}
+    roles = [mk(r, ["caseInvolvement"], role_context(r)) for r in _individuals_in_category(g, "Role")]
     principles = [mk(p, ["appliedTo", "concreteExpression"], principle_context(p))
                   for p in _individuals_in_category(g, "Principle")]
-    obligations = [mk(o, ["obligationClass", "obligatedParty", "obligationStatement"])
+    obligations = [mk(o, ["obligationStatement"], obligation_context(o))
                    for o in _individuals_in_category(g, "Obligation")]
     return roles, principles, obligations
 
@@ -206,7 +304,7 @@ class RPOEdgeExtractor(StreamingEdgeExtractor):
     swallow_stream_errors = False
 
     def _system_prompt(self) -> str:
-        return _load_rpo_template().render_system(property_axioms=PROPERTY_AXIOMS)
+        return _load_rpo_template().render_system(property_axioms=property_axioms_block())
 
     @staticmethod
     def _recover_partial_edges(raw: str) -> List[Dict[str, Any]]:
@@ -359,7 +457,7 @@ _STATE_EDGE_RANGE = {
 _RESOURCE_EDGE_RANGE = {
     PROETH_CORE.availableTo: ("Resource", "Agent"),
 }
-# State-anchored actor edge materialized by state_affects_edges.py from the state
+# State-anchored actor edge materialized by the state_affects_edges family (edge_spec.py) from the state
 # `affectedParties` field. Range is Agent (outside the nine disjoint categories),
 # so the object resolves to no category and the range clause is skipped; the guard
 # still validates the State subject.
@@ -395,7 +493,7 @@ _CAPABILITY_PROVISION_RANGE = {
     PROETH_CORE.requiresCapability: ("Obligation", "Capability"),
     PROETH_CORE.establishedBy: ({"Principle", "Obligation", "Constraint"}, "CodeProvision"),
 }
-# Fluent transitions materialized by fluent_edges.py (Event Calculus initiates/terminates).
+# Fluent transitions materialized by the fluent_edges family (edge_spec.py; Event Calculus initiates/terminates).
 # The subject is a happening, which is an Action OR an Event, so the subject slot is a SET
 # of allowed categories (the guard normalises a single string to a singleton, so only these
 # need the set form). Object is State. A happening whose type resolves to neither Action nor
@@ -404,7 +502,7 @@ _FLUENT_EDGE_RANGE = {
     PROETH_CORE.initiates: ({"Action", "Event"}, "State"),
     PROETH_CORE.terminates: ({"Action", "Event"}, "State"),
 }
-# Action normative-engagement edges materialized by obligation_edges.py from the Step-3
+# Action normative-engagement edges materialized by the obligation_edges family (edge_spec.py) from the Step-3
 # Action's fulfills / violates / raises obligation labels and guidedByPrinciple labels.
 # Domain Action, range Obligation/Principle, both among the nine disjoint categories, so
 # the guard validates BOTH endpoints and drops any mis-resolved edge. All four are declared
@@ -623,7 +721,7 @@ def apply_rpo_edges(case_id: int, ttl_path, extractor: Optional["RPOEdgeExtracto
     g = Graph()
     g.parse(str(ttl_path), format="turtle")
 
-    roles, principles, obligations = gather(g)
+    roles, principles, obligations = gather(g, case_id)
     if not roles or (not obligations and not principles):
         return {"case_id": case_id, "status": "insufficient_entities",
                 "roles": len(roles), "principles": len(principles),
