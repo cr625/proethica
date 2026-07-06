@@ -242,7 +242,8 @@ class BaseIndividual(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RoleCategory(str, Enum):
-    """The four Kong et al. (2020) RELATIONAL identity-role categories (extraction-architecture
+    """The four RELATIONAL identity-role categories derived from the Kong et al. (2020)
+    audience-category inventory (a selection, not the full inventory; extraction-architecture
     spec, R section / decision R1).
 
     A role's relational archetype is edge-PRIMARY: it is materialized at commit from the actor edge
