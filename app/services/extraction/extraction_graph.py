@@ -39,6 +39,35 @@ logger = logging.getLogger(__name__)
 # State definition
 # ---------------------------------------------------------------------------
 
+# Maps concept type to the category field on its candidate class model.
+_CONCEPT_CATEGORY_FIELD = {
+    'roles': 'role_category',
+    'principles': 'principle_category',
+    'obligations': 'obligation_type',
+    'states': 'state_category',
+    'resources': 'resource_category',
+    'actions': 'action_category',
+    'events': 'event_category',
+    'capabilities': 'capability_category',
+    'constraints': 'constraint_type',
+}
+
+
+# Maps concept type to the core parent class URI (fallback when no category).
+_CORE_PARENT = {
+    'roles': f'{CORE_NS}Role',
+    'principles': f'{CORE_NS}Principle',
+    'obligations': f'{CORE_NS}Obligation',
+    'states': f'{CORE_NS}State',
+    'resources': f'{CORE_NS}Resource',
+    'actions': f'{CORE_NS}Action',
+    'events': f'{CORE_NS}Event',
+    'capabilities': f'{CORE_NS}Capability',
+    'constraints': f'{CORE_NS}Constraint',
+}
+
+
+
 def pydantic_to_rdf_data(
     classes: list,
     individuals: list,
