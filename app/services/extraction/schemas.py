@@ -616,8 +616,8 @@ class CandidateStateClass(BaseCandidate):
     """A new state class discovered in case text."""
     state_category: Optional[StateCategory] = None
     persistence_type: Optional[PersistenceType] = Field(
-        PersistenceType.inertial,
-        description="Berreby fluent classification"
+        None,
+        description="Berreby fluent classification (inertial or non_inertial); omit when the text does not support a judgment. An omission is not stored, so a committed inertial value always means the model judged it inertial."
     )
     activation_conditions: List[str] = Field(
         default_factory=list,

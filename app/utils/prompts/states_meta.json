@@ -50,7 +50,7 @@
         "principle_transformation": {
           "type": "string",
           "required": false,
-          "description": "Edge-driving grounding input: how the state transforms an abstract principle into a concrete obligation (temp_rdf grounding only; not stored as a literal)"
+          "description": "Edge-driving grounding input: how the state transforms an abstract principle into a concrete obligation (S->P->O). Kept on the committed state individual as a proeth:principleTransformation synthesis literal and read as grounding by the R->P->O derivation."
         },
         "match_decision": {
           "type": "object",

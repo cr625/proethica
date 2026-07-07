@@ -114,7 +114,7 @@ _DERIVED = {
     "requiresCapabilityText",                              # the committed literal (commit-time demotion of the
                                                            # Action requiresCapability field); derivable from
                                                            # agent capabilities. The bare name is the edge.
-    # State candidate-class activation lists, materialized instead as state/fluent edges
+    # State candidate-class activation lists, materialized instead as the state-anchored activation/termination edges (state_edges)
     "obligationActivation", "actionConstraints",
     "activationConditions", "terminationConditions",
 }

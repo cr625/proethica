@@ -666,7 +666,7 @@ def drop_domain_range_violations(g: Graph, case_id: int,
 
     # A category slot is either a single category string or a set of allowed categories
     # (a union domain/range, e.g. initiates/terminates whose subject may be Action OR
-    # Event). Normalise to a set so the disjointness test below is uniform.
+    # Event). Normalize to a set so the disjointness test below is uniform.
     def _allowed(slot):
         return slot if isinstance(slot, (set, frozenset)) else {slot}
 

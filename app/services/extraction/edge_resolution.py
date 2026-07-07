@@ -445,7 +445,7 @@ def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
     prefix the family uses (e.g. ``"state_edge_provenance_"``); the node IRI is
     ``case#<prefix><safe_frag(subj)>_<prop>_<safe_frag(obj)>`` -- byte-identical to the
     pre-consolidation scheme, and idempotent. The per-family ``label``/``comment`` stay
-    local config and are passed through; only the node-shape logic is centralised.
+    local config and are passed through; only the node-shape logic is centralized.
     Returns the node IRI."""
     case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
     prov_iri = case_ns[prefix + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]

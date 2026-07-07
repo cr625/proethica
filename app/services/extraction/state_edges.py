@@ -12,7 +12,8 @@ methodology's semi-algorithmic, literature-grounded relationships:
 These were extracted but never wired into anything: dropped at commit and unused
 downstream, while the defeasibility/RPO extractors re-derived overlapping
 relationships from scratch. This applier WIRES THEM IN. It reads the extracted
-state fields from temporary_rdf_storage (they are not in the committed TTL),
+state fields from temporary_rdf_storage (the class-level linkage fields are not in
+the committed TTL; triggering_event and terminated_by are also kept as literals),
 resolves each free-text description to the matching case individual via embedding
 similarity, and materializes first-class proeth-core edges with PROV-O provenance:
 
@@ -133,7 +134,7 @@ def _llm_select(items: List[Dict[str, Any]], client=None, model=None):
 
     Thin wrapper over the shared single-select driver, supplying the state-specific
     direction/polarity prompt builder and the fast model tier (the constrained
-    pick-from-shortlist task fits the fast tier). Identical behaviour to the previous
+    pick-from-shortlist task fits the fast tier). Identical behavior to the previous
     inline implementation."""
     return _llm_select_generic(items, _build_select_prompt, client=client, model=model,
                                model_tier="fast")

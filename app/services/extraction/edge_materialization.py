@@ -43,6 +43,39 @@ def _run_family(results: Dict[str, Any], key: str, case_id: int, ttl_path) -> No
         results[key] = {"error": str(e)}
 
 
+def drop_fluent_incoherence(g, case_id: int) -> int:
+    """Start/end coherence over the whole fluent layer: one happening must not both
+    start and end the same state in one committed graph. The in-family veto in
+    edge_spec covers only a same-run terminates against its own initiates; this pass
+    also covers the state-side pair and the cross-family conflicts (state_edges runs
+    before fluent_edges and neither consults the other family). Policy: keep the
+    start evidence, drop the conflicting end edge(s) plus their Derivation nodes,
+    logging each drop."""
+    from app.services.extraction.rpo_edges import PROETH_CORE
+    from app.services.extraction.edge_resolution import remove_edge_prov
+    starts = set()
+    for h, s in g.subject_objects(PROETH_CORE.initiates):
+        starts.add((h, s))
+    for s, h in g.subject_objects(PROETH_CORE.activatedByEvent):
+        starts.add((h, s))
+    dropped = 0
+    for h, s in list(g.subject_objects(PROETH_CORE.terminates)):
+        if (h, s) in starts:
+            g.remove((h, PROETH_CORE.terminates, s))
+            remove_edge_prov(g, case_id, "fluent_edge_provenance_", "terminates", h, s)
+            logger.info("Case %s: coherence drop terminates(%s, %s) against start evidence",
+                        case_id, h, s)
+            dropped += 1
+    for s, h in list(g.subject_objects(PROETH_CORE.terminatedByEvent)):
+        if (h, s) in starts:
+            g.remove((s, PROETH_CORE.terminatedByEvent, h))
+            remove_edge_prov(g, case_id, "state_edge_provenance_", "terminatedByEvent", s, h)
+            logger.info("Case %s: coherence drop terminatedByEvent(%s, %s) against start evidence",
+                        case_id, s, h)
+            dropped += 1
+    return dropped
+
+
 def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     """Run the full ordered edge-applier registry plus the deterministic appliers
     and the unified domain/range guard over a just-written case TTL (in place).
@@ -83,7 +116,7 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
 
     # 2b. Resource-anchored edges (DB-driven, embedding-resolved): the resource
     # `used_by` field becomes Resource proeth-core:availableTo Agent edges, naming
-    # the case actor(s) that use each resource. Mirrors the state-edge applier
+    # the case actor(s) that use each resource. Mirrors the shape of the state-edge applier (with multi-select in place of its single-select)
     # (embedding shortlist + batched LLM multi-select, prov:Derivation).
     _run_family(results, "resource_edges", case_id, ttl_path)
 
@@ -152,7 +185,7 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # become Action -> Obligation / Principle edges (all four core: proeth-core:fulfillsObligation,
     # proeth-core:violatesObligation / raisesObligation / guidedByPrinciple, promoted v2.8.0). Grounds the
     # normative engagement to the real O/P individuals, closing the Event-Calculus loop
-    # begun by fluent_edges (Action -> State) + state_edges (State -> O/Cs). Mirrors the
+    # begun by fluent_edges (Action/Event -> State; the Action arm begins this loop) + state_edges (State -> O/Cs). Mirrors the
     # fluent applier; range Obligation/Principle is among the nine disjoint categories, so
     # the unified guard validates both endpoints. No-op for cases with no Action individuals.
     _run_family(results, "obligation_edges", case_id, ttl_path)
@@ -247,8 +280,9 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         )
         g = Graph()
         g.parse(str(ttl_path), format="turtle")
+        incoherent = drop_fluent_incoherence(g, case_id)
         dropped = drop_domain_range_violations(g, case_id, edge_range=ALL_EDGE_RANGE)
-        if dropped:
+        if dropped or incoherent:
             g.serialize(destination=str(ttl_path), format="turtle")
         results["unified_guard"] = {"triples_dropped": dropped}
     except Exception as e:

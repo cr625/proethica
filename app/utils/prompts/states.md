@@ -5,7 +5,7 @@ EXISTING STATES IN ONTOLOGY:
 
 {{ pass_directive }}
 
-CROSS-CONCEPT CONTEXT (entities already extracted in this case, for grounding the linkage fields; do NOT re-extract them here):
+CROSS-CONCEPT CONTEXT (entities already extracted in this case, when any exist at this stage; states extract first in the current pipeline, so this section is normally empty and the linkage fields are grounded at commit; do NOT re-extract them here):
 {{ cross_concept_context }}
 
 CASE TEXT:
@@ -22,11 +22,12 @@ STATE EXTRACTION DIRECTIVES (rules the ontology enforces):
 - A case yields one state individual per distinct condition even when the condition is narrated in several passages; a happening-shaped candidate routes to the Event pass.
 - persistence_type records whether the state is an inertial or non-inertial fluent (Berreby): inertial states persist until terminated, non-inertial states hold only momentarily.
 - urgency_level records the salience or acuteness of the state (Jones moral intensity): low, medium, high, or critical. It is an attribute of the state, not its kind.
-- The linkage fields are edge-driving inputs, converted to edges at commit and not stored as literals: obligation_activation names the obligations the state makes applicable (the activatesObligation edge); action_constraints names the constraints it activates; activation_conditions and termination_conditions, triggering_event and terminated_by name the events that bring the state into or out of holding; affected_parties names the agents the state affects (the affects edge); subject names what is in the state. Provide them where the text supports them.
+- Edge-only linkage fields, converted to edges at commit and not stored as literals: obligation_activation names the obligations the state makes applicable (the activatesObligation edge); action_constraints names the constraints it activates; activation_conditions and termination_conditions are the class-level Event-Calculus fields; affected_parties names the agents the state affects (the affects edge).
+- Kept-literal fields: triggering_event and terminated_by are stored verbatim on the individual AND resolved to the activatedByEvent/terminatedByEvent edges, and subject (what is in the state) is stored as a literal; all three later feed the defeasibility prompt as state context, so write full, readable phrases, not terse edge fodder. Provide every field where the text supports it.
 - Do not assert obligation competition, defeat, or precedence here. The defeasibility relations are produced by a separate pass.
 
 MATCH DECISION RULES:
-For each state class, evaluate ONLY against the EXISTING STATES IN ONTOLOGY list above. Cross-concept context is provided so you can ground the linkage fields and avoid re-extracting duplicates, but do NOT reference those entities in match_decision; that field is strictly for matching against the ontology list above.
+For each state class, evaluate ONLY against the EXISTING STATES IN ONTOLOGY list above. The cross-concept section above is normally empty at the states stage; when populated it helps avoid duplicates, but do NOT reference those entities in match_decision; that field is strictly for matching against the ontology list above.
 - If the extracted state IS the same concept as an existing class: match with HIGH confidence (0.85-1.0)
 - If the extracted state is a SPECIALIZATION of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
 - If RELATED but distinct: do NOT match, it is a new concept

@@ -267,7 +267,7 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
     family (``spec``) over a committed case TTL. Reads the family's source rows from
     temporary_rdf_storage, resolves each predicate's label lists against the target
     pool, and adds the edges + PROV-O provenance. Best-effort: failures return a status
-    dict, never raise. Reproduces the per-applier behaviour exactly (same thresholds,
+    dict, never raise. Reproduces the per-applier behavior exactly (same thresholds,
     same prompts, same prov scheme, same dedupe/no-op semantics)."""
     ttl_path = Path(ttl_path)
     res: Dict[str, Any] = {"case_id": case_id, "status": "ok", "total": 0}
@@ -946,7 +946,7 @@ _FLUENT_SPEC = EdgeSpec(
     ),
     prov_prefix="fluent_edge_provenance_",
     prov_label=lambda p: f"Fluent edge ({p})",
-    prov_comment=lambda p: (f"property={p}; happening's {p} state text resolved to the case State(s) by "
+    prov_comment=lambda p: (f"property={p}; the {p}-state text of the happening resolved to the case State(s) by "
                             "embedding shortlist + LLM multi-select (Event Calculus fluent transition)"),
     reader=_read_temporal,
     no_data_status="no_fluent_transitions",
