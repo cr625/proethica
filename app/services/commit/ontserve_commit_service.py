@@ -1850,9 +1850,14 @@ class OntServeCommitService:
         # do not exist (correspondence audit T2, verified on case-8 Engineer L;
         # extended to the temporal machinery in the A/E properties review).
         _reshaped = {'attributes', 'additionalRelationships', 'relationships'}
+        _routing = ('roleCategory', 'roleKind', 'eventType')
         kept = [p for p in kept
                 if not self._camelCase(p).endswith('Class')
-                and self._camelCase(p) not in ('roleCategory', 'roleKind', 'eventType')
+                # temporal preds arrive proeth:-prefixed, so the routing check
+                # must compare the normalized local name, not the raw key
+                # (case-5 run 51 still minted eventType markers via the raw form)
+                and self._camelCase(p) not in _routing
+                and _normalize(p) not in _routing
                 and self._camelCase(p) not in _reshaped
                 and not _is_unkept_value(_value_of(p))]
         # The temporal serializer redirects literal values on OBJECT properties
