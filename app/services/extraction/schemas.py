@@ -974,28 +974,6 @@ class EventExtractionResult(BaseModel):
 #   (four requirements), Berreby (Action Model), Epstein (domain-specific)
 # ---------------------------------------------------------------------------
 
-class CapabilityCategory(str, Enum):
-    """proethica-intermediate.ttl Capability groupings.
-
-    Tolmeijer et al. (2021) capability requirements, aligned to
-    ontology comment-section groups.
-    """
-    norm_management = "norm_management"
-    awareness = "awareness"
-    learning = "learning"
-    reasoning = "reasoning"
-    communication = "communication"
-    domain_specific = "domain_specific"
-    retrieval = "retrieval"
-
-
-class SkillLevel(str, Enum):
-    basic = "basic"
-    intermediate = "intermediate"
-    advanced = "advanced"
-    expert = "expert"
-
-
 class CandidateCapabilityClass(BaseCandidate):
     """A new capability class discovered in case text.
 
@@ -1056,30 +1034,19 @@ class CapabilityExtractionResult(BaseModel):
 #   ProceduralConstraint, SafetyConstraint, ConfidentialityConstraint,
 #   EthicalConstraint, TemporalConstraint
 # Ontology defeasibility types (orthogonal): DefeasibleConstraint,
-#   InviolableConstraint (mapped via flexibility field)
 # Literature: Ganascia (defeasible logic), Dennis et al. (hierarchical
 #   management), Arkin (behavioral constraints)
 #
-# STATUS (verified 2026-05-24): `flexibility` is EXTRACTED and STORED but
-# NOT a live reasoning input. Class rows in temporary_rdf_storage carry
-# varied values (~584 hard / 373 soft / 1 negotiable), and the
-# hard->InviolableConstraint, soft/negotiable->DefeasibleConstraint mapping
-# exists in CATEGORY_TO_ONTOLOGY_IRI and is wired into the commit config
-# (ontserve_commit_service.py _CONCEPT_CATEGORY_CONFIG). However, zero
-# committed proethica-case-*.ttl files actually carry Inviolable/
-# DefeasibleConstraint, and no retrieval, scoring, precedent, or
-# defeasibility-reasoning code reads the value or branches on it. Live
-# defeasibility reasoning is carried at the OBLIGATION layer instead
-# (proethica-core competesWith / prevailsOver / defeasibleUnder edges).
-# Do not treat constraint flexibility as a reasoning signal without first
-# closing the commit-emission gap and re-validating the corpus with Pellet.
-# ---------------------------------------------------------------------------
+# STATUS (2026-07-07, Ca/Cs properties review): the flexibility field was DROPPED
+# from the Cs schema (2026-06) and DefeasibleConstraint/InviolableConstraint were
+# retired 2026-06-28; obligation-layer defeasibility (competesWith / prevailsOver /
+# defeasibleUnder) carries that dimension. No flexibility map exists in
+# CATEGORY_TO_ONTOLOGY_IRI or the commit config.
 
 class ConstraintType(str, Enum):
     """proethica-intermediate.ttl Constraint subclass hierarchy.
 
-    Boundary-type classification. Defeasibility is captured separately
-    by the flexibility field (maps to DefeasibleConstraint / InviolableConstraint).
+    Boundary-type classification. Defeasibility is captured separately.
     """
     legal = "legal"
     regulatory = "regulatory"
@@ -1095,17 +1062,6 @@ class ConstraintType(str, Enum):
     # precedence between competing requirements is the obligation layer's job
     # (competesWith / prevailsOver / defeasibleUnder); a boundary type for it
     # duplicated that mechanism (2026-07-04 deprecation note; zero corpus use).
-
-
-class Flexibility(str, Enum):
-    """Ganascia (2007) defeasibility spectrum.
-
-    Maps to ontology: hard -> InviolableConstraint,
-    soft/negotiable -> DefeasibleConstraint.
-    """
-    hard = "hard"
-    soft = "soft"
-    negotiable = "negotiable"
 
 
 class Severity(str, Enum):
@@ -1132,7 +1088,7 @@ class ConstraintIndividual(BaseIndividual):
     Field set aligned to the extraction-architecture spec (Cs section, 2026-06): constraint_statement
     is the prohibition (skos:definition), applicability_condition is the Dennis complete-specification
     condition, severity is a genuine attribute, constrained_entity resolves to the constrainedEntity
-    edge, and source resolves to establishedBy.
+    edge, and source is kept as a literal whose dotted NSPE codes also resolve to establishedBy.
     """
     constraint_class: str = Field("", description="Constraint class label or URI", alias="instance_of")
     constrained_entity: Optional[str] = Field(
@@ -1145,7 +1101,7 @@ class ConstraintIndividual(BaseIndividual):
         None, description="Temporal and contextual circumstances under which the prohibition applies (Dennis)"
     )
     source: Optional[str] = Field(
-        None, description="Provision or authority establishing the prohibition; resolves to establishedBy"
+        None, description="Provision or authority establishing the prohibition; kept as a literal, and dotted NSPE codes also resolve to the establishedBy edge"
     )
     temporal_scope: Optional[str] = None
     severity: Optional[Severity] = None
@@ -1324,15 +1280,10 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
     },
     # Ca: Capability categories -> base class (individual capabilities
     # are specific subclasses resolved via match_decision)
-    'capabilities': {
-        'norm_management': f'{CORE_NS}Capability',
-        'awareness': f'{CORE_NS}Capability',
-        'learning': f'{CORE_NS}Capability',
-        'reasoning': f'{CORE_NS}Capability',
-        'communication': f'{CORE_NS}Capability',
-        'domain_specific': f'{CORE_NS}Capability',
-        'retrieval': f'{CORE_NS}Capability',
-    },
+    # Ca: EMPTY by design (2026-07-07, mirrors the ONT-4 actions map): the kind is the
+    # class label resolved by match_decision to the named kind classes; the resolver's
+    # fallback supplies the bare core:Capability parent for minted novel kinds.
+    'capabilities': {},
     # Cs: Constraint boundary types -> intermediate subclass IRIs
     'constraints': {
         'legal': f'{INTERMEDIATE_NS}LegalConstraint',
@@ -1348,84 +1299,16 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         # 'priority' retired 2026-07-05 (PriorityConstraint deleted; see the
         # ConstraintType enum note).
     },
-    # Cs: Constraint defeasibility -> intermediate subclass IRIs
     # (orthogonal axis, applied in addition to boundary type)
 }
 
-# Specific ontology state subclasses grouped by category.
-# Used when the commit service needs to suggest a more specific subclass
-# based on the category enum. The LLM's match_decision takes priority.
-STATE_SUBCLASSES: Dict[str, List[str]] = {
-    'conflict': [
-        f'{INTERMEDIATE_NS}ConflictOfInterest',
-        f'{INTERMEDIATE_NS}CompetingDuties',
-    ],
-    'risk': [
-        f'{INTERMEDIATE_NS}PublicSafetyAtRisk',
-        f'{INTERMEDIATE_NS}EnvironmentalHazard',
-    ],
-    'competence': [
-        f'{INTERMEDIATE_NS}OutsideCompetence',
-        f'{INTERMEDIATE_NS}QualifiedToPerform',
-    ],
-    'relationship': [
-        f'{INTERMEDIATE_NS}ClientRelationship',
-        f'{INTERMEDIATE_NS}EmploymentTerminated',
-    ],
-    'information': [
-        f'{INTERMEDIATE_NS}ConfidentialInformation',
-        f'{INTERMEDIATE_NS}PublicInformation',
-    ],
-    'emergency': [
-        f'{INTERMEDIATE_NS}EmergencySituation',
-        f'{INTERMEDIATE_NS}CrisisConditions',
-    ],
-    'regulatory': [
-        f'{INTERMEDIATE_NS}RegulatoryCompliance',
-        f'{INTERMEDIATE_NS}NonCompliant',
-    ],
-    'temporal': [
-        f'{INTERMEDIATE_NS}DeadlineApproaching',
-        f'{INTERMEDIATE_NS}ExtendedTimeframe',
-    ],
-    'resource': [
-        f'{INTERMEDIATE_NS}ResourceConstrained',
-        f'{INTERMEDIATE_NS}ResourceAvailable',
-    ],
-}
+# STATE_SUBCLASSES was deleted 2026-07-07 (Ca/Cs properties review): it named classes that no
+# longer exist in the intermediate (the live taxonomies are the state archetypes and the
+# canonical capability kinds; typing rides the class label via match_decision).
 
-# Specific ontology capability subclasses grouped by category.
-CAPABILITY_SUBCLASSES: Dict[str, List[str]] = {
-    'norm_management': [
-        f'{INTERMEDIATE_NS}NormCompetence',
-        f'{INTERMEDIATE_NS}ConflictResolution',
-    ],
-    'awareness': [
-        f'{INTERMEDIATE_NS}SituationalAwareness',
-        f'{INTERMEDIATE_NS}EthicalPerception',
-    ],
-    'learning': [
-        f'{INTERMEDIATE_NS}EthicalLearning',
-        f'{INTERMEDIATE_NS}PrincipleRefinement',
-    ],
-    'reasoning': [
-        f'{INTERMEDIATE_NS}EthicalReasoning',
-        f'{INTERMEDIATE_NS}CausalReasoning',
-        f'{INTERMEDIATE_NS}TemporalReasoning',
-    ],
-    'communication': [
-        f'{INTERMEDIATE_NS}ExplanationGeneration',
-        f'{INTERMEDIATE_NS}JustificationCapability',
-        f'{INTERMEDIATE_NS}ResponsibilityDocumentation',
-    ],
-    'domain_specific': [
-        f'{INTERMEDIATE_NS}DomainExpertise',
-        f'{INTERMEDIATE_NS}ProfessionalCompetence',
-    ],
-    'retrieval': [
-        f'{INTERMEDIATE_NS}PrecedentRetrieval',
-    ],
-}
+# CAPABILITY_SUBCLASSES was deleted 2026-07-07 (Ca/Cs properties review): it named classes that no
+# longer exist in the intermediate (the live taxonomies are the state archetypes and the
+# canonical capability kinds; typing rides the class label via match_decision).
 
 
 # ---------------------------------------------------------------------------

@@ -135,7 +135,7 @@
     },
     "capability_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) CapabilityDefinitionShape via concept_ontology_slots -> _component_schema_block('Capability')",
-      "description": "Capability definitional/individual field schema, resolved live from the SHACL CapabilityDefinitionShape + CapabilityPropertyShape split (single source shared with the OntServe Capability entity page). capability_kind drives the subClassOf typing (type-level); possessed_by and required_for_obligations are per-case individual fields (PropertyShape) resolving to the possessedBy and requiresCapability edges; the Tolmeijer requirement is a class-level annotation"
+      "description": "Capability definitional/individual field schema, resolved live from the SHACL CapabilityDefinitionShape + CapabilityPropertyShape split (single source shared with the OntServe Capability entity page). the capability class label carries the kind; the match decision resolves it (no capability_kind field) (type-level); possessed_by and required_for_obligations are per-case individual fields (PropertyShape) resolving to the possessedBy and requiresCapability edges; the Tolmeijer requirement is a class-level annotation"
     },
     "pass_directive": {
       "source": "_PASS_DIRECTIVES[('capabilities', section_type)] in prompt_variable_resolver",

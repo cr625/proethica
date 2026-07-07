@@ -137,7 +137,7 @@ class OntServeCommitService:
         ancestor.
 
         Used to avoid re-declaring a category-derived parent for a class
-        the ontology already defines: e.g. proeth:ProfessionalCompetence is
+        the ontology already defines: e.g. proeth:CompetenceSelfAssessmentCapability is
         subClassOf proeth-core:Capability in proethica-intermediate, so a commit
         must NOT add proeth-core:Principle just because an instance's routing
         category says "Principle" -- that second disjoint parent makes the case
@@ -162,7 +162,7 @@ class OntServeCommitService:
         there it masks the conflict (it would report the just-written category).
         The base is fixed during a run, so it is the authority for deciding whether
         a label collides with a reserved category. Cached per instance. e.g.
-        ProfessionalCompetence -> Capability (reserved by proethica-intermediate),
+        CompetenceSelfAssessmentCapability -> Capability (reserved by proethica-intermediate),
         regardless of what a principle pass tries to write to the same IRI.
         """
         cache = getattr(self, '_base_cat_cache', None)
@@ -207,9 +207,9 @@ class OntServeCommitService:
         with a DIFFERENT (disjoint) core category than the entity's own.
 
         The nine core categories are mutually disjoint, so a Principle minted onto
-        proeth:ProfessionalCompetence (reserved by the base for Capability) makes the
+        proeth:CompetenceSelfAssessmentCapability (reserved by the base for Capability) makes the
         case OWL-DL inconsistent. Rather than dual-class one IRI, give the new
-        concept its own IRI by appending its category (ProfessionalCompetencePrinciple).
+        concept its own IRI by appending its category (CompetenceSelfAssessmentCapabilityPrinciple).
         No-op when there is no collision (the common case) or no category."""
         if not concept_category:
             return class_local_name
@@ -594,7 +594,7 @@ class OntServeCommitService:
                 safe_label = self._safe_local_name(label)
                 # Category-aware disambiguation: never mint a class IRI that the
                 # immutable base reserves for a disjoint category (e.g. a Principle
-                # onto proeth:ProfessionalCompetence, a base Capability).
+                # onto proeth:CompetenceSelfAssessmentCapability, a base Capability).
                 category = self._get_concept_category(entity)
                 safe_label = self._category_safe_class_local(safe_label, category)
                 safe_label, label = self._enforce_role_suffix(safe_label, label, category)
@@ -626,9 +626,16 @@ class OntServeCommitService:
                             g.add((class_uri, RDFS.subClassOf, URIRef(sc_uri)))
                     continue
 
-                # Add class triple
+                # Add class triple. Normalize an extractor-vintage CamelCase label to
+                # the spaced form the canonical intermediate uses ('DesignCapability' ->
+                # 'Design Capability'), with the en language tag (extended-store labels
+                # previously landed verbatim and rendered unsplit in the hierarchy).
                 g.add((class_uri, RDF.type, OWL.Class))
-                g.add((class_uri, RDFS.label, Literal(label)))
+                disp = label
+                if disp and ' ' not in disp and any(c.isupper() for c in disp[1:]):
+                    disp = _re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', disp)
+                    disp = _re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', disp)
+                g.add((class_uri, RDFS.label, Literal(disp, lang='en')))
 
                 # Definitions: rdfs:comment + skos:definition (primary) and
                 # skos:scopeNote (alternates), via the shared serializer that the

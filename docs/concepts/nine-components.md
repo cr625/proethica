@@ -117,7 +117,7 @@ Principles provide abstract guidance that must be interpreted through precedents
 
 **Definition**: Specific requirements for action or restraint.
 
-Obligations transform principles into concrete, evaluable professional requirements. Unlike principles that provide general guidance, obligations establish the specific requirements necessary for evaluation. Dennis et al. (2016) emphasize that obligations require complete specification to be computationally verifiable.
+Obligations transform principles into concrete, evaluable professional requirements. Unlike principles that provide general guidance, obligations establish the specific requirements necessary for evaluation. Dennis et al. (2016) specify abstract principles into precise context-dependent constraints so that choices are computationally verifiable.
 
 **Examples**:
 

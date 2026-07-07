@@ -391,7 +391,7 @@ _FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
             'label, definition (the prohibition), confidence (float 0-1), '
             'match_decision, constraint_type (legal | regulatory | resource | '
             'competence | jurisdictional | procedural | safety | confidentiality '
-            '| ethical | temporal | priority), text_references'
+            '| ethical | temporal), text_references'
         ),
         'individual_required': (
             'identifier, constraint_class, constraint_statement, '
@@ -511,37 +511,18 @@ _CATEGORY_INFERENCE: Dict[str, Tuple[str, list]] = {
             'safety constraint', 'hazard', 'risk limit',
             'danger threshold', 'safety factor',
         }),
-    ]),
-    'capabilities': ('capability_category', [
-        ('norm_management', {
-            'norm', 'rule management', 'obligation tracking',
-            'compliance management', 'policy',
+            ('confidentiality', {
+            'confidential', 'privacy', 'proprietary information', 'nondisclosure',
         }),
-        ('awareness', {
-            'awareness', 'recognize', 'perceive', 'identify risk',
-            'detect', 'situational awareness',
+        ('ethical', {
+            'ethical boundary', 'ethics rule', 'moral boundary',
         }),
-        ('learning', {
-            'learn', 'adapt', 'update knowledge', 'improve',
-            'experience', 'continuing education',
-        }),
-        ('reasoning', {
-            'reason', 'analyze', 'evaluate', 'judge', 'assess',
-            'deliberate', 'weigh', 'ethical reasoning',
-        }),
-        ('communication', {
-            'communicate', 'inform', 'report', 'disclose',
-            'articulate', 'explain', 'present',
-        }),
-        ('domain_specific', {
-            'engineering', 'technical', 'domain knowledge',
-            'specialized', 'professional expertise',
-        }),
-        ('retrieval', {
-            'retrieve', 'access', 'reference', 'recall',
-            'look up', 'precedent', 'case law',
+        ('temporal', {
+            'deadline', 'time limit', 'expiration', 'within the period',
         }),
     ]),
+    # capabilities: inference retired 2026-07-07 (the capability_category field was
+    # dropped; the kind rides the class label via match_decision).
 }
 
 

@@ -276,8 +276,8 @@ class ParsingMixin:
             'persistence_type', 'state_category', 'urgency_level',
             'role_category', 'resource_category', 'resource_type',
             'principle_category', 'obligation_type', 'enforcement_level',
-            'compliance_status', 'constraint_type', 'flexibility', 'severity',
-            'capability_category', 'skill_level', 'proficiency_level',
+            'compliance_status', 'constraint_type', 'severity',
+            
         ):
             if enum_field in item and isinstance(item[enum_field], str):
                 item[enum_field] = item[enum_field].replace('-', '_')

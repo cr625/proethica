@@ -2,7 +2,7 @@
   "concept_type": "constraints",
   "step_number": 2,
   "domain": "engineering",
-  "system_prompt": "You are an expert at extracting constraints (prohibitions and hard boundaries) from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Dennis et al. complete specification and severity ordering; Ganascia defeasible boundaries). A constraint is a prohibition, distinct from the positive duty an obligation states. Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
+  "system_prompt": "You are an expert at extracting constraints (prohibitions and hard boundaries) from engineering-ethics cases using the ProEthica nine-component formalism and the professional-ethics literature (Dennis et al. specification into context-dependent constraints and severity ordering; Ganascia defeasible boundaries). A constraint is a prohibition, distinct from the positive duty an obligation states. Follow the extraction methodology, matching rules, and output format given in the user message exactly, and return only the requested JSON (no prose, markdown, or code fences).",
   "output_schema": {
     "new_constraint_classes": {
       "type": "array",
@@ -158,7 +158,7 @@
     },
     "constraint_schema": {
       "source": "OntServe SHACL shapes (validation/shapes/core-shapes.ttl) ConstraintDefinitionShape via concept_ontology_slots -> _component_schema_block('Constraint')",
-      "description": "Constraint definitional/individual field schema, resolved live from the SHACL ConstraintDefinitionShape (single source shared with the OntServe Constraint entity page). boundary_type drives the subClassOf typing; severity and applicability_condition are literals; constrained_entity resolves to the constrainedEntity edge; source resolves to establishedBy"
+      "description": "Constraint definitional/individual field schema, resolved live from the SHACL ConstraintDefinitionShape (single source shared with the OntServe Constraint entity page). constraint_type drives the subClassOf typing (boundaryType is the shape-path anchor); severity, applicability_condition, and temporal_scope are literals; constrained_entity resolves to the constrainedEntity edge; source is kept as a literal whose dotted NSPE codes also resolve to establishedBy"
     },
     "pass_directive": {
       "source": "_PASS_DIRECTIVES[('constraints', section_type)] in prompt_variable_resolver",

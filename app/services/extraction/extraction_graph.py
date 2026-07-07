@@ -48,7 +48,7 @@ _CONCEPT_CATEGORY_FIELD = {
     'resources': 'resource_category',
     'actions': 'action_category',
     'events': 'event_category',
-    'capabilities': 'capability_category',
+    # capabilities: the kind rides the class label via match_decision (no category field)
     'constraints': 'constraint_type',
 }
 
