@@ -764,3 +764,99 @@ class TestRealLLMIntegration:
             assert (o, s) in cw_pairs, (
                 f"Symmetric closure missing: ({s}, {o}) without inverse"
             )
+
+
+class TestJointEmission:
+    """Joint-emission invariant (2026-07-08 defeasibility view review):
+    defeasibleUnder presupposes a competing obligation (the core property
+    definition says the State renders the obligation subject to override BY A
+    COMPETING OBLIGATION), so a defeasibleUnder edge survives only when its
+    subject participates in a competesWith or prevailsOver edge in the same
+    extraction. Locks the guard that would have flagged the 9 of 15 gold
+    cases carrying defeasibleUnder edges with no competition structure."""
+
+    def _extract(self, output, case72_obligations, case72_states):
+        client = _make_mock_client(output)
+        extractor = DefeasibilityEdgeExtractor(
+            llm_client=client, model="claude-test-model"
+        )
+        return extractor.extract(
+            case_id=72,
+            obligations=case72_obligations,
+            states=case72_states,
+        )
+
+    def test_defeasible_under_alone_is_dropped(
+        self, case72_obligations, case72_states
+    ):
+        output = {
+            "edges": [
+                {
+                    "predicate": "defeasibleUnder",
+                    "subject_iri": FAITHFUL_AGENT_IRI,
+                    "object_iri": PUBLIC_SAFETY_STATE_IRI,
+                    "source_field": "tensionresolution",
+                    "source_text": "yields under risk",
+                    "confidence": 0.8,
+                },
+            ]
+        }
+        assert self._extract(output, case72_obligations, case72_states) == []
+
+    def test_defeasible_under_with_named_competitor_is_kept(
+        self, case72_obligations, case72_states
+    ):
+        output = {
+            "edges": [
+                {
+                    "predicate": "competesWith",
+                    "subject_iri": FAITHFUL_AGENT_IRI,
+                    "object_iri": PUBLIC_WELFARE_IRI,
+                    "source_field": "tensionresolution",
+                    "source_text": "the two duties stand in tension",
+                    "confidence": 0.9,
+                },
+                {
+                    "predicate": "defeasibleUnder",
+                    "subject_iri": FAITHFUL_AGENT_IRI,
+                    "object_iri": PUBLIC_SAFETY_STATE_IRI,
+                    "source_field": "tensionresolution",
+                    "source_text": "yields under risk",
+                    "confidence": 0.8,
+                },
+            ]
+        }
+        edges = self._extract(output, case72_obligations, case72_states)
+        by_pred = {}
+        for e in edges:
+            by_pred.setdefault(e.predicate, []).append(e)
+        # competesWith closed symmetrically; the grounded defeasibleUnder kept.
+        assert len(by_pred["competesWith"]) == 2
+        assert len(by_pred["defeasibleUnder"]) == 1
+
+    def test_prevails_over_participation_grounds_defeasible_under(
+        self, case72_obligations, case72_states
+    ):
+        output = {
+            "edges": [
+                {
+                    "predicate": "prevailsOver",
+                    "subject_iri": PUBLIC_WELFARE_IRI,
+                    "object_iri": FAITHFUL_AGENT_IRI,
+                    "source_field": "tensionresolution",
+                    "source_text": "the overriding public welfare obligation",
+                    "confidence": 0.9,
+                },
+                {
+                    "predicate": "defeasibleUnder",
+                    "subject_iri": FAITHFUL_AGENT_IRI,
+                    "object_iri": PUBLIC_SAFETY_STATE_IRI,
+                    "source_field": "tensionresolution",
+                    "source_text": "yields under risk",
+                    "confidence": 0.8,
+                },
+            ]
+        }
+        edges = self._extract(output, case72_obligations, case72_states)
+        preds = sorted(e.predicate for e in edges)
+        assert preds == ["defeasibleUnder", "prevailsOver"]

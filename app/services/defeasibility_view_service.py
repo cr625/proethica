@@ -11,10 +11,11 @@ Two bands are produced:
   prevailed, which yielded, and the State context under which the yielding obligation
   is defeasible. Plus the board conclusions and the action-level obligation violations
   that record the resolution.
-* **Cross case** -- for the same conflict theme, how a curated set of comparable cases
-  resolved the analogous tension. The case set is fixed (chosen for clean,
-  current-architecture extractions) so a walkthrough renders identically, but every
-  edge shown is read live from that case's committed TTL. No prose is hard-coded.
+* **Cross case** -- how comparable cases resolved a similar tension, ranked from the
+  commit-time band index by the pairwise metric in _band_score (both obligations of
+  the resolved pair plus the licensing context, in embedding space), floored by
+  MIN_BAND_SCORE, and restricted to fresh-architecture cases. No prose is hard-coded;
+  the band is deterministic between commits.
 
 Predicates are matched by local name so the service is robust to namespace form.
 """
@@ -33,19 +34,6 @@ TRIO = {"competesWith", "prevailsOver", "defeasibleUnder"}
 _CORE_NS = "http://proethica.org/ontology/core#"
 _NINE_CATEGORIES = {"Role", "Principle", "Obligation", "State", "Resource",
                     "Action", "Event", "Capability", "Constraint"}
-
-# Curated cross-case comparison sets, keyed by conflict theme. ``case_ids`` is the
-# fixed selection (current-architecture, Pellet-consistent extractions); the edges
-# themselves are read live from each case's committed TTL, so the panel is real data
-# and only the case selection is pinned for a stable demonstration.
-CURATED_BANDS = {
-    "Faithful Agent": {
-        "label": "A faithful-agent duty yields to a public-protection obligation",
-        "defeated_contains": "Faithful Agent",
-        "case_ids": [8, 76, 71, 86],
-    },
-}
-
 
 def _local(uri) -> str:
     s = str(uri)
@@ -189,7 +177,10 @@ def get_case_conflicts(case_id: int) -> dict:
 
     seen = set()
     conflicts = []
-    for winner, loser in prevails:
+    # Sorted so the conflict order (and with it the featured fallback and the
+    # cross-case band anchor) is stable across processes: _trio_edges iterates
+    # the rdflib graph, whose order is hash-randomized per process.
+    for winner, loser in sorted(prevails):
         if (winner, loser) in seen:
             continue
         seen.add((winner, loser))
@@ -217,59 +208,26 @@ def get_case_conflicts(case_id: int) -> dict:
     }
 
 
-def _theme_for_case(conflicts) -> str | None:
-    for key, band in CURATED_BANDS.items():
-        if any(band["defeated_contains"] in c["loser"] for c in conflicts):
-            return key
-    return None
+# Fresh-architecture commit marker: every entity committed through the current
+# pipeline carries proeth-prov:synthesisLiteral rows; legacy prior-extraction
+# TTLs have none. Used to gate which index rows the dynamic band may rank.
+_FRESH_MARKER = rdflib.URIRef("http://proethica.org/provenance#synthesisLiteral")
 
 
-def get_cross_case_band(theme_key: str, anchor_case_id: int) -> dict | None:
-    band = CURATED_BANDS.get(theme_key)
-    if not band:
-        return None
-
-    from app.models import Document
-
-    keyword = band["defeated_contains"]
-    rows = []
-    for cid in band["case_ids"]:
-        if cid == anchor_case_id:
-            continue
-        try:
-            g = load_case_graph(cid)
-        except FileNotFoundError:
-            logger.warning("cross-case band: case %s has no committed TTL (skipped)", cid)
-            continue
-        _competes, prevails, defeasible = _trio_edges(g)
-        matches = []
-        seen = set()
-        for winner, loser in prevails:
-            if keyword in loser and (winner, loser) not in seen:
-                seen.add((winner, loser))
-                matches.append({
-                    "winner": winner,
-                    "loser": loser,
-                    "contexts": sorted(set(defeasible.get(loser, []))),
-                })
-        if not matches:
-            continue
-        doc = Document.query.get(cid)
-        meta = doc.doc_metadata if (doc and isinstance(doc.doc_metadata, dict)) else {}
-        rows.append({
-            "case_id": cid,
-            "title": doc.title if doc else f"Case {cid}",
-            "case_number": meta.get("case_number", ""),
-            "matches": matches,
-        })
-    return {"label": band["label"], "keyword": keyword, "rows": rows}
+def _context_text(labels) -> str | None:
+    """Canonical text form of a defeasibleUnder context-label set for embedding:
+    sorted and '; '-joined, so refresh-time and query-time embeddings agree."""
+    return "; ".join(sorted(labels)) if labels else None
 
 
 def refresh_band_index(case_id: int) -> int:
     """Rebuild this case's rows in the cross-case defeasibility index from its committed
-    TTL. One row per resolved prevailsOver (winner, loser) pair, with the loser label's
-    embedding precomputed. Idempotent (clears the case's existing rows first). Returns the
-    number of rows written. Called at commit time after edge materialization."""
+    TTL. One row per resolved prevailsOver (winner, loser) pair, with embeddings of both
+    obligation labels and of the joined defeasibleUnder context labels precomputed
+    (pairwise ranking, 2026-07-08). Rows are marked fresh when the TTL carries the
+    fresh-architecture proeth-prov:synthesisLiteral marker; only fresh rows enter the
+    dynamic band. Idempotent (clears the case's existing rows first). Returns the number
+    of rows written. Called at commit time after edge materialization."""
     from app.models import db
     from app.models.defeasibility_band_index import DefeasibilityBandIndex
     from app.services.embedding.embedding_service import EmbeddingService
@@ -292,17 +250,27 @@ def refresh_band_index(case_id: int) -> int:
         seen.add((winner, loser))
         pairs.append((winner, loser))
 
+    fresh = next(g.triples((None, _FRESH_MARKER, None)), None) is not None
     emb = EmbeddingService.get_instance()
     label_vec = {}
+
+    def _vec(text):
+        if text not in label_vec:
+            label_vec[text] = emb.get_embedding(text)
+        return label_vec[text]
+
     for winner, loser in pairs:
-        if loser not in label_vec:
-            label_vec[loser] = emb.get_embedding(loser)
+        contexts = sorted(set(defeasible.get(loser, [])))
+        ctx_txt = _context_text(contexts)
         db.session.add(DefeasibilityBandIndex(
             case_id=case_id,
             winner_label=winner,
             loser_label=loser,
-            context_labels=sorted(set(defeasible.get(loser, []))),
-            loser_embedding=label_vec[loser],
+            context_labels=contexts,
+            loser_embedding=_vec(loser),
+            winner_embedding=_vec(winner),
+            context_embedding=_vec(ctx_txt) if ctx_txt else None,
+            fresh=fresh,
         ))
     db.session.commit()
     return len(pairs)
@@ -319,14 +287,51 @@ def _cosine(a, b) -> float:
     return float(np.dot(a, b) / (na * nb))
 
 
+# Band-2 score floor: candidates below it are omitted and the view says no
+# sufficiently similar resolution is indexed, instead of showing top-5
+# regardless of similarity (2026-07-08 review: the floorless loser-only metric
+# surfaced 0.36-scoring legacy matches under a "same tension" heading).
+MIN_BAND_SCORE = 0.45
+
+
+def _band_score(anchor_vecs: dict, row) -> float | None:
+    """Pairwise tension similarity between the anchor conflict and one index row.
+
+    A tension is the PAIR of obligations, so both endpoints are matched with equal
+    weight, plus the licensing context in embedding space:
+
+        score = 0.7 * (0.5*cos(winner) + 0.5*cos(loser)) + 0.3 * cos(contexts)
+
+    The 0.7/0.3 structure-vs-context split carries over from the loser-only metric
+    this replaces (2026-07-08 review: the winner was ignored, and exact-label Jaccard
+    over case-minted context labels was structurally inert -- 3 of 566 context labels
+    in the whole index recurred across cases). The context term is 0 when either side
+    has no defeasibleUnder contexts. Returns None for rows predating the pairwise
+    columns (no winner embedding), which the caller skips.
+    """
+    if row.loser_embedding is None or row.winner_embedding is None:
+        return None
+    pair = 0.5 * _cosine(anchor_vecs["winner"], row.winner_embedding) \
+        + 0.5 * _cosine(anchor_vecs["loser"], row.loser_embedding)
+    ctx = 0.0
+    if anchor_vecs.get("context") is not None and row.context_embedding is not None:
+        ctx = _cosine(anchor_vecs["context"], row.context_embedding)
+    return 0.7 * pair + 0.3 * ctx
+
+
 def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | None:
     """Cross-case band assembled from the commit-time index instead of a curated set.
 
-    Ranks every other case's defeated-obligation pattern against the anchor's featured
-    conflict by loser-obligation embedding similarity (0.7) plus State-context Jaccard
-    overlap (0.3), keeps the best-scoring pattern per case, and returns the top five.
-    The band label is generated from the anchor's winner/loser pair. Returns None when
-    the anchor has no resolved conflict or the index holds no other cases.
+    Ranks every other fresh-architecture case's resolved tension against the anchor's
+    featured conflict with the pairwise metric in _band_score, keeps the best-scoring
+    pattern per case, applies the MIN_BAND_SCORE floor, and returns up to five rows.
+    Only fresh index rows are ranked: legacy prior-extraction patterns carry
+    citation-bearing labels and predate the entity contract, and are excluded until
+    the 119-case rebuild re-commits them. The band label is generated from the
+    anchor's winner/loser pair. Returns None when the anchor has no resolved conflict
+    or the index holds no other fresh cases; returns a band with empty rows when
+    candidates exist but none clears the floor (the view renders that state
+    explicitly).
     """
     conflicts = case_data.get("conflicts") or []
     featured = next((c for c in conflicts if c.get("featured")),
@@ -339,23 +344,27 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
     from app.services.embedding.embedding_service import EmbeddingService
 
     candidates = DefeasibilityBandIndex.query.filter(
-        DefeasibilityBandIndex.case_id != anchor_case_id
+        DefeasibilityBandIndex.case_id != anchor_case_id,
+        DefeasibilityBandIndex.fresh.is_(True),
     ).all()
     if not candidates:
         return None
 
     anchor_loser = featured["loser"]
     anchor_winner = featured["winner"]
-    anchor_ctx = set(featured.get("contexts", []))
-    anchor_vec = EmbeddingService.get_instance().get_embedding(anchor_loser)
+    emb = EmbeddingService.get_instance()
+    anchor_ctx_txt = _context_text(featured.get("contexts", []))
+    anchor_vecs = {
+        "winner": emb.get_embedding(anchor_winner),
+        "loser": emb.get_embedding(anchor_loser),
+        "context": emb.get_embedding(anchor_ctx_txt) if anchor_ctx_txt else None,
+    }
 
     best = {}  # case_id -> (score, row)
     for r in candidates:
-        sim = _cosine(anchor_vec, r.loser_embedding) if r.loser_embedding else 0.0
-        cand_ctx = set(r.context_labels or [])
-        union = anchor_ctx | cand_ctx
-        jaccard = (len(anchor_ctx & cand_ctx) / len(union)) if union else 0.0
-        score = 0.7 * sim + 0.3 * jaccard
+        score = _band_score(anchor_vecs, r)
+        if score is None:
+            continue
         current = best.get(r.case_id)
         if current is None or score > current[0]:
             best[r.case_id] = (score, r)
@@ -363,6 +372,8 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
     top = sorted(best.values(), key=lambda pair: pair[0], reverse=True)[:5]
     rows = []
     for score, r in top:
+        if score < MIN_BAND_SCORE:
+            continue
         doc = Document.query.get(r.case_id)
         meta = doc.doc_metadata if (doc and isinstance(doc.doc_metadata, dict)) else {}
         rows.append({
@@ -376,25 +387,23 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
             }],
             "score": round(score, 3),
         })
-    if not rows:
-        return None
     # Generated from the matched pair (no hand-written prose). Kept article-free so it
     # reads correctly whether the labels are common-noun obligations or engineer-prefixed.
     label = f"{anchor_loser} yields to {anchor_winner}"
-    return {"label": label, "keyword": anchor_loser, "rows": rows, "dynamic": True}
+    return {"label": label, "keyword": anchor_loser, "rows": rows,
+            "floor": MIN_BAND_SCORE, "dynamic": True}
 
 
 def build_defeasibility_view(case_id: int) -> dict:
     """Assemble both bands for the case. Raises FileNotFoundError if the case has no
     committed ontology yet."""
     case_data = get_case_conflicts(case_id)
-    # A curated theme, when one matches, pins the comparison set for a deterministic
-    # walkthrough; otherwise the band is built dynamically from the commit-time index.
-    theme = _theme_for_case(case_data["conflicts"])
-    if theme:
-        cross_case = get_cross_case_band(theme, case_id)
-    else:
-        cross_case = get_cross_case_band_dynamic(case_id, case_data)
+    # 2026-07-08: the former CURATED_BANDS theme path (a pinned "Faithful Agent"
+    # comparison set) was retired -- it pinned legacy prior-extraction cases the
+    # dynamic band deliberately excludes, and preempted better dynamic matches.
+    # The dynamic band is deterministic between commits (commit-time index +
+    # sorted conflict order), which covers the stable-walkthrough purpose.
+    cross_case = get_cross_case_band_dynamic(case_id, case_data)
 
     # Hover lookup over the entities the view renders: the anchor case plus the comparison
     # cases. Each entry links to its own committed OntServe ontology. The anchor case wins
@@ -411,7 +420,6 @@ def build_defeasibility_view(case_id: int) -> dict:
 
     return {
         "case_conflicts": case_data,
-        "theme": theme,
         "cross_case": cross_case,
         "entity_lookup": lookup,
     }

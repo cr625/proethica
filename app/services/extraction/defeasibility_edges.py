@@ -125,6 +125,7 @@ class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
         )
 
         edges = self._close_symmetric_competesWith(edges)
+        edges = self._enforce_joint_emission(edges, case_id)
         edges = self._dedupe_edges(edges)
 
         logger.info(
@@ -266,6 +267,41 @@ class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
                     continue
 
             kept.append(ed)
+        return kept
+
+    @staticmethod
+    def _enforce_joint_emission(
+        edges: List[DefeasibilityEdge],
+        case_id: int,
+    ) -> List[DefeasibilityEdge]:
+        """Joint-emission invariant (2026-07-08 defeasibility view review).
+
+        defeasibleUnder records the State under which an obligation yields to a
+        COMPETING obligation -- the core property definition presupposes the
+        competitor -- so a defeasibleUnder edge is kept only when its subject
+        obligation participates in at least one competesWith or prevailsOver
+        edge in the same extraction. The prompt asks the LLM to name the
+        competition first; a drop here means the model asserted yielding
+        without any recorded tension, which is exactly the pattern this
+        invariant exists to prevent (9 of 15 gold cases carried defeasibleUnder
+        edges with no competition structure at all).
+        """
+        engaged: Set[str] = set()
+        for e in edges:
+            if e.predicate in ("competesWith", "prevailsOver"):
+                engaged.add(e.subject_iri)
+                engaged.add(e.object_iri)
+        kept: List[DefeasibilityEdge] = []
+        for e in edges:
+            if e.predicate == "defeasibleUnder" and e.subject_iri not in engaged:
+                logger.warning(
+                    "Case %s: dropped defeasibleUnder edge -- subject has no "
+                    "competesWith/prevailsOver in this extraction "
+                    "(joint-emission invariant): %r",
+                    case_id, e.subject_iri,
+                )
+                continue
+            kept.append(e)
         return kept
 
     # ------------------------------------------------------------------

@@ -109,12 +109,13 @@
   </div>
   {% endif %}
 
-  {% if view.cross_case and view.cross_case.rows %}
+  {% if view.cross_case %}
   <h5 class="mt-5 mb-2"><i class="bi bi-2-circle me-1"></i>How comparable cases resolved the same tension</h5>
+  {% if view.cross_case.rows %}
   <p class="text-muted small">
-    {{ view.cross_case.label }}. The yielding obligation ("{{ view.cross_case.keyword }}") recurs across cases;
-    the obligation that overrides it and the context under which it yields differ case by case. This is the
-    case-law move: not a single rule, but a family of context-indexed resolutions.
+    {{ view.cross_case.label }}. Cases below resolve a similar tension, matched on both obligations of the
+    pair and on the context under which the yielding obligation gives way; the resolution still shifts case
+    by case. This is the case-law move: not a single rule, but a family of context-indexed resolutions.
   </p>
   <div class="table-responsive">
     <table class="table table-sm align-middle">
@@ -149,6 +150,13 @@
       </tbody>
     </table>
   </div>
+  {% else %}
+  <p class="text-muted small">
+    No indexed case resolves a sufficiently similar tension ({{ view.cross_case.label }}): every candidate
+    falls below the similarity floor. Comparable resolutions appear here as cases with related tensions are
+    committed.
+  </p>
+  {% endif %}
   {% endif %}
 
 </div>
