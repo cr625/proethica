@@ -738,17 +738,20 @@ class ResourceExtractionResult(BaseModel):
 # ---------------------------------------------------------------------------
 # "Volitional professional interventions that carry ethical weight"
 # BFO: bfo:0000015 (process)
-# Ontology: CommunicationAction, PreventionAction, MaintenanceAction,
-#   PerformanceAction, EvaluationAction, CollaborationAction, CreationAction,
-#   MonitoringAction (+ sub-types: Decision, DisclosureAction, CompetenceAction)
-# Literature: Sarmiento (volitional nature), Bonnemains (multi-framework),
-#   Govindarajulu (intentional status), Allen (interval algebra)
+# Ontology: Action is BARE (no subtype; ONT-4 2026-07-01 retired the topical
+#   taxonomy); individuals type directly to proeth-core:Action
+# Literature: Sarmiento (an action follows from a volition), Bonnemains
+#   (multi-framework), Govindarajulu (intentional status), Allen (interval algebra)
 # ---------------------------------------------------------------------------
 
 class ActionCategory(str, Enum):
-    """proethica-intermediate.ttl Action subclass hierarchy.
+    """Legacy topical action labels with NO intermediate subclass mapping.
 
-    First-level subclasses of proeth-core:Action.
+    ONT-4 (2026-07-01) retired the topical Action taxonomy: the
+    CATEGORY_TO_ONTOLOGY_IRI actions map is deliberately empty and the
+    resolver falls back to bare proeth-core:Action for every value. The enum
+    is kept because CandidateActionClass.action_category remains a live field
+    (mirror/typing axis), but no value routes to a subclass.
     """
     communication = "communication"
     prevention = "prevention"
@@ -790,7 +793,7 @@ class ActionIndividual(BaseModel):
 
     CONFORMED to the emitted vocabulary (HO-006, 2026-05-26). Step-3 temporal
     dynamics does NOT validate through this model: actions are produced by the
-    LangGraph temporal pass and serialised directly to ``proeth:`` JSON-LD by
+    LangGraph temporal pass and serialized directly to ``proeth:`` JSON-LD by
     ``app/services/temporal_dynamics/utils/rdf_converter.convert_action_to_rdf``.
     The committed JSON-LD (``temporary_rdf_storage.rdf_json_ld`` for
     ``extraction_type='temporal_dynamics_enhanced'``, ``entity_type='actions'``) is the
@@ -832,7 +835,16 @@ class ActionIndividual(BaseModel):
 
     # Professional context
     within_competence: Optional[bool] = Field(None, alias="proeth:withinCompetence")
+    # Literal-only at commit: redirected to the proeth:requiresCapabilityText kept
+    # literal; no Action-domain edge family exists (the O->Ca direction is carried by
+    # requires_capability_edges from the Capability side). See intermediate.ttl
+    # requiresCapabilityText.
     requires_capability: List[str] = Field(default_factory=list, alias="proeth:requiresCapability")
+
+    # Mirror fields for committed-output round-tripping
+    text_references: List[str] = Field(default_factory=list, alias="proeth:textReferences")
+    agents: List[str] = Field(default_factory=list, alias="proeth:agents")
+    agent_relation: Optional[str] = Field(None, alias="proeth:agentRelation")
 
     # Fluent transitions + OWL-Time extent (Event Calculus)
     initiates: List[str] = Field(default_factory=list, alias="proeth:initiates")
@@ -860,34 +872,12 @@ class ActionExtractionResult(BaseModel):
 # ---------------------------------------------------------------------------
 # "Occurrences originating outside agent control that affect evaluation"
 # BFO: bfo:0000015 (process)
-# Ontology: CrisisEvent, ComplianceEvent, ConflictEvent, ProjectEvent,
-#   SafetyEvent, EvaluationEvent, DiscoveryEvent, ChangeEvent
-#   (+ sub-types: Violation, EmergencyEvent, DeadlineEvent, SafetyIncident)
+# Ontology: the three core ORIGIN subclasses (AgentCausedEvent /
+#   ExogenousEvent / AutomaticEvent), routed from the event_type signal
+#   (ONT-4 retired the topical Event taxonomy)
 # Literature: Berreby (automatic events, Event Calculus), Arkin (emergency
 #   overrides), Almpani (obligation dynamics)
 # ---------------------------------------------------------------------------
-
-class EventCategory(str, Enum):
-    """proethica-intermediate.ttl Event subclass hierarchy.
-
-    First-level subclasses of proeth-core:Event.
-    """
-    crisis = "crisis"
-    compliance = "compliance"
-    conflict = "conflict"
-    project = "project"
-    safety = "safety"
-    evaluation = "evaluation"
-    discovery = "discovery"
-    change = "change"
-
-
-class CausalPosition(str, Enum):
-    """Position in the causal chain (orthogonal to event category)."""
-    trigger = "trigger"
-    intermediate = "intermediate"
-    outcome = "outcome"
-
 
 class CandidateEventClass(BaseCandidate):
     """A new event class discovered in case text.
@@ -908,8 +898,8 @@ class EventIndividual(BaseModel):
     """A specific event instance in the case.
 
     CONFORMED to the emitted vocabulary (HO-006, 2026-05-26). Like
-    :class:`ActionIndividual`, Step-3 events are serialised directly to JSON-LD by
-    ``rdf_converter.build_event_rdf``, NOT validated through this model. The committed
+    :class:`ActionIndividual`, Step-3 events are serialized directly to JSON-LD by
+    ``rdf_converter.convert_event_to_rdf``, NOT validated through this model. The committed
     JSON-LD (``temporary_rdf_storage`` ``temporal_dynamics_enhanced`` /
     ``entity_type='events'``) is canonical; this model mirrors those keys via aliases.
     The earlier snake_case fields (``occurred_to``, ``temporal_interval``,
@@ -940,6 +930,10 @@ class EventIndividual(BaseModel):
     # the State it initiates (the Event-Calculus path State proeth-core:activatesConstraint /
     # activatesObligation, materialized by the fluent_edges family (edge_spec.py) + state_edges.py).
     caused_by_action: Optional[str] = Field(None, alias="proeth:causedByAction")
+
+    # Mirror fields for committed-output round-tripping
+    text_references: List[str] = Field(default_factory=list, alias="proeth:textReferences")
+    confidence: Optional[float] = Field(None, alias="proeth:confidence")
 
     # Fluent transitions + OWL-Time extent (Event Calculus)
     initiates: List[str] = Field(default_factory=list, alias="proeth:initiates")

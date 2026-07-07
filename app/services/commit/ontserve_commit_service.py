@@ -77,7 +77,7 @@ _EVENT_ORIGIN_SUBCLASS = {
 def resolve_event_origin_category(rdf_data: dict) -> "str | None":
     """Return the core Event ORIGIN-subclass local name (AgentCausedEvent / ExogenousEvent /
     AutomaticEvent) for an event individual's emitted proeth:eventType, or None when the field is
-    absent or its value is unrecognised. Reads the flat Step-3 JSON-LD (top-level proeth:eventType)
+    absent or its value is unrecognized. Reads the flat Step-3 JSON-LD (top-level proeth:eventType)
     and, defensively, a nested properties dict; a list value takes its first element."""
     if not rdf_data:
         return None
@@ -90,7 +90,14 @@ def resolve_event_origin_category(rdf_data: dict) -> "str | None":
         v = v[0] if v else None
     if not v:
         return None
-    return _EVENT_ORIGIN_SUBCLASS.get(str(v).strip().lower())
+    resolved = _EVENT_ORIGIN_SUBCLASS.get(str(v).strip().lower())
+    if resolved is None:
+        # A PRESENT but unrecognized value must not silently commit as bare
+        # Event (no-silent-fallback rule); absence is the intended bare case.
+        logger.warning("Event origin routing: eventType value %r not in the "
+                       "outcome/exogenous/automatic vocabulary; committing as bare Event",
+                       v)
+    return resolved
 
 
 class OntServeCommitService:
@@ -1805,24 +1812,61 @@ class OntServeCommitService:
         triple-vs-literal distinction is captured in the committed provenance and the
         synthesis layer can collect the kept literals by query rather than re-deriving the
         classification. Pellet-neutral (annotation property, like the matcher decision)."""
-        from app.services.extraction.field_classification import synthesis_literals, _normalize
+        from app.services.extraction.field_classification import (
+            synthesis_literals, _normalize, classify, FieldKind)
         # Predicate names this individual carries, across the two storage shapes:
         # pass-1/2 keep them under 'properties'; temporal keeps proeth: keys at top level.
-        preds = list(((rdf_data or {}).get('properties', {}) or {}).keys())
-        preds += [k for k in (rdf_data or {}).keys() if isinstance(k, str) and k.startswith('proeth:')]
+        props_dict = ((rdf_data or {}).get('properties', {}) or {})
+        preds = list(props_dict.keys())
+        temporal_preds = [k for k in (rdf_data or {}).keys()
+                          if isinstance(k, str) and k.startswith('proeth:')]
+        preds += temporal_preds
         kept = synthesis_literals(preds)
+
+        def _value_of(p):
+            if p in props_dict:
+                return props_dict[p]
+            return (rdf_data or {}).get(p)
+
+        def _is_unkept_value(v):
+            # Mirror the temporal serializer's value skips: dicts are dropped,
+            # IRI strings are the converter's object references (skipped).
+            if isinstance(v, dict):
+                return True
+            if isinstance(v, str) and v.startswith(('http://', 'https://')):
+                return True
+            if isinstance(v, list):
+                return all(_is_unkept_value(x) for x in v) if v else True
+            return False
+
         # Mirror the generic-loop emission skip (CMT-3/R1) plus the re-shaped
-        # bags, so the marker lists exactly the literals the graph carries: a
-        # *Class key becomes the rdf:type, roleCategory/roleKind are routing
-        # inputs, and attributes/additionalRelationships are re-shaped into
-        # per-key / otherAttribute literals rather than kept under their own
-        # names. Without this the marker asserted triples that do not exist
-        # (correspondence audit T2, verified on case-8 Engineer L).
+        # bags AND the temporal serializer's own skips, so the marker lists
+        # exactly the literals the graph carries: a *Class key becomes the
+        # rdf:type; roleCategory/roleKind/eventType are routing inputs;
+        # attributes/additionalRelationships are re-shaped into per-key /
+        # otherAttribute literals; dict values and IRI-string values are
+        # dropped by the serializer (owlTimeURI, the agents decomposition
+        # before its flatten). Without this the marker asserted triples that
+        # do not exist (correspondence audit T2, verified on case-8 Engineer L;
+        # extended to the temporal machinery in the A/E properties review).
         _reshaped = {'attributes', 'additionalRelationships', 'relationships'}
         kept = [p for p in kept
                 if not self._camelCase(p).endswith('Class')
-                and self._camelCase(p) not in ('roleCategory', 'roleKind')
-                and self._camelCase(p) not in _reshaped]
+                and self._camelCase(p) not in ('roleCategory', 'roleKind', 'eventType')
+                and self._camelCase(p) not in _reshaped
+                and not _is_unkept_value(_value_of(p))]
+        # The temporal serializer redirects literal values on OBJECT properties
+        # to a <local>Text datatype sibling; list the shadow name the graph
+        # actually carries. classify() gates out shadows registered DERIVED
+        # (requiresCapabilityText, fromEntityText/toEntityText).
+        for p in temporal_preds:
+            if classify(p) is FieldKind.RELATION and not _is_unkept_value(_value_of(p)):
+                shadow = f"{_normalize(p)}Text"
+                if classify(shadow) in (FieldKind.CONTENT, FieldKind.ASSESSMENT):
+                    kept.append(shadow)
+        # The causalSequence list is flattened to per-step proeth:causalStep
+        # literals; the marker lists the name the graph carries.
+        kept = ['causalStep' if _normalize(p) == 'causalSequence' else p for p in kept]
         if not kept:
             return
         decl = (prov_ns['synthesisLiteral'], RDF.type, OWL.AnnotationProperty)
@@ -3107,7 +3151,7 @@ class OntServeCommitService:
                 if v is None or v == '' or isinstance(v, dict):
                     continue
                 if isinstance(v, str) and v.startswith(('http://', 'https://')):
-                    continue  # IRI object refs use a different URI scheme; skip
+                    continue  # IRI object refs (the converter's causedByAction reference, canonical case namespace) resolve post-commit via causal_edges; skip
                 if local == 'description':
                     g.add((uri, RDFS.comment, Literal(v if isinstance(v, str) else str(v))))
                     continue

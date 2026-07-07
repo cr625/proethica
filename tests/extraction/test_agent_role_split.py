@@ -64,8 +64,9 @@ def test_converter_applies_split():
 
 def test_converter_decomposes_composite_agent():
     """A composite agent keeps its original hasAgent (provenance) and no single
-    eventRoleContext, but is decomposed into the structured proeth:agents list
-    (study-corrections Phase 4 made this generic, replacing the hand table)."""
+    eventRoleContext, but is decomposed into the proeth:agents list, flattened
+    to 'Name (role)' strings (the commit serializer drops dict values, so the
+    earlier list-of-dicts shape never reached the committed graph)."""
     rdf = convert_action_to_rdf(
         {"label": "Joint review",
          "agent": "Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)"},
@@ -75,8 +76,8 @@ def test_converter_decomposes_composite_agent():
         "Engineer A (Original Engineer) and Engineer B (Reviewing Engineer)"
     assert "proeth:eventRoleContext" not in rdf
     assert rdf["proeth:agents"] == [
-        {"name": "Engineer A", "role": "Original Engineer"},
-        {"name": "Engineer B", "role": "Reviewing Engineer"},
+        "Engineer A (Original Engineer)",
+        "Engineer B (Reviewing Engineer)",
     ]
     assert rdf["proeth:agentRelation"] == "and"
 

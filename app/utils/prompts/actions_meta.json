@@ -40,9 +40,6 @@
             },
             "foreseen_unintended_effects": {
               "type": "array"
-            },
-            "agent_knowledge": {
-              "type": "string"
             }
           },
           "required": true,

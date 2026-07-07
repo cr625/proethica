@@ -861,7 +861,7 @@ _STATE_AFFECTS_SPEC = EdgeSpec(
 )
 
 # participant_edges: the Pass-2 'who' fields plus the actor-edge additions -> Component
-# -> Agent. ADDITIVE (this only ADDS edges; since CMT-3 the commit writes no literal for these fields at all). Each
+# -> Agent. ADDITIVE (this only ADDS edges; since CMT-3 the commit writes no literal for these fields, except hasAgent, the isPerformedBy source, a declared datatype carrier kept on every action). Each
 # predicate has its OWN subject category AND its own extraction_type. invokedBy and
 # citedByAgent carry the deterministic Board-pattern fallback (the Board authors the
 # analysis, so it is never an extracted case Agent); isPerformedBy reads the Step-3
@@ -980,7 +980,7 @@ _OBLIGATION_SPEC = EdgeSpec(
     ),
     prov_prefix="normative_edge_provenance_",
     prov_label=lambda p: f"Normative edge ({p})",
-    prov_comment=lambda p: (f"property={p}; action's {p} text resolved to the case "
+    prov_comment=lambda p: (f"property={p}; the {p} text of the action resolved to the case "
                             "Obligation/Principle individual(s) by embedding shortlist + LLM multi-select "
                             "(obligation-engagement grounding)"),
     reader=_read_temporal,
@@ -1027,18 +1027,18 @@ _TEMPORAL_RELATION_SPEC = EdgeSpec(
     subject_type=PROETH.TemporalRelation,
     type_filter=("TemporalRelation",),
     predicates=(
-        EdgePredicate("fromEntity", PROETH, ("fromEntity",), "Action",
+        EdgePredicate("fromEntity", PROETH, ("proeth:fromEntity", "fromEntity"), "Action",
                       range_union=("Action", "Event"),
                       prompt_builder_factory=_temporal_prompt_factory,
                       verb="is the SOURCE happening (Entity1 in 'Entity1 [relation] Entity2')"),
-        EdgePredicate("toEntity", PROETH, ("toEntity",), "Action",
+        EdgePredicate("toEntity", PROETH, ("proeth:toEntity", "toEntity"), "Action",
                       range_union=("Action", "Event"),
                       prompt_builder_factory=_temporal_prompt_factory,
                       verb="is the TARGET happening (Entity2 in 'Entity1 [relation] Entity2')"),
     ),
     prov_prefix="temporal_relation_edge_provenance_",
     prov_label=lambda p: f"Temporal relation edge ({p})",
-    prov_comment=lambda p: (f"property={p}; temporal relation's {p} text resolved to the case "
+    prov_comment=lambda p: (f"property={p}; the {p} text of the temporal relation resolved to the case "
                             "Action/Event individual by embedding shortlist + LLM select"),
     reader=_read_temporal,
     single_valued=True,

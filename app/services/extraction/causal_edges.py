@@ -150,7 +150,7 @@ def _remove_prov(g: Graph, case_id: int, prop: str, subj, obj) -> None:
 def _emit_prov(g: Graph, case_id: int, prop: str, subj, obj, desc: str) -> None:
     emit_edge_prov(g, case_id, "causal_edge_provenance_", prop, subj, obj, desc,
                    f"Causal edge ({prop})",
-                   f"property={prop}; causal chain's {prop} text resolved to the case "
+                   f"property={prop}; the {prop} text of the causal chain resolved to the case "
                    "individual(s) by embedding shortlist + LLM select")
 
 
@@ -300,7 +300,7 @@ def apply_causal_edges(case_id: int, ttl_path, write_back: bool = True,
 
 def _events_causedby_from_db(case_id: int) -> List[Dict[str, Any]]:
     """[{label, caused_by}] for each Step-3 Event individual that names a causing action.
-    caused_by is the converter's legacy IRI (http://proethica.org/cases/<id>#Action_<frag>)."""
+    caused_by is the converter reference IRI (canonical case namespace, Action_-prefixed fragment)."""
     from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
     rows = TemporaryRDFStorage.query.filter_by(
@@ -322,7 +322,7 @@ def _events_causedby_from_db(case_id: int) -> List[Dict[str, Any]]:
 def apply_event_cause_edges(case_id: int, ttl_path, write_back: bool = True) -> Dict[str, Any]:
     """Materialize Event proeth:causedByAction Action edges on a committed case TTL.
 
-    The converter emits causedByAction as a legacy-scheme IRI (#Action_<frag>) that the
+    The converter emits causedByAction as a converter reference IRI (skipped by the commit serializer) (#Action_<frag>) that the
     commit serializer skips, so the durable graph lost the event->causing-action link
     (which is NOT always covered by a CausalChain). This resolves it deterministically:
     the legacy fragment minus the Action_ prefix is the committed Action's local name, so
@@ -376,8 +376,25 @@ def apply_event_cause_edges(case_id: int, ttl_path, write_back: bool = True) -> 
             continue
         if (subj, PROETH.causedByAction, tgt) in g:
             continue
+        # Coherence guard (2026-07-07 A/E properties review, user-decided): an
+        # ExogenousEvent has no proximate agent cause by definition, so a
+        # causedByAction edge on one is flagged and skipped rather than emitted.
+        exogenous = URIRef("http://proethica.org/ontology/core#ExogenousEvent")
+        if (subj, RDF.type, exogenous) in g:
+            logger.warning(
+                "event_cause_edges: case %s: skipping causedByAction on ExogenousEvent %r "
+                "(no proximate agent cause by definition; retype the event or drop the reference)",
+                case_id, (ev["label"] or "")[:80])
+            continue
         g.add((subj, PROETH.causedByAction, tgt))
-        _emit_prov(g, case_id, "causedByAction", subj, tgt, ev["caused_by"])
+        # Dedicated provenance: this resolution is a deterministic fragment remap of
+        # the converter reference, not the embedding+LLM path of _emit_prov.
+        emit_edge_prov(g, case_id, "causal_edge_provenance_", "causedByAction", subj, tgt,
+                       ev["caused_by"],
+                       "Event cause edge (causedByAction)",
+                       "property=causedByAction; the converter-recorded causedByAction reference "
+                       "of the event resolved deterministically to the committed Action individual "
+                       "(fragment remap; no embedding or LLM)")
         edges += 1
 
     res["edges"], res["unresolved"] = edges, unresolved

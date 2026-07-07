@@ -14,10 +14,10 @@ This module is the SINGLE HOME for the primitives that template shares. The
 helpers were previously split across ``state_edges`` (embedding + graph + the
 single-select LLM + the provenance emitter/remover) and ``resource_edges`` (the
 Agent pool + the multi-select LLM). They are MOVED here verbatim -- the resolver
-logic is unchanged; this only unifies and de-duplicates the home. The original
-modules now re-export from here, so every historical import surface
-(``state_edges._embed``, ``resource_edges._agent_pool``, ``time_anchor._safe_frag``,
-and the per-applier unit tests) keeps resolving to the same callables.
+logic is unchanged; this only unifies and de-duplicates the home. The surviving
+bespoke modules re-export from here (``state_edges._embed``,
+``time_anchor._safe_frag``), so their historical import surfaces keep resolving;
+the other per-family modules were deleted with the registry migration.
 
 The domain/range guard (``rpo_edges.drop_domain_range_violations`` /
 ``ALL_EDGE_RANGE``) deliberately stays in ``rpo_edges``; it is referenced, not

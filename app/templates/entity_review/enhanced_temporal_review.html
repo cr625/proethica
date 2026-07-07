@@ -313,9 +313,6 @@
                             {% set _et_tip = {'outcome': 'consequence of an agent action', 'exogenous': 'not caused by a case agent', 'automatic_trigger': 'fires automatically when preconditions hold'} %}
                             <span class="badge bg-secondary ms-2" title="Event Calculus classification (Berreby et al. 2017): {{ _et_tip.get(event.event_type, 'how the event arises relative to agent action') }}">{{ _et_label.get(event.event_type, event.event_type) }}</span>
                             {% endif %}
-                            {% if event.severity and event.severity != 'routine' %}
-                            <span class="badge ms-1 {% if event.severity in ['critical', 'high'] %}bg-danger{% elif event.severity == 'medium' %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}" title="Heuristic severity/triage indicator, not a formal ontology category">severity: {{ event.severity }}</span>
-                            {% endif %}
                         </button>
                     </h2>
                     <div id="event-collapse-{{ event.id }}" class="accordion-collapse collapse" data-bs-parent="#eventsAccordion">
@@ -351,9 +348,6 @@
                             </div>
                             {% endif %}
 
-                            {% if event.causes_state_change %}
-                            <p><strong>Causes State Change:</strong> {{ event.causes_state_change }}</p>
-                            {% endif %}
 
                             {% if event.caused_by_action %}
                             <p><strong>Caused By Action:</strong> <code>{{ event.caused_by_action.split('#')[-1] }}</code></p>

@@ -2,7 +2,7 @@
 Stage 3 Node: Action Extraction
 
 Extracts volitional professional decisions with rich metadata including
-intentions, mental states, competing priorities, and ethical context.
+intentions, mental states, and ethical context.
 """
 
 from typing import Dict

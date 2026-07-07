@@ -2,7 +2,7 @@
 Action Extractor for Enhanced Temporal Dynamics Pass
 
 Single-pass extraction of core action data: intentions (DCEC double-effect), ethical
-context (obligations fulfilled/violated, principles, constraints), competing priorities,
+context (obligations fulfilled/violated, principles, constraints),
 professional context, and the Event-Calculus fluent transitions (initiates/terminates).
 
 The former Phase 2 scenario-metadata enrichment (character motivation, dramatic tension,
@@ -35,7 +35,7 @@ def extract_actions_with_metadata(
 ) -> List[Dict]:
     """
     Extract actions (volitional professional decisions) with their core metadata
-    (intentions, ethics, competing priorities, professional context, fluent transitions).
+    (intentions, ethics, professional context, fluent transitions).
 
     Args:
         narrative: Unified narrative from Stage 1
@@ -239,7 +239,7 @@ For each ACTION, extract:
 3. agent: Person and role
 4. temporal_marker: When it occurred
 5. source_section: "facts" or "discussion"
-6. intention: {{mental_state, intended_outcome, foreseen_unintended_effects, agent_knowledge}}
+6. intention: {{mental_state, intended_outcome, foreseen_unintended_effects}}
 7. ethical_context: {{obligations_fulfilled, obligations_violated, guiding_principles}}. Name
    the obligations and principles using the SAME names they carry elsewhere in the case
    (the obligation/principle individuals already extracted), not fresh paraphrases: these
@@ -282,8 +282,7 @@ Return JSON:
     "intention": {{
       "mental_state": "deliberate",
       "intended_outcome": "Meet deadline",
-      "foreseen_unintended_effects": ["Quality risk"],
-      "agent_knowledge": "Knew intern lacked experience"
+      "foreseen_unintended_effects": ["Quality risk"]
     }},
     "ethical_context": {{
       "obligations_fulfilled": [],

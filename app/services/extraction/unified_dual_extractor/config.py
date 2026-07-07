@@ -251,10 +251,20 @@ def format_cross_concept_context(concept_type: str, case_id: int) -> str:
 
         sections = []
         for dep_concept in deps['depends_on']:
-            entities = TemporaryRDFStorage.query.filter(
-                TemporaryRDFStorage.case_id == case_id,
-                TemporaryRDFStorage.extraction_type == dep_concept,
-            ).all()
+            if dep_concept in ('actions', 'events'):
+                # Step-3 rows are stored under the temporal extraction type with
+                # the concept as entity_type; a bare extraction_type filter finds
+                # zero rows and silently empties the section (A/E properties review).
+                entities = TemporaryRDFStorage.query.filter(
+                    TemporaryRDFStorage.case_id == case_id,
+                    TemporaryRDFStorage.extraction_type == 'temporal_dynamics_enhanced',
+                    TemporaryRDFStorage.entity_type == dep_concept,
+                ).all()
+            else:
+                entities = TemporaryRDFStorage.query.filter(
+                    TemporaryRDFStorage.case_id == case_id,
+                    TemporaryRDFStorage.extraction_type == dep_concept,
+                ).all()
 
             if not entities:
                 continue

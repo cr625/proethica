@@ -418,7 +418,7 @@ def test_obligation_edges_golden(monkeypatch):
     }
 
     def _norm_comment(p):
-        return (f"property={p}; action's {p} text resolved to the case "
+        return (f"property={p}; the {p} text of the action resolved to the case "
                 "Obligation/Principle individual(s) by embedding shortlist + LLM multi-select "
                 "(obligation-engagement grounding)")
 
@@ -471,7 +471,7 @@ def test_temporal_relation_edges_golden(monkeypatch):
     }
 
     def _tr_comment(p):
-        return (f"property={p}; temporal relation's {p} text resolved to the case "
+        return (f"property={p}; the {p} text of the temporal relation resolved to the case "
                 "Action/Event individual by embedding shortlist + LLM select")
 
     expected_prov = {}

@@ -150,11 +150,16 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         # Composite multi-actor string: capture the structured decomposition
         # (study-corrections Phase 4 made this generic, replacing the hand table
         # so Section C decomposes new multi-actor strings). hasAgent is kept as
-        # the original string for provenance; consumers prefer proeth:agents.
+        # the original string for provenance. Flattened to one 'Name (role)'
+        # string per operand actor: the commit serializer drops dict values, so
+        # the earlier list-of-dicts shape never reached the committed graph
+        # (A/E properties review, case-9 orphan agentRelation).
         _decomp = decompose_agents(rdf_entity['proeth:hasAgent'])
         if _decomp:
             _agents, _relation = _decomp
-            rdf_entity['proeth:agents'] = _agents
+            rdf_entity['proeth:agents'] = [
+                f"{a['name']} ({a['role']})" if a.get('role') else a['name']
+                for a in _agents]
             if _relation:
                 rdf_entity['proeth:agentRelation'] = _relation
 
@@ -220,13 +225,13 @@ def _add_fluent_and_time(rdf_entity: Dict, src: Dict) -> None:
 
     - proeth:initiates / proeth:terminates: the State (fluent) labels this happening brings
       into / takes out of holding (Kowalski & Sergot 1986; Berreby et al. 2017). Kept as the
-      raw label lists; fluent_edges.py resolves them to the case State individuals and
+      raw label lists; the fluent_edges family (edge_spec.py) resolves them to the case State individuals and
       materialises proeth-core:initiates / terminates edges at commit.
     - proeth:temporalExtent: the OWL-Time extent classification, "instant" (point
       occurrence, OWL-Time time:Instant) or "interval" (extended, time:ProperInterval). The
       relational ordering is carried by the Allen-relation individuals (time:intervalBefore
       etc., separate individuals) and the discrete order by temporalSequence. A proper
-      per-happening time:hasTime -> time:Instant/Interval individual is materialised at
+      per-happening time:hasTime -> time:Instant/Interval individual is materialized at
       commit by time_anchor.py: the commit serializer emits only literal and IRI property
       values, so a nested anonymous time entity would not survive (which is why the anchor is
       minted as a separate first-class time individual rather than a nested blank node).
@@ -277,10 +282,10 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     _add_text_references(rdf_entity, event)
     confidence = event.get('confidence')
     if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
-        # Plain string literal, NOT float: proeth:confidence declares rdfs:range xsd:string
-        # (proethica-intermediate.ttl), and a float serializes as xsd:double at commit, which
-        # made the run-17 case-7 commit Pellet-INCONSISTENT (7 typed literals on the events).
-        # Every other component emits confidence as a plain literal.
+        # Plain string is fine here: proeth:confidence now declares rdfs:range
+        # xsd:decimal (retyped 2026-07-06) and the commit serializer parses the
+        # value through _confidence_literal, emitting a typed xsd:decimal
+        # regardless of the JSON-LD spelling.
         rdf_entity['proeth:confidence'] = str(float(confidence))
 
     # Add origin classification. eventType is the load-bearing Event Calculus origin signal
@@ -291,14 +296,17 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     # section): emergency salience is carried structurally by the RiskState / EmergencyState
     # the event initiates, not by a per-event literal.
     classification = event.get('classification', {})
-    if classification:
-        rdf_entity['proeth:eventType'] = classification.get('event_type', 'unknown')
+    # Emit only a present value: a minted 'unknown' default would be
+    # indistinguishable from a drifted LLM value at the origin-routing stage
+    # (which now warns on unrecognized present values).
+    if classification and classification.get('event_type'):
+        rdf_entity['proeth:eventType'] = classification['event_type']
 
     # The constraint/obligation consequences of an event are NOT emitted as direct event
     # links: in the Event Calculus an event does not activate a constraint or create an
     # obligation directly, it initiates a STATE (fluent) that then makes the
-    # constraint/obligation apply. That grounded two-step path is materialised by
-    # fluent_edges.py (Event -> State) + state_edges.py (State activatesConstraint /
+    # constraint/obligation apply. That grounded two-step path is materialized by
+    # the fluent_edges family (edge_spec.py) (Event -> State) + state_edges.py (State activatesConstraint /
     # activatesObligation -> the real Cs/O individual). The former free-text state-change
     # prose was folded into the description (extraction-architecture spec, E section); the
     # structured, grounded form is initiates / terminates, added by _add_fluent_and_time.
@@ -509,7 +517,7 @@ def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int,
         # Clean endpoint labels (resolved to individuals post-commit by the
         # temporal_relation_edges applier). fromEntity/toEntity are declared
         # owl:ObjectProperty, so these literals land on the fromEntityText/toEntityText
-        # datatype siblings at commit until the resolver overwrites with real edges.
+        # datatype siblings at commit the resolver adds the resolved edges alongside them.
         'proeth:fromEntity': entity1,
         'proeth:toEntity': entity2,
         'proeth:allenRelation': relation,

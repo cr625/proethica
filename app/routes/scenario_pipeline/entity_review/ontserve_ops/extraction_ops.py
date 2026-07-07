@@ -233,14 +233,15 @@ def register_ontserve_extraction_ops(bp):
                 elif 'Event' in entity_type:
                     # Field names match what convert_event_to_rdf actually emits
                     # (rdf_converter.py). event_type is the Event Calculus agent-caused /
-                    # exogenous / automatic distinction (Berreby et al. 2017); severity is a
-                    # heuristic triage indicator (renamed from emergency_status 2026-05-31,
-                    # NOT a formal ontology category). The duplicate urgency_level field and
-                    # the direct proeth:activatesConstraint / proeth:createsObligation event
-                    # links were dropped 2026-05-31 (urgency_level always equalled severity;
-                    # the norm links were redundant with the grounded initiates -> State ->
-                    # activatesConstraint/activatesObligation path). The event now carries its
-                    # world-change as initiates / terminates.
+                    # exogenous / automatic distinction (Berreby et al. 2017). The severity
+                    # and causesStateChange fields were dropped from the E contract
+                    # (extraction-architecture spec; severity's salience is carried
+                    # structurally by the RiskState/EmergencyState the event initiates,
+                    # the state change by initiates/terminates + description); legacy rows
+                    # still surface those keys through field_groups. The duplicate
+                    # urgency_level field and the direct event->norm links were dropped
+                    # 2026-05-31 (redundant with the grounded initiates -> State ->
+                    # activatesConstraint/activatesObligation path).
                     events.append({
                         'field_groups': group_properties(rdf_data),
                         'id': entity.id,
@@ -250,8 +251,6 @@ def register_ontserve_extraction_ops(bp):
                         'temporal_marker': rdf_data.get('proeth:temporalMarker', ''),
                         'temporal_sequence': rdf_data.get('proeth:temporalSequence'),
                         'event_type': rdf_data.get('proeth:eventType', ''),
-                        'severity': rdf_data.get('proeth:severity', ''),
-                        'causes_state_change': rdf_data.get('proeth:causesStateChange', ''),
                         'caused_by_action': rdf_data.get('proeth:causedByAction', ''),
                         # Event Calculus fluent transitions (proeth-core:initiates /
                         # terminates edges at commit). temporal_extent = OWL-Time instant|interval.

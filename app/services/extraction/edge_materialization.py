@@ -133,7 +133,8 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # (resource cited_by -> citedByAgent; Step-3 per-action hasAgent ->
     # isPerformedBy) become Component -> Agent edges. The commit writes no
     # literal shadow for these fields (CMT-3: a RELATION field is materialized
-    # as an object-property edge only); readers that need string context derive
+    # as an object-property edge only) -- except hasAgent, the isPerformedBy
+    # source, a declared datatype carrier kept on every action; readers that need string context derive
     # it from the edges (e.g. rpo_edges resolves principle invokedBy from the
     # proeth-core:invokedBy targets' labels). Mirrors the state-affects applier
     # (embedding shortlist + batched LLM select, prov:Derivation). Range Agent is OWL-DL-safe; the unified guard validates the

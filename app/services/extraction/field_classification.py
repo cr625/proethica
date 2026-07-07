@@ -71,6 +71,10 @@ _RELATION = {
     # the bare requiresCapability is that edge. The Action-level requiresCapability
     # literal is demoted to requiresCapabilityText at commit (registered in _DERIVED).
     "requiresCapability", "requiredForObligations",
+    # reified Allen endpoints: resolved to the temporal_relation_edges family's
+    # fromEntity/toEntity object edges (registered in rpo_edges ALL_EDGE_RANGE);
+    # the graph keeps the fromEntityText/toEntityText demotions.
+    "fromEntity", "toEntity",
     # defeasibility
     "competesWith", "prevailsOver", "defeasibleUnder",
     # state-anchored activation/termination

@@ -49,7 +49,6 @@ class TemporalDynamicsState(TypedDict):
     #   'source_section': str,
     #   'intention': {...},
     #   'ethical_context': {...},
-    #   'competing_priorities': {...},
     #   'professional_context': {...}
     # }]
 

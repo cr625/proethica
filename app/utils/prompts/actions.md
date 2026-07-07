@@ -42,8 +42,7 @@ Each extracted item is a JSON object:
     "intention": {
       "mental_state": "deliberate/negligent/etc.",
       "intended_outcome": "What the agent intended",
-      "foreseen_unintended_effects": ["Effects foreseen but not intended"],
-      "agent_knowledge": "What the agent knew at decision time"
+      "foreseen_unintended_effects": ["Effects foreseen but not intended"]
     },
     "ethical_context": {
       "obligations_fulfilled": ["Obligation names as extracted for this case"],

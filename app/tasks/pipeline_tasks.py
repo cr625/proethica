@@ -46,12 +46,6 @@ celery = get_celery()
 # Step 1: Pass 1 Extraction (roles, states, resources)
 STEP1_ENTITY_TYPES = ['roles', 'states', 'resources']
 
-# Step 2: Pass 2 Extraction (principles, obligations, constraints, capabilities)
-STEP2_ENTITY_TYPES = ['principles', 'obligations', 'constraints', 'capabilities']
-
-# Step 3: Pass 3 Extraction (actions and events separately)
-STEP3_ENTITY_TYPES = ['actions', 'events']
-
 
 def get_case_sections(case_id: int, segment_precedents: bool = True) -> dict:
     """
