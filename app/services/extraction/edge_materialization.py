@@ -31,9 +31,10 @@ logger = logging.getLogger(__name__)
 def _run_family(results: Dict[str, Any], key: str, case_id: int, ttl_path) -> None:
     """Run one data-driven edge family from the registry (by spec name) at its place
     in the ordered pipeline, recording its result under ``key`` (best-effort: a
-    failure is logged and stored, never raised). The six migrated families
-    (resource / state-affects / participant / fluent / obligation / temporal-relation)
-    share one framework; the spec for ``key`` carries all the per-family data."""
+    failure is logged and stored, never raised). The seven migrated families
+    (resource / state-affects / participant / fluent / obligation / temporal-relation /
+    requires-capability) share one framework; the spec for ``key`` carries all the
+    per-family data."""
     try:
         from app.services.extraction.edge_spec import EDGE_REGISTRY, materialize_edge_family
         spec = next(s for s in EDGE_REGISTRY if s.name == key)

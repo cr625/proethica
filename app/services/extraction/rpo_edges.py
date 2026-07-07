@@ -462,7 +462,7 @@ _STATE_EDGE_RANGE = {
     PROETH_CORE.activatedByEvent: ("State", "Event"),
     PROETH_CORE.terminatedByEvent: ("State", "Event"),
 }
-# Resource-anchored property (proeth-core) materialized by resource_edges.py from
+# Resource-anchored property (proeth-core) materialized by the resource_edges family (edge_spec.py) from
 # the resource `used_by` field. Range is Agent, which is NOT one of the nine
 # disjoint core categories, so an Agent object resolves to no category and the
 # range clause is skipped (kept); the guard still validates the Resource subject,
@@ -505,6 +505,10 @@ _PARTICIPANT_EDGE_RANGE = {
 _CAPABILITY_PROVISION_RANGE = {
     PROETH_CORE.requiresCapability: ("Obligation", "Capability"),
     PROETH_CORE.establishedBy: ({"Principle", "Obligation", "Constraint"}, "CodeProvision"),
+    # containsProvision subjects are code resources (Guideline-chained); the guard resolves
+    # to the nine categories only, so Resource is the finest checkable granularity here
+    # (the applier's own EthicalCode direct-type restriction carries the Guideline discipline).
+    PROETH_CORE.containsProvision: ("Resource", "CodeProvision"),
 }
 # Fluent transitions materialized by the fluent_edges family (edge_spec.py; Event Calculus initiates/terminates).
 # The subject is a happening, which is an Action OR an Event, so the subject slot is a SET
@@ -544,7 +548,7 @@ _CAUSAL_EDGE_RANGE = {
     # analysis node (empty domain clause -> never dropped on the subject); range Action.
     PROETH.analyzesAction: ("CausalNormativeLink", "Action"),
 }
-# Temporal (Allen) relation endpoint edges materialized by temporal_relation_edges.py
+# Temporal (Allen) relation endpoint edges materialized by the temporal_relation_edges family (edge_spec.py)
 # from each reified TemporalRelation's fromEntity/toEntity timeline phrasings. Domain
 # TemporalRelation is NOT one of the nine disjoint core categories, so the subject
 # resolves to an empty core-set and the domain clause never fires (the relation node is

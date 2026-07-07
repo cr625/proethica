@@ -1352,6 +1352,12 @@ class OntServeCommitService:
                 if iri:
                     result.append(iri)
                 elif fallback_uri:
+                    if iri_map:
+                        # A populated vocabulary missed the value: a retired kind or a
+                        # typo, not the by-design empty actions map (ONT-4 bare Action).
+                        logger.warning(
+                            "Class routing: category value %r not in the %s vocabulary; "
+                            "falling back to the bare core parent", normalized, iri_map_key)
                     result.append(fallback_uri)
             elif fallback_uri:
                 # No category info (legacy data) -- use core class
@@ -1725,7 +1731,8 @@ class OntServeCommitService:
         'roleCategory', 'roleKind', 'principleCategory', 'obligationType',
         'derivedFromPrinciple', 'stateCategory', 'obligationActivation',
         'actionConstraints', 'activationConditions', 'terminationConditions',
-        'principleTransformation', 'resourceCategory', 'sourceKind',
+        'principleTransformation', 'resourceCategory',
+        'sourceKind',  # shape-path alias for resourceCategory (never emitted by the current schema)
         'capabilityKind', 'constraintType', 'boundaryType', 'eventType',
     })
 

@@ -875,7 +875,7 @@ def _component_schema_block(component_class: str) -> str:
             informational = info is not None and str(info).strip().lower() == 'true'
             rows.append((int(order) if order is not None else 999, str(name),
                          str(desc) if desc else '', informational))
-        return [f'- {n}: {d} (assigned at commit; do not output)' if info_only
+        return [f'- {n}: {d} (ontology- or commit-assigned; do not output)' if info_only
                 else f'- {n}: {d}'
                 for _o, n, d, info_only in sorted(rows)]
 

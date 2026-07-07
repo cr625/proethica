@@ -5,9 +5,6 @@ EXISTING RESOURCES IN ONTOLOGY:
 
 {{ pass_directive }}
 
-CROSS-CONCEPT CONTEXT (entities already extracted in this case, for grounding used_by and cited_by; do NOT re-extract them here):
-{{ cross_concept_context }}
-
 CASE TEXT:
 {{ case_text }}
 
@@ -27,7 +24,7 @@ RESOURCE EXTRACTION DIRECTIVES (rules the ontology enforces):
 - A prior board opinion or precedent the case relies on (e.g. "BER Case 90-6", "BER Case 98-3") is a legitimate case_precedent resource of THIS case, not contamination. Extract each cited precedent as its own resource individual.
 
 MATCH DECISION RULES:
-For each resource class, evaluate ONLY against the EXISTING RESOURCES IN ONTOLOGY list above. Cross-concept context is provided so you can ground used_by and cited_by and avoid re-extracting duplicates, but do NOT reference those entities in match_decision; that field is strictly for matching against the ontology list above.
+For each resource class, evaluate ONLY against the EXISTING RESOURCES IN ONTOLOGY list above. Evaluate match_decision strictly against the ontology list above; used_by and cited_by are free-text party names resolved to case agents at commit.
 - If the extracted resource IS the same concept as an existing class: match with HIGH confidence (0.85-1.0)
 - If the extracted resource is a SPECIALIZATION of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
 - If RELATED but distinct: do NOT match, it is a new concept

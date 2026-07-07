@@ -110,7 +110,10 @@ _DERIVED = {
     "owlTimeProperty", "fromEntityText", "toEntityText",   # Allen-relation literal duplicates
     "conclusionNumber", "questionNumber", "argumentId",    # ordinals / handles == label
     "citedProvision",                                      # duplicated by the citesProvision edge
-    "provisionCodes",                                      # duplicated by the provision edges resolved from it
+    # provisionCodes is NOT here (CONTENT, 2026-07-07 Rs properties review): only designations
+    # that resolve against the NSPE registry gain containsProvision edges; unresolvable ones
+    # (Canons, external-standard paragraphs -- 8 of 55 in the gold corpus) survive only as the
+    # literal, so the field is not reconstructable from the graph.
     "requiresCapabilityText",                              # the committed literal (commit-time demotion of the
                                                            # Action requiresCapability field); derivable from
                                                            # agent capabilities. The bare name is the edge.

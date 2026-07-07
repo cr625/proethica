@@ -22,7 +22,6 @@ These connect the core extracted concept types:
 | `:adheresToPrinciple` | Role | Principle | Role governed by ethical principle |
 | `:hasRole` | IndependentContinuant | Role | Entity bears a role |
 | `:hasState` | Process | State | Process affected by state |
-| `:hasResource` | Process | Resource | Process uses resource |
 | `:performsAction` | MaterialEntity | Action | Agent performs action |
 | `:hasCapability` | MaterialEntity | Capability | Entity has capability |
 

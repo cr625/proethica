@@ -252,12 +252,19 @@ def apply_resource_provision_edges(g, resolver: ProvisionCitationResolver) -> in
     nodes so case reasoning can traverse resource -> provision -> established Principle/Obligation.
     Same DB-validated, deterministic resolution as the conclusion citesProvision pass.
     """
-    from rdflib import URIRef, Literal
+    from rdflib import RDF, URIRef, Literal
 
     contains = URIRef(CORE_CONTAINS_PROVISION)
+    ethical_code = URIRef(INTERMEDIATE_NS + "EthicalCode")
     new_edges = set()
     for s, p, o in g:
         if isinstance(o, Literal) and _is_provision_codes_pred(p):
+            # Only a code resource contains provisions (the class whose chain reaches
+            # Guideline). Direct-type check: the case graph alone cannot see the
+            # Guideline link (it is only in proethica-intermediate), and a dotted
+            # designation on e.g. a LegalResource must not mint a containsProvision.
+            if (s, RDF.type, ethical_code) not in g:
+                continue
             iri = resolver.resolve(str(o))
             if iri:
                 edge = (s, contains, URIRef(iri))

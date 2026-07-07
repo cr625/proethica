@@ -666,13 +666,13 @@ class StateExtractionResult(BaseModel):
 # "Accumulated professional knowledge including codes, precedents, and
 #  practices" (Chapter 2, Table 2.1)
 # BFO: iao:0000030 (information content entity)
-# Ontology: ProfessionalCode, CasePrecedent, ExpertInterpretation,
-#   TechnicalStandard, LegalResource, DecisionTool, ReferenceMaterial
-# Literature: McLaren (precedents), Davis & Frankel (codes), Harris et al.
+# Ontology: EthicalCode (subClassOf Guideline), TechnicalStandard,
+#   CasePrecedent, LegalResource, ReferenceMaterial
+# Literature: McLaren (precedents), Davis and Frankel (codes), Harris et al.
 # ---------------------------------------------------------------------------
 
 class ResourceCategory(str, Enum):
-    """The closed six SOURCE KINDS of a resource (extraction-architecture spec, Rs section).
+    """The closed five SOURCE KINDS of a resource (extraction-architecture spec, Rs section).
 
     The canonical identity of a resource is its source kind; topic, who-used, and which-document
     are context, not class identity. ethical_code is typed EthicalCode subClassOf Guideline
@@ -691,7 +691,7 @@ class CandidateResourceClass(BaseCandidate):
     """A new resource class discovered in case text.
 
     Field set aligned to the extraction-architecture spec (Rs section, 2026-06): the source kind
-    (resource_category) is the canonical class identity and drives the six-kind subClassOf typing.
+    (resource_category) is the canonical class identity and drives the five-kind subClassOf typing.
     The earlier authority_source, extensional_function, and usage_context class fields were dropped
     (spec "Not stored"; not carried on the Resource).
     """
@@ -704,7 +704,8 @@ class ResourceIndividual(BaseIndividual):
     Field set aligned to the extraction-architecture spec (Rs section, 2026-06): document_title and
     topic are literals; used_by (the Facts-section reliance signal) resolves to availableTo and
     cited_by (the Discussion-section authority signal) resolves to citedByAgent; provision_codes
-    resolve to refersToDocument nspe# IRIs for a code. The earlier created_by, version, and
+    are kept as literals and each resolvable code is materialized as a containsProvision edge to
+    the nspe# CodeProvision at commit. The earlier created_by, version, and
     used_in_context fields were dropped, and the conflated used_by was split into used_by + cited_by.
     """
     resource_class: str = Field("", description="Resource class label or URI", alias="instance_of")
@@ -722,7 +723,7 @@ class ResourceIndividual(BaseIndividual):
     )
     provision_codes: List[str] = Field(
         default_factory=list,
-        description="For a code/regulation, provision code(s) cited (e.g. 'I.1'); resolve to refersToDocument nspe# IRIs"
+        description="For a code/regulation, provision code(s) cited (e.g. 'I.1'); kept as a literal, and each resolvable code is materialized as a containsProvision edge to the nspe# CodeProvision at commit"
     )
 
 
@@ -1301,8 +1302,9 @@ CATEGORY_TO_ONTOLOGY_IRI: Dict[str, Dict[str, str]] = {
         'resource': f'{INTERMEDIATE_NS}ResourceState',
         'disclosure': f'{INTERMEDIATE_NS}DisclosureState',
     },
-    # Rs: the six closed source kinds (spec, 2026-06-28); ethical_code added, expert_interpretation +
-    # decision_tool retired. EthicalCode subClassOf Guideline subClassOf Resource.
+    # Rs: the five closed source kinds plus the professional_code legacy alias (spec 2026-06-28 had
+    # six; professional_code merged into ethical_code 2026-07-01; expert_interpretation +
+    # decision_tool retired). EthicalCode subClassOf Guideline subClassOf Resource.
     'resources': {
         'professional_code': f'{INTERMEDIATE_NS}EthicalCode',  # legacy alias: merged into EthicalCode 2026-07-01
         'technical_standard': f'{INTERMEDIATE_NS}TechnicalStandard',

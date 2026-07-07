@@ -2,7 +2,8 @@
 
 A committed case TTL carries individuals + their subClassOf-core chains but no
 relational layer. The "Architecture-B" edge appliers (state / resource /
-state-affects / participant / fluent / obligation / temporal-relation / causal)
+state-affects / participant / fluent / obligation / temporal-relation /
+requires-capability / causal)
 all follow one template: read a relationship-label field from
 ``temporary_rdf_storage`` -> build a candidate pool of individuals in a target
 category -> shortlist by embedding cosine -> confirm/select via one batched LLM

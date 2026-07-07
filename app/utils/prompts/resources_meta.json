@@ -107,7 +107,7 @@
         "provision_codes": {
           "type": "array",
           "required": false,
-          "description": "For a code or regulation, the provision code(s) cited (e.g. 'I.1', 'II.2.b'); resolve to refersToDocument nspe# IRIs. Empty for a non-code resource"
+          "description": "For a code or regulation, the provision code(s) cited (e.g. 'I.1', 'II.2.b'); kept as a literal, and each resolvable code is materialized as a containsProvision edge to the nspe# CodeProvision at commit. Empty for a non-code resource"
         },
         "text_references": {
           "type": "array",

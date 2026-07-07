@@ -299,7 +299,7 @@ def test_fluent_edges_golden(monkeypatch):
     }
 
     def _fluent_comment(p):
-        return (f"property={p}; happening's {p} state text resolved to the case State(s) by "
+        return (f"property={p}; the {p}-state text of the happening resolved to the case State(s) by "
                 "embedding shortlist + LLM multi-select (Event Calculus fluent transition)")
 
     expected_prov = {}

@@ -251,7 +251,8 @@ def pydantic_to_rdf_data(
         # so they take the description/definition fallback or no comment at all.
         _INDIVIDUAL_DESCRIPTOR = {
             'roles': 'case_involvement',
-            'resources': 'used_in_context',
+            # resources: no single descriptor field survives the Rs spec (used_in_context
+            # was dropped 2026-06); composed below from document_title + topic instead.
             'principles': 'concrete_expression',
             'obligations': 'obligation_statement',
             'constraints': 'constraint_statement',
@@ -261,6 +262,13 @@ def pydantic_to_rdf_data(
         descriptor_field = _INDIVIDUAL_DESCRIPTOR.get(concept_type)
         if descriptor_field:
             ind_definition = getattr(ind_obj, descriptor_field, None) or ''
+        if not ind_definition and concept_type == 'resources':
+            title = getattr(ind_obj, 'document_title', None) or ''
+            topic = getattr(ind_obj, 'topic', None) or ''
+            if title and topic:
+                ind_definition = f"{title} (topic: {topic})"
+            else:
+                ind_definition = title or topic
         if not ind_definition:
             ind_definition = (
                 getattr(ind_obj, 'description', None)
@@ -497,7 +505,7 @@ def _sanitize_label(label: str, space_char: str = '') -> str:
 
 def _to_camel_case(snake_str: str) -> str:
     """Convert snake_case to camelCase. Delegates to the single shared converter
-    (R3) so storage and commit cannot drift. Behaviour-preserving for the
+    (R3) so storage and commit cannot drift. Behavior-preserving for the
     lowercase snake_case field names this receives."""
     from app.utils.predicate_naming import to_camel_case
     return to_camel_case(snake_str)

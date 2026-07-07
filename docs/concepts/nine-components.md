@@ -84,7 +84,7 @@ Resources supply the established wisdom and standards of the profession. McLaren
 - Industry technical standards
 - Prior board decisions
 
-**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Resource`, subclass of BFO:independent continuant. Linked to IAO documents via `refersToDocument` property.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Resource`, an IAO information content entity. A code resource links to its provisions via `containsProvision`; the document identity is the `documentTitle` literal.
 
 **Key Literature**: McLaren (2003) on precedents; Davis (1991) and Frankel (1989) on codes; Harris et al. (2018) on decision procedures; Anderson & Anderson (2018) on GenEth learning. [Full references](/tools/references#nine-component)
 

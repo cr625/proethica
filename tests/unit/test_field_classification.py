@@ -57,7 +57,10 @@ from app.services.extraction.field_classification import (
     ("proeth:actionCount", FieldKind.DERIVED),
     ("owlTimeProperty", FieldKind.DERIVED),
     ("citedProvision1", FieldKind.DERIVED),
-    ("provisionCodes", FieldKind.DERIVED),
+    # CONTENT since the 2026-07-07 Rs properties review: unresolvable designations
+    # (Canons, external-standard paragraphs) survive only as the literal, so the
+    # field is not reconstructable from the provision edges.
+    ("provisionCodes", FieldKind.CONTENT),
     ("proeth:requiresCapabilityText", FieldKind.DERIVED),   # Text sibling registered DERIVED
     ("conclusionNumber", FieldKind.DERIVED),
     ("obligationActivation", FieldKind.DERIVED),

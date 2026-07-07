@@ -1,7 +1,8 @@
 """Data-driven edge-family framework.
 
-Six of the eight "Architecture-B" embedding-resolved edge appliers (resource,
-state-affects, participant, fluent, obligation, temporal-relation) are the SAME
+Seven of the nine "Architecture-B" embedding-resolved edge appliers (resource,
+state-affects, participant, fluent, obligation, temporal-relation,
+requires-capability) are the SAME
 template differing only in data: read a relationship-label field from
 ``temporary_rdf_storage`` -> build a candidate pool of individuals in a target
 category -> shortlist by embedding cosine -> one batched LLM multi-select (with an
@@ -11,7 +12,7 @@ This module expresses each such family as data (``EdgeSpec`` + ``EdgePredicate``
 and runs the template once (``materialize_edge_family``). The resolver primitives it
 calls are the shared ones in ``edge_resolution`` (moved verbatim from the original
 appliers); this module supplies only the per-family orchestration. ``EDGE_REGISTRY``
-lists the six families.
+lists the seven families.
 
 Two families are NOT data-driven and stay as bespoke appliers, because their logic
 does not compress to a spec without loss:
@@ -286,13 +287,9 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
     # Pre-resolve subject maps. When predicates share the spec's subject category a
     # single map is reused; per-predicate overrides get their own map.
     default_map = _subject_map(g, spec)
-    if spec.pool_kind == "agent" and not default_map and all(
-        p.subject_category is None for p in spec.predicates
-    ):
-        # No subject individuals of the family category present -> nothing to wire.
-        # (resource/state-affects return their own no-subject statuses below via the
-        # empty subject map; an empty Agent pool is the meaningful guard.)
-        pass
+    # An empty subject map needs no family-level short-circuit: each row skips
+    # individually and the family returns status 'ok' with zero edges. The only
+    # family-level guard is 'no_agents' (an empty Agent pool), applied below.
 
     pool_cache: Dict[Tuple, Any] = {}
     # Agent-pooled families short-circuit when the case has no Agents (matches the
@@ -864,7 +861,7 @@ _STATE_AFFECTS_SPEC = EdgeSpec(
 )
 
 # participant_edges: the Pass-2 'who' fields plus the actor-edge additions -> Component
-# -> Agent. ADDITIVE (the literal stays untouched; this only ADDS the edge). Each
+# -> Agent. ADDITIVE (this only ADDS edges; since CMT-3 the commit writes no literal for these fields at all). Each
 # predicate has its OWN subject category AND its own extraction_type. invokedBy and
 # citedByAgent carry the deterministic Board-pattern fallback (the Board authors the
 # analysis, so it is never an extracted case Agent); isPerformedBy reads the Step-3

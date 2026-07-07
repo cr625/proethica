@@ -193,7 +193,7 @@ def _summarize_individual(rdf_json_ld: dict, concept_type: str) -> str:
     _INDIVIDUAL_SUMMARY_FIELDS = {
         'roles': ('roleClass', ['caseInvolvement']),
         'states': ('stateClass', ['subject', 'triggeringEvent']),
-        'resources': ('resourceClass', ['usedInContext', 'documentTitle']),
+        'resources': ('resourceClass', ['documentTitle', 'topic']),
         'principles': ('principleClass', ['concreteExpression', 'interpretation']),
         'obligations': ('obligationClass', ['obligationStatement', 'obligatedParty']),
         'constraints': ('constraintClass', ['constraintStatement', 'constrainedEntity']),
