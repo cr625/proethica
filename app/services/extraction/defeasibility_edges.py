@@ -127,6 +127,7 @@ class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
         edges = self._close_symmetric_competesWith(edges)
         edges = self._enforce_joint_emission(edges, case_id)
         edges = self._dedupe_edges(edges)
+        self._warn_met_losers(edges, obligations, case_id)
 
         logger.info(
             "Case %s: emitted %d defeasibility edges (after closure + dedupe)",
@@ -268,6 +269,35 @@ class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
 
             kept.append(ed)
         return kept
+
+    @staticmethod
+    def _warn_met_losers(edges, obligations, case_id: int) -> None:
+        """Specification-vs-defeat review signal (2026-07-08 rubric tightening).
+
+        A duty the board found SATISFIED was presumptively not subordinated: a
+        prevailsOver edge whose loser has compliancestatus met (or a
+        defeasibleUnder edge on a met obligation) usually means the extractor
+        cast scope-specification as defeat (the case-9 Competence-over-
+        PublicSafety mismodel). Warn-only, never drop: the discharged-then-
+        superseded pattern (case 8) legitimately pairs met with yielding, so
+        the call needs a human or the prompt-side rubric, not a hard guard.
+        """
+        status = {
+            ob.iri: (ob.compliance_status or "").strip().lower()
+            for ob in obligations
+        }
+        for e in edges:
+            flagged = (
+                e.object_iri if e.predicate == "prevailsOver"
+                else e.subject_iri if e.predicate == "defeasibleUnder"
+                else None
+            )
+            if flagged and status.get(flagged) == "met":
+                logger.warning(
+                    "Case %s: %s edge against a compliancestatus=met obligation "
+                    "(review for specification-cast-as-defeat): %s",
+                    case_id, e.predicate, flagged,
+                )
 
     @staticmethod
     def _enforce_joint_emission(

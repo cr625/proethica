@@ -41,6 +41,11 @@ class ObligationContext:
     case_context: Optional[str] = None
     obligated_party: Optional[str] = None
     temporal_scope: Optional[str] = None
+    # The adjudicated outcome ("met" / "unmet" / "unclear"). Surfaced to the LLM
+    # (2026-07-08 rubric tightening) because a duty the board found SATISFIED is
+    # presumptively not a prevailsOver loser: that pattern is scope-specification,
+    # not defeat (the case-9 Competence-over-PublicSafety mismodel).
+    compliance_status: Optional[str] = None
 
 
 @dataclass
@@ -120,6 +125,8 @@ def _format_obligations(obligations: List[ObligationContext]) -> str:
             block.append(f"  obligatedparty: {ob.obligated_party}")
         if ob.temporal_scope:
             block.append(f"  temporalscope: {ob.temporal_scope}")
+        if ob.compliance_status:
+            block.append(f"  compliancestatus: {ob.compliance_status}")
         lines.append("\n".join(block))
     return "\n\n".join(lines)
 

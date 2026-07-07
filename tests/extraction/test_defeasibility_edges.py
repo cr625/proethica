@@ -860,3 +860,54 @@ class TestJointEmission:
         edges = self._extract(output, case72_obligations, case72_states)
         preds = sorted(e.predicate for e in edges)
         assert preds == ["defeasibleUnder", "prevailsOver"]
+
+
+class TestSpecificationVsDefeat:
+    """2026-07-08 rubric tightening: compliancestatus is surfaced to the LLM,
+    and a prevailsOver loser (or defeasibleUnder subject) the board found met
+    logs a review warning without dropping the edge (the discharged-then-
+    superseded pattern legitimately pairs met with yielding)."""
+
+    def test_compliance_status_rendered_in_prompt(self, case72_states):
+        obligations = [
+            ObligationContext(iri="http://x#A", label="Duty A", compliance_status="met"),
+            ObligationContext(iri="http://x#B", label="Duty B"),
+        ]
+        prompt = create_defeasibility_prompt(
+            obligations=obligations, states=case72_states, case_id=1)
+        assert "compliancestatus: met" in prompt
+        # absent status renders no line rather than an empty value
+        assert prompt.count("compliancestatus:") == 1
+
+    def test_met_loser_warns_but_keeps_edge(
+        self, case72_obligations, case72_states, caplog
+    ):
+        import logging
+        # Mark the losing obligation as met on the extractor inputs.
+        for ob in case72_obligations:
+            if ob.iri == FAITHFUL_AGENT_IRI:
+                ob.compliance_status = "met"
+        output = {
+            "edges": [
+                {
+                    "predicate": "prevailsOver",
+                    "subject_iri": PUBLIC_WELFARE_IRI,
+                    "object_iri": FAITHFUL_AGENT_IRI,
+                    "source_field": "tensionresolution",
+                    "source_text": "overriding public welfare obligation",
+                    "confidence": 0.9,
+                },
+            ]
+        }
+        client = _make_mock_client(output)
+        extractor = DefeasibilityEdgeExtractor(
+            llm_client=client, model="claude-test-model"
+        )
+        with caplog.at_level(logging.WARNING):
+            edges = extractor.extract(
+                case_id=72,
+                obligations=case72_obligations,
+                states=case72_states,
+            )
+        assert len(edges) == 1  # kept, not dropped
+        assert any("specification-cast-as-defeat" in r.message for r in caplog.records)

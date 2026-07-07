@@ -133,6 +133,7 @@ def parse_case_graph(g: Graph, case_id: int) -> CaseEntities:
             case_context=_lit(g, s, "caseContext"),
             obligated_party=_obligated_party_from_edges(g, s),
             temporal_scope=_lit(g, s, "temporalScope"),
+            compliance_status=_lit(g, s, "complianceStatus"),
         )
         for s in _individuals_in_category(g, "Obligation")
     ]
