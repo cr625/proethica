@@ -580,15 +580,25 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
   ]""")
 
         if 'counterfactual' in categories:
-            category_blocks.append("""**COUNTERFACTUAL QUESTIONS**: What-if scenarios.
-   - "Would earlier disclosure have changed the outcome?"
-   - "What if the engineer had refused the contract?"
-""")
+            category_blocks.append("""**COUNTERFACTUAL QUESTIONS**: fact-negating what-ifs that stress a Board conclusion.
+   A counterfactual question must satisfy ALL of:
+   - Its antecedent NEGATES or ALTERS a fact the case asserts (not a restatement, not
+     something the case leaves open, and NOT merely an alternative course of action the
+     party could have taken).
+   - The altered fact and the entities involved appear in the case material.
+   - If the antecedent held, a specific Board conclusion would plausibly change or need
+     qualification -- name the duty or conclusion being stressed.
+   - It is not a rewording of a Board question or of another generated question.
+   Example shape: the case asserts X; ask "If X had not been the case (e.g. the access
+   constraint had NOT been disclosed to the contractor), would the Board still have found
+   the public safety duty satisfied?" Emit FEWER questions (or none) rather than pad the
+   category with items that fail these criteria.""")
             example_blocks.append("""  "counterfactual": [
     {
-      "question_text": "Would the outcome have differed if Engineer A had refused the contract?",
-      "mentioned_entities": {"roles": ["Engineer A"], "actions": ["refuse contract"]},
+      "question_text": "If the limited-access condition had not been disclosed on the design documents, would the Board still have concluded that Engineer A met the public safety obligation?",
+      "mentioned_entities": {"roles": ["Engineer A"], "obligations": ["Public Safety"]},
       "related_provisions": [],
+      "negated_fact": "The design documents disclosed the limited-access condition",
       "source_question": 1
     }
   ]""")
@@ -622,7 +632,8 @@ Generate analytical questions that deepen understanding beyond the Board's expli
 **FORMATTING RULES:**
 - Write questions in plain English. Do NOT embed URIs in question_text.
 - Reference entities by their exact label in the mentioned_entities field.
-- Generate 2-4 questions per category.
+- Generate UP TO 4 questions per category; fewer or zero is acceptable. Emit only
+  questions that meet the category's criteria -- do not pad a category to reach a count.
 - Link to source Board questions when applicable (source_question field).
 
 **OUTPUT FORMAT (JSON):**

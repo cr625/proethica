@@ -251,7 +251,8 @@ def register_qc_routes(bp):
                     code_provisions=provisions,
                     board_questions=board_questions,
                     analytical_questions=analytical_questions,
-                    case_facts=facts_text
+                    case_facts=facts_text,
+                    conclusion_items=(case.doc_metadata or {}).get('conclusion_items')
                 )
 
                 # Flatten all conclusion types into single list

@@ -113,7 +113,8 @@ class ConclusionAnalyzer:
         code_provisions: List[Dict] = None,
         board_questions: List[Dict] = None,
         analytical_questions: List[Dict] = None,
-        case_facts: str = ""
+        case_facts: str = "",
+        conclusion_items: List[str] = None
     ) -> Dict[str, Any]:
         """
         Full analytical extraction: Board conclusions + generated analytical conclusions.
@@ -148,7 +149,8 @@ class ConclusionAnalyzer:
 
         # Stage 1: Get Board's explicit conclusions (flexible)
         board_conclusions, source = self._get_board_conclusions(
-            conclusions_text, all_entities, code_provisions
+            conclusions_text, all_entities, code_provisions,
+            conclusion_items=conclusion_items
         )
         result[ConclusionType.BOARD_EXPLICIT.value] = board_conclusions
         result['stage1_source'] = source.value
@@ -178,14 +180,37 @@ class ConclusionAnalyzer:
         self,
         conclusions_text: str,
         all_entities: Dict[str, List],
-        code_provisions: List[Dict]
+        code_provisions: List[Dict],
+        conclusion_items: List[str] = None
     ) -> Tuple[List[EthicalConclusion], ConclusionSource]:
         """
-        Get Board's explicit conclusions - try parsing first, fall back to LLM.
+        Get Board's explicit conclusions - structured items first, then parsing,
+        then LLM fallback.
 
         Returns:
             Tuple of (conclusions, source) where source indicates how they were obtained
         """
+        # Stage 1A0: the import already parsed the numbered conclusion items into
+        # doc_metadata (the ground truth the review compares against). Use them
+        # verbatim when present: the regex re-parse below has a single-sentence
+        # match window and keyword gates, which dropped whole conclusions in 6
+        # of 15 gold cases and truncated 16 to their first sentence
+        # (2026-07-08 Q/C analysis, step4-qc-analysis.md finding 1/2).
+        if conclusion_items:
+            items = [t.strip() for t in conclusion_items if t and len(t.strip()) > 10]
+            if items:
+                conclusions = [
+                    self._create_parsed_conclusion(
+                        conclusion_number=i,
+                        conclusion_text=text,
+                        all_entities=all_entities,
+                    )
+                    for i, text in enumerate(items, 1)
+                ]
+                logger.info(f"Using {len(conclusions)} imported conclusion_items (no parse, no LLM)")
+                self.stage1_source = ConclusionSource.IMPORTED
+                return conclusions, ConclusionSource.IMPORTED
+
         if not conclusions_text or not conclusions_text.strip():
             logger.warning("No conclusions text provided")
             return [], ConclusionSource.IMPORTED

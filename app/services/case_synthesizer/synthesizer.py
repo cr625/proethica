@@ -394,7 +394,12 @@ class CaseSynthesizer(NarrativeConstructionMixin, Phase2ExtractionMixin):
 
         return [
             {
-                'uri': p.entity_uri or '',
+                # Provision rows carry no entity_uri pre-commit (all 96 gold rows
+                # empty, 2026-07-08 Q/C analysis): fall back to the provision code
+                # so downstream reference resolution never serializes ''.
+                'uri': p.entity_uri
+                       or (p.rdf_json_ld.get('codeProvision', '') if p.rdf_json_ld else '')
+                       or p.entity_label,
                 'label': p.entity_label,
                 'definition': p.entity_definition or '',
                 'code': p.rdf_json_ld.get('codeProvision', '') if p.rdf_json_ld else ''

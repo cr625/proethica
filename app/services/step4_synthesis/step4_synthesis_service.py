@@ -691,7 +691,8 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             code_provisions=provisions,
             board_questions=board_questions,
             analytical_questions=analytical_questions,
-            case_facts=facts_text
+            case_facts=facts_text,
+            conclusion_items=(case.doc_metadata or {}).get('conclusion_items')
         )
 
         # Flatten all conclusion types
@@ -966,11 +967,32 @@ def _run_phase3(case_id: int, llm_client) -> dict:
     try:
         from app.services.decision_point_synthesizer import synthesize_decision_points
 
-        # Load Phase 2 data
-        questions = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
-            case_id=case_id, extraction_type='ethical_question').all()]
-        conclusions = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
-            case_id=case_id, extraction_type='ethical_conclusion').all()]
+        # Load Phase 2 data. Merge row-level identity into the JSON payloads:
+        # the raw rdf_json_ld carries camelCase keys and no URI, so the
+        # synthesizer's q.get('question_text') / q.get('uri') reads were empty --
+        # the Phase 3 prompt showed blank question lines and every
+        # addresses_questions / aligned_question_uri serialized as ''
+        # (2026-07-08 Q/C analysis, finding 3). URI synthesis mirrors
+        # CaseSynthesizer._load_qc (enumeration-based case-N#Qn), the convention
+        # the resolution patterns already carry.
+        q_rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='ethical_question').all()
+        questions = [
+            {**(r.rdf_json_ld or {}),
+             'uri': r.entity_uri or f"case-{case_id}#Q{i+1}",
+             'question_text': (r.rdf_json_ld or {}).get('questionText', r.entity_definition or ''),
+             'question_number': (r.rdf_json_ld or {}).get('questionNumber', i + 1)}
+            for i, r in enumerate(q_rows)
+        ]
+        c_rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='ethical_conclusion').all()
+        conclusions = [
+            {**(r.rdf_json_ld or {}),
+             'uri': r.entity_uri or f"case-{case_id}#C{i+1}",
+             'text': (r.rdf_json_ld or {}).get('conclusionText', r.entity_definition or ''),
+             'conclusion_text': (r.rdf_json_ld or {}).get('conclusionText', r.entity_definition or '')}
+            for i, r in enumerate(c_rows)
+        ]
         question_emergence = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
             case_id=case_id, extraction_type='question_emergence').all()]
         resolution_patterns = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(

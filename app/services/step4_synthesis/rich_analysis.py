@@ -675,13 +675,19 @@ Include all {len(batch_conclusions)} conclusions in this batch.
                 conclusion_text = ''
 
             # Resolve question references (indices -> URIs)
+            # Never serialize '' for a resolved reference: an unresolvable
+            # index is dropped, a resolvable one falls back through uri ->
+            # code/label (2026-07-08 Q/C analysis, finding 3: empty-string
+            # padding in stored resolution patterns).
             answers_q = []
             for q_ref in p.get('answers_questions', []):
                 if isinstance(q_ref, int):
                     q_idx = q_ref - 1
                     if 0 <= q_idx < len(questions):
-                        answers_q.append(questions[q_idx].get('uri', ''))
-                elif isinstance(q_ref, str):
+                        val = questions[q_idx].get('uri') or questions[q_idx].get('label', '')
+                        if val:
+                            answers_q.append(val)
+                elif isinstance(q_ref, str) and q_ref:
                     answers_q.append(q_ref)
 
             # Resolve provision references (indices -> URIs)
@@ -690,8 +696,12 @@ Include all {len(batch_conclusions)} conclusions in this batch.
                 if isinstance(p_ref, int):
                     p_idx = p_ref - 1
                     if 0 <= p_idx < len(provisions):
-                        cited_p.append(provisions[p_idx].get('uri', ''))
-                elif isinstance(p_ref, str):
+                        val = (provisions[p_idx].get('uri')
+                               or provisions[p_idx].get('code')
+                               or provisions[p_idx].get('label', ''))
+                        if val:
+                            cited_p.append(val)
+                elif isinstance(p_ref, str) and p_ref:
                     cited_p.append(p_ref)
 
             results.append(ResolutionPatternAnalysis(
