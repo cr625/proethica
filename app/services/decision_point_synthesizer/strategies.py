@@ -295,6 +295,20 @@ CRITICAL FORMATTING:
 - Descriptions expand on the label with case-specific detail.
 - Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
 
+GROUNDING RULES (2026-07-08 Phase-B audit; each was a judged failure mode):
+- is_board_choice marks the course the Board held to be the ETHICAL one. When the Board
+  found the party's actual conduct unethical, the board choice is the compliant
+  alternative (e.g. "Obtain Client Consent"), NOT the conduct that occurred. Never mark
+  condemned conduct as the Board's choice.
+- Options must be alternatives the case states or clearly implies were available to the
+  decision-maker at that moment. Do NOT invent options the case never mentions or
+  contemplates, and do not split one course of action into two near-identical options.
+- board_resolution must paraphrase only what the Board's conclusions state. Do not add
+  interpretive elaborations, carve-outs, or rationales the conclusions do not contain.
+- rebuttals_summary must never be empty: state the strongest opposing consideration the
+  case itself supplies (the losing party's position, the dissent, or the constraint that
+  pulled the other way).
+
 Return as JSON array:
 ```json
 [
@@ -585,6 +599,11 @@ CRITICAL COHERENCE: The decision_question and options must form a coherent decis
 - Each option must be a direct answer to that question. Reading the question then the option,
   the option must be a plausible course of action the role could choose.
 - The role_label must be the agent making the decision, not a passive party.
+- is_board_choice marks the course the Board held ETHICAL; when the Board condemned the
+  actual conduct, the board choice is the compliant alternative, never the condemned act.
+- Options must be alternatives the case states or implies; do not invent unmentioned ones.
+- board_resolution paraphrases only what the conclusions state; rebuttals_summary is
+  never empty (use the strongest case-supplied opposing consideration).
 
 CRITICAL OPTION FORMAT:
 - Labels must be 3-8 words, Title Case, starting with a verb. NEVER "Option A", "Option B".
