@@ -278,6 +278,10 @@ class PrecedentSimilarityService:
                     results.append(result)
             except Exception as e:
                 logger.warning(f"Error calculating similarity for case {target_case_id}: {e}")
+                # A failed feature query aborts the shared request transaction;
+                # reset it or every later query in this request raises
+                # InFailedSqlTransaction (e.g. the Step 4 review page 500).
+                db.session.rollback()
 
         # Sort by overall similarity descending
         results.sort(key=lambda r: r.overall_similarity, reverse=True)
