@@ -27,12 +27,10 @@ class SourceViewsMixin:
         - Relevant case excerpts
         - Entity connections (appliesTo relationships)
         """
-        provisions = TemporaryRDFStorage.query.filter_by(
+        provisions = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='code_provision_reference'
-        ).filter(
-            TemporaryRDFStorage.is_published == True
-        ).order_by(
+        )).order_by(
             TemporaryRDFStorage.entity_label
         ).all()
 
@@ -201,11 +199,10 @@ class SourceViewsMixin:
         # matches the Q&C view exactly. When the extractor missed a
         # question, that is documented as an extraction-quality issue
         # (see current-application-roadmap.md).
-        board_questions = TemporaryRDFStorage.query.filter_by(
+        board_questions = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='ethical_question',
-            is_published=True,
-        ).all()
+        )).all()
         question_list: List[str] = []
         for q in sorted(
             (q for q in board_questions
@@ -288,12 +285,10 @@ class SourceViewsMixin:
                     conclusion_text = section.content
 
         # Get board-cited provisions from extraction
-        board_provisions = TemporaryRDFStorage.query.filter_by(
+        board_provisions = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='code_provision_reference'
-        ).filter(
-            TemporaryRDFStorage.is_published == True
-        ).all()
+        )).all()
 
         cited_provisions = [
             {'code_section': p.entity_label, 'text': p.entity_definition}

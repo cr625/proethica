@@ -539,7 +539,11 @@ def register_view_routes(bp):
             # characters, V15 main-character promotion, role-instance collapse,
             # moral-intensity-sorted tensions, resolved provisions/decisions.
             from app.services.validation.synthesis_view_builder import SynthesisViewBuilder
-            synth_views = SynthesisViewBuilder().get_all_views(case_id)
+            # published_only=False: this is a PIPELINE REVIEW surface -- it must
+            # show the current Step-4 products, which a fresh stage re-run stores
+            # unpublished until the next commit. The study routes keep the
+            # default published-only gate.
+            synth_views = SynthesisViewBuilder(published_only=False).get_all_views(case_id)
 
             # Provisions empty-state note: distinguish a historical-code case (whose
             # citations cannot map to the current NSPE Code) from a modern case that simply

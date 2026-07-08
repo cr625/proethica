@@ -35,7 +35,22 @@ class SynthesisViewBuilder(
     - TemporaryRDFStorage: Entity-level extractions (Step 3 + Step 4 Phase 2)
     - ExtractionPrompt: LLM synthesis outputs (Step 4 Phase 3 + Phase 4)
     - DocumentSection: Case text sections
+
+    published_only (default True) keeps the study-view semantics: only rows
+    published at commit are shown. The pipeline REVIEW pages pass False so a
+    freshly re-run Step 4 (rows not yet re-committed) is visible -- a Step-4
+    re-run replaces the rows unpublished, and the study filter otherwise
+    renders the Q&C tab empty over correct data (found 2026-07-08 on case 10).
     """
+
+    def __init__(self, published_only: bool = True):
+        self.published_only = published_only
+
+    def _published_filter(self, query):
+        """Apply the is_published gate when the builder is in study mode."""
+        if self.published_only:
+            return query.filter(TemporaryRDFStorage.is_published == True)  # noqa: E712
+        return query
 
 
     def get_all_views(self, case_id: int) -> Dict[str, Any]:
@@ -132,18 +147,16 @@ class SynthesisViewBuilder(
                             require Provisions and Q&C.
         """
         # Provisions
-        provision_count = TemporaryRDFStorage.query.filter_by(
+        provision_count = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
-            extraction_type='code_provision_reference',
-            is_published=True
-        ).count()
+            extraction_type='code_provision_reference'
+        )).count()
 
         # Q&C (questions)
-        question_count = TemporaryRDFStorage.query.filter_by(
+        question_count = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
-            extraction_type='ethical_question',
-            is_published=True
-        ).count()
+            extraction_type='ethical_question'
+        )).count()
 
         if provision_count == 0 or question_count == 0:
             return False

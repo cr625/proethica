@@ -24,22 +24,18 @@ class QCViewMixin:
         - Conclusions linked to each question via answersQuestions relation
         - Entity involvement breakdown and emergence/resolution overlays
         """
-        questions = TemporaryRDFStorage.query.filter_by(
+        questions = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='ethical_question'
-        ).filter(
-            TemporaryRDFStorage.is_published == True
-        ).order_by(
+        )).order_by(
             TemporaryRDFStorage.entity_label
         ).all()
 
         # Also get conclusions for linking
-        conclusions = TemporaryRDFStorage.query.filter_by(
+        conclusions = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='ethical_conclusion'
-        ).filter(
-            TemporaryRDFStorage.is_published == True
-        ).all()
+        )).all()
 
         # Provision text lookup, keyed by code section (e.g., "II.2.a"), so
         # the cited-provision badges below can carry hover popovers with
@@ -55,12 +51,10 @@ class QCViewMixin:
         #      row; the canonical fallback resolves all of them except the
         #      occasional 'Preamble' citation, which is not in the table.
         from app.models.guideline_section import GuidelineSection
-        provisions_rows = TemporaryRDFStorage.query.filter_by(
+        provisions_rows = self._published_filter(TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
             extraction_type='code_provision_reference'
-        ).filter(
-            TemporaryRDFStorage.is_published == True
-        ).all()
+        )).all()
         provision_text_lookup: Dict[str, str] = {}
         # Canonical NSPE Code sections (leaf rows only; e.g., III.6.a but
         # not III.6 itself).
