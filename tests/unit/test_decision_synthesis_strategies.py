@@ -96,16 +96,19 @@ def test_parse_refinement_response_golden():
     }])
     questions = [{"uri": "http://q0", "text": "q0"}]
 
-    # empty top_candidates -> no label->URI lookup -> falls back to the LLM-emitted URI
+    # empty top_candidates and no case graph -> no label->URI lookup. An
+    # LLM-emitted URI is kept ONLY when the case graph knows it; unknown URIs
+    # are dropped rather than stored (2026-07-08: the unvalidated fallback put
+    # obligation URIs into role slots on case 9). Labels are retained.
     out = s._parse_refinement_response(resp, top_candidates=[], questions=questions,
                                        conclusions=[], question_emergence=[], resolution_patterns=[])
 
     assert len(out) == 1
     dp = out[0]
     assert dp.focus_id == "DP1"
-    assert dp.role_uri == "http://llm/roleB"   # fallback to LLM URI
+    assert dp.role_uri == ""   # unknown LLM URI dropped
     assert dp.role_label == "Engineer B"
-    assert dp.obligation_uri == "http://llm/obl"
+    assert dp.obligation_uri == ""   # unknown LLM URI dropped
     assert dp.addresses_questions == ["http://q0"]   # int index 0 -> questions[0].uri
     assert dp.aligned_question_uri == "http://q0"
     assert dp.aligned_question_text == "q0"
