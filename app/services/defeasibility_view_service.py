@@ -204,6 +204,10 @@ def get_case_conflicts(case_id: int) -> dict:
             "competes": frozenset((winner, loser)) in competes,
             "ontserve_triple_path": (
                 f"/entity/proethica-case-{case_id}/{frag}" if has_prov else None),
+            # Generic duty concepts the endpoints instantiate -- the level at
+            # which resolutions recur across cases (type-level patterns).
+            "winner_type": _intermediate_type(g, w_uri),
+            "loser_type": _intermediate_type(g, l_uri),
         })
 
     resolved_pairs = {frozenset((c["winner"], c["loser"])) for c in conflicts}
@@ -235,6 +239,29 @@ def _context_text(labels) -> str | None:
     return "; ".join(sorted(labels)) if labels else None
 
 
+_INTERMEDIATE_NS = "http://proethica.org/ontology/intermediate#"
+
+
+def _intermediate_type(g, uri) -> str | None:
+    """The individual's intermediate-class type local name (the generic duty
+    concept, e.g. FaithfulAgentObligation) -- the unit at which resolutions
+    recur across cases. Individuals carry one; sorted-joined if ever several."""
+    locals_ = sorted(
+        str(t).rsplit("#", 1)[-1]
+        for t in g.objects(uri, rdflib.RDF.type)
+        if str(t).startswith(_INTERMEDIATE_NS)
+    )
+    return "; ".join(locals_) if locals_ else None
+
+
+def _type_display(type_local: str | None) -> str | None:
+    """FaithfulAgentObligation -> 'Faithful Agent Obligation' for prose."""
+    import re
+    if not type_local:
+        return None
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", type_local)
+
+
 def refresh_band_index(case_id: int) -> int:
     """Rebuild this case's rows in the cross-case defeasibility index from its committed
     TTL. One row per resolved prevailsOver (winner, loser) pair, with embeddings of both
@@ -259,11 +286,11 @@ def refresh_band_index(case_id: int) -> int:
     _competes, prevails, defeasible = _trio_edges(g)
     seen = set()
     pairs = []
-    for winner, loser, *_ in prevails:
+    for winner, loser, w_uri, l_uri in prevails:
         if (winner, loser) in seen:
             continue
         seen.add((winner, loser))
-        pairs.append((winner, loser))
+        pairs.append((winner, loser, w_uri, l_uri))
 
     fresh = next(g.triples((None, _FRESH_MARKER, None)), None) is not None
     emb = EmbeddingService.get_instance()
@@ -274,7 +301,7 @@ def refresh_band_index(case_id: int) -> int:
             label_vec[text] = emb.get_embedding(text)
         return label_vec[text]
 
-    for winner, loser in pairs:
+    for winner, loser, w_uri, l_uri in pairs:
         contexts = sorted(set(defeasible.get(loser, [])))
         ctx_txt = _context_text(contexts)
         db.session.add(DefeasibilityBandIndex(
@@ -285,6 +312,8 @@ def refresh_band_index(case_id: int) -> int:
             loser_embedding=_vec(loser),
             winner_embedding=_vec(winner),
             context_embedding=_vec(ctx_txt) if ctx_txt else None,
+            winner_type=_intermediate_type(g, w_uri),
+            loser_type=_intermediate_type(g, l_uri),
             fresh=fresh,
         ))
     db.session.commit()
@@ -402,11 +431,46 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
             }],
             "score": round(score, 3),
         })
+    # Type-level recurrence: exact match on the generic duty concepts the
+    # endpoints instantiate (winner_type / loser_type). Types are shared
+    # vocabulary across cases, so this needs no embedding and no floor, and it
+    # surfaces the patterns the similarity ranking cannot: the same duty TYPE
+    # yielding in another case, or appearing on the OPPOSITE side of a
+    # resolution (the context-indexed defeasibility the learning claim needs).
+    def _case_refs(pred):
+        seen_ids, refs = set(), []
+        for r in candidates:
+            if r.case_id in seen_ids or not pred(r):
+                continue
+            seen_ids.add(r.case_id)
+            doc = Document.query.get(r.case_id)
+            meta = doc.doc_metadata if (doc and isinstance(doc.doc_metadata, dict)) else {}
+            refs.append({"case_id": r.case_id,
+                         "case_number": meta.get("case_number", ""),
+                         "title": doc.title if doc else f"Case {r.case_id}"})
+        return refs
+
+    lt, wt = featured.get("loser_type"), featured.get("winner_type")
+    type_patterns = {
+        "loser_type": lt,
+        "loser_type_display": _type_display(lt),
+        "winner_type": wt,
+        "winner_type_display": _type_display(wt),
+        "loser_yields_in": _case_refs(lambda r: lt and r.loser_type == lt) if lt else [],
+        "loser_prevails_in": _case_refs(lambda r: lt and r.winner_type == lt) if lt else [],
+        "winner_yields_in": _case_refs(lambda r: wt and r.loser_type == wt) if wt else [],
+        "winner_prevails_in": _case_refs(lambda r: wt and r.winner_type == wt) if wt else [],
+    }
+    type_patterns["any"] = any(
+        type_patterns[k] for k in
+        ("loser_yields_in", "loser_prevails_in", "winner_yields_in", "winner_prevails_in"))
+
     # Generated from the matched pair (no hand-written prose). Kept article-free so it
     # reads correctly whether the labels are common-noun obligations or engineer-prefixed.
     label = f"{anchor_loser} yields to {anchor_winner}"
     return {"label": label, "keyword": anchor_loser, "rows": rows,
-            "floor": MIN_BAND_SCORE, "dynamic": True}
+            "floor": MIN_BAND_SCORE, "dynamic": True,
+            "type_patterns": type_patterns}
 
 
 def build_defeasibility_view(case_id: int) -> dict:

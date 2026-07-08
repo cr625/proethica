@@ -27,7 +27,7 @@ def test_context_text_sorted_joined():
 
 class _Row:
     def __init__(self, case_id, winner, loser, winner_emb, loser_emb,
-                 ctx=(), ctx_emb=None, fresh=True):
+                 ctx=(), ctx_emb=None, fresh=True, winner_type=None, loser_type=None):
         self.case_id = case_id
         self.winner_label = winner
         self.loser_label = loser
@@ -36,6 +36,8 @@ class _Row:
         self.context_labels = list(ctx)
         self.context_embedding = ctx_emb
         self.fresh = fresh
+        self.winner_type = winner_type
+        self.loser_type = loser_type
 
 
 class _Doc:
@@ -134,6 +136,38 @@ def test_best_pattern_per_case_and_top_five_cap():
     top = band["rows"][0]
     assert top["case_id"] == 10
     assert top["matches"][0]["loser"] == "Lb"
+
+
+def test_type_level_patterns():
+    """Exact class-type recurrence is reported independently of the similarity
+    floor: the anchor's yielding type recurring as a loser elsewhere, and the
+    polarity flip (the same type prevailing elsewhere) -- the context-indexed
+    defeasibility pattern. Rows lacking types or type-less anchors degrade to
+    empty patterns."""
+    anchor = {"winner": "W", "loser": "L", "contexts": [], "featured": True,
+              "winner_type": "SafetyObligation", "loser_type": "FaithfulAgentObligation"}
+    rows = [
+        # Same loser type elsewhere (below floor on labels: orthogonal vectors).
+        _Row(30, "Wx", "Lx", [0, 0, 1], [0, 0, 1],
+             winner_type="ObjectivityObligation", loser_type="FaithfulAgentObligation"),
+        # Polarity flip: the anchor's yielding type prevails in case 31.
+        _Row(31, "Wy", "Ly", [0, 0, 1], [0, 0, 1],
+             winner_type="FaithfulAgentObligation", loser_type="AccountabilityObligation"),
+        # Unrelated types.
+        _Row(32, "Wz", "Lz", [0, 0, 1], [0, 0, 1],
+             winner_type="CompetenceObligation", loser_type="DisclosureObligation"),
+    ]
+    band = _run(rows, anchor)
+    assert band["rows"] == []  # nothing clears the label-similarity floor
+    tp = band["type_patterns"]
+    assert tp["any"] is True
+    assert tp["loser_type_display"] == "Faithful Agent Obligation"
+    assert [r["case_id"] for r in tp["loser_yields_in"]] == [30]
+    assert [r["case_id"] for r in tp["loser_prevails_in"]] == [31]
+    assert tp["winner_yields_in"] == [] and tp["winner_prevails_in"] == []
+    # Anchor without types -> empty patterns, no error.
+    band2 = _run(rows, {"winner": "W", "loser": "L", "contexts": [], "featured": True})
+    assert band2["type_patterns"]["any"] is False
 
 
 def test_none_when_no_conflict_or_empty_index():

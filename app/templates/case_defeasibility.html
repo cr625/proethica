@@ -170,6 +170,29 @@
     committed.
   </p>
   {% endif %}
+  {% set tp = view.cross_case.type_patterns %}
+  {% if tp and tp.any %}
+  {% macro caselinks(refs) %}{% for r in refs %}<a href="{{ url_for('cases.case_defeasibility', id=r.case_id) }}" title="{{ r.title }}">{{ r.case_number or 'Case ' ~ r.case_id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endmacro %}
+  <div class="small mt-3">
+    <span class="text-muted">Type-level patterns: each obligation instantiates a generic duty concept, and
+      the same concept recurs across cases (exact class match, independent of the similarity ranking
+      above).</span>
+    <ul class="mb-0 mt-1">
+      {% if tp.loser_yields_in %}
+      <li>Obligations of type <em>{{ tp.loser_type_display }}</em> also yield in {{ caselinks(tp.loser_yields_in) }}.</li>
+      {% endif %}
+      {% if tp.loser_prevails_in %}
+      <li><em>{{ tp.loser_type_display }}</em>, the yielding type here, <strong>prevails</strong> in {{ caselinks(tp.loser_prevails_in) }}: the same duty type resolves differently under a different context.</li>
+      {% endif %}
+      {% if tp.winner_yields_in %}
+      <li><em>{{ tp.winner_type_display }}</em>, the prevailing type here, <strong>yields</strong> in {{ caselinks(tp.winner_yields_in) }}: the same duty type resolves differently under a different context.</li>
+      {% endif %}
+      {% if tp.winner_prevails_in %}
+      <li>Obligations of type <em>{{ tp.winner_type_display }}</em> also prevail in {{ caselinks(tp.winner_prevails_in) }}.</li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
   {% endif %}
 
 </div>

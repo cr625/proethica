@@ -44,6 +44,11 @@ class DefeasibilityBandIndex(db.Model):
     # One embedding of the joined (sorted, '; '-separated) context labels; None
     # when the pair carries no defeasibleUnder contexts.
     context_embedding = db.Column(db.ARRAY(db.Float))
+    # Intermediate-class type local names of the pair's endpoints (e.g.
+    # FaithfulAgentObligation), for TYPE-LEVEL recurrence display: exact match
+    # across cases, no embedding (2026-07-08).
+    winner_type = db.Column(db.String(255))
+    loser_type = db.Column(db.String(255))
     # True when the source TTL is a fresh-architecture commit (carries the
     # proeth-prov:synthesisLiteral marker). Only fresh rows enter the dynamic band.
     fresh = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
