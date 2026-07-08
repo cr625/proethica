@@ -102,7 +102,8 @@ class QuestionAnalyzer:
         all_entities: Dict[str, List],
         code_provisions: List[Dict] = None,
         case_facts: str = "",
-        case_conclusion: str = ""
+        case_conclusion: str = "",
+        questions_list: List[str] = None
     ) -> Dict[str, Any]:
         """
         Full analytical extraction: Board questions + generated analytical questions.
@@ -131,7 +132,8 @@ class QuestionAnalyzer:
 
         # Stage 1: Get Board's explicit questions (flexible)
         board_questions, source = self._get_board_questions(
-            questions_text, all_entities, code_provisions
+            questions_text, all_entities, code_provisions,
+            questions_list=questions_list
         )
         result[QuestionType.BOARD_EXPLICIT.value] = board_questions
         result['stage1_source'] = source.value
@@ -169,14 +171,36 @@ class QuestionAnalyzer:
         self,
         questions_text: str,
         all_entities: Dict[str, List],
-        code_provisions: List[Dict]
+        code_provisions: List[Dict],
+        questions_list: List[str] = None
     ) -> Tuple[List[EthicalQuestion], QuestionSource]:
         """
-        Get Board's explicit questions - try parsing first, fall back to LLM.
+        Get Board's explicit questions - structured items first, then parsing,
+        then LLM fallback.
 
         Returns:
             Tuple of (questions, source) where source indicates how they were obtained
         """
+        # Stage 1A0: the import already parsed the board questions into
+        # doc_metadata.questions_list; use them verbatim when present. The
+        # regex parse below keeps only the first sentence of a multi-sentence
+        # question (case 5 Q3 lost its substantive half; the conclusion-side
+        # analog dropped whole board conclusions -- 2026-07-08 Q/C analysis).
+        if questions_list:
+            items = [t.strip() for t in questions_list if t and len(t.strip()) > 5]
+            if items:
+                parsed = [
+                    self._create_parsed_question(
+                        question_number=i,
+                        question_text=text,
+                        all_entities=all_entities,
+                    )
+                    for i, text in enumerate(items, 1)
+                ]
+                logger.info(f"Using {len(parsed)} imported questions_list items (no parse, no LLM)")
+                self.stage1_source = QuestionSource.IMPORTED
+                return parsed, QuestionSource.IMPORTED
+
         if not questions_text or not questions_text.strip():
             logger.warning("No questions text provided")
             return [], QuestionSource.IMPORTED

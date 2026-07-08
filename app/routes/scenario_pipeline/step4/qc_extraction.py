@@ -211,7 +211,8 @@ def register_qc_routes(bp):
                     all_entities=all_entities,
                     code_provisions=provisions,
                     case_facts=facts_text,
-                    case_conclusion=conclusions_text
+                    case_conclusion=conclusions_text,
+                    questions_list=(case.doc_metadata or {}).get('questions_list')
                 )
 
                 for q_type in ['board_explicit', 'implicit', 'principle_tension', 'theoretical', 'counterfactual']:

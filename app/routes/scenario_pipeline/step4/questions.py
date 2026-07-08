@@ -251,7 +251,8 @@ def register_question_routes(bp, get_all_case_entities):
                     all_entities=all_entities,
                     code_provisions=provisions,
                     case_facts=facts_text,
-                    case_conclusion=conclusion_text
+                    case_conclusion=conclusion_text,
+                    questions_list=(case.doc_metadata or {}).get('questions_list')
                 )
 
                 board_questions = all_questions.get('board_explicit', [])

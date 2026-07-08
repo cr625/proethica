@@ -665,7 +665,8 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             all_entities=all_entities,
             code_provisions=provisions,
             case_facts=facts_text,
-            case_conclusion=conclusions_text
+            case_conclusion=conclusions_text,
+            questions_list=(case.doc_metadata or {}).get('questions_list')
         )
 
         # Flatten all question types

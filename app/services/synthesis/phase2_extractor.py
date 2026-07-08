@@ -397,7 +397,8 @@ class Phase2Extractor(BaseSynthesizer):
             all_entities=all_entities_formatted,
             code_provisions=provisions_for_linking,
             case_facts=facts_text,
-            case_conclusion=conclusions_text
+            case_conclusion=conclusions_text,
+            questions_list=(self._case.doc_metadata or {}).get('questions_list')
         )
 
         stage1_source = questions_result.get('stage1_source', 'unknown')
