@@ -10,6 +10,16 @@
  *     #cy-fullscreen-btn, #cy-exit-fullscreen-btn, #cy-graph-card
  */
 
+// One normalization for NSPE provision codes across all joins: strip a
+// "Section" prefix and surrounding whitespace, uppercase the Roman part,
+// drop trailing dots ("I.1." and "NSPE I.1" both normalize to "I.1").
+function normalizeProvisionCode(code) {
+    return String(code || '')
+        .replace(/^\s*(?:NSPE\s+)?(?:Section\s+)?/i, '')
+        .replace(/\.*\s*$/, '')
+        .toUpperCase();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     var flowData = window.STEP4_FLOW_DATA;
     if (!flowData) return;
@@ -119,9 +129,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Link questions to related provisions
         if (q.rdf_json_ld && q.rdf_json_ld.relatedProvisions) {
             q.rdf_json_ld.relatedProvisions.forEach(function(provCode) {
+                // Exact join on the normalized provision code. Substring matching
+                // was ambiguous: "I.1." is a substring of "II.1." and of
+                // "III.1.b.", so questions attached to the wrong provisions.
+                var wanted = normalizeProvisionCode(provCode);
                 var provNode = provisions.find(function(p) {
-                    return (p.rdf_json_ld && p.rdf_json_ld.codeProvision === provCode) ||
-                           p.entity_label.includes(provCode);
+                    var code = (p.rdf_json_ld && p.rdf_json_ld.codeProvision) || p.entity_label;
+                    return normalizeProvisionCode(code) === wanted;
                 });
                 if (provNode) {
                     var provId = 'prov_' + provNode.id;
@@ -172,8 +186,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Link conclusions to questions they answer
         if (c.rdf_json_ld && c.rdf_json_ld.answersQuestions) {
             c.rdf_json_ld.answersQuestions.forEach(function(qNum) {
+                // Exact join on questionNumber. Substring matching on the label
+                // was ambiguous: Q1 matched Question_1, Question_10 AND
+                // Question_101, first array hit winning.
                 var qNode = questions.find(function(q) {
-                    return q.entity_label.includes(qNum) || q.entity_label.includes('Question_' + qNum);
+                    return q.rdf_json_ld &&
+                           String(q.rdf_json_ld.questionNumber) === String(qNum);
                 });
                 if (qNode) {
                     var qId = 'q_' + qNode.id;
