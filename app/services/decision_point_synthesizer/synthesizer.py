@@ -101,6 +101,19 @@ class DecisionPointSynthesizer(LLMStrategiesMixin):
             for e in entities:
                 if e.entity_label and e.entity_uri:
                     lookup[e.entity_label.lower()] = e.entity_uri
+        # Fresh-architecture temp rows carry no entity_uri (URIs are minted at
+        # commit), which left this lookup EMPTY and the fallback conversions
+        # unable to bind labels. The committed case graph carries every
+        # individual's label and IRI; use it as the backing source
+        # (2026-07-08 Decisions analysis).
+        try:
+            from rdflib import RDFS
+            from app.services.entity.committed_case_graph import load_case_graph
+            g = load_case_graph(case_id)
+            for s, o in g.subject_objects(RDFS.label):
+                lookup.setdefault(str(o).lower(), str(s))
+        except Exception as exc:  # noqa: BLE001 - no committed TTL yet
+            logger.info(f"Case-graph label lookup unavailable for case {case_id}: {exc}")
         return lookup
 
     def _build_normative_status_context(self, case_id: int) -> str:

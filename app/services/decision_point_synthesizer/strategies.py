@@ -155,7 +155,8 @@ class LLMStrategiesMixin:
                             questions,
                             conclusions,
                             question_emergence,
-                            resolution_patterns
+                            resolution_patterns,
+                            case_id=case_id
                         )
                         all_canonical.extend(batch_points)
                         all_prompts.append(prompt)
@@ -834,7 +835,8 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
         questions: List[Dict],
         conclusions: List[Dict],
         question_emergence: List[Dict],
-        resolution_patterns: List[Dict]
+        resolution_patterns: List[Dict],
+        case_id: int = None
     ) -> List[CanonicalDecisionPoint]:
         """Parse LLM refinement response into canonical decision points."""
 
@@ -863,13 +865,32 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
             if g.constraint_label and g.constraint_uri:
                 entity_uri_lookup[g.constraint_label.lower()] = g.constraint_uri
 
+        # Back the candidate lookup with the committed case graph: candidates
+        # cover only the composed groundings, and an unvalidated fallback to the
+        # LLM-echoed URI put obligation URIs into role slots (2026-07-08
+        # Decisions analysis, case 9). A URI the case graph does not know is
+        # dropped rather than stored.
+        known_uris = set(entity_uri_lookup.values())
+        if case_id is not None:
+            try:
+                from rdflib import RDFS as _RDFS
+                from app.services.entity.committed_case_graph import load_case_graph
+                _g = load_case_graph(case_id)
+                for _s, _o in _g.subject_objects(_RDFS.label):
+                    entity_uri_lookup.setdefault(str(_o).lower(), str(_s))
+                    known_uris.add(str(_s))
+            except Exception as _exc:  # noqa: BLE001 - no committed TTL yet
+                logger.info(f"Case-graph label lookup unavailable for case {case_id}: {_exc}")
+            known_uris.update(entity_uri_lookup.values())
+
         def _resolve_uri(label: str, llm_uri: str) -> str:
-            """Resolve label to real URI via candidate lookup, falling back to LLM URI."""
+            """Label -> URI via candidates + case graph; an LLM-echoed URI is
+            kept only when the case graph knows it."""
             if label:
                 resolved = entity_uri_lookup.get(label.lower())
                 if resolved:
                     return resolved
-            return llm_uri
+            return llm_uri if llm_uri in known_uris else ''
 
         def _resolve_role_label(label: str, resolved_uri: str) -> str:
             """Normalize role label to the canonical (shortest) form for the URI."""
