@@ -47,6 +47,163 @@ TYPE_COLORS = {
 }
 
 
+# Namespaces whose object properties render as graph edges. Class-level and
+# annotation triples are excluded naturally: their endpoints' labels are not in
+# the node map.
+_GRAPH_EDGE_NS = (
+    "http://proethica.org/ontology/core#",
+    "http://proethica.org/ontology/intermediate#",
+    "http://proethica.org/ontology/cases#",
+)
+
+
+def _add_committed_graph_edges(case_id: int, nodes: list, edges: list, label_to_node: dict) -> int:
+    """Edges (and Agent nodes) from the committed case graph.
+
+    The temp-JSON 'relationships' arrays are a legacy format the
+    fresh-architecture extraction rarely populates: across the 15 gold cases
+    they yielded 530 edges total and left 79 percent of nodes unconnected --
+    with the tab's Hide-unconnected default, four of five entities were
+    invisible (2026-07-08 Entities audit). The committed case graph carries
+    the authoritative object-property layer between individuals, so it is the
+    primary edge source; the JSON path remains for uncommitted cases.
+
+    Agents (the case's parties) are minted at commit and have no temp rows, so
+    they are added here as nodes; without them the tab showed no parties.
+
+    Raises FileNotFoundError when the case has no committed TTL (caller treats
+    that as the uncommitted-case state and keeps JSON-derived edges only).
+    """
+    from rdflib import RDF, RDFS, URIRef
+    from app.services.entity.committed_case_graph import load_case_graph
+    g = load_case_graph(case_id)
+
+    core_agent = URIRef("http://proethica.org/ontology/core#Agent")
+    for s in g.subjects(RDF.type, core_agent):
+        lbl = g.value(s, RDFS.label)
+        label = str(lbl) if lbl else str(s).rsplit('#', 1)[-1].replace('_', ' ')
+        key = label.lower()
+        if key in label_to_node:
+            continue
+        node_id = f"agent_{str(s).rsplit('#', 1)[-1]}"
+        nodes.append({
+            'id': node_id,
+            'db_id': 0,
+            'type': 'agents',
+            'entity_type': 'Agent',
+            'label': label,
+            'definition': 'Case party (committed graph)',
+            'pass': 1,
+            'section': 'committed',
+            'color': '#f59e0b',
+            'is_published': True,
+            'is_selected': False,
+            'agent': None,
+            'temporal_marker': None,
+            'entity_uri': str(s),
+        })
+        label_to_node[key] = node_id
+        label_to_node[key.replace(' ', '_')] = node_id
+
+    existing = {(e['source'], e['target'], e['type']) for e in edges}
+    added = 0
+    for s, p, o in g:
+        ps = str(p)
+        if not ps.startswith(_GRAPH_EDGE_NS) or not isinstance(o, URIRef):
+            continue
+        s_l = g.value(s, RDFS.label)
+        o_l = g.value(o, RDFS.label)
+        if s_l is None or o_l is None:
+            continue
+        sid = label_to_node.get(str(s_l).lower())
+        tid = label_to_node.get(str(o_l).lower())
+        if not sid or not tid or sid == tid:
+            continue
+        etype = ps.rsplit('#', 1)[-1]
+        key = (sid, tid, etype)
+        if key in existing:
+            continue
+        existing.add(key)
+        edges.append({
+            'id': f"gedge_{added}",
+            'source': sid,
+            'target': tid,
+            'type': etype,
+            'weight': 1.0,
+        })
+        added += 1
+    return added
+
+
+
+
+def _add_analysis_product_edges(case_id: int, entities: list, edges: list, label_to_node: dict) -> int:
+    """Edges for the Step-4 analysis products from their OWN reference fields.
+
+    question_emergence/resolution_pattern/canonical_decision_point carry their
+    links in JSON (question_uri, conclusion_uri, answers_questions,
+    addresses_questions, obligation/role labels) using the case-N#Qn/#Cn
+    convention -- real references since the 2026-07-08 serialization fixes.
+    Without this pass those nodes rendered edgeless (57+46+15 of the residual
+    unconnected in the audit sample)."""
+    q_rows = [e for e in entities if e.extraction_type == 'ethical_question']
+    c_rows = [e for e in entities if e.extraction_type == 'ethical_conclusion']
+    ref_map = {}
+    for i, e in enumerate(q_rows, 1):
+        ref_map[f"case-{case_id}#Q{i}"] = f"ethical_question_{e.id}"
+    for i, e in enumerate(c_rows, 1):
+        ref_map[f"case-{case_id}#C{i}"] = f"ethical_conclusion_{e.id}"
+
+    def node_for(ref):
+        if not ref or not isinstance(ref, str):
+            return None
+        if ref in ref_map:
+            return ref_map[ref]
+        frag = ref.rsplit('#', 1)[-1]
+        return (label_to_node.get(frag.replace('_', ' ').lower())
+                or label_to_node.get(frag.lower()))
+
+    existing = {(e['source'], e['target'], e['type']) for e in edges}
+    added = 0
+
+    def add(src, ref, etype):
+        nonlocal added
+        tid = node_for(ref)
+        if tid and tid != src and (src, tid, etype) not in existing:
+            existing.add((src, tid, etype))
+            edges.append({'id': f"aedge_{added}", 'source': src, 'target': tid,
+                          'type': etype, 'weight': 1.0})
+            added += 1
+
+    for e in entities:
+        rdf = e.rdf_json_ld if isinstance(e.rdf_json_ld, dict) else None
+        if not rdf:
+            continue
+        sid = f"{e.extraction_type}_{e.id}"
+        if e.extraction_type == 'question_emergence':
+            add(sid, rdf.get('question_uri'), 'emergence_of')
+        elif e.extraction_type == 'resolution_pattern':
+            add(sid, rdf.get('conclusion_uri'), 'resolves')
+            for q in rdf.get('answers_questions') or []:
+                add(sid, q, 'answers')
+            for p in rdf.get('determinative_principles') or []:
+                add(sid, p, 'determined_by')
+        elif e.extraction_type == 'canonical_decision_point':
+            for q in rdf.get('addresses_questions') or []:
+                add(sid, q, 'addresses')
+            add(sid, rdf.get('aligned_conclusion_uri'), 'aligned_with')
+            add(sid, rdf.get('obligation_label'), 'focuses_on')
+            add(sid, rdf.get('role_label'), 'decided_by')
+            for a in rdf.get('involved_action_uris') or []:
+                add(sid, a, 'involves')
+        elif e.extraction_type == 'causal_normative_link':
+            add(sid, rdf.get('action_label') or rdf.get('action_id'), 'about_action')
+            for o in rdf.get('fulfills_obligations') or []:
+                add(sid, o, 'fulfills')
+            for o in rdf.get('violates_obligations') or []:
+                add(sid, o, 'violates')
+    return added
+
 def build_entity_graph(case_id: int, show_type_hubs: bool = False) -> dict:
     """
     Build entity graph data for D3.js visualization.
@@ -247,6 +404,22 @@ def build_entity_graph(case_id: int, show_type_hubs: bool = False) -> dict:
                                         'weight': 1.0
                                     })
                                     edge_id += 1
+
+    # Analysis-product edges from their own JSON reference fields.
+    try:
+        analysis_edges = _add_analysis_product_edges(case_id, entities, edges, label_to_node)
+        logger.info(f"Entity graph case {case_id}: {analysis_edges} analysis-product edges added")
+    except Exception as exc:  # noqa: BLE001 - additive, never fatal
+        logger.warning(f"Entity graph case {case_id}: analysis-product edges failed: {exc}")
+
+    # Committed-graph edges + Agent nodes (primary edge source; see helper).
+    try:
+        graph_edges = _add_committed_graph_edges(case_id, nodes, edges, label_to_node)
+        logger.info(f"Entity graph case {case_id}: {graph_edges} committed-graph edges added")
+    except FileNotFoundError:
+        logger.info(f"Entity graph case {case_id}: no committed TTL, JSON-derived edges only")
+    except Exception as exc:  # noqa: BLE001 - graph edges are additive, never fatal
+        logger.warning(f"Entity graph case {case_id}: committed-graph edge derivation failed: {exc}")
 
     # Optional type hub nodes
     if show_type_hubs:
