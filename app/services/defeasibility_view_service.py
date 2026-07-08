@@ -49,7 +49,7 @@ def _trio_edges(g):
     """Return (competes_pairs, prevails, defeasible) from a case graph.
 
     competes_pairs: set of frozenset({label_a, label_b})
-    prevails:       list of (winner_label, loser_label)
+    prevails:       list of (winner_label, loser_label, winner_uri, loser_uri)
     defeasible:     dict loser_label -> [state_label]
     """
     competes = set()
@@ -62,7 +62,7 @@ def _trio_edges(g):
         if ln == "competesWith":
             competes.add(frozenset((_label(g, s), _label(g, o))))
         elif ln == "prevailsOver":
-            prevails.append((_label(g, s), _label(g, o)))
+            prevails.append((_label(g, s), _label(g, o), s, o))
         elif ln == "defeasibleUnder":
             defeasible.setdefault(_label(g, s), []).append(_label(g, o))
     return competes, prevails, defeasible
@@ -175,20 +175,35 @@ def get_case_conflicts(case_id: int) -> dict:
     g = load_case_graph(case_id)
     competes, prevails, defeasible = _trio_edges(g)
 
+    # The reified edge node the commit pipeline mints for each prevailsOver
+    # (defeasibility_edge_provenance_<S>_prevailsOver_<O>): when present in the
+    # graph, the conflict links to its OntServe entity page -- the triple as a
+    # first-class, auditable thing (endpoints + grounding quote + confidence),
+    # not just the two endpoint entities. _safe_frag is the pipeline's own
+    # fragment rule, imported so the constructed IRI always matches the minted one.
+    from app.services.extraction.defeasibility_pipeline import _safe_frag
+
     seen = set()
     conflicts = []
     # Sorted so the conflict order (and with it the featured fallback and the
     # cross-case band anchor) is stable across processes: _trio_edges iterates
     # the rdflib graph, whose order is hash-randomized per process.
-    for winner, loser in sorted(prevails):
+    for winner, loser, w_uri, l_uri in sorted(prevails):
         if (winner, loser) in seen:
             continue
         seen.add((winner, loser))
+        frag = (f"defeasibility_edge_provenance_{_safe_frag(str(w_uri))}"
+                f"_prevailsOver_{_safe_frag(str(l_uri))}")
+        prov_uri = rdflib.URIRef(
+            f"http://proethica.org/ontology/case/{case_id}#{frag}")
+        has_prov = (prov_uri, None, None) in g
         conflicts.append({
             "winner": winner,
             "loser": loser,
             "contexts": sorted(set(defeasible.get(loser, []))),
             "competes": frozenset((winner, loser)) in competes,
+            "ontserve_triple_path": (
+                f"/entity/proethica-case-{case_id}/{frag}" if has_prov else None),
         })
 
     resolved_pairs = {frozenset((c["winner"], c["loser"])) for c in conflicts}
@@ -244,7 +259,7 @@ def refresh_band_index(case_id: int) -> int:
     _competes, prevails, defeasible = _trio_edges(g)
     seen = set()
     pairs = []
-    for winner, loser in prevails:
+    for winner, loser, *_ in prevails:
         if (winner, loser) in seen:
             continue
         seen.add((winner, loser))
@@ -422,4 +437,7 @@ def build_defeasibility_view(case_id: int) -> dict:
         "case_conflicts": case_data,
         "cross_case": cross_case,
         "entity_lookup": lookup,
+        # The whole competition structure rendered on the OntServe side (the
+        # Obligation Competition panel on the case-ontology page).
+        "ontserve_panel_path": f"/ontology/proethica-case-{case_id}#section-competition",
     }

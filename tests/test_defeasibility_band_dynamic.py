@@ -139,3 +139,38 @@ def test_best_pattern_per_case_and_top_five_cap():
 def test_none_when_no_conflict_or_empty_index():
     assert _run([]) is None
     assert svc.get_cross_case_band_dynamic(7, {"conflicts": []}) is None
+
+
+_TRIPLE_LINK_TTL = """
+@prefix case: <http://proethica.org/ontology/case/99#> .
+@prefix proeth-core: <http://proethica.org/ontology/core#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+case:Obl_A a proeth-core:Obligation ; rdfs:label "Duty A" ;
+    proeth-core:prevailsOver case:Obl_B .
+case:Obl_B a proeth-core:Obligation ; rdfs:label "Duty B" .
+case:Obl_C a proeth-core:Obligation ; rdfs:label "Duty C" ;
+    proeth-core:prevailsOver case:Obl_D .
+case:Obl_D a proeth-core:Obligation ; rdfs:label "Duty D" .
+
+case:defeasibility_edge_provenance_Obl_A_prevailsOver_Obl_B a prov:Derivation ;
+    prov:value "A overrode B." ;
+    prov:wasDerivedFrom case:Obl_A, case:Obl_B .
+"""
+
+
+def test_case_conflicts_link_reified_triple(monkeypatch):
+    """Each resolved conflict carries the OntServe entity path of its reified
+    prevailsOver node when the graph has one (the triple-as-a-thing link);
+    conflicts without a reified node degrade to None."""
+    import rdflib
+    g = rdflib.Graph()
+    g.parse(data=_TRIPLE_LINK_TTL, format="turtle")
+    monkeypatch.setattr(svc, "load_case_graph", lambda cid: g)
+    data = svc.get_case_conflicts(99)
+    by_winner = {c["winner"]: c for c in data["conflicts"]}
+    assert by_winner["Duty A"]["ontserve_triple_path"] == (
+        "/entity/proethica-case-99/"
+        "defeasibility_edge_provenance_Obl_A_prevailsOver_Obl_B")
+    assert by_winner["Duty C"]["ontserve_triple_path"] is None

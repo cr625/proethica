@@ -48,7 +48,12 @@
     </div>
   </div>
 
-  <h5 class="mt-4 mb-3"><i class="bi bi-1-circle me-1"></i>How this case resolved it</h5>
+  <h5 class="mt-4 mb-3"><i class="bi bi-1-circle me-1"></i>How this case resolved it
+    <a href="{{ ontserve_web_url }}{{ view.ontserve_panel_path }}" target="_blank" rel="noopener"
+       class="small fw-normal ms-2 text-decoration-none" title="The Obligation Competition panel on the OntServe case-ontology page">
+      <i class="bi bi-box-arrow-up-right me-1"></i>competition structure in OntServe
+    </a>
+  </h5>
 
   {% if view.case_conflicts.conflicts %}
   <div class="row g-3">
@@ -64,6 +69,14 @@
           </div>
           {% if c.competes %}
           <div class="small text-muted mb-2"><i class="bi bi-arrow-left-right"></i> the two obligations are in tension (competesWith)</div>
+          {% endif %}
+          {% if c.ontserve_triple_path %}
+          <div class="small mb-2">
+            <a href="{{ ontserve_web_url }}{{ c.ontserve_triple_path }}" target="_blank" rel="noopener" class="text-decoration-none"
+               title="The reified prevailsOver triple in OntServe: both endpoints, the verbatim grounding quote, source field, and confidence">
+              <i class="bi bi-box-arrow-up-right me-1"></i>this resolution as a triple in OntServe
+            </a>
+          </div>
           {% endif %}
           {% if c.contexts %}
           <div class="small">
