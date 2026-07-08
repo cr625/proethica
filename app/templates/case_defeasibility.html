@@ -124,12 +124,47 @@
 
   {% if view.cross_case %}
   <h5 class="mt-5 mb-2"><i class="bi bi-2-circle me-1"></i>How comparable cases resolved the same tension</h5>
-  {% if view.cross_case.rows %}
+  {% set tp = view.cross_case.type_patterns %}
+  {% if tp and tp.loser_type_display and tp.winner_type_display %}
   <p class="text-muted small">
-    {{ view.cross_case.label }}. Cases below resolve a similar tension, matched on both obligations of the
-    pair and on the context under which the yielding obligation gives way; the resolution still shifts case
-    by case. This is the case-law move: not a single rule, but a family of context-indexed resolutions.
+    Read at the type level, this resolution is: <em>{{ tp.loser_type_display }}</em> yields to
+    <em>{{ tp.winner_type_display }}</em>. Comparison across cases happens at this level; the duty types
+    recur while each case's obligations instantiate them. This is the case-law move: not a single rule,
+    but a family of context-indexed resolutions.
   </p>
+  {% endif %}
+  {% if tp and tp.rows %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Case</th>
+          <th>Prevailing type</th>
+          <th>Yielding type</th>
+          <th>Relation to this case</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tp.rows %}
+        <tr>
+          <td>
+            <a href="{{ url_for('cases.case_defeasibility', id=t.case_id) }}">{% if t.case_number %}{{ t.case_number }}{% else %}Case {{ t.case_id }}{% endif %}</a>
+            <div class="small text-muted">{{ t.title|truncate(46) }}</div>
+          </td>
+          <td><span class="badge bg-success">{{ t.winner_type_display }}</span></td>
+          <td><span class="badge bg-secondary">{{ t.loser_type_display }}</span></td>
+          <td class="small">{{ t.relation }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted small">No other committed case yet involves these duty types in a resolved tension.</p>
+  {% endif %}
+  {% if view.cross_case.rows %}
+  <p class="text-muted small mb-1 mt-3">Closest instance-level matches, ranked on the specific obligations
+    and contexts of this case:</p>
   <div class="table-responsive">
     <table class="table table-sm align-middle">
       <thead class="table-light">
@@ -163,35 +198,8 @@
       </tbody>
     </table>
   </div>
-  {% else %}
-  <p class="text-muted small">
-    No indexed case resolves a sufficiently similar tension ({{ view.cross_case.label }}): every candidate
-    falls below the similarity floor. Comparable resolutions appear here as cases with related tensions are
-    committed.
-  </p>
-  {% endif %}
-  {% set tp = view.cross_case.type_patterns %}
-  {% if tp and tp.any %}
-  {% macro caselinks(refs) %}{% for r in refs %}<a href="{{ url_for('cases.case_defeasibility', id=r.case_id) }}" title="{{ r.title }}">{{ r.case_number or 'Case ' ~ r.case_id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endmacro %}
-  <div class="small mt-3">
-    <span class="text-muted">Type-level patterns: each obligation instantiates a generic duty concept, and
-      the same concept recurs across cases (exact class match, independent of the similarity ranking
-      above).</span>
-    <ul class="mb-0 mt-1">
-      {% if tp.loser_yields_in %}
-      <li>Obligations of type <em>{{ tp.loser_type_display }}</em> also yield in {{ caselinks(tp.loser_yields_in) }}.</li>
-      {% endif %}
-      {% if tp.loser_prevails_in %}
-      <li><em>{{ tp.loser_type_display }}</em>, the yielding type here, <strong>prevails</strong> in {{ caselinks(tp.loser_prevails_in) }}: the same duty type resolves differently under a different context.</li>
-      {% endif %}
-      {% if tp.winner_yields_in %}
-      <li><em>{{ tp.winner_type_display }}</em>, the prevailing type here, <strong>yields</strong> in {{ caselinks(tp.winner_yields_in) }}: the same duty type resolves differently under a different context.</li>
-      {% endif %}
-      {% if tp.winner_prevails_in %}
-      <li>Obligations of type <em>{{ tp.winner_type_display }}</em> also prevail in {{ caselinks(tp.winner_prevails_in) }}.</li>
-      {% endif %}
-    </ul>
-  </div>
+  {% elif tp and tp.rows %}
+  <p class="text-muted small mt-2">No other committed case closely matches this exact pair of obligations yet.</p>
   {% endif %}
   {% endif %}
 

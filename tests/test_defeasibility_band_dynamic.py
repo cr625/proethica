@@ -139,35 +139,38 @@ def test_best_pattern_per_case_and_top_five_cap():
 
 
 def test_type_level_patterns():
-    """Exact class-type recurrence is reported independently of the similarity
-    floor: the anchor's yielding type recurring as a loser elsewhere, and the
-    polarity flip (the same type prevailing elsewhere) -- the context-indexed
-    defeasibility pattern. Rows lacking types or type-less anchors degrade to
-    empty patterns."""
+    """Type-level recurrence renders as uniform table rows: one per candidate
+    case type-pair, classified against the anchor's types (strongest relation
+    first), independent of the label-similarity floor. Type-less rows and
+    type-less anchors degrade to no rows."""
     anchor = {"winner": "W", "loser": "L", "contexts": [], "featured": True,
               "winner_type": "SafetyObligation", "loser_type": "FaithfulAgentObligation"}
     rows = [
-        # Same loser type elsewhere (below floor on labels: orthogonal vectors).
+        # Same loser type, different winner type -> 'also yields' (rank 5).
         _Row(30, "Wx", "Lx", [0, 0, 1], [0, 0, 1],
              winner_type="ObjectivityObligation", loser_type="FaithfulAgentObligation"),
-        # Polarity flip: the anchor's yielding type prevails in case 31.
+        # Polarity flip: the anchor's yielding type prevails there (rank 3).
         _Row(31, "Wy", "Ly", [0, 0, 1], [0, 0, 1],
              winner_type="FaithfulAgentObligation", loser_type="AccountabilityObligation"),
-        # Unrelated types.
+        # Exact same pair, same outcome (rank 1) -- listed first.
+        _Row(33, "Wp", "Lp", [0, 0, 1], [0, 0, 1],
+             winner_type="SafetyObligation", loser_type="FaithfulAgentObligation"),
+        # Unrelated types -> no row.
         _Row(32, "Wz", "Lz", [0, 0, 1], [0, 0, 1],
              winner_type="CompetenceObligation", loser_type="DisclosureObligation"),
+        # No types recorded (legacy) -> no row.
+        _Row(34, "Wq", "Lq", [0, 0, 1], [0, 0, 1]),
     ]
     band = _run(rows, anchor)
     assert band["rows"] == []  # nothing clears the label-similarity floor
     tp = band["type_patterns"]
-    assert tp["any"] is True
     assert tp["loser_type_display"] == "Faithful Agent Obligation"
-    assert [r["case_id"] for r in tp["loser_yields_in"]] == [30]
-    assert [r["case_id"] for r in tp["loser_prevails_in"]] == [31]
-    assert tp["winner_yields_in"] == [] and tp["winner_prevails_in"] == []
-    # Anchor without types -> empty patterns, no error.
+    assert [(t["case_id"], t["rank"]) for t in tp["rows"]] == [(33, 1), (31, 3), (30, 5)]
+    assert tp["rows"][0]["relation"] == "Same tension, resolved the same way"
+    assert tp["rows"][1]["winner_type_display"] == "Faithful Agent Obligation"
+    # Anchor without types -> no type rows, no error.
     band2 = _run(rows, {"winner": "W", "loser": "L", "contexts": [], "featured": True})
-    assert band2["type_patterns"]["any"] is False
+    assert band2["type_patterns"]["rows"] == []
 
 
 def test_none_when_no_conflict_or_empty_index():

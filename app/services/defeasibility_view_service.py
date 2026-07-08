@@ -437,33 +437,55 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
     # surfaces the patterns the similarity ranking cannot: the same duty TYPE
     # yielding in another case, or appearing on the OPPOSITE side of a
     # resolution (the context-indexed defeasibility the learning claim needs).
-    def _case_refs(pred):
-        seen_ids, refs = set(), []
-        for r in candidates:
-            if r.case_id in seen_ids or not pred(r):
-                continue
-            seen_ids.add(r.case_id)
-            doc = Document.query.get(r.case_id)
-            meta = doc.doc_metadata if (doc and isinstance(doc.doc_metadata, dict)) else {}
-            refs.append({"case_id": r.case_id,
-                         "case_number": meta.get("case_number", ""),
-                         "title": doc.title if doc else f"Case {r.case_id}"})
-        return refs
-
     lt, wt = featured.get("loser_type"), featured.get("winner_type")
+
+    def _relation(r):
+        """Classify a candidate's type-level resolution against the anchor's
+        (winner wt, loser lt). Ordered strongest first; the first match wins."""
+        if r.winner_type == wt and r.loser_type == lt:
+            return 1, "Same tension, resolved the same way"
+        if r.winner_type == lt and r.loser_type == wt:
+            return 2, "Same tension, resolved the opposite way"
+        if r.winner_type == lt:
+            return 3, "The yielding type here prevails there"
+        if r.loser_type == wt:
+            return 4, "The prevailing type here yields there"
+        if r.loser_type == lt:
+            return 5, "The yielding type here also yields there, to a different duty"
+        if r.winner_type == wt:
+            return 6, "The prevailing type here also prevails there, over a different duty"
+        return None
+
+    type_rows = []
+    seen_pairs = set()
+    for r in candidates:
+        if not (r.winner_type and r.loser_type and (lt or wt)):
+            continue
+        rel = _relation(r)
+        if rel is None:
+            continue
+        key = (r.case_id, r.winner_type, r.loser_type)
+        if key in seen_pairs:
+            continue
+        seen_pairs.add(key)
+        doc = Document.query.get(r.case_id)
+        meta = doc.doc_metadata if (doc and isinstance(doc.doc_metadata, dict)) else {}
+        type_rows.append({
+            "rank": rel[0],
+            "relation": rel[1],
+            "case_id": r.case_id,
+            "case_number": meta.get("case_number", ""),
+            "title": doc.title if doc else f"Case {r.case_id}",
+            "winner_type_display": _type_display(r.winner_type),
+            "loser_type_display": _type_display(r.loser_type),
+        })
+    type_rows.sort(key=lambda t: (t["rank"], t["case_id"]))
+
     type_patterns = {
-        "loser_type": lt,
         "loser_type_display": _type_display(lt),
-        "winner_type": wt,
         "winner_type_display": _type_display(wt),
-        "loser_yields_in": _case_refs(lambda r: lt and r.loser_type == lt) if lt else [],
-        "loser_prevails_in": _case_refs(lambda r: lt and r.winner_type == lt) if lt else [],
-        "winner_yields_in": _case_refs(lambda r: wt and r.loser_type == wt) if wt else [],
-        "winner_prevails_in": _case_refs(lambda r: wt and r.winner_type == wt) if wt else [],
+        "rows": type_rows,
     }
-    type_patterns["any"] = any(
-        type_patterns[k] for k in
-        ("loser_yields_in", "loser_prevails_in", "winner_yields_in", "winner_prevails_in"))
 
     # Generated from the matched pair (no hand-written prose). Kept article-free so it
     # reads correctly whether the labels are common-noun obligations or engineer-prefixed.
