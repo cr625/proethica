@@ -123,14 +123,20 @@
   {% endif %}
 
   {% if view.cross_case %}
-  <h5 class="mt-5 mb-2"><i class="bi bi-2-circle me-1"></i>How comparable cases resolved the same tension</h5>
+  <h5 class="mt-5 mb-2"><i class="bi bi-2-circle me-1"></i>How comparable cases resolved the same tension
+    <a tabindex="0" role="button" class="info-popover text-muted ms-1" data-bs-toggle="popover"
+       data-bs-trigger="focus hover" data-bs-placement="right" data-bs-container="body"
+       data-bs-title="Context-indexed resolutions"
+       data-bs-content="The board applies no fixed ranking between duty types. Each case records which obligation prevailed under that case's circumstances, so the same duty type can prevail in one case and yield in another. Comparing cases at the type level therefore shows a pattern of resolutions indexed by context, rather than a single rule.">
+      <i class="bi bi-info-circle small"></i>
+    </a>
+  </h5>
   {% set tp = view.cross_case.type_patterns %}
   {% if tp and tp.loser_type_display and tp.winner_type_display %}
   <p class="text-muted small">
     Read at the type level, this resolution is: <em>{{ tp.loser_type_display }}</em> yields to
     <em>{{ tp.winner_type_display }}</em>. Comparison across cases happens at this level; the duty types
-    recur while each case's obligations instantiate them. This is the case-law move: not a single rule,
-    but a family of context-indexed resolutions.
+    recur while each case's obligations instantiate them.
   </p>
   {% endif %}
   {% if tp and tp.rows %}
