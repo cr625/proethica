@@ -245,12 +245,16 @@ class LLMStrategiesMixin:
         # Format questions
         questions_text = []
         for i, q in enumerate(questions[:10]):  # Limit to 10
-            questions_text.append(f"Q{i+1}: {q.get('question_text', q.get('text', ''))[:200]}")
+            questions_text.append(f"Q{i+1}: {q.get('question_text', q.get('text', ''))[:400]}")
 
-        # Format conclusions
+        # Format conclusions. FULL text: the previous 200-character truncation
+        # starved the model of the very holdings it must paraphrase and mark
+        # board choices against -- the grounding failures the Phase-B judging
+        # found persisted under prompt rules because the model never saw the
+        # conclusions (2026-07-08 Decisions analysis).
         conclusions_text = []
         for i, c in enumerate(conclusions[:10]):  # Limit to 10
-            conclusions_text.append(f"C{i+1}: {c.get('conclusion_text', c.get('text', ''))[:200]}")
+            conclusions_text.append(f"C{i+1}: {c.get('conclusion_text', c.get('text', ''))[:1200]}")
 
         prompt = f"""You are analyzing an ethics case to identify key decision points where ethical choices must be made.
 
@@ -960,6 +964,27 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                     if q.get('uri') in addresses_q:
                         aligned_q = q
                         break
+
+            # Board resolution derived from the record, not LLM-authored: the
+            # conclusions whose answersQuestions cover the DP's addressed
+            # questions supply the text verbatim. The LLM-authored field
+            # embellished beyond the record even under explicit grounding
+            # rules (case-4 audit: a 'clearly labeled recommendation'
+            # carve-out present in neither conclusions nor discussion). The
+            # LLM text is kept only when no answering conclusion resolves.
+            addressed_nums = set()
+            for q in questions:
+                if q.get('uri') in addresses_q and q.get('question_number') is not None:
+                    addressed_nums.add(q.get('question_number'))
+            answering = [c for c in conclusions
+                         if addressed_nums & set(c.get('answersQuestions') or [])]
+            if answering:
+                aligned_c = answering[0]
+                derived = ' '.join(
+                    (c.get('conclusion_text') or c.get('text') or '').strip()
+                    for c in answering[:2]).strip()
+                if derived:
+                    data['board_resolution'] = derived[:800]
 
             canonical = CanonicalDecisionPoint(
                 focus_id=data.get('focus_id', f'DP{i}'),
