@@ -87,6 +87,25 @@ class QCViewMixin:
             text = (p.entity_definition or '').strip()
             if code and text:
                 provision_text_lookup[code] = text
+        # Raw-spelling aliases: citations arrive as 'II.1.c.', 'NSPE I.1',
+        # 'I.1 Public Welfare Paramount' etc. (24 of 42 codes carried more
+        # than one spelling in the 2026-07-08 Provisions census) while the
+        # lookup keys are the canonical forms above. Index every entry under
+        # its normalized code, then alias each cited raw form to it so the
+        # template's raw-key lookups resolve.
+        from app.utils.provision_codes import normalize_provision_code
+        normalized_lookup = {}
+        for k, v in list(provision_text_lookup.items()):
+            nk = normalize_provision_code(k)
+            if nk:
+                normalized_lookup.setdefault(nk, v)
+        for c in conclusions:
+            rdf = c.rdf_json_ld if isinstance(c.rdf_json_ld, dict) else {}
+            for cp in rdf.get('citedProvisions') or []:
+                if cp and cp not in provision_text_lookup:
+                    t = normalized_lookup.get(normalize_provision_code(cp) or '')
+                    if t:
+                        provision_text_lookup[cp] = t
 
         # Build conclusion lookup by question. Each conclusion is added to
         # the FIRST question listed in its answersQuestions array — its

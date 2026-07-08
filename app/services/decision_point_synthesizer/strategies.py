@@ -278,7 +278,7 @@ For each decision point, provide:
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
 9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
-10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"])
+10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here.
 11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
 12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
@@ -404,7 +404,14 @@ Return as JSON array:
             # the high-level fields; older outputs that predate the prompt
             # update will simply produce empty strings, which render as
             # missing Toulmin in the view.
-            provision_labels = dp_data.get('provision_labels', []) or []
+            # provision_labels must cite NSPE code sections; the LLM
+            # intermittently emits duty/principle names there (44 across the
+            # gold corpus, 2026-07-08 Provisions census). Non-codes drop --
+            # the normative content is already carried by obligation_label
+            # and the Toulmin warrants.
+            from app.utils.provision_codes import is_provision_code
+            provision_labels = [x for x in (dp_data.get('provision_labels', []) or [])
+                                if is_provision_code(x)]
             toulmin = ToulminStructure(
                 data_summary=dp_data.get('toulmin_data', ''),
                 warrants_summary=dp_data.get('toulmin_warrants', ''),
@@ -562,7 +569,7 @@ For each decision point, provide:
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
 9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
-10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"])
+10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here.
 11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
 12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
@@ -902,11 +909,14 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
         canonical_points = []
         for i, data in enumerate(synthesis_data, 1):
             # Build Toulmin structure
+            from app.utils.provision_codes import is_provision_code
+            provision_labels = [x for x in (data.get('provision_labels', []) or [])
+                                if is_provision_code(x)]
             toulmin = ToulminStructure(
                 data_summary=data.get('toulmin_data', ''),
                 warrants_summary=data.get('toulmin_warrants', ''),
                 rebuttals_summary=data.get('toulmin_rebuttals', ''),
-                backing_provisions=data.get('provision_labels', [])
+                backing_provisions=provision_labels
             )
 
             # Map question indices to URIs
@@ -945,7 +955,7 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 constraint_label=data.get('constraint_label'),
                 involved_action_uris=data.get('involved_action_uris', []),
                 provision_uris=data.get('provision_uris', []),
-                provision_labels=data.get('provision_labels', []),
+                provision_labels=provision_labels,
                 toulmin=toulmin,
                 aligned_question_uri=aligned_q.get('uri') if aligned_q else None,
                 aligned_question_text=aligned_q.get('text') if aligned_q else None,
