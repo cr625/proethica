@@ -38,3 +38,22 @@ def is_provision_code(raw) -> bool:
     """True when the value cites a modern NSPE provision (possibly with a
     trailing title, e.g. 'I.1 Public Welfare Paramount')."""
     return normalize_provision_code(raw) is not None
+
+
+def nspe_provision_fragment(raw) -> str | None:
+    """URI local fragment for a provision code in the OntServe 'NSPE Code of
+    Ethics' ontology (nspe# namespace): dots become underscores and the
+    subsection letter is lowercase, matching the individuals' minting
+    ('III.1.A' -> 'III_1_a'; 'Preamble' -> 'Preamble'). The entity page is
+    {ONTSERVE_WEB_URL}/entity/NSPE Code of Ethics/{fragment}.
+    tests/unit/test_provision_references.py verifies the rule round-trips
+    against every dct:identifier in the co-located NSPE TTL."""
+    code = normalize_provision_code(raw)
+    if code is None:
+        return None
+    if code == 'Preamble':
+        return 'Preamble'
+    parts = code.split('.')
+    if len(parts) == 3:
+        parts[2] = parts[2].lower()
+    return '_'.join(parts)

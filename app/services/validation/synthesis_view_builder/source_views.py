@@ -65,13 +65,40 @@ class SourceViewsMixin:
                         break
             return picked
 
+        # Provenance harmonization (provisions-harmonization.md decision 3):
+        # each provision is board-stated (in the case's parsed references
+        # section), analysis-found (Step-4 extraction only), or both. The
+        # display is the UNION -- board-stated provisions the extraction
+        # missed still appear, marked accordingly.
+        from flask import current_app
+        from app.utils.provision_codes import (normalize_provision_code,
+                                               nspe_provision_fragment)
+        doc = Document.query.get(case_id)
+        board_refs = ((doc.doc_metadata or {}).get('provision_references')
+                      if doc else None) or []
+        board_by_code = {r['code']: r for r in board_refs if r.get('code')}
+        ontserve_base = current_app.config.get('ONTSERVE_WEB_URL',
+                                               'http://localhost:5003')
+
+        def _ontserve_url(code):
+            frag = nspe_provision_fragment(code)
+            return (f"{ontserve_base}/entity/NSPE Code of Ethics/{frag}"
+                    if frag else None)
+
         formatted = []
+        seen_codes = set()
         for prov in provisions:
             rdf_data = prov.rdf_json_ld or {}
             applies_to = rdf_data.get('appliesTo', []) or []
+            code = normalize_provision_code(prov.entity_label)
+            if code:
+                seen_codes.add(code)
             formatted.append({
                 'id': prov.id,
                 'code_section': prov.entity_label,
+                'code': code,
+                'provenance': 'both' if code in board_by_code else 'analysis',
+                'ontserve_url': _ontserve_url(code) if code else None,
                 'provision_text': prov.entity_definition,
                 'iao_label': prov.iao_document_label,
                 'applies_to': applies_to,
@@ -79,6 +106,23 @@ class SourceViewsMixin:
                 'case_excerpt': rdf_data.get('relevantExcerpt', ''),
                 'confidence': prov.match_confidence or 0.0
             })
+        for code, ref in board_by_code.items():
+            if code in seen_codes:
+                continue
+            formatted.append({
+                'id': None,
+                'code_section': code,
+                'code': code,
+                'provenance': 'board',
+                'ontserve_url': _ontserve_url(code),
+                'provision_text': ref.get('text', ''),
+                'iao_label': None,
+                'applies_to': [],
+                'top_mappings': [],
+                'case_excerpt': '',
+                'confidence': 1.0
+            })
+        formatted.sort(key=lambda p: (p['code'] or p['code_section'] or ''))
 
         # Fetch abstract class definitions for the 9 entity-type chips that
         # appear next to each mapping (Obligation, Action, ...). Keyed by

@@ -42,10 +42,11 @@
               <div class="mt-1">
                 {% for prov in c.cited_provisions %}
                 {% set prov_text = view.provision_text_lookup.get(prov, '') %}
+                {% set prov_url = prov|nspe_ontology_url %}
                 <span class="badge bg-primary provision-badge" style="font-size: 0.6rem;" tabindex="0"
-                      data-bs-toggle="popover" data-bs-trigger="focus hover"
+                      data-bs-toggle="popover" data-bs-trigger="focus hover" data-bs-html="true"
                       data-bs-title="NSPE Code {{ prov }}"
-                      data-bs-content="{{ prov_text|escape if prov_text else 'Provision text not available for this case.' }}">{{ prov }}</span>
+                      data-bs-content="{{ (prov_text|e|e if prov_text else 'Provision text not available for this case.') }}{% if prov_url %}&lt;br&gt;&lt;a href=&quot;{{ prov_url }}&quot; target=&quot;_blank&quot;&gt;View in the NSPE Code ontology&lt;/a&gt;{% endif %}">{{ prov }}</span>
                 {% endfor %}
               </div>
               {% endif %}

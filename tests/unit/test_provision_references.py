@@ -50,3 +50,36 @@ def test_parse_text_fallback():
     assert [p['code'] for p in out] == ['I.1', 'II.1.C']
     assert out[0]['text'].startswith('Hold paramount')
     assert 'Duty to the Public' in out[0]['subjects'][0]
+
+
+def test_nspe_fragment_rule_roundtrips_against_ontology():
+    """Every dct:identifier in the NSPE Code ontology must map back to its
+    own URI local name under nspe_provision_fragment, so ProEthica-built
+    entity links can never dangle."""
+    import os
+    import pytest
+    import rdflib
+    from app.utils.provision_codes import nspe_provision_fragment
+
+    path = os.path.join(
+        os.environ.get('ONTSERVE_ONTOLOGIES_PATH',
+                       os.path.join(os.path.dirname(__file__), '..', '..', '..',
+                                    'OntServe', 'ontologies')),
+        'NSPE Code of Ethics.ttl')
+    if not os.path.exists(path):
+        pytest.skip(f'NSPE TTL not found at {path}')
+    g = rdflib.Graph()
+    g.parse(path, format='turtle')
+    DCT_ID = rdflib.URIRef('http://purl.org/dc/terms/identifier')
+    NSPE = 'http://proethica.org/ontology/nspe#'
+    checked = 0
+    for s, _, ident in g.triples((None, DCT_ID, None)):
+        if not str(s).startswith(NSPE):
+            continue
+        local = str(s)[len(NSPE):]
+        frag = nspe_provision_fragment(str(ident))
+        if frag is None:
+            continue  # category identifiers like 'I' handled below
+        assert frag == local, f"{ident} -> {frag} != {local}"
+        checked += 1
+    assert checked >= 50  # the full section canon must round-trip
