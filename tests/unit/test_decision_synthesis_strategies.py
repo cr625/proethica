@@ -31,9 +31,11 @@ def test_parse_causal_link_response_golden():
         "role_label": "Engineer A",
         "obligation_label": "Safety Obligation",
         "addresses_questions": ["Q1"],
+        "toulmin_claim": "the endorsed course",
         "toulmin_data": "the facts",
         "toulmin_warrants": "the duties",
-        "toulmin_rebuttals": "the doubt",
+        "toulmin_qualifier": "unless waived",
+        "toulmin_rebuttals": "would not apply if X",
         "provision_labels": ["NSPE I.1"],
         "intensity_score": 0.8,
         "qc_alignment_score": 0.6,
@@ -55,7 +57,10 @@ def test_parse_causal_link_response_golden():
     assert dp.role_uri == "http://role/a"            # resolved via lookup
     assert dp.obligation_label == "Safety Obligation"
     assert dp.obligation_uri == ""                   # label present but not in lookup -> '' (not None)
+    assert dp.toulmin.claim == "the endorsed course"
     assert dp.toulmin.data_summary == "the facts"
+    assert dp.toulmin.qualifier == "unless waived"
+    assert dp.toulmin.rebuttals_summary == "would not apply if X"
     assert dp.toulmin.backing_provisions == ["NSPE I.1"]
     assert dp.intensity_score == 0.8
     assert dp.qc_alignment_score == 0.6

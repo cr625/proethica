@@ -44,6 +44,19 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+# Toulmin (1958) field specification, single-sourced into every decision-point
+# prompt. Each field must respect its category from The Uses of Argument; the
+# 2026-07-08 audit found the earlier loose paraphrases ("what creates
+# uncertainty") let rebuttals drift into generic counter-considerations and
+# omitted claim and qualifier entirely.
+TOULMIN_FIELD_SPEC = """Toulmin argument structure (Toulmin 1958). Each field must respect its category:
+- toulmin_claim: the CLAIM. The course of action asserted as the right one. Where the Board ruled, this states the Board's chosen course; where it did not, the course the case record best supports.
+- toulmin_data: the GROUNDS. The specific case facts appealed to in support of the claim. Facts only; no duties, principles, or evaluations.
+- toulmin_warrants: the WARRANT(s). The general professional rules that license the step from those facts to the claim, stated as rules (e.g. "Engineers must hold paramount the safety of the public"). Where duties compete, state the competing warrants and which prevails.
+- toulmin_qualifier: the QUALIFIER. The modal strength of the claim and any conditions the Board attached (e.g. "presumably", "unless the contract requires disclosure", "provided consent is obtained"). Empty string only when the claim is unconditional.
+- toulmin_rebuttals: the REBUTTAL. The conditions of exception: the circumstances under which the warrant would NOT license the claim, stated as a defeating condition drawn from the case ("unless ...", "would not apply if ..."). Not a generic counter-argument and never empty; use the strongest case-supplied defeater.
+- provision_labels: the BACKING. The NSPE Code sections that authorize the warrants (e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here."""
+
 
 class LLMStrategiesMixin:
     """LLM refinement + the two generation fallbacks (causal-links, Q&C-direct)
@@ -281,10 +294,10 @@ For each decision point, provide:
 6. 2-3 options available to the decision-maker, with one marked as the Board's choice
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
-9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
-10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here.
-11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
-12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
+9. The full Toulmin argument structure and backing provisions:
+{TOULMIN_FIELD_SPEC}
+10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
 CRITICAL FORMATTING:
 - Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
@@ -309,9 +322,9 @@ GROUNDING RULES (2026-07-08 Phase-B audit; each was a judged failure mode):
   contemplates, and do not split one course of action into two near-identical options.
 - board_resolution must paraphrase only what the Board's conclusions state. Do not add
   interpretive elaborations, carve-outs, or rationales the conclusions do not contain.
-- rebuttals_summary must never be empty: state the strongest opposing consideration the
-  case itself supplies (the losing party's position, the dissent, or the constraint that
-  pulled the other way).
+- toulmin_claim must agree with the option marked is_board_choice: the claim IS the
+  board-endorsed course restated as an assertion (or the case-supported course when the
+  Board made no determination).
 
 Return as JSON array:
 ```json
@@ -328,9 +341,11 @@ Return as JSON array:
     ],
     "addresses_questions": ["Q1", "Q2"],
     "board_resolution": "The board concluded that... (C1)",
-    "toulmin_data": "Summary of triggering facts (1-2 sentences)",
-    "toulmin_warrants": "Summary of the obligations or duties that justify the Board's chosen option (1-2 sentences, cite Code provisions inline)",
-    "toulmin_rebuttals": "Summary of what creates uncertainty or supports an alternative (1-2 sentences)",
+    "toulmin_claim": "The course of action argued for (1 sentence)",
+    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
     "provision_labels": ["II.1.f", "I.1"],
     "intensity_score": 0.78,
     "qc_alignment_score": 0.82
@@ -431,8 +446,10 @@ Return as JSON array:
             provision_labels = [x for x in (dp_data.get('provision_labels', []) or [])
                                 if is_provision_code(x)]
             toulmin = ToulminStructure(
+                claim=dp_data.get('toulmin_claim', ''),
                 data_summary=dp_data.get('toulmin_data', ''),
                 warrants_summary=dp_data.get('toulmin_warrants', ''),
+                qualifier=dp_data.get('toulmin_qualifier', ''),
                 rebuttals_summary=dp_data.get('toulmin_rebuttals', ''),
                 backing_provisions=provision_labels,
             )
@@ -586,10 +603,10 @@ For each decision point, provide:
 6. 2-3 options that DIRECTLY ANSWER the decision_question, with one marked as the Board's choice
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
-9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
-10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here.
-11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
-12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
+9. The full Toulmin argument structure and backing provisions:
+{TOULMIN_FIELD_SPEC}
+10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
 CRITICAL FORMATTING:
 - Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
@@ -606,8 +623,8 @@ CRITICAL COHERENCE: The decision_question and options must form a coherent decis
 - is_board_choice marks the course the Board held ETHICAL; when the Board condemned the
   actual conduct, the board choice is the compliant alternative, never the condemned act.
 - Options must be alternatives the case states or implies; do not invent unmentioned ones.
-- board_resolution paraphrases only what the conclusions state; rebuttals_summary is
-  never empty (use the strongest case-supplied opposing consideration).
+- board_resolution paraphrases only what the conclusions state; toulmin_claim agrees
+  with the option marked is_board_choice.
 
 CRITICAL OPTION FORMAT:
 - Labels must be 3-8 words, Title Case, starting with a verb. NEVER "Option A", "Option B".
@@ -631,9 +648,11 @@ Return as JSON array:
     ],
     "addresses_questions": ["Q1", "Q2"],
     "board_resolution": "The board concluded that... (C1)",
-    "toulmin_data": "Summary of triggering facts (1-2 sentences)",
-    "toulmin_warrants": "Summary of the obligations or duties that justify the Board's chosen option (1-2 sentences, cite Code provisions inline)",
-    "toulmin_rebuttals": "Summary of what creates uncertainty or supports an alternative (1-2 sentences)",
+    "toulmin_claim": "The course of action argued for (1 sentence)",
+    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
     "provision_labels": ["II.1.f", "I.1"],
     "intensity_score": 0.78,
     "qc_alignment_score": 0.82
@@ -757,7 +776,9 @@ Synthesize {target_count} decision points that:
 1. **Preserve entity grounding** - Keep URI references from candidates
 2. **Align with Q&C** - Each point should address real board concerns
 3. **Merge similar candidates** - Combine candidates addressing the same issue
-4. **Include Toulmin structure** - Show DATA, WARRANTs, and REBUTTAL for each
+4. **Include the full Toulmin structure** - all six categories, each respecting
+   its definition:
+{TOULMIN_FIELD_SPEC}
 5. **Coherent question-option structure** - Options must directly answer the question
 
 CRITICAL FORMATTING REQUIREMENT:
@@ -837,9 +858,11 @@ CRITICAL OPTION REQUIREMENTS:
     "provision_labels": ["II.1.c"],
     "provision_uris": ["URIs"],
     "involved_action_uris": ["action URIs"],
-    "toulmin_data": "Summary of triggering facts",
-    "toulmin_warrants": "Summary of competing obligations",
-    "toulmin_rebuttals": "What creates uncertainty",
+    "toulmin_claim": "The course of action argued for",
+    "toulmin_data": "The case facts appealed to (facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...'",
     "addresses_questions": ["Q0", "Q1"],
     "board_resolution": "How board resolved this",
     "qc_alignment_score": 0.85,
@@ -936,8 +959,10 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
             provision_labels = [x for x in (data.get('provision_labels', []) or [])
                                 if is_provision_code(x)]
             toulmin = ToulminStructure(
+                claim=data.get('toulmin_claim', ''),
                 data_summary=data.get('toulmin_data', ''),
                 warrants_summary=data.get('toulmin_warrants', ''),
+                qualifier=data.get('toulmin_qualifier', ''),
                 rebuttals_summary=data.get('toulmin_rebuttals', ''),
                 backing_provisions=provision_labels
             )

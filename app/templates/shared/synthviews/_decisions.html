@@ -32,28 +32,46 @@
         {% endfor %}
       </div>
       {% endif %}
-      {% set tw = dec.toulmin_warrants or (dec.toulmin.warrants_summary if dec.toulmin is mapping else '') %}
-      {% set tr = dec.toulmin_rebuttals or (dec.toulmin.rebuttals_summary if dec.toulmin is mapping else '') %}
-      {% set td = dec.toulmin_data or (dec.toulmin.data_summary if dec.toulmin is mapping else '') %}
-      {% if tw or tr or td %}
+      {% set tmap = dec.toulmin if dec.toulmin is mapping else {} %}
+      {% set tc = tmap.get('claim', '') %}
+      {% set td = dec.toulmin_data or tmap.get('data_summary', '') %}
+      {% set tw = dec.toulmin_warrants or tmap.get('warrants_summary', '') %}
+      {% set tq = tmap.get('qualifier', '') %}
+      {% set tr = dec.toulmin_rebuttals or tmap.get('rebuttals_summary', '') %}
+      {% set tb = tmap.get('backing_provisions', []) %}
+      {% if tc or tw or tr or td %}
       <div class="mt-2">
-        <small class="fw-semibold text-muted d-block mb-1">Argument structure:</small>
-        {% if tw %}
-        <div class="dp-toulmin-card dp-toulmin-warrants">
-          <div class="d-flex align-items-start"><i class="bi bi-check-circle text-success me-2 mt-1" style="flex-shrink: 0;"></i>
-            <div><strong class="small">Warrants</strong><p class="mb-0 small text-muted mt-1">{{ tw }}</p></div></div>
-        </div>
-        {% endif %}
-        {% if tr %}
-        <div class="dp-toulmin-card dp-toulmin-rebuttals">
-          <div class="d-flex align-items-start"><i class="bi bi-x-circle text-danger me-2 mt-1" style="flex-shrink: 0;"></i>
-            <div><strong class="small">Rebuttals</strong><p class="mb-0 small text-muted mt-1">{{ tr }}</p></div></div>
+        <small class="fw-semibold text-muted d-block mb-1">Argument structure (Toulmin):</small>
+        {% if tc %}
+        <div class="dp-toulmin-card dp-toulmin-claim">
+          <div class="d-flex align-items-start"><i class="bi bi-flag me-2 mt-1" style="flex-shrink: 0; color: #6f42c1;"></i>
+            <div><strong class="small">Claim</strong>
+              {% if tq %}<span class="badge bg-light text-dark border ms-1" style="font-size: 0.65rem;">{{ tq }}</span>{% endif %}
+              <p class="mb-0 small text-muted mt-1">{{ tc }}</p></div></div>
         </div>
         {% endif %}
         {% if td %}
         <div class="dp-toulmin-card dp-toulmin-grounds">
           <div class="d-flex align-items-start"><i class="bi bi-file-earmark-text text-primary me-2 mt-1" style="flex-shrink: 0;"></i>
             <div><strong class="small">Grounds</strong><p class="mb-0 small text-muted mt-1">{{ td }}</p></div></div>
+        </div>
+        {% endif %}
+        {% if tw %}
+        <div class="dp-toulmin-card dp-toulmin-warrants">
+          <div class="d-flex align-items-start"><i class="bi bi-check-circle text-success me-2 mt-1" style="flex-shrink: 0;"></i>
+            <div><strong class="small">Warrant</strong><p class="mb-0 small text-muted mt-1">{{ tw }}</p></div></div>
+        </div>
+        {% endif %}
+        {% if tb %}
+        <div class="dp-toulmin-card dp-toulmin-backing">
+          <div class="d-flex align-items-start"><i class="bi bi-book me-2 mt-1" style="flex-shrink: 0; color: #fd7e14;"></i>
+            <div><strong class="small">Backing</strong><p class="mb-0 small text-muted mt-1">NSPE Code {{ tb|join(', ') }}</p></div></div>
+        </div>
+        {% endif %}
+        {% if tr %}
+        <div class="dp-toulmin-card dp-toulmin-rebuttals">
+          <div class="d-flex align-items-start"><i class="bi bi-x-circle text-danger me-2 mt-1" style="flex-shrink: 0;"></i>
+            <div><strong class="small">Rebuttal</strong><p class="mb-0 small text-muted mt-1">{{ tr }}</p></div></div>
         </div>
         {% endif %}
       </div>
