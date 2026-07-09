@@ -114,7 +114,14 @@ def register_structure_embedding_routes(bp):
             'E': 'Events', 'Ca': 'Capabilities', 'Cs': 'Constraints',
         }
 
-        entities = TemporaryRDFStorage.query.filter_by(case_id=id).all()
+        # Individuals only: class rows are shared vocabulary, not case
+        # content. Unfiltered, the breakdown counted classes alongside
+        # individuals (case 9 showed 102 'entities' for 59 individuals and
+        # listed DesignEngineerRole, a class, among the Roles). Third
+        # instance of this defect family (35baf89 analyzers, the narrative
+        # foundation); same one-line cure.
+        entities = TemporaryRDFStorage.query.filter_by(
+            case_id=id, storage_type='individual').all()
         component_data = {code: {'label': COMPONENT_LABELS[code], 'weight': COMPONENT_WEIGHTS[code],
                                  'entities': [], 'has_embedding': False}
                           for code in COMPONENT_ORDER}
