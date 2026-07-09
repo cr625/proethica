@@ -2809,6 +2809,13 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['conclusionType'], Literal(rdf_data['conclusionType'])))
             if rdf_data.get('conclusionNumber'):
                 g.add((uri, PROETHICA['conclusionNumber'], Literal(int(rdf_data['conclusionNumber']), datatype=XSD.integer)))
+            # Readable rdfs:label, mirroring the question treatment
+            # (2026-07-10): 'Board conclusion 1: <snippet>' /
+            # 'Analytical conclusion 2: <snippet>'.
+            _rl = _readable_conclusion_label(rdf_data)
+            if _rl:
+                g.remove((uri, RDFS.label, None))
+                g.add((uri, RDFS.label, Literal(_rl)))
             if rdf_data.get('extractionReasoning'):
                 g.add((uri, PROETHICA['extractionReasoning'], Literal(rdf_data['extractionReasoning'])))
             for i, prov in enumerate(rdf_data.get('citedProvisions', []) or []):
@@ -3347,5 +3354,20 @@ def _readable_question_label(rdf_data: dict) -> str:
     kind = _Q_TYPE_NAMES.get(qtype, 'Question')
     ordinal = n if n < 100 else n % 100
     text = (rdf_data.get('questionText') or '').strip()
+    snippet = (text[:57].rstrip() + '...') if len(text) > 60 else text
+    return f"{kind} {ordinal}: {snippet}" if snippet else f"{kind} {ordinal}"
+
+
+def _readable_conclusion_label(rdf_data: dict) -> str:
+    """Human-readable rdfs:label for a committed EthicalConclusion, mirroring
+    _readable_question_label: board conclusions are numbered 1-9, analytical
+    conclusion families use 100-offset numbering."""
+    try:
+        n = int(rdf_data.get('conclusionNumber'))
+    except (TypeError, ValueError):
+        return ''
+    kind = 'Board conclusion' if n < 100 else 'Analytical conclusion'
+    ordinal = n if n < 100 else n % 100
+    text = (rdf_data.get('conclusionText') or '').strip()
     snippet = (text[:57].rstrip() + '...') if len(text) > 60 else text
     return f"{kind} {ordinal}: {snippet}" if snippet else f"{kind} {ordinal}"
