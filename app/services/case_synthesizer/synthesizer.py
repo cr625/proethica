@@ -332,9 +332,15 @@ class CaseSynthesizer(NarrativeConstructionMixin, Phase2ExtractionMixin):
         }
 
         for extraction_type, (attr_name, entity_list) in type_mapping.items():
+            # Individuals only: class rows are shared vocabulary, not case
+            # content, and they leaked into narrative surfaces (case 9's
+            # opening states showed LitigationContextState -- a TYPE CLASS --
+            # as a t0 fluent; 2026-07-09 walkthrough). Same correction the
+            # E1-E3 analyzers received in 35baf89.
             entities = TemporaryRDFStorage.query.filter_by(
                 case_id=case_id,
-                extraction_type=extraction_type
+                extraction_type=extraction_type,
+                storage_type='individual'
             ).all()
 
             for e in entities:
