@@ -1042,7 +1042,18 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 obligation_label=data.get('obligation_label'),
                 constraint_uri=_resolve_uri(data.get('constraint_label'), data.get('constraint_uri', '')),
                 constraint_label=data.get('constraint_label'),
-                involved_action_uris=data.get('involved_action_uris', []),
+                # Action slot type-filtered: the LLM intermittently echoes
+                # Constraint/State class URIs or non-action individuals here
+                # (case 57: ScopeOfPracticeCompetenceConstraint,
+                # SupervisoryDirectionState), which silently defeats the
+                # timeline's decision-point nesting -- it matches this slot
+                # against temporal Action_/Event_ individuals. Same category
+                # discipline as the provision-slot filter.
+                involved_action_uris=[
+                    u for u in (data.get('involved_action_uris') or [])
+                    if isinstance(u, str)
+                    and ('#Action_' in u or '#Event_' in u)
+                ],
                 provision_uris=data.get('provision_uris', []),
                 provision_labels=provision_labels,
                 toulmin=toulmin,
