@@ -2776,6 +2776,15 @@ class OntServeCommitService:
         if _analysis_cls:
             g.add((uri, RDF.type, PROETHICA_CASES[_analysis_cls]))
 
+        # Citation-treatment term (proethica-cases v3.1.0 citationType; values
+        # defined by the CitationTreatmentScheme concepts). Emitted since
+        # 2026-07-09; earlier commits carried the term only in the extraction
+        # JSON, so the treatment never reached the committed graph.
+        if extraction_type == 'precedent_case_reference' and rdf_data \
+                and rdf_data.get('citationType'):
+            g.add((uri, PROETHICA_CASES['citationType'],
+                   Literal(rdf_data['citationType'])))
+
         if extraction_type == 'canonical_decision_point' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.DecisionPoint))
             if rdf_data.get('focus_id'):

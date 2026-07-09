@@ -71,3 +71,26 @@ def test_single_and_nonber_pass_through():
         {'caseNumber': '435 U.S. 679 (1978)', 'caseCitation': '435 U.S. 679 (1978)'},
     ]
     assert normalize_precedents(entries) == entries
+
+
+def test_relationship_vocabulary_matches_ontology(cases_graph):
+    from app.services.precedent.precedent_discovery_service import RELATIONSHIP_TYPES
+    ontology_terms = {}
+    for concept in cases_graph.subjects(SKOS.inScheme, CASES.PrecedentRelationshipScheme):
+        notation = str(next(cases_graph.objects(concept, SKOS.notation)))
+        definition = str(next(cases_graph.objects(concept, SKOS.definition)))
+        ontology_terms[notation] = definition
+    assert ontology_terms == RELATIONSHIP_TYPES
+
+
+def test_relationship_scheme_cross_links(cases_graph):
+    """Every relationship concept except 'contrasting' closeMatches its
+    citation-treatment counterpart; contrasting is deliberately unmatched."""
+    links = {}
+    for concept in cases_graph.subjects(SKOS.inScheme, CASES.PrecedentRelationshipScheme):
+        notation = str(next(cases_graph.objects(concept, SKOS.notation)))
+        links[notation] = list(cases_graph.objects(concept, SKOS.closeMatch))
+    assert links['supporting'] == [CASES.SupportingCitation]
+    assert links['distinguishing'] == [CASES.DistinguishingCitation]
+    assert links['analogous'] == [CASES.AnalogizingCitation]
+    assert links['contrasting'] == []
