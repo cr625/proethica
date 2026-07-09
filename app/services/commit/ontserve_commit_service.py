@@ -2824,6 +2824,21 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
             if rdf_data.get('questionNumber'):
                 g.add((uri, PROETHICA['questionNumber'], Literal(int(rdf_data['questionNumber']), datatype=XSD.integer)))
+            # New analytical-question metadata (2026-07-08 Q&C work).
+            if rdf_data.get('sourceQuestion') is not None:
+                g.add((uri, PROETHICA['sourceQuestion'],
+                       Literal(int(rdf_data['sourceQuestion']), datatype=XSD.integer)))
+            if rdf_data.get('ethicalFramework'):
+                g.add((uri, PROETHICA['ethicalFramework'],
+                       Literal(rdf_data['ethicalFramework'])))
+            # Readable rdfs:label (2026-07-10 walkthrough): 'Question_102' is
+            # opaque; the number encodes the category (board 1-9; analytical
+            # offsets implicit=101+, tension=201+, theoretical=301+,
+            # counterfactual=401+). Decode it and lead with a text snippet.
+            _rl = _readable_question_label(rdf_data)
+            if _rl:
+                g.remove((uri, RDFS.label, None))
+                g.add((uri, RDFS.label, Literal(_rl)))
 
         # Step-3 temporal dynamics (Actions / Events). These arrive as a
         # JSON-LD record (@type + proeth:* predicates) from the LangGraph
@@ -3312,3 +3327,25 @@ class OntServeCommitService:
         result['success'] = len(result['errors']) == 0
         return result
 
+
+
+_Q_TYPE_NAMES = {'board_explicit': 'Board question', 'implicit': 'Implicit question',
+                 'principle_tension': 'Principle-tension question',
+                 'theoretical': 'Theoretical question', 'counterfactual': 'Counterfactual question'}
+
+
+def _readable_question_label(rdf_data: dict) -> str:
+    """Human-readable rdfs:label for a committed EthicalQuestion: the decoded
+    category and within-category number plus a snippet of the question text
+    ('Implicit question 2: If Engineer T sincerely believed ...'). The URI
+    fragment keeps the stable Question_<n> form; only the label changes."""
+    try:
+        n = int(rdf_data.get('questionNumber'))
+    except (TypeError, ValueError):
+        return ''
+    qtype = rdf_data.get('questionType') or 'board_explicit'
+    kind = _Q_TYPE_NAMES.get(qtype, 'Question')
+    ordinal = n if n < 100 else n % 100
+    text = (rdf_data.get('questionText') or '').strip()
+    snippet = (text[:57].rstrip() + '...') if len(text) > 60 else text
+    return f"{kind} {ordinal}: {snippet}" if snippet else f"{kind} {ordinal}"
