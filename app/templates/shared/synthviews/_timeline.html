@@ -33,6 +33,10 @@
           <a class="char-mention" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus hover"
              data-bs-title="Role in this event" data-bs-content="{{ _agent_role|escape }}">{{ _agent_short }}</a>
           {% else %}<span>{{ _agent_short }}</span>{% endif %}
+          {% if entry.agent_in_model is sameas false %}
+          <i class="bi bi-question-circle text-warning" style="font-size: 0.65rem;"
+             title="This actor is not among the case's modeled Agent individuals (precedent-narrative actor, or an agent-model gap)."></i>
+          {% endif %}
         </span>
       {% endif %}
       {% if has_expand %}<i class="bi bi-chevron-right tl-entry-chevron" style="font-size: 0.7rem;"></i>{% endif %}

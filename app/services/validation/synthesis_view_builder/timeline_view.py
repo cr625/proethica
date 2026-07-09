@@ -177,6 +177,33 @@ class TimelineViewMixin:
             for e in entries:
                 e['state_changes'] = []
                 e['temporal_relations'] = []
+
+            # Agent-model reconciliation (2026-07-09 timeline-agents audit):
+            # hasAgent is free text from the temporal extraction and no
+            # extraction step resolves it against the case's committed
+            # core:Agent individuals (unlike the participant edges). The view
+            # verifies it at render time: agent_in_model marks whether the
+            # attributed actor is among the case's modeled Agents (leading
+            # article stripped, case-insensitive, containment either way).
+            # Corpus baseline 2026-07-09: 86% matched; the residue split into
+            # shorthand drift (fixed in data), an Agent-model gap (case 56),
+            # and precedent-narrative actors (case 121, honest non-matches).
+            import re as _re
+            def _norm_agent(s):
+                s = _re.sub(r'^(the|an|a)\s+', '', (s or '').strip().lower())
+                return _re.sub(r'[^a-z0-9 ]', '', s).strip()
+            agent_labels = {_norm_agent(str(l)): str(l)
+                            for a in g.subjects(RDF.type, rdflib.Namespace(
+                                'http://proethica.org/ontology/core#').Agent)
+                            for l in g.objects(a, RDFS.label)}
+            for e in entries:
+                if e['kind'] != 'action' or not e['agent']:
+                    e['agent_in_model'] = None  # not applicable
+                    continue
+                n = _norm_agent(e['agent'].split('(', 1)[0])
+                e['agent_in_model'] = bool(n) and (
+                    n in agent_labels
+                    or any((n in k or k in n) for k in agent_labels if len(k) > 3))
             for pred, verb in ((_CORE.initiates, 'began'), (_CORE.terminates, 'ended')):
                 for s, o in g.subject_objects(pred):
                     entry = frag_to_entry.get(_uri_fragment(str(s)))
