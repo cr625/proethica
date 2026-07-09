@@ -94,3 +94,26 @@ def test_relationship_scheme_cross_links(cases_graph):
     assert links['distinguishing'] == [CASES.DistinguishingCitation]
     assert links['analogous'] == [CASES.AnalogizingCitation]
     assert links['contrasting'] == []
+
+
+def test_outcome_vocabulary_matches_ontology(cases_graph):
+    from app.services.precedent.case_feature_extractor import OUTCOME_TYPES
+    ontology_terms = {}
+    for concept in cases_graph.subjects(SKOS.inScheme, CASES.BoardOutcomeScheme):
+        notation = str(next(cases_graph.objects(concept, SKOS.notation)))
+        definition = str(next(cases_graph.objects(concept, SKOS.definition)))
+        ontology_terms[notation] = definition
+    assert ontology_terms == OUTCOME_TYPES
+
+
+def test_outcome_alignment_semantics():
+    """The ternary indicator the ontology documents: 1.0 identical, 0.0 for
+    the ethical/unethical opposition, 0.5 for pairings involving
+    mixed/unclear."""
+    from app.services.precedent.similarity_service import PrecedentSimilarityService
+    s = PrecedentSimilarityService()
+    assert s._calculate_outcome_alignment('ethical', 'ethical') == 1.0
+    assert s._calculate_outcome_alignment('ethical', 'unethical') == 0.0
+    assert s._calculate_outcome_alignment('mixed', 'ethical') == 0.5
+    assert s._calculate_outcome_alignment('unclear', 'unethical') == 0.5
+    assert s._calculate_outcome_alignment(None, 'ethical') == 0.5

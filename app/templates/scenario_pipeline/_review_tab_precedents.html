@@ -295,7 +295,7 @@
                         <small class="d-block mb-1"><strong>Shared citations:</strong> {{ sim.overlapping_citations|join(', ') }}</small>
                         {% endif %}
                         {% if sim.outcome_match %}
-                        <small class="d-block mb-1"><span class="badge bg-success">Same outcome</span> {{ sim.target_outcome|default('') }}</small>
+                        <small class="d-block mb-1"><span class="badge bg-success" title="Both cases carry the same board-outcome polarity classification (ethical, unethical, mixed, or unclear; BoardOutcomeScheme in proethica-cases). Sameness of polarity, not of the specific holdings.">Same outcome</span> {{ sim.target_outcome|default('') }}</small>
                         {% endif %}
                         {% if sim.transformation_match %}
                         <small class="d-block mb-1"><span class="badge bg-purple text-white">Same transformation</span> {{ sim.target_transformation|default('') }}</small>
