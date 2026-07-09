@@ -13,6 +13,7 @@ from typing import Dict, List
 from flask import render_template, request, jsonify, redirect, url_for, session as flask_session, current_app
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
+from app.routes.scenario_pipeline.step4.precedents import CITATION_TREATMENTS
 from app.services.pipeline_status_service import PipelineStatusService
 from app.utils.environment_auth import auth_optional
 
@@ -593,6 +594,10 @@ def register_view_routes(bp):
                 'precedents': precedents_objs,
                 'precedents_json': precedents_list,
                 'precedent_count': len(precedents_list),
+                # Treatment-term definitions for the badge tooltips; the
+                # authoritative source is the CitationTreatmentScheme in
+                # proethica-cases (see CITATION_TREATMENTS in precedents.py).
+                'citation_treatments': CITATION_TREATMENTS,
                 'question_count': len(questions),
                 'conclusion_count': len(conclusions),
                 'has_synthesis_annotations': len(existing_annotations) > 0,
