@@ -477,6 +477,23 @@ Return as JSON array:
                     'is_board_choice': bool(opt.get('is_board_choice', False)),
                 })
 
+            # Conclusion alignment, mirroring the refinement parser: the
+            # conclusions whose answersQuestions cover the DP's addressed
+            # questions supply aligned_conclusion_* and the resolution text
+            # verbatim. The fallback path never set these (Phase-C census
+            # 2026-07-08: case 10's five fallback DPs all had empty
+            # aligned_conclusion_uri, so the Step-5 resolution-pattern join
+            # matched nothing).
+            addresses_uris = [q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])]
+            addressed_nums = {q.get('question_number') for q in questions
+                              if q.get('uri') in addresses_uris and q.get('question_number') is not None}
+            answering = [c for c in conclusions
+                         if addressed_nums & set(c.get('answersQuestions') or [])]
+            aligned_c = answering[0] if answering else None
+            derived_resolution = ' '.join(
+                (c.get('conclusion_text') or c.get('text') or '').strip()
+                for c in answering[:2]).strip()
+
             # Create canonical decision point
             dp = CanonicalDecisionPoint(
                 focus_id=dp_data.get('focus_id', f'DP{i+1}'),
@@ -491,8 +508,11 @@ Return as JSON array:
                 toulmin=toulmin,
                 aligned_question_uri=aligned_q_uri,
                 aligned_question_text=aligned_q_text,
-                board_resolution=dp_data.get('board_resolution', ''),
-                addresses_questions=[q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])],
+                aligned_conclusion_uri=aligned_c.get('uri') if aligned_c else None,
+                aligned_conclusion_text=aligned_c.get('text') if aligned_c else None,
+                board_resolution=(derived_resolution[:800] if derived_resolution
+                                  else dp_data.get('board_resolution', '')),
+                addresses_questions=addresses_uris,
                 options=options_out,
                 intensity_score=intensity_score,
                 qc_alignment_score=qc_alignment_score,
@@ -1037,7 +1057,13 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 qc_alignment_score=data.get('qc_alignment_score', 0.0),
                 source='unified',
                 source_candidate_ids=data.get('source_candidate_ids', []),
-                synthesis_method='algorithmic+llm',
+                # Honest provenance: when composition yields fewer candidates
+                # than the target count, the refinement generates additional
+                # DPs beyond the candidate pool. Those cite no algorithmic
+                # source, so labeling them 'algorithmic+llm' overstated the
+                # grounding (Phase-C census 2026-07-08: 10 of 76).
+                synthesis_method=('algorithmic+llm' if data.get('source_candidate_ids')
+                                  else 'llm_direct'),
                 llm_refined_description=data.get('description'),
                 llm_refined_question=data.get('decision_question')
             )
