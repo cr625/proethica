@@ -490,6 +490,16 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         db.session.commit()
         logger.info(f"[Step4Synthesis] Stored {len(provisions)} provisions")
 
+        # Keep the harmonized provision set current (board-stated UNION
+        # analysis-found; provisions-harmonization.md workstream A). Mirrors
+        # _update_cited_cases on the precedents stage; provisions_cited feeds
+        # the similarity provision_overlap feature.
+        try:
+            from app.utils.provision_references import update_provisions_cited
+            update_provisions_cited(case_id)
+        except Exception as e:
+            logger.warning(f"[Step4Synthesis] provisions_cited harmonization failed: {e}")
+
         return {
             'provisions_count': len(provisions),
             'entity_links': total_links
