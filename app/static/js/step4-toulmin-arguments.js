@@ -112,7 +112,7 @@ function injectArgumentsIntoDecisionPoints(data) {
 
     if (typeof bootstrap !== 'undefined') {
         document.querySelectorAll('.dp-arguments-slot [data-bs-toggle="popover"]:not([aria-describedby])').forEach(function(el) {
-            new bootstrap.Popover(el, { container: 'body', sanitize: false });
+            attachKeepOpenPopover(el, { sanitize: false });
         });
     }
 }
