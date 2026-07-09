@@ -70,6 +70,44 @@ class NarrativeViewMixin:
         # person. See module-level _CITATION_RE.
         _PLACE_PREFIXES = ('state ', 'city of ', 'jurisdiction', 'country ')
 
+        # Agent-model awareness (2026-07-09 Narrative audit): the place-prefix
+        # heuristic over-fired on INSTITUTIONAL actors -- 'State DOT Employer',
+        # 'State Licensure Board' begin with 'State ' but correspond to
+        # committed core:Agent individuals ('State DOT', 'State Agency'), so
+        # legitimate characters were hidden in 6 of 15 gold cases. A label
+        # matching a committed Agent (normalized containment either way) is
+        # never spurious.
+        committed_agent_norms: set = set()
+        try:
+            import re as _re
+            import rdflib as _rdflib
+            from rdflib import RDF as _RDF, RDFS as _RDFS
+            from app.services.entity.committed_case_graph import load_case_graph
+            _CORE = _rdflib.Namespace('http://proethica.org/ontology/core#')
+            _g = load_case_graph(case_id)
+
+            def _norm_label(s: str) -> str:
+                s = _re.sub(r'^(the|an|a)\s+', '', (s or '').strip().lower())
+                return _re.sub(r'[^a-z0-9 ]', '', s).strip()
+
+            committed_agent_norms = {
+                _norm_label(str(l))
+                for a in _g.subjects(_RDF.type, _CORE.Agent)
+                for l in _g.objects(a, _RDFS.label)}
+        except Exception:  # noqa: BLE001 - no committed graph yet
+            import logging
+            logging.getLogger(__name__).info(
+                f"Narrative agent whitelist unavailable for case {case_id}")
+
+        def _matches_committed_agent(label: str) -> bool:
+            if not committed_agent_norms:
+                return False
+            import re as _re
+            n = _re.sub(r'[^a-z0-9 ]', '',
+                        _re.sub(r'^(the|an|a)\s+', '', label.strip().lower())).strip()
+            return bool(n) and (n in committed_agent_norms or any(
+                (n in k or k in n) for k in committed_agent_norms if len(k) > 3))
+
         def _is_spurious_character(ch: Dict[str, Any]) -> bool:
             label = (ch.get('label') or '').strip()
             if not label:
@@ -77,10 +115,33 @@ class NarrativeViewMixin:
             if _CITATION_RE.search(label):
                 return True
             if label.lower().startswith(_PLACE_PREFIXES):
-                return True
+                return not _matches_committed_agent(label)
             return False
 
         characters = [c for c in characters if not _is_spurious_character(c)]
+
+        # Ch3 (Phase 4): "the view also lists the states that hold at the
+        # start of the case". Generated as narrative_elements.setting.
+        # initial_states since the beginning but never surfaced (2026-07-09
+        # audit, correspondence gap 1).
+        initial_states = ((narrative_elements.get('setting') or {})
+                          .get('initial_states') or [])
+
+        # Ch3 (Phase 4): "closes with a summary of the board's deliberation".
+        # No generated artifact exists (correspondence gap 2); the close is
+        # derived VERBATIM from the board's conclusion_items -- the
+        # record-derived route (the board_resolution lesson: LLM summaries
+        # embellish; the record does not).
+        board_deliberation: List[str] = []
+        try:
+            doc = Document.query.get(case_id)
+            items = ((doc.doc_metadata or {}).get('conclusion_items') or []) if doc else []
+            for it in items:
+                text = it.get('text') if isinstance(it, dict) else str(it)
+                if text and text.strip():
+                    board_deliberation.append(text.strip())
+        except Exception:  # noqa: BLE001
+            pass
 
         protagonist_label = scenario_seeds.get('protagonist_label') or ''
 
@@ -506,6 +567,8 @@ class NarrativeViewMixin:
             'unassigned_tensions': unassigned_tensions,
             'opening_context': opening_context,
             'opening_context_html': opening_context_html,
+            'initial_states': initial_states,
+            'board_deliberation': board_deliberation,
             'protagonist_label': protagonist_label,
             'character_count': len(characters),
             'grouped_main_characters': grouped_main_characters,
