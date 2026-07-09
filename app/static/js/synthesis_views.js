@@ -22,7 +22,8 @@
       '.provision-badge[data-bs-toggle="popover"]',
       '.role-badge[data-bs-toggle="popover"]',
       '.provision-type-chip[data-bs-toggle="popover"]',
-      '.qc-secondary-chip[data-bs-toggle="popover"]'
+      '.qc-secondary-chip[data-bs-toggle="popover"]',
+      '.tl-grounding-chip[data-bs-toggle="popover"]'
     ];
     root.querySelectorAll(popoverSelectors.join(',')).forEach(function (el) {
       if (!bootstrap.Popover.getInstance(el)) {

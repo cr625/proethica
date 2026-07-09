@@ -153,6 +153,56 @@ class TimelineViewMixin:
                 'options': data.get('options', []) or [],
             })
 
+        # Formal-layer enrichment from the committed case graph (2026-07-09
+        # Timeline analysis; the user criterion is human readability, so the
+        # event-calculus and Allen layers surface as reader-facing chips and
+        # grounding rather than staying TTL-only):
+        # - state_changes: proeth-core:initiates/terminates edges (the Berreby
+        #   fluent transitions) render as "began/ended <State>" chips.
+        # - temporal_relations: resolved Allen relations this entry
+        #   participates in, with the verbatim evidence quote, for a
+        #   grounding popover.
+        try:
+            import rdflib
+            from rdflib import RDF, RDFS
+            from app.services.entity.committed_case_graph import load_case_graph
+            _CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+            _PROETH = rdflib.Namespace('http://proethica.org/ontology/intermediate#')
+            g = load_case_graph(case_id)
+            frag_to_entry = {e['fragment']: e for e in entries if e['fragment']}
+
+            def _label(node):
+                return str(next(g.objects(node, RDFS.label), '')) or _uri_fragment(str(node))
+
+            for e in entries:
+                e['state_changes'] = []
+                e['temporal_relations'] = []
+            for pred, verb in ((_CORE.initiates, 'began'), (_CORE.terminates, 'ended')):
+                for s, o in g.subject_objects(pred):
+                    entry = frag_to_entry.get(_uri_fragment(str(s)))
+                    if entry is not None:
+                        entry['state_changes'].append({'change': verb, 'state': _label(o)})
+            for rel in g.subjects(RDF.type, _PROETH.TemporalRelation):
+                allen = str(next(g.objects(rel, _PROETH.allenRelation), '') or '')
+                fe = next(g.objects(rel, _PROETH.fromEntity), None)
+                te = next(g.objects(rel, _PROETH.toEntity), None)
+                if fe is None or te is None or not allen:
+                    continue
+                evidence = str(next(g.objects(rel, _PROETH.evidence), '') or '')
+                for node, other, direction in ((fe, te, allen), (te, fe, f'{allen} (inverse)')):
+                    entry = frag_to_entry.get(_uri_fragment(str(node)))
+                    if entry is not None:
+                        entry['temporal_relations'].append({
+                            'relation': direction, 'other': _label(other),
+                            'evidence': evidence[:300]})
+        except Exception:  # noqa: BLE001 - enrichment must not break the view
+            import logging
+            logging.getLogger(__name__).exception(
+                f"Timeline formal-layer enrichment unavailable for case {case_id}")
+            for e in entries:
+                e.setdefault('state_changes', [])
+                e.setdefault('temporal_relations', [])
+
         entries_with_dps = sum(1 for e in entries if e['decision_points'])
         total_dps_attached = sum(len(e['decision_points']) for e in entries)
 
