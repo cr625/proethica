@@ -9,6 +9,9 @@
     <span class="badge bg-light text-dark border"><i class="bi bi-list-ol me-1"></i>{{ view.count }} sequenced</span>
     <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0d6efd;"></i>{{ view.action_count }} actions</span>
     <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #6f42c1;"></i>{{ view.event_count }} events</span>
+    {% if view.precedent_context_excluded %}
+    <span class="badge bg-light text-muted border" title="Happenings from cited precedent cases are not part of this case's own sequence; they inform the Narrative as context.">{{ view.precedent_context_excluded }} precedent-context entr{{ 'y' if view.precedent_context_excluded == 1 else 'ies' }} not shown</span>
+    {% endif %}
   </div>
 
   <h5 class="mt-4 mb-3 pb-2 border-bottom d-flex align-items-center" style="color: #334155; font-weight: 600;">

@@ -67,6 +67,25 @@ class TimelineViewMixin:
                     break
             return frag
 
+        # Precedent-narrative happenings (case 121: "In precedent BER Case
+        # 94-8, Engineer B ...") are events of CITED cases, not of this one;
+        # interleaving them distorts the case's own sequence (user decision
+        # 2026-07-09: they belong in Narrative as setting, not on the
+        # timeline). Detected deterministically from the extraction's own
+        # phrasing; excluded from display but kept in data for the narrative
+        # phase. The exclusion is surfaced in the payload, never silent.
+        import re as _pre_re
+        _PRECEDENT_AGENT = _pre_re.compile(r'\bin\s+(?:BER\s+)?Case\s+\d{2}-\d{1,2}\b',
+                                           _pre_re.IGNORECASE)
+
+        def _is_precedent_narrative(rdf) -> bool:
+            desc = str(rdf.get('proeth:description', '') or '')
+            agent = str(rdf.get('proeth:hasAgent', '') or '')
+            return (desc.lstrip().lower().startswith('in precedent')
+                    or 'precedent ber case' in desc.lower()
+                    or bool(_PRECEDENT_AGENT.search(agent)))
+
+        precedent_context_excluded = 0
         seq = 0
         for row in temporal_entries:
             rdf = row.rdf_json_ld or {}
@@ -78,6 +97,9 @@ class TimelineViewMixin:
             else:
                 # Skip Timeline-skeleton, State, and other temporal types that
                 # production also excludes from the rendered timeline.
+                continue
+            if _is_precedent_narrative(rdf):
+                precedent_context_excluded += 1
                 continue
             seq += 1
             alternatives = rdf.get('proeth-scenario:alternativeActions', []) or []
@@ -236,6 +258,7 @@ class TimelineViewMixin:
         return {
             'view_type': 'timeline',
             'count': len(entries),
+            'precedent_context_excluded': precedent_context_excluded,
             'action_count': sum(1 for e in entries if e['kind'] == 'action'),
             'event_count': sum(1 for e in entries if e['kind'] == 'event'),
             'decision_point_count': total_dps_attached,
