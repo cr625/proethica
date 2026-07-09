@@ -58,21 +58,6 @@ def register_listing_routes(bp):
             # Get all case IDs for bulk status checking
             case_ids = [doc.id for doc in document_cases]
 
-            # Bulk check for enhanced associations
-            enhanced_associations_status = {}
-            if case_ids:
-                with db.engine.connect() as conn:
-                    result = conn.execute(
-                        text("""
-                            SELECT DISTINCT case_id
-                            FROM case_guideline_associations
-                            WHERE case_id = ANY(:case_ids)
-                        """),
-                        {"case_ids": case_ids}
-                    )
-                    for row in result:
-                        enhanced_associations_status[row[0]] = True
-
             # Bulk check for term links
             term_links_status = {}
             if case_ids:
@@ -143,7 +128,6 @@ def register_listing_routes(bp):
                     'conclusion_items': conclusion_items,
                     'case_number': metadata.get('case_number', ''),
                     'full_date': metadata.get('full_date', ''),
-                    'has_enhanced_associations': enhanced_associations_status.get(doc.id, False),
                     'has_term_links': term_links_status.get(doc.id, False),
                     'pipeline_status': progress['status'],
                     'pipeline_progress': progress,

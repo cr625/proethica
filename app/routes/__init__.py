@@ -3,4 +3,3 @@ from app.routes.auth import auth_bp
 from app.routes.worlds import worlds_bp
 from app.routes.documents import documents_bp
 from app.routes.experiment import experiment_bp
-from app.routes.guidelines import guidelines_bp

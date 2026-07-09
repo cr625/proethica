@@ -21,10 +21,6 @@ from app.models.guideline import Guideline
 from app.models.entity_triple import EntityTriple
 
 # Import models with graceful fallback
-try:
-    from app.models.case_guideline_associations import CaseGuidelineAssociation
-except ImportError:
-    CaseGuidelineAssociation = None
 
 from app.services.llm_service import LLMService
 from app.services.engineering_ontology_service import engineering_ontology_service
@@ -154,14 +150,10 @@ class FIRACAnalysisService:
         )
     
     def _get_case_associations(self, case_id: int) -> List:
-        """Get all associations for a case."""
-        if CaseGuidelineAssociation is None:
-            return []
-        
-        return CaseGuidelineAssociation.query.filter_by(case_id=case_id)\
-            .options(joinedload(CaseGuidelineAssociation.guideline))\
-            .order_by(CaseGuidelineAssociation.overall_confidence.desc())\
-            .all()
+        """Guideline associations were retired 2026-07-09 (the
+        case_guideline_associations machinery never held data on this
+        corpus); FIRAC analysis proceeds without them."""
+        return []
     
     def _analyze_facts(self, case: Document, sections: List[DocumentSection]) -> FIRACFacts:
         """Extract and analyze the factual situation."""

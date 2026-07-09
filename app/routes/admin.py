@@ -304,8 +304,8 @@ def bulk_reset_users():
         Behavior:
         - Deletes the guideline row (guidelines.id = guideline_id)
         - Because of FK ondelete='CASCADE', related EntityTriple, GuidelineSection,
-          GuidelineSemanticTriple, GuidelineTermCandidate, PendingConceptType, etc.
-          should be removed by the DB.
+          PendingConceptType, etc. should be removed by the DB (the semantic-triple
+          and term-candidate tables were dropped 2026-07-09).
         - Additionally, deletes Document rows whose doc_metadata.guideline_id equals the target
           (these are wrappers/entries for the same guideline in the documents table).
 

@@ -241,109 +241,6 @@ def register_view_routes(bp):
         except Exception as e:
             current_app.logger.warning(f"Error loading section-triple associations: {str(e)}")
 
-        # Check for enhanced guideline associations
-        has_enhanced_associations = False
-        enhanced_associations_data = None
-        enhanced_associations_stats = None
-    
-        try:
-            # Check if this document has enhanced associations
-            from sqlalchemy import text
-            with db.engine.connect() as conn:
-                query = text("""
-                SELECT COUNT(*) as total_associations,
-                       AVG(overall_confidence) as avg_confidence,
-                       COUNT(CASE WHEN overall_confidence > 0.7 THEN 1 END) as high_confidence_count,
-                       section_type,
-                       COUNT(*) as section_count,
-                       AVG(overall_confidence) as section_avg_confidence
-                FROM case_guideline_associations 
-                WHERE case_id = :case_id
-                GROUP BY section_type
-                ORDER BY section_avg_confidence DESC
-            """)
-            
-                result = conn.execute(query, {"case_id": id})
-                associations_by_section = result.fetchall()
-            
-                if associations_by_section:
-                    has_enhanced_associations = True
-                
-                    # Get overall stats
-                    query_overall = text("""
-                    SELECT COUNT(*) as total,
-                           AVG(overall_confidence) as avg_confidence,
-                           COUNT(CASE WHEN overall_confidence > 0.7 THEN 1 END) as high_confidence,
-                           COUNT(DISTINCT section_type) as sections_processed
-                    FROM case_guideline_associations 
-                    WHERE case_id = :case_id
-                """)
-                
-                    overall_result = conn.execute(query_overall, {"case_id": id})
-                    overall_stats = overall_result.fetchone()
-                
-                    enhanced_associations_stats = {
-                        'total_associations': overall_stats[0],
-                        'average_confidence': round(overall_stats[1], 3) if overall_stats[1] else 0,
-                        'high_confidence_count': overall_stats[2],
-                        'sections_processed': overall_stats[3],
-                        'by_section': []
-                    }
-                
-                    for row in associations_by_section:
-                        enhanced_associations_stats['by_section'].append({
-                            'section_type': row[3],
-                            'count': row[4], 
-                            'avg_confidence': round(row[5], 3) if row[5] else 0
-                        })
-                
-                    # Get top associations for display
-                    query_top = text("""
-                    SELECT cga.section_type, cga.overall_confidence, cga.semantic_similarity,
-                           cga.keyword_overlap, cga.contextual_relevance, cga.association_reasoning,
-                           cga.pattern_indicators, et.subject, et.object_literal,
-                           cga.llm_semantic_score, cga.llm_reasoning_quality,
-                           cga.embedding_reasoning, cga.llm_reasoning, cga.scoring_method
-                    FROM case_guideline_associations cga
-                    JOIN entity_triples et ON cga.guideline_concept_id = et.id
-                    WHERE cga.case_id = :case_id
-                    ORDER BY cga.overall_confidence DESC
-                    LIMIT 20
-                """)
-                
-                    top_result = conn.execute(query_top, {"case_id": id})
-                    enhanced_associations_data = []
-                
-                    for row in top_result:
-                        pattern_indicators = {}
-                        if row[6]:  # pattern_indicators
-                            try:
-                                pattern_indicators = json.loads(row[6]) if isinstance(row[6], str) else row[6]
-                            except Exception:
-                                logger.debug("Failed to parse pattern_indicators JSON", exc_info=True)
-                                pattern_indicators = {}
-                    
-                        enhanced_associations_data.append({
-                            'section_type': row[0],
-                            'overall_confidence': row[1],
-                            'embedding_similarity': row[2],  # renamed from semantic_similarity
-                            'keyword_overlap': row[3],
-                            'contextual_relevance': row[4],
-                            'reasoning': row[5],  # combined reasoning
-                            'pattern_indicators': pattern_indicators,
-                            'concept_uri': row[7],
-                            'concept_name': row[8] or row[7].split('/')[-1] if row[7] else 'Unknown',
-                            'llm_semantic_score': row[9] or 0.0,
-                            'llm_reasoning_quality': row[10] or 0.0,
-                            'embedding_reasoning': row[11] or 'Not available',
-                            'llm_reasoning': row[12] or 'LLM analysis not available',
-                            'scoring_method': row[13] or 'hybrid'
-                        })
-                
-                    current_app.logger.info(f"Loaded {len(enhanced_associations_data)} enhanced associations")
-                
-        except Exception as e:
-            current_app.logger.warning(f"Error loading enhanced associations: {str(e)}")
 
         # Check for ontology term links
         has_term_links = False
@@ -387,9 +284,6 @@ def register_view_routes(bp):
                               section_guideline_associations=section_guideline_associations,
                               has_triple_associations=has_triple_associations,
                               section_triple_associations=section_triple_associations,
-                              has_enhanced_associations=has_enhanced_associations,
-                              enhanced_associations_data=enhanced_associations_data,
-                              enhanced_associations_stats=enhanced_associations_stats,
                               has_term_links=has_term_links,
                               section_term_links=section_term_links,
                               debug_info=debug_info,

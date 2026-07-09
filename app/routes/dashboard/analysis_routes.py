@@ -15,11 +15,6 @@ from app.models.entity_triple import EntityTriple
 from app.models.ontology import Ontology
 from app.models.deconstructed_case import DeconstructedCase
 try:
-    from app.models.case_guideline_associations import CaseGuidelineAssociation
-except ImportError:
-    # Create a placeholder for testing if the model doesn't exist yet
-    CaseGuidelineAssociation = None
-try:
     from app.models.temporary_concept import TemporaryConcept
 except ImportError:
     # Create a placeholder for testing if the model doesn't exist yet
@@ -186,19 +181,10 @@ def register_analysis_routes(bp):
     def test_firac_analysis():
         """Test page for FIRAC analysis."""
     
-        # Get sample cases for testing
-        if CaseGuidelineAssociation is not None:
-            try:
-                cases_with_associations = db.session.query(Document.id, Document.title)\
-                    .join(CaseGuidelineAssociation, Document.id == CaseGuidelineAssociation.case_id)\
-                    .distinct()\
-                    .limit(5)\
-                    .all()
-            except Exception as e:
-                logger.warning(f"Could not query associations: {e}")
-                cases_with_associations = []
-        else:
-            cases_with_associations = []
+        # Get sample cases for testing. The guideline-association machinery
+        # was retired 2026-07-09 (provisions-harmonization.md workstream C),
+        # so sampling falls through to the NSPE-case query below.
+        cases_with_associations = []
     
         # If no cases with associations, get any cases that look like NSPE cases
         if not cases_with_associations:
