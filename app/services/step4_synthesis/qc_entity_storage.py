@@ -34,7 +34,13 @@ def make_question_storage(case_id, session_id, question):
             'questionType': question.get('question_type', 'unknown'),
             'mentionedEntities': question.get('mentioned_entities', {}),
             'relatedProvisions': question.get('related_provisions', []),
-            'extractionReasoning': question.get('extraction_reasoning', '')
+            'extractionReasoning': question.get('extraction_reasoning', ''),
+            # The analytical-question prompt asks for and the parser reads
+            # source_question (the board question this extends) and
+            # ethical_framework, but until 2026-07-08 both were dropped here,
+            # forcing the Q&C view onto a number-offset parent heuristic.
+            'sourceQuestion': question.get('source_question'),
+            'ethicalFramework': question.get('ethical_framework')
         },
         is_selected=True
     )
