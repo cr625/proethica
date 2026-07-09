@@ -156,7 +156,7 @@ class LLMStrategiesMixin:
                         response_text = streaming_completion(
                             self.llm_client,
                             model=ModelConfig.get_claude_model("default"),
-                            max_tokens=16000,
+                            max_tokens=32000,
                             prompt=prompt,
                             temperature=0.2,
                         )
@@ -373,7 +373,7 @@ Return as JSON array:
             response_text = streaming_completion(
                 self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=16000,
+                max_tokens=32000,
                 prompt=prompt,
                 temperature=0.3,
             )
@@ -678,7 +678,7 @@ Return as JSON array:
             response_text = streaming_completion(
                 self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=16000,
+                max_tokens=32000,
                 prompt=prompt,
                 temperature=0.3,
             )
