@@ -118,5 +118,19 @@ def test_parse_refinement_response_golden():
     assert dp.aligned_question_uri == "http://q0"
     assert dp.aligned_question_text == "q0"
     assert dp.source == "unified"
-    assert dp.synthesis_method == "algorithmic+llm"
+    # No source_candidate_ids in the fixture -> the DP was generated beyond
+    # the candidate pool, so the honest label is llm_direct (Phase-C fix).
+    assert dp.synthesis_method == "llm_direct"
     assert dp.llm_refined_description == "d"
+
+
+def test_parse_refinement_response_cited_sources_keep_algorithmic_label():
+    s = DecisionPointSynthesizer()
+    resp = json.dumps([{
+        "focus_id": "DP1", "description": "d", "decision_question": "q?",
+        "role_label": "Engineer B", "addresses_questions": [],
+        "options": [{"label": "o"}], "source_candidate_ids": ["DP2"],
+    }])
+    out = s._parse_refinement_response(resp, top_candidates=[], questions=[],
+                                       conclusions=[], question_emergence=[], resolution_patterns=[])
+    assert out[0].synthesis_method == "algorithmic+llm"
