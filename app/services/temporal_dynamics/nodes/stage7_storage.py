@@ -77,16 +77,27 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
             # is the LangGraph Step-3 path; it applies the SAME contamination check as Step 1-2
             # and the Step-4 narrative (precedent_filter.is_contaminated_entity) so phantom
             # precedents are excluded everywhere.
-            from app.services.extraction.precedent_filter import is_contaminated_entity
+            from app.services.extraction.precedent_filter import (
+                is_contaminated_entity, is_precedent_narrative_temporal)
             from app.services.extraction.case_actors import present_case_engineer_letters
             present_letters = present_case_engineer_letters(case_id)
 
             def _is_precedent(label):
                 return is_contaminated_entity(label, present_letters=present_letters)
 
+            # Happenings narrating a CITED case (precedent-ness in the
+            # description/agent, not the label: "In precedent BER Case
+            # 94-8, Engineer B ...") are dropped with the same rationale --
+            # they describe the precedent's timeline, not this case's
+            # (2026-07-09 Timeline audit; cases 57/121 leaked eight).
+            def _is_precedent_happening(h):
+                return is_precedent_narrative_temporal(
+                    label=h.get('label'), description=h.get('description'),
+                    agent=h.get('agent'), present_letters=present_letters)
+
             _pre = len(state['actions']) + len(state['events']) + len(state['causal_chains'])
-            state['actions'] = [a for a in state['actions'] if not _is_precedent(a.get('label'))]
-            state['events'] = [e for e in state['events'] if not _is_precedent(e.get('label'))]
+            state['actions'] = [a for a in state['actions'] if not _is_precedent_happening(a)]
+            state['events'] = [e for e in state['events'] if not _is_precedent_happening(e)]
             state['causal_chains'] = [c for c in state['causal_chains']
                                       if not _is_precedent(f"{c.get('cause', '')} {c.get('effect', '')}")]
             _tm = state.get('temporal_markers', {})

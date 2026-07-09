@@ -24,6 +24,8 @@ entities that merely reference precedent practice (e.g. "Engineer L BER Preceden
 """
 from __future__ import annotations
 
+import re
+
 from typing import Callable, List, Tuple, TypeVar
 
 # Actor/case-number patterns now live in one shared home (app.services.extraction.text_patterns);
@@ -183,3 +185,34 @@ def drop_contaminated_entities(
 
     kept, hits = PRECEDENT_RULES.partition(items, to_ctx, get_label)
     return kept, [h.label for h in hits]
+
+
+_PRECEDENT_NARRATIVE_AGENT = re.compile(
+    r'\bin\s+(?:BER\s+)?Case\s+\d{2}-\d{1,2}\b', re.IGNORECASE)
+
+
+def is_precedent_narrative_temporal(
+    label: str | None = None,
+    description: str | None = None,
+    agent: str | None = None,
+    present_letters=None,
+) -> bool:
+    """True when a temporal happening (Action/Event) narrates a CITED
+    precedent case rather than this case: its label is contaminated per
+    is_contaminated_entity, its description opens as precedent narration
+    ("In precedent BER Case 94-8, Engineer B accepted ..."), or its agent
+    is qualified into another case ("Engineer B in Case 94-8").
+
+    The 2026-07-09 Timeline audit found stage 7's label-only contamination
+    check let such entries through (cases 57 and 121: eight precedent
+    happenings interleaved into the case timelines) because the
+    precedent-ness lives in the description/agent, not the label. Single
+    source for stage-7 dropping, the timeline view's legacy-row fallback,
+    and the gold backfill.
+    """
+    if is_contaminated_entity(label, present_letters=present_letters):
+        return True
+    d = (description or '').lstrip().lower()
+    if d.startswith('in precedent') or 'precedent ber case' in d:
+        return True
+    return bool(_PRECEDENT_NARRATIVE_AGENT.search(agent or ''))

@@ -74,16 +74,13 @@ class TimelineViewMixin:
         # timeline). Detected deterministically from the extraction's own
         # phrasing; excluded from display but kept in data for the narrative
         # phase. The exclusion is surfaced in the payload, never silent.
-        import re as _pre_re
-        _PRECEDENT_AGENT = _pre_re.compile(r'\bin\s+(?:BER\s+)?Case\s+\d{2}-\d{1,2}\b',
-                                           _pre_re.IGNORECASE)
+        from app.services.extraction.precedent_filter import (
+            is_precedent_narrative_temporal)
 
         def _is_precedent_narrative(rdf) -> bool:
-            desc = str(rdf.get('proeth:description', '') or '')
-            agent = str(rdf.get('proeth:hasAgent', '') or '')
-            return (desc.lstrip().lower().startswith('in precedent')
-                    or 'precedent ber case' in desc.lower()
-                    or bool(_PRECEDENT_AGENT.search(agent)))
+            return is_precedent_narrative_temporal(
+                description=str(rdf.get('proeth:description', '') or ''),
+                agent=str(rdf.get('proeth:hasAgent', '') or ''))
 
         precedent_context_excluded = 0
         seq = 0
