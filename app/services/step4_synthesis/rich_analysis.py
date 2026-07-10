@@ -767,7 +767,10 @@ Include all {len(batch_conclusions)} conclusions in this batch.
                     extraction_type='causal_normative_link',
                     storage_type='individual',
                     entity_type='analysis',
-                    entity_label=f"CausalLink_{link.action_label[:30]}",
+                    # No truncation: this label mints the committed URI, and
+                    # the [:30] cap orphaned analyzesAction grounding via
+                    # truncated names ('..._Issuanc'; 2026-07-10 audit).
+                    entity_label=f"CausalLink_{link.action_label}",
                     entity_uri=f"case-{case_id}#CausalLink_{i+1}",
                     entity_definition=link.reasoning,
                     rdf_json_ld={
