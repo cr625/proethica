@@ -106,8 +106,6 @@ class Phase2Extractor(BaseSynthesizer):
             'obligations': 'obligations',
             'constraints': 'constraints',
             'capabilities': 'capabilities',
-            'actions': 'actions_events',
-            'events': 'temporal_dynamics_enhanced',
         }
 
         all_entities = {}
@@ -117,6 +115,17 @@ class Phase2Extractor(BaseSynthesizer):
                 extraction_type=extraction_type
             ).all()
             all_entities[key] = entities
+
+        # Step 3 stores actions and events together under extraction_type
+        # 'temporal_dynamics_enhanced'; entity_type discriminates them. The
+        # other entity_type values there (causal_chains, allen_relations,
+        # timeline) are relational structure, not entities, and are excluded.
+        for key in ('actions', 'events'):
+            all_entities[key] = TemporaryRDFStorage.query.filter_by(
+                case_id=self.case_id,
+                extraction_type='temporal_dynamics_enhanced',
+                entity_type=key
+            ).all()
 
         return all_entities
 

@@ -85,12 +85,6 @@
       "concept_type": "principles",
       "section_type": "facts",
       "step": 2
-    },
-    {
-      "file": "actions_events.json",
-      "concept_type": "actions_events",
-      "section_type": "temporal",
-      "step": 3
     }
   ]
 }
