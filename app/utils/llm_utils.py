@@ -42,6 +42,16 @@ def streaming_completion(client, model: str, max_tokens: int, prompt: str,
         stream_kwargs["temperature"] = temperature
     with client.messages.stream(**stream_kwargs) as stream:
         response = stream.get_final_message()
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        # Thinking spends from the same budget, so a deep-thinking run can
+        # exhaust max_tokens mid-text (case 121 Phase 3, 2026-07-08: ~14K
+        # thinking tokens left ~2K for text and the JSON cut mid-string,
+        # silently yielding 1 of 5 decision points). Callers with partial
+        # recovery proceed; the warning makes the truncation diagnosable.
+        import logging
+        logging.getLogger(__name__).warning(
+            f"streaming_completion hit max_tokens={max_tokens} on {model}; "
+            f"text is truncated ({len(text_from_message(response))} chars)")
     return text_from_message(response)
 
 def text_from_message(message) -> str:

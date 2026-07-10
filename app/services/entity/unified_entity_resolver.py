@@ -442,6 +442,23 @@ class UnifiedEntityResolver:
         # Extract text-reference-grounded aliases from compound labels
         self._extract_text_aliases(lookup)
 
+        # Post-pass (2026-07-09 walkthrough): definition-less Agent
+        # individuals get a minimal entry for labels NOTHING RICHER claims.
+        # 'XYZ Consulting Engineers' (an Agent with no definition) had no
+        # popover at all, while 'Engineer T' resolved through its
+        # definition-bearing Role alias. Ordering matters: this runs after
+        # all definition-bearing entries and aliases are indexed, so a rich
+        # popover is never displaced by a thin Agent line.
+        for uri, data in lookup.items():
+            if (data.get('entity_type') or '') != 'Agent' or data.get('definition'):
+                continue
+            label_key = (data.get('label') or '').lower().strip()
+            if not label_key or label_key in self._label_index:
+                continue
+            agent_entry = dict(data)
+            agent_entry['definition'] = 'Participant (Agent) in this case.'
+            self._label_index[label_key] = agent_entry
+
     def _extract_text_aliases(self, lookup: Dict[str, Dict]) -> None:
         """
         Extract short aliases from entity labels, validated by textReferences.

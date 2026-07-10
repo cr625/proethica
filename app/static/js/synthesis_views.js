@@ -15,16 +15,23 @@
       return;
     }
     // Popovers: character mentions, provision-code badges, role badges,
-    // provision type chips. Skip any element already initialized.
+    // provision type chips, secondary-conclusion chips. Skip any element
+    // already initialized.
     var popoverSelectors = [
       '.char-mention[data-bs-toggle="popover"]',
       '.provision-badge[data-bs-toggle="popover"]',
       '.role-badge[data-bs-toggle="popover"]',
-      '.provision-type-chip[data-bs-toggle="popover"]'
+      '.provision-type-chip[data-bs-toggle="popover"]',
+      '.qc-secondary-chip[data-bs-toggle="popover"]',
+      '.tl-grounding-chip[data-bs-toggle="popover"]'
     ];
+    // Shared keep-open plumbing (ontology-popovers.js, loaded before this
+    // script on both consumer pages): popovers stay open while the pointer
+    // is inside the tip, so the ontology links added 2026-07-09 (Q&C
+    // provisions, timeline grounding) are clickable on hover.
     root.querySelectorAll(popoverSelectors.join(',')).forEach(function (el) {
       if (!bootstrap.Popover.getInstance(el)) {
-        new bootstrap.Popover(el);
+        attachKeepOpenPopover(el);
       }
     });
 

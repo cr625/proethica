@@ -16,11 +16,21 @@ from app.services.entity_analysis import EntityGroundedDecisionPoint
 
 @dataclass
 class ToulminStructure:
-    """Toulmin argumentation structure for a decision point."""
-    data_summary: str = ""           # Summary of triggering facts (DATA)
-    warrants_summary: str = ""       # Summary of competing obligations (WARRANTs)
-    rebuttals_summary: str = ""      # What creates uncertainty (REBUTTAL)
-    backing_provisions: List[str] = field(default_factory=list)  # Code provisions (BACKING)
+    """Toulmin (1958) argument structure for a decision point -- all six
+    categories. The domain mapping (dissertation Ch3): case facts are the
+    grounds; obligations/principles, stated as general rules, are the
+    warrants; NSPE Code provisions are the backing behind those warrants;
+    the claim is the course of action argued for (the Board's choice where
+    the Board ruled); the qualifier carries the modal strength or conditions
+    the Board attached; the rebuttal is the condition of exception under
+    which the warrant would not license the claim, not a generic
+    counter-argument."""
+    claim: str = ""                  # CLAIM: the course of action argued for
+    data_summary: str = ""           # GROUNDS/DATA: case facts appealed to
+    warrants_summary: str = ""       # WARRANT(s): rules licensing facts -> claim
+    qualifier: str = ""              # QUALIFIER: modal strength / attached conditions
+    rebuttals_summary: str = ""      # REBUTTAL: conditions of exception ("unless ...")
+    backing_provisions: List[str] = field(default_factory=list)  # BACKING: code provisions
 
 
 @dataclass

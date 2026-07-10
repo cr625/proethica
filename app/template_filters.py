@@ -2,6 +2,7 @@
 Custom template filters for the application.
 """
 
+import logging
 import os
 import re
 import markdown
@@ -20,6 +21,70 @@ def init_app(app):
         literal breakdown shown on the review pages."""
         from app.services.extraction.field_classification import group_properties
         return group_properties(rdf_json_ld or {})
+
+    @app.template_filter('nspe_ontology_url')
+    def nspe_ontology_url_filter(code):
+        """OntServe entity-page URL for an NSPE provision code, or '' when
+        the code does not map (historical Canon/Rule vocabulary). The
+        fragment rule is drift-tested against the NSPE TTL
+        (tests/unit/test_provision_references.py)."""
+        from app.utils.provision_codes import nspe_provision_fragment
+        frag = nspe_provision_fragment(code)
+        if not frag:
+            return ''
+        base = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+        return f"{base}/entity/NSPE Code of Ethics/{frag}"
+
+    @app.template_filter('upgrade_references')
+    def upgrade_references_filter(html, provision_references):
+        """Replace the baked 'NSPE Code of Ethics References' card body in
+        extraction-style case HTML with the structured render from the parsed
+        board-stated provision set (code linked to the NSPE Code ontology on
+        OntServe, verbatim text, subject-reference chips). The baked HTML is
+        ingestion-time derived data; this upgrades the display without
+        rewriting document content. Returns the HTML unchanged when there is
+        nothing to upgrade."""
+        if not html or not provision_references:
+            return Markup(html or '')
+        try:
+            from bs4 import BeautifulSoup
+            from markupsafe import escape
+            from app.utils.provision_codes import nspe_provision_fragment
+            soup = BeautifulSoup(str(html), 'html.parser')
+            header = next((h for h in soup.select('.card-header')
+                           if 'NSPE Code of Ethics References' in h.get_text()), None)
+            if header is None:
+                return Markup(html)
+            card = header.find_parent(class_='card')
+            body = card.select_one('.card-body') if card else None
+            if body is None:
+                return Markup(html)
+            base = current_app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003')
+            parts = []
+            for ref in provision_references:
+                frag = nspe_provision_fragment(ref.get('code', ''))
+                code_html = (
+                    f'<a href="{base}/entity/NSPE Code of Ethics/{frag}" target="_blank" '
+                    f'class="fw-bold text-decoration-none" '
+                    f'title="View this provision in the NSPE Code of Ethics ontology">'
+                    f'{escape(ref.get("code_raw", ref.get("code", "")))} '
+                    f'<i class="bi bi-box-arrow-up-right" style="font-size: 0.7rem;"></i></a>'
+                    if frag else f'<span class="fw-bold">{escape(ref.get("code_raw", ""))}</span>')
+                subjects = ''.join(
+                    f'<span class="badge bg-light text-dark border me-1" '
+                    f'style="font-size: 0.7rem;">{escape(s)}</span>'
+                    for s in ref.get('subjects', []))
+                subj_row = (f'<div class="mt-1"><small class="text-muted me-1">'
+                            f'Subject Reference:</small>{subjects}</div>' if subjects else '')
+                parts.append(f'<div class="mb-3"><div>{code_html} '
+                             f'<span class="ms-1">{escape(ref.get("text", ""))}</span></div>'
+                             f'{subj_row}</div>')
+            body.clear()
+            body.append(BeautifulSoup(''.join(parts), 'html.parser'))
+            return Markup(str(soup))
+        except Exception:
+            logging.getLogger(__name__).exception('upgrade_references failed')
+            return Markup(html)
 
     @app.template_filter('basename')
     def basename_filter(path):

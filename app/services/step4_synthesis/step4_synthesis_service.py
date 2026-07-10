@@ -490,6 +490,16 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
         db.session.commit()
         logger.info(f"[Step4Synthesis] Stored {len(provisions)} provisions")
 
+        # Keep the harmonized provision set current (board-stated UNION
+        # analysis-found; provisions-harmonization.md workstream A). Mirrors
+        # _update_cited_cases on the precedents stage; provisions_cited feeds
+        # the similarity provision_overlap feature.
+        try:
+            from app.utils.provision_references import update_provisions_cited
+            update_provisions_cited(case_id)
+        except Exception as e:
+            logger.warning(f"[Step4Synthesis] provisions_cited harmonization failed: {e}")
+
         return {
             'provisions_count': len(provisions),
             'entity_links': total_links
@@ -505,7 +515,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
 def _run_precedents(case_id: int, llm_client) -> dict:
     """Extract precedent case references cited in board discussion."""
     from app.routes.scenario_pipeline.step4.precedents import (
-        PRECEDENT_EXTRACTION_PROMPT, _update_cited_cases
+        PRECEDENT_EXTRACTION_PROMPT, _update_cited_cases, normalize_precedents
     )
     from app.utils.llm_utils import streaming_completion
     from model_config import ModelConfig
@@ -526,6 +536,16 @@ def _run_precedents(case_id: int, llm_client) -> dict:
         if not case_text_parts:
             return {'precedents_count': 0, 'skipped': True, 'reason': 'No case sections'}
 
+        # Self-clearing like the interactive route and the other Step-4
+        # stages. Without this, each batch run APPENDED a full duplicate set
+        # (2026-07-09 Precedents audit: all 15 gold cases carried exactly 2x
+        # rows from 2 sessions).
+        TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='precedent_case_reference'
+        ).delete(synchronize_session=False)
+        db.session.commit()
+
         case_text = '\n\n'.join(case_text_parts)
         prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
 
@@ -539,6 +559,7 @@ def _run_precedents(case_id: int, llm_client) -> dict:
         precedents = parse_json(raw_response, context='precedent_extraction', strict=True)
         if not isinstance(precedents, list):
             precedents = []
+        precedents = normalize_precedents(precedents)
 
         # Resolve case numbers to internal IDs
         for p in precedents:

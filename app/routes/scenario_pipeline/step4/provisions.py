@@ -208,6 +208,16 @@ def extract_and_link_provisions(case_id: int, case: Document):
 
     db.session.commit()
     logger.info(f"Part A complete: Stored {len(linked_provisions)} code provisions")
+
+    # Keep the harmonized provision set current (board-stated UNION
+    # analysis-found; provisions-harmonization.md workstream A). Same hook as
+    # the batch path in step4_synthesis_service._run_provisions.
+    try:
+        from app.utils.provision_references import update_provisions_cited
+        update_provisions_cited(case_id)
+    except Exception as e:
+        logger.warning(f"provisions_cited harmonization failed for case {case_id}: {e}")
+
     return linked_provisions
 
 

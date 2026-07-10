@@ -416,7 +416,15 @@ def register_similarity_routes(bp):
                 matrix[i][i] = 1.0  # Self-similarity
                 for j, tgt_id in enumerate(case_ids):
                     if i < j:
-                        result = similarity_service.calculate_similarity(src_id, tgt_id)
+                        # Component mode: the same configuration as the
+                        # Precedents tab, the discovery service, and the
+                        # (component-populated) network cache -- the
+                        # dissertation Ch3 3.7.4 configuration. The former
+                        # default here silently used the section-based
+                        # BASELINE, so the matrix disagreed with every other
+                        # similarity surface (2026-07-09 congruence audit).
+                        result = similarity_service.calculate_similarity(
+                            src_id, tgt_id, use_component_embedding=True)
                         if component == 'overall':
                             score = result.overall_similarity
                         else:

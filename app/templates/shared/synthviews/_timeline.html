@@ -9,6 +9,9 @@
     <span class="badge bg-light text-dark border"><i class="bi bi-list-ol me-1"></i>{{ view.count }} sequenced</span>
     <span class="badge bg-light text-dark border"><i class="bi bi-person-walking me-1" style="color: #0d6efd;"></i>{{ view.action_count }} actions</span>
     <span class="badge bg-light text-dark border"><i class="bi bi-lightning me-1" style="color: #6f42c1;"></i>{{ view.event_count }} events</span>
+    {% if view.precedent_context_excluded %}
+    <span class="badge bg-light text-muted border" title="Happenings from cited precedent cases are not part of this case's own sequence; they inform the Narrative as context.">{{ view.precedent_context_excluded }} precedent-context entr{{ 'y' if view.precedent_context_excluded == 1 else 'ies' }} not shown</span>
+    {% endif %}
   </div>
 
   <h5 class="mt-4 mb-3 pb-2 border-bottom d-flex align-items-center" style="color: #334155; font-weight: 600;">
@@ -18,7 +21,7 @@
     {% for entry in view.entries %}
     {% set is_action = (entry.kind == 'action') %}
     {% set has_obligations = entry.fulfills_obligations or entry.violates_obligations or entry.raises_obligations %}
-    {% set has_expand = entry.description or has_obligations %}
+    {% set has_expand = entry.description or has_obligations or entry.decision_points or entry.state_changes %}
     <div class="tl-compact-node {{ 'tl-action' if is_action else 'tl-event' }} {{ 'tl-has-expand' if has_expand else '' }}"
          {% if has_expand %}data-bs-toggle="collapse" data-bs-target="#synth-tl-entry-{{ loop.index }}" role="button" aria-expanded="false"{% endif %}>
       <span class="tl-compact-icon">{% if is_action %}<i class="bi bi-person-walking"></i>{% else %}<i class="bi bi-lightning"></i>{% endif %}</span>
@@ -33,10 +36,22 @@
           <a class="char-mention" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus hover"
              data-bs-title="Role in this event" data-bs-content="{{ _agent_role|escape }}">{{ _agent_short }}</a>
           {% else %}<span>{{ _agent_short }}</span>{% endif %}
+          {% if entry.agent_in_model is sameas false %}
+          <i class="bi bi-question-circle text-warning" style="font-size: 0.65rem;"
+             title="This actor is not among the case's modeled Agent individuals (precedent-narrative actor, or an agent-model gap)."></i>
+          {% endif %}
         </span>
       {% endif %}
       {% if has_expand %}<i class="bi bi-chevron-right tl-entry-chevron" style="font-size: 0.7rem;"></i>{% endif %}
       {% if entry.temporal_marker %}<span class="tl-compact-marker">{{ entry.temporal_marker }}</span>{% endif %}
+      {% if entry.decision_points %}<span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;" title="A synthesized decision point sits at this moment of the case">{{ entry.decision_points|length }} decision point{{ 's' if entry.decision_points|length != 1 }}</span>{% endif %}
+      {% if entry.temporal_relations %}
+      <span class="badge bg-light text-dark border tl-grounding-chip ms-1" style="font-size: 0.6rem;" tabindex="0"
+            data-bs-toggle="popover" data-bs-trigger="focus hover" data-bs-html="true"
+            data-bs-title="Temporal grounding (Allen relations)"
+            data-bs-content="{% for tr in entry.temporal_relations[:4] %}&lt;b&gt;{{ tr.relation }}&lt;/b&gt; {{ tr.other|e|e }}{% if tr.evidence %}&lt;br&gt;&lt;i&gt;&amp;ldquo;{{ tr.evidence|e|e }}&amp;rdquo;&lt;/i&gt;{% endif %}{% if not loop.last %}&lt;hr class=&quot;my-1&quot;&gt;{% endif %}{% endfor %}">
+        <i class="bi bi-clock"></i> {{ entry.temporal_relations|length }}</span>
+      {% endif %}
     </div>
     {% if has_expand %}
     <div class="collapse tl-dp-collapse" id="synth-tl-entry-{{ loop.index }}">
@@ -57,6 +72,23 @@
       <div class="tl-obl-nest tl-violates">
         <div class="tl-obl-header"><i class="bi bi-x-circle-fill"></i><span>Violates ({{ entry.violates_obligations|length }})</span></div>
         <ul class="tl-obl-list">{% for o in entry.violates_obligations %}<li>{{ o }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if entry.state_changes %}
+      <div class="tl-obl-nest tl-states">
+        <div class="tl-obl-header"><i class="bi bi-toggles"></i><span>State changes ({{ entry.state_changes|length }})</span></div>
+        <ul class="tl-obl-list">{% for sc in entry.state_changes %}<li>{{ sc.change }}: {{ sc.state }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if entry.decision_points %}
+      <div class="tl-obl-nest tl-decisions">
+        <div class="tl-obl-header"><i class="bi bi-signpost-split"></i><span>Decision point{{ 's' if entry.decision_points|length != 1 }} at this moment</span></div>
+        <ul class="tl-obl-list">
+          {% for dp in entry.decision_points %}
+          <li><strong>{{ dp.focus_id }}</strong> {{ dp.entity_label|truncate(140) }}
+            {% if dp.options %}<span class="text-muted">({{ dp.options|length }} options)</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
       </div>
       {% endif %}
     </div>

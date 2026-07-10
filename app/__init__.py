@@ -147,7 +147,6 @@ def create_app(config_name=None):
     from app.routes.type_management import type_management_bp
     from app.routes.debug_env import debug_env_bp
     from app.routes.wizard import wizard_bp
-    from app.routes.guidelines import guidelines_bp
     from app.routes.admin import admin_bp
     from app.routes.prompt_builder import prompt_builder_bp
     from app.routes.annotations import annotations_bp
@@ -190,7 +189,6 @@ def create_app(config_name=None):
     app.register_blueprint(type_management_bp)
     app.register_blueprint(debug_env_bp)
     app.register_blueprint(wizard_bp)
-    app.register_blueprint(guidelines_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(prompt_builder_bp)
     app.register_blueprint(annotations_bp)

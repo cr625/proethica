@@ -178,14 +178,7 @@
                                 <tr>
                                     <td>{{ ont.name }}</td>
                                     <td>
-                                        {% if ont.related_document_id and ont.related_world_id %}
-                                        <a href="{{ url_for('worlds.view_guideline', id=ont.related_world_id, document_id=ont.related_document_id) }}"
-                                            class="text-primary text-decoration-none">
-                                            {{ ont.related_guideline_title }}
-                                        </a>
-                                        {% else %}
                                         <span class="text-muted">{{ ont.related_guideline_title }}</span>
-                                        {% endif %}
                                         <br>
                                         <small class="text-muted">{{ ont.domain_id }}</small>
                                     </td>

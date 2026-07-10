@@ -12,6 +12,7 @@ records so downstream tools can link to the full case text.
 
 import json as json_mod
 import logging
+import re
 import uuid
 from datetime import datetime
 
@@ -32,6 +33,23 @@ logger = logging.getLogger(__name__)
 # Prompt
 # ---------------------------------------------------------------------------
 
+# Citation treatment vocabulary. AUTHORITATIVE SOURCE:
+# OntServe/ontologies/proethica-cases.ttl (skos:definition on the
+# CitationTreatment concepts; browsable at /ontology/proethica-cases).
+# tests/unit/test_precedent_vocabulary.py asserts this dict matches the
+# ontology, so edits here or there fail the suite instead of drifting.
+# The terms follow the treatment-signal convention of citator services
+# (Shepard's); the correspondence is recorded per term in the ontology.
+CITATION_TREATMENTS = {
+    'supporting': 'The Board cites the prior case as authority for the position taken in the present analysis, applying its principle to reach the same result.',
+    'distinguishing': 'The Board cites the prior case to show that its facts or principle do not govern the present case, explaining the material difference.',
+    'analogizing': 'The Board cites the prior case as a parallel fact situation and reasons from the similarity, without treating it as controlling authority.',
+    'overruling': 'The Board cites the prior case as superseded: its holding is disapproved, limited, or no longer reflects the Code as applied.',
+}
+
+_TREATMENT_PROMPT_BLOCK = "\n".join(
+    f'   - "{term}": {defn}' for term, defn in CITATION_TREATMENTS.items())
+
 PRECEDENT_EXTRACTION_PROMPT = """You are analyzing an ethics case from the NSPE Board of Ethical Review (BER).
 Identify ALL prior cases, decisions, or rulings cited by the board in their discussion.
 
@@ -40,9 +58,12 @@ CASE TEXT:
 
 For each cited case, extract:
 1. caseCitation: The exact citation as it appears in the text (e.g., "BER Case 94-8", "Case No. 85-3")
-2. caseNumber: Normalized case number (e.g., "94-8", "85-3")
+2. caseNumber: Normalized case number (e.g., "94-8", "85-3"). EXACTLY ONE case number
+   per entry: when the board cites several cases jointly ("Cases 65-9 and 73-9"),
+   emit one entry per case, repeating the shared context.
 3. citationContext: A 1-2 sentence summary of WHY the board cited this case -- what point it supports
-4. citationType: One of: "supporting" (cited to support the current analysis), "distinguishing" (cited to show how the current case differs), "analogizing" (cited as a parallel situation), "overruling" (cited as being superseded)
+4. citationType: One of the following treatment terms, by the board's actual use of the citation:
+""" + _TREATMENT_PROMPT_BLOCK + """
 5. principleEstablished: The key principle, holding, or precedent that the cited case establishes
 6. relevantExcerpts: Array of objects with "section" (facts/discussion/question/conclusion) and "text" (the exact passage where the citation appears, up to 200 characters)
 
@@ -68,6 +89,36 @@ Respond ONLY with the JSON array, no other text."""
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+_BER_NUMBER = re.compile(r'\b\d{2}-\d{1,2}\b')
+
+
+def normalize_precedents(precedents: list) -> list:
+    """Split joint citations into one entry per case number.
+
+    The board frequently cites cases jointly ("Cases 65-9 and 73-9") and the
+    LLM intermittently emits ONE entry with caseNumber "65-9, 73-9" despite
+    the one-number-per-entry prompt rule (2026-07-09 Precedents audit,
+    case 4). A combined number can never resolve to an internal document, so
+    the split is enforced deterministically here: entries whose caseNumber
+    carries several BER numbers become one entry per number with the shared
+    context duplicated. Entries with zero or one number pass through.
+    """
+    out = []
+    for p in precedents:
+        if not isinstance(p, dict):
+            continue
+        numbers = _BER_NUMBER.findall(str(p.get('caseNumber', '')))
+        if len(numbers) <= 1:
+            out.append(p)
+            continue
+        for n in numbers:
+            split = dict(p)
+            split['caseNumber'] = n
+            split['caseCitation'] = f"BER Case {n}"
+            out.append(split)
+    return out
+
 
 def _update_cited_cases(case_id: int, precedents: list):
     """Update case_precedent_features with cited case numbers from extraction."""
@@ -170,6 +221,7 @@ def register_precedent_routes(bp):
                                    'messages': ['Failed to parse LLM response as JSON'], 'error': True})
                     return
 
+                precedents = normalize_precedents(precedents)
                 yield sse_msg({'stage': 'PARSED', 'progress': 70,
                                'messages': [f'Found {len(precedents)} cited precedent cases']})
 
@@ -325,6 +377,7 @@ def register_precedent_routes(bp):
             precedents = parse_json_response(raw_response, context="precedent_extraction")
             if precedents is None:
                 precedents = []
+            precedents = normalize_precedents(precedents)
 
             # Resolve + store
             session_id = str(uuid.uuid4())

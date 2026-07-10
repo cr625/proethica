@@ -51,51 +51,17 @@ class TransformationClassifier:
     how the ethical situation was resolved.
     """
 
+    # Single-sourced from the canonical framework module (the verified
+    # Marchais-Roubelat & Roubelat 2015 typology with source quotes and
+    # indicator lists). This was previously a trimmed local copy of the same
+    # four types -- a drift risk between the fallback vocabulary and the
+    # framework the LLM path quotes (consolidated 2026-07-08).
+    from app.academic_references.frameworks.transformation_classification import (
+        TRANSFORMATION_TYPES as _FRAMEWORK_TYPES,
+    )
     TRANSFORMATION_TYPES = {
-        'transfer': {
-            'description': 'Resolution transfers obligation/responsibility to another party',
-            'indicators': [
-                'responsibility transferred',
-                'duty passed to',
-                'obligation shifted',
-                'another party should',
-                'client must now',
-                'employer takes responsibility'
-            ]
-        },
-        'stalemate': {
-            'description': 'Competing obligations remain in tension without clear resolution',
-            'indicators': [
-                'both obligations valid',
-                'competing duties',
-                'ethical dilemma remains',
-                'no clear resolution',
-                'conflict persists',
-                'equally compelling'
-            ]
-        },
-        'oscillation': {
-            'description': 'Duties shift back and forth between parties over time',
-            'indicators': [
-                'duty returns to',
-                'responsibility cycles',
-                'alternating obligation',
-                'back and forth',
-                'recurring duty',
-                'periodic responsibility'
-            ]
-        },
-        'phase_lag': {
-            'description': 'Delayed consequences reveal obligations not initially apparent',
-            'indicators': [
-                'later discovered',
-                'subsequently revealed',
-                'delayed consequence',
-                'hidden defect',
-                'future harm',
-                'temporal gap'
-            ]
-        }
+        t: {'description': info['definition'], 'indicators': info['indicators']}
+        for t, info in _FRAMEWORK_TYPES.items()
     }
 
     def __init__(self, llm_client=None):

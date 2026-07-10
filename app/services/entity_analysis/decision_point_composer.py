@@ -202,6 +202,15 @@ class DecisionPointComposer:
         if action_map is None:
             action_map = get_action_option_map(case_id, self.domain.name)
 
+        # Obligation<->action links asserted by the committed graph
+        # (fulfillsObligation / violatesObligation), keyed by lowercase label.
+        # Edge-based matching is primary; the text-overlap heuristic below is
+        # the fallback. On fresh-architecture cases the heuristic starved
+        # (best score 0.25 vs threshold 0.3 on case 5) while the graph carried
+        # the links explicitly -- re-deriving lossily what an earlier stage
+        # asserted (2026-07-08 Decisions analysis).
+        self._edge_links = self._build_edge_links(case_id)
+
         # Load Board Q&C from Step 4
         questions, conclusions = self._load_board_qc(case_id)
 
@@ -353,12 +362,43 @@ class DecisionPointComposer:
             for p in provisions_raw
         ]
 
+    def _build_edge_links(self, case_id: int) -> dict:
+        """{obligation_label_lower: set(action_label_lower)} from the committed
+        case graph's fulfillsObligation / violatesObligation edges (subject =
+        the Action, object = the Obligation). Empty dict when the case has no
+        committed TTL yet; matching then falls back to the text heuristic."""
+        links: dict = {}
+        try:
+            from rdflib import Namespace, RDFS
+            from app.services.entity.committed_case_graph import load_case_graph
+            g = load_case_graph(case_id)
+            core = Namespace("http://proethica.org/ontology/core#")
+
+            def label(u):
+                v = g.value(u, RDFS.label)
+                return str(v).lower() if v else str(u).rsplit('#', 1)[-1].replace('_', ' ').lower()
+
+            for pred in (core.fulfillsObligation, core.violatesObligation):
+                for action, obligation in g.subject_objects(pred):
+                    links.setdefault(label(obligation), set()).add(label(action))
+        except Exception as exc:  # noqa: BLE001 - no TTL yet is a normal state
+            logger.info(f"Edge-link lookup unavailable for case {case_id}: {exc}")
+        return links
+
     def _find_matching_action_set(
         self,
         obligation: ObligationAnalysis,
         action_map: ActionOptionMap
     ) -> Optional[ActionSet]:
-        """Find an action set that matches an obligation."""
+        """Find an action set that matches an obligation. Graph edges first,
+        text-overlap heuristic as fallback."""
+        linked_actions = getattr(self, '_edge_links', {}).get(
+            (obligation.entity_label or '').lower(), set())
+        if linked_actions:
+            for action_set in action_map.action_sets:
+                if any((a.label or '').lower() in linked_actions for a in action_set.actions):
+                    return action_set
+
         obl_text = f"{obligation.entity_label} {obligation.entity_definition}".lower()
         obl_type = obligation.decision_type
 

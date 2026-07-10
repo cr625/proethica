@@ -2,6 +2,19 @@
    Parent provides `view` = the qc view object. Styling: synthesis_views.css;
    behaviors: synthesis_views.js (provision-badge popovers, qc-sub chevrons). #}
 <div class="synthview">
+{% macro secondary_chips(q) %}
+{% if q.secondary_conclusions %}
+<div class="mt-1">
+  <span class="small text-muted me-1">Also discussed in:</span>
+  {% for sc in q.secondary_conclusions %}
+  <span class="badge bg-light text-dark border qc-secondary-chip" style="font-size: 0.6rem;" tabindex="0"
+        data-bs-toggle="popover" data-bs-trigger="focus hover"
+        data-bs-title="{{ sc.label|replace('_', ' ') }}"
+        data-bs-content="{{ sc.text|escape }}">{{ sc.label|replace('Conclusion_', 'C') }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
 {% if view and view.board_questions %}
   {% for bq in view.board_questions %}
   {% set bq_num = bq.number|replace('Question_', '') %}
@@ -29,10 +42,11 @@
               <div class="mt-1">
                 {% for prov in c.cited_provisions %}
                 {% set prov_text = view.provision_text_lookup.get(prov, '') %}
+                {% set prov_url = prov|nspe_ontology_url %}
                 <span class="badge bg-primary provision-badge" style="font-size: 0.6rem;" tabindex="0"
-                      data-bs-toggle="popover" data-bs-trigger="focus hover"
+                      data-bs-toggle="popover" data-bs-trigger="focus hover" data-bs-html="true"
                       data-bs-title="NSPE Code {{ prov }}"
-                      data-bs-content="{{ prov_text|escape if prov_text else 'Provision text not available for this case.' }}">{{ prov }}</span>
+                      data-bs-content="{{ (prov_text|e|e if prov_text else 'Provision text not available for this case.') }}{% if prov_url %}&lt;br&gt;&lt;a href=&quot;{{ prov_url }}&quot; target=&quot;_blank&quot;&gt;View in the NSPE Code ontology&lt;/a&gt;{% endif %}">{{ prov }}</span>
                 {% endfor %}
               </div>
               {% endif %}
@@ -43,6 +57,7 @@
         {% else %}
         <p class="small text-muted fst-italic mb-2">The Board did not provide a conclusion specific to this question. The Discussion section covers the Board&rsquo;s reasoning across all questions.</p>
         {% endif %}
+        {{ secondary_chips(bq) }}
         {% if all_subs %}
         <div class="mt-3">
           <a class="qc-sub-toggle text-decoration-none" data-bs-toggle="collapse" href="#synth-qc-sub-{{ bq_num }}" role="button" aria-expanded="false">
@@ -66,6 +81,7 @@
                   </div>
                 </div>
                 {% endfor %}
+                {{ secondary_chips(sq) }}
               </div>
               {% endfor %}
               {% endif %}
@@ -81,11 +97,11 @@
 
   {% if view.cross_cutting %}
   <div class="qc-cross-cutting mt-4">
-    <h6><i class="bi bi-collection me-1"></i>Cross-cutting analytical questions ({{ view.cross_cutting|length }})</h6>
-    <p class="section-helper">These questions consider the case as a whole rather than a specific board question above.</p>
+    <h6><i class="bi bi-collection me-1"></i>Analytical questions ({{ view.cross_cutting|length }})</h6>
+    <p class="section-helper">Questions the analysis generates beyond the board&rsquo;s explicit questions: implicit issues, principle tensions, theoretical framings, and counterfactuals. A question with an identified source board question appears nested under that question above.</p>
     <a class="qc-sub-toggle text-decoration-none" data-bs-toggle="collapse" href="#synth-qc-cross-cutting" role="button" aria-expanded="false">
       <i class="bi bi-chevron-right me-1 qc-sub-chevron"></i>
-      Show {{ view.cross_cutting|length }} cross-cutting question{{ 's' if view.cross_cutting|length != 1 }}
+      Show {{ view.cross_cutting|length }} analytical question{{ 's' if view.cross_cutting|length != 1 }}
     </a>
     <div class="collapse" id="synth-qc-cross-cutting">
       <div class="qc-sub-questions">
@@ -104,6 +120,7 @@
             </div>
           </div>
           {% endfor %}
+          {{ secondary_chips(sq) }}
         </div>
         {% endfor %}
         {% endif %}

@@ -6,6 +6,18 @@
 <div class="provision-card mb-3">
   <div class="provision-header">
     <span class="provision-code">{{ prov.code_section }}</span>
+    {% if prov.provenance == 'both' %}
+    <span class="badge bg-success ms-1" style="font-size: 0.6rem;" title="Stated in the case's NSPE Code of Ethics References section AND found by the Step-4 analysis.">board + analysis</span>
+    {% elif prov.provenance == 'board' %}
+    <span class="badge bg-primary ms-1" style="font-size: 0.6rem;" title="Stated in the case's NSPE Code of Ethics References section; the Step-4 analysis did not cite it.">board-stated</span>
+    {% elif prov.provenance == 'analysis' %}
+    <span class="badge bg-info ms-1" style="font-size: 0.6rem;" title="Cited in the board's discussion or conclusions and found by the Step-4 analysis, but not listed in the case's References section.">analysis-found</span>
+    {% endif %}
+    {% if prov.ontserve_url %}
+    <a href="{{ prov.ontserve_url }}" target="_blank" class="ms-1" style="font-size: 0.75rem;" title="View this provision in the NSPE Code of Ethics ontology">
+      <i class="bi bi-box-arrow-up-right"></i>
+    </a>
+    {% endif %}
     <span class="provision-text">{{ prov.provision_text }}</span>
   </div>
   {% if prov.case_excerpt %}<div class="provision-excerpt">&ldquo;{{ prov.case_excerpt|truncate(200) }}&rdquo;</div>{% endif %}

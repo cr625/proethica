@@ -52,12 +52,30 @@ class PrecedentAnalysis:
     source_case_id: int
     target_case_id: int
     similarity_score: float
-    relationship_type: str  # 'supporting', 'distinguishing', 'analogous', 'contrasting'
+    relationship_type: str  # a RELATIONSHIP_TYPES key
     key_similarities: List[str]
     key_differences: List[str]
     applicable_principles: List[str]
     recommendation: str
     llm_reasoning: str
+
+
+# Precedent relationship vocabulary. AUTHORITATIVE SOURCE:
+# OntServe/ontologies/proethica-cases.ttl (skos:definition on the
+# PrecedentRelationshipScheme concepts; browsable at
+# /ontology/proethica-cases). tests/unit/test_precedent_vocabulary.py asserts
+# this dict matches the ontology. Distinct from the CITATION_TREATMENTS
+# vocabulary in step4/precedents.py: that one classifies BOARD-AUTHORED
+# citations; this one classifies SIMILARITY-DISCOVERED case relationships.
+RELATIONSHIP_TYPES = {
+    'supporting': 'The discovered case reaches the same outcome on comparable facts, reinforcing the analysis of the source case.',
+    'distinguishing': 'The discovered case is comparable in subject but differs in a material fact or principle, so its holding does not transfer to the source case.',
+    'analogous': 'The discovered case presents a parallel fact situation useful for reasoning by analogy, without outcome agreement being established.',
+    'contrasting': 'The discovered case reaches a different outcome on comparable facts, marking a boundary of the principle at work in the source case.',
+}
+
+_RELATIONSHIP_PROMPT_BLOCK = "\n".join(
+    f'   - {term}: {defn}' for term, defn in RELATIONSHIP_TYPES.items())
 
 
 class PrecedentDiscoveryService:
@@ -501,7 +519,8 @@ Conclusion: {truncate(target_sections.get('conclusion', ''))}
 
 Analyze this precedent relationship:
 
-1. RELATIONSHIP_TYPE: Choose one: supporting, distinguishing, analogous, contrasting
+1. RELATIONSHIP_TYPE: Choose the one term whose definition fits:
+{_RELATIONSHIP_PROMPT_BLOCK}
 2. KEY_SIMILARITIES: List 3-5 key similarities
 3. KEY_DIFFERENCES: List 3-5 key differences
 4. APPLICABLE_PRINCIPLES: List relevant NSPE principles
@@ -594,8 +613,8 @@ Format your response with clear section headers."""
                 content = match.group(1).strip()
 
                 if key == 'relationship_type':
-                    # Extract single word
-                    for rt in ['supporting', 'distinguishing', 'analogous', 'contrasting']:
+                    # Extract single word, validated against the vocabulary
+                    for rt in RELATIONSHIP_TYPES:
                         if rt in content.lower():
                             result[key] = rt
                             break

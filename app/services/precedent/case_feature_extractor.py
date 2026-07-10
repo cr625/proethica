@@ -58,6 +58,21 @@ ENTITY_TYPE_TO_COMPONENT = {
 
 # Weights for component aggregation based on ethical reasoning importance
 # Sum = 1.0 for proper normalization
+# Board-outcome vocabulary. AUTHORITATIVE SOURCE:
+# OntServe/ontologies/proethica-cases.ttl (skos:definition on the
+# BoardOutcomeScheme concepts; browsable at /ontology/proethica-cases).
+# tests/unit/test_precedent_vocabulary.py asserts this dict matches the
+# ontology. The classification carries the POLARITY of the board's holding
+# over the case as a whole, extracted from the conclusion text by
+# extract_outcome; "same outcome" (outcome_match) means the two cases carry
+# the same polarity classification, not that the specific holdings agree.
+OUTCOME_TYPES = {
+    'ethical': 'The board concluded the conduct at issue was ethical: the conclusion affirms conformance with the code, or the absence of a violation, and records no violation finding.',
+    'unethical': 'The board concluded the conduct at issue was unethical: the conclusion records a violation of the code, or a finding of improper conduct, and no affirmation of conformance.',
+    'mixed': 'The conclusion carries both a conformance finding and a violation finding, typically across distinct questions or aspects of the conduct.',
+    'unclear': 'The conclusion text yields no clear conformance or violation finding; the outcome polarity is not classified.',
+}
+
 COMPONENT_WEIGHTS = {
     'R': 0.12,   # Roles - professional positions determine applicable norms
     'S': 0.10,   # States - situational context affects ethical assessment

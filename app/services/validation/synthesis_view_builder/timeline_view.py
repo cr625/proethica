@@ -67,6 +67,22 @@ class TimelineViewMixin:
                     break
             return frag
 
+        # Precedent-narrative happenings (case 121: "In precedent BER Case
+        # 94-8, Engineer B ...") are events of CITED cases, not of this one;
+        # interleaving them distorts the case's own sequence (user decision
+        # 2026-07-09: they belong in Narrative as setting, not on the
+        # timeline). Detected deterministically from the extraction's own
+        # phrasing; excluded from display but kept in data for the narrative
+        # phase. The exclusion is surfaced in the payload, never silent.
+        from app.services.extraction.precedent_filter import (
+            is_precedent_narrative_temporal)
+
+        def _is_precedent_narrative(rdf) -> bool:
+            return is_precedent_narrative_temporal(
+                description=str(rdf.get('proeth:description', '') or ''),
+                agent=str(rdf.get('proeth:hasAgent', '') or ''))
+
+        precedent_context_excluded = 0
         seq = 0
         for row in temporal_entries:
             rdf = row.rdf_json_ld or {}
@@ -78,6 +94,9 @@ class TimelineViewMixin:
             else:
                 # Skip Timeline-skeleton, State, and other temporal types that
                 # production also excludes from the rendered timeline.
+                continue
+            if _is_precedent_narrative(rdf):
+                precedent_context_excluded += 1
                 continue
             seq += 1
             alternatives = rdf.get('proeth-scenario:alternativeActions', []) or []
@@ -153,12 +172,90 @@ class TimelineViewMixin:
                 'options': data.get('options', []) or [],
             })
 
+        # Formal-layer enrichment from the committed case graph (2026-07-09
+        # Timeline analysis; the user criterion is human readability, so the
+        # event-calculus and Allen layers surface as reader-facing chips and
+        # grounding rather than staying TTL-only):
+        # - state_changes: proeth-core:initiates/terminates edges (the Berreby
+        #   fluent transitions) render as "began/ended <State>" chips.
+        # - temporal_relations: resolved Allen relations this entry
+        #   participates in, with the verbatim evidence quote, for a
+        #   grounding popover.
+        try:
+            import rdflib
+            from rdflib import RDF, RDFS
+            from app.services.entity.committed_case_graph import load_case_graph
+            _CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+            _PROETH = rdflib.Namespace('http://proethica.org/ontology/intermediate#')
+            g = load_case_graph(case_id)
+            frag_to_entry = {e['fragment']: e for e in entries if e['fragment']}
+
+            def _label(node):
+                return str(next(g.objects(node, RDFS.label), '')) or _uri_fragment(str(node))
+
+            for e in entries:
+                e['state_changes'] = []
+                e['temporal_relations'] = []
+
+            # Agent-model reconciliation (2026-07-09 timeline-agents audit):
+            # hasAgent is free text from the temporal extraction and no
+            # extraction step resolves it against the case's committed
+            # core:Agent individuals (unlike the participant edges). The view
+            # verifies it at render time: agent_in_model marks whether the
+            # attributed actor is among the case's modeled Agents (leading
+            # article stripped, case-insensitive, containment either way).
+            # Corpus baseline 2026-07-09: 86% matched; the residue split into
+            # shorthand drift (fixed in data), an Agent-model gap (case 56),
+            # and precedent-narrative actors (case 121, honest non-matches).
+            import re as _re
+            def _norm_agent(s):
+                s = _re.sub(r'^(the|an|a)\s+', '', (s or '').strip().lower())
+                return _re.sub(r'[^a-z0-9 ]', '', s).strip()
+            agent_labels = {_norm_agent(str(l)): str(l)
+                            for a in g.subjects(RDF.type, rdflib.Namespace(
+                                'http://proethica.org/ontology/core#').Agent)
+                            for l in g.objects(a, RDFS.label)}
+            for e in entries:
+                if e['kind'] != 'action' or not e['agent']:
+                    e['agent_in_model'] = None  # not applicable
+                    continue
+                n = _norm_agent(e['agent'].split('(', 1)[0])
+                e['agent_in_model'] = bool(n) and (
+                    n in agent_labels
+                    or any((n in k or k in n) for k in agent_labels if len(k) > 3))
+            for pred, verb in ((_CORE.initiates, 'began'), (_CORE.terminates, 'ended')):
+                for s, o in g.subject_objects(pred):
+                    entry = frag_to_entry.get(_uri_fragment(str(s)))
+                    if entry is not None:
+                        entry['state_changes'].append({'change': verb, 'state': _label(o)})
+            for rel in g.subjects(RDF.type, _PROETH.TemporalRelation):
+                allen = str(next(g.objects(rel, _PROETH.allenRelation), '') or '')
+                fe = next(g.objects(rel, _PROETH.fromEntity), None)
+                te = next(g.objects(rel, _PROETH.toEntity), None)
+                if fe is None or te is None or not allen:
+                    continue
+                evidence = str(next(g.objects(rel, _PROETH.evidence), '') or '')
+                for node, other, direction in ((fe, te, allen), (te, fe, f'{allen} (inverse)')):
+                    entry = frag_to_entry.get(_uri_fragment(str(node)))
+                    if entry is not None:
+                        entry['temporal_relations'].append({
+                            'relation': direction, 'other': _label(other),
+                            'evidence': evidence[:300]})
+        except Exception:  # noqa: BLE001 - enrichment must not break the view
+            import logging
+            logging.getLogger(__name__).exception(
+                f"Timeline formal-layer enrichment unavailable for case {case_id}")
+            for e in entries:
+                e.setdefault('state_changes', [])
+                e.setdefault('temporal_relations', [])
+
         entries_with_dps = sum(1 for e in entries if e['decision_points'])
         total_dps_attached = sum(len(e['decision_points']) for e in entries)
 
         return {
             'view_type': 'timeline',
             'count': len(entries),
+            'precedent_context_excluded': precedent_context_excluded,
             'action_count': sum(1 for e in entries if e['kind'] == 'action'),
             'event_count': sum(1 for e in entries if e['kind'] == 'event'),
             'decision_point_count': total_dps_attached,

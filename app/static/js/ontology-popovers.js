@@ -203,15 +203,32 @@ function initializePopovers(container, ontserveBaseUrl) {
  * Manual trigger: enter/focus on the span shows; leaving span or tip hides
  * after a grace period, cancelled when the pointer reaches the tip.
  */
-function attachInteractivePopover(el, ontserveBaseUrl) {
-    var popover = new bootstrap.Popover(el, {
+// Keep-open popover mechanics, reusable for ANY popover whose tip carries
+// links (popover-plumbing consolidation, 2026-07-09): manual trigger, shows on
+// hover/focus, stays open while the pointer or focus is inside the tip (300ms
+// grace) so in-popover links are clickable. Content/title come from the
+// element's data-bs-* attributes unless overridden in options.
+function attachKeepOpenPopover(el, options) {
+    var popover = new bootstrap.Popover(el, Object.assign({
         container: 'body',
+        trigger: 'manual'
+    }, options || {}));
+    _wireKeepOpen(el, popover);
+    return popover;
+}
+window.attachKeepOpenPopover = attachKeepOpenPopover;
+
+function attachInteractivePopover(el, ontserveBaseUrl) {
+    var popover = attachKeepOpenPopover(el, {
         sanitize: false,
         content: buildPopoverContent(el, ontserveBaseUrl),
         html: true,
-        trigger: 'manual',
         customClass: 'onto-popover-wide'
     });
+    return popover;
+}
+
+function _wireKeepOpen(el, popover) {
     var hideTimer = null;
     function cancelHide() {
         if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }

@@ -256,7 +256,11 @@ class ObligationCoverageAnalyzer:
         """Load entities of a specific type from the database."""
         return TemporaryRDFStorage.query.filter_by(
             case_id=case_id,
-            entity_type=entity_type
+            entity_type=entity_type,
+            # Individuals only: class rows (labels like 'DisclosureObligation')
+            # carry no case grounding and polluted the coverage analysis on
+            # fresh-architecture cases (2026-07-08 Decisions analysis).
+            storage_type='individual'
         ).all()
 
     def _build_role_lookup(self, roles: List[TemporaryRDFStorage]) -> Dict[str, str]:
@@ -348,15 +352,18 @@ class ObligationCoverageAnalyzer:
         """
         Check if a label represents an instantiated (role-bound) entity.
 
-        Instantiated labels typically follow patterns like:
-        - EngineerA_AI_Disclosure_ClientW
-        - Responsible_Charge_Constraint_EngineerA
+        Legacy-corpus labels are underscore-joined (EngineerA_AI_Disclosure_ClientW);
+        fresh-architecture labels are space-separated (Engineer M Report Validity
+        Challenge Duty). Both count. The underscore-only split silently made EVERY
+        fresh obligation non-instantiated, which zeroed decision_relevant, which made
+        E1-E3 compose no candidates, which pushed 8 of 15 gold cases onto the
+        ungrounded LLM fallback (2026-07-08 Decisions analysis, step4-decisions-analysis.md).
         """
-        # Contains underscore and has a role-like prefix or suffix
-        if '_' not in label:
+        import re as _re
+        if '_' not in label and ' ' not in label:
             return False
 
-        parts = label.split('_')
+        parts = _re.split(r'[_\s]+', label)
         # Check if any part looks like a role reference
         for part in parts:
             part_lower = part.lower()

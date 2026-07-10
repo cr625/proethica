@@ -31,9 +31,11 @@ def test_parse_causal_link_response_golden():
         "role_label": "Engineer A",
         "obligation_label": "Safety Obligation",
         "addresses_questions": ["Q1"],
+        "toulmin_claim": "the endorsed course",
         "toulmin_data": "the facts",
         "toulmin_warrants": "the duties",
-        "toulmin_rebuttals": "the doubt",
+        "toulmin_qualifier": "unless waived",
+        "toulmin_rebuttals": "would not apply if X",
         "provision_labels": ["NSPE I.1"],
         "intensity_score": 0.8,
         "qc_alignment_score": 0.6,
@@ -55,7 +57,10 @@ def test_parse_causal_link_response_golden():
     assert dp.role_uri == "http://role/a"            # resolved via lookup
     assert dp.obligation_label == "Safety Obligation"
     assert dp.obligation_uri == ""                   # label present but not in lookup -> '' (not None)
+    assert dp.toulmin.claim == "the endorsed course"
     assert dp.toulmin.data_summary == "the facts"
+    assert dp.toulmin.qualifier == "unless waived"
+    assert dp.toulmin.rebuttals_summary == "would not apply if X"
     assert dp.toulmin.backing_provisions == ["NSPE I.1"]
     assert dp.intensity_score == 0.8
     assert dp.qc_alignment_score == 0.6
@@ -96,19 +101,36 @@ def test_parse_refinement_response_golden():
     }])
     questions = [{"uri": "http://q0", "text": "q0"}]
 
-    # empty top_candidates -> no label->URI lookup -> falls back to the LLM-emitted URI
+    # empty top_candidates and no case graph -> no label->URI lookup. An
+    # LLM-emitted URI is kept ONLY when the case graph knows it; unknown URIs
+    # are dropped rather than stored (2026-07-08: the unvalidated fallback put
+    # obligation URIs into role slots on case 9). Labels are retained.
     out = s._parse_refinement_response(resp, top_candidates=[], questions=questions,
                                        conclusions=[], question_emergence=[], resolution_patterns=[])
 
     assert len(out) == 1
     dp = out[0]
     assert dp.focus_id == "DP1"
-    assert dp.role_uri == "http://llm/roleB"   # fallback to LLM URI
+    assert dp.role_uri == ""   # unknown LLM URI dropped
     assert dp.role_label == "Engineer B"
-    assert dp.obligation_uri == "http://llm/obl"
+    assert dp.obligation_uri == ""   # unknown LLM URI dropped
     assert dp.addresses_questions == ["http://q0"]   # int index 0 -> questions[0].uri
     assert dp.aligned_question_uri == "http://q0"
     assert dp.aligned_question_text == "q0"
     assert dp.source == "unified"
-    assert dp.synthesis_method == "algorithmic+llm"
+    # No source_candidate_ids in the fixture -> the DP was generated beyond
+    # the candidate pool, so the honest label is llm_direct (Phase-C fix).
+    assert dp.synthesis_method == "llm_direct"
     assert dp.llm_refined_description == "d"
+
+
+def test_parse_refinement_response_cited_sources_keep_algorithmic_label():
+    s = DecisionPointSynthesizer()
+    resp = json.dumps([{
+        "focus_id": "DP1", "description": "d", "decision_question": "q?",
+        "role_label": "Engineer B", "addresses_questions": [],
+        "options": [{"label": "o"}], "source_candidate_ids": ["DP2"],
+    }])
+    out = s._parse_refinement_response(resp, top_candidates=[], questions=[],
+                                       conclusions=[], question_emergence=[], resolution_patterns=[])
+    assert out[0].synthesis_method == "algorithmic+llm"

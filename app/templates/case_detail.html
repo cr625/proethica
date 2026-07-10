@@ -155,7 +155,7 @@
 
             {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
             <div data-extraction-style="true">
-                {{ case.description|safe }}
+                {{ case.description|upgrade_references(case.doc_metadata.provision_references) }}
             </div>
             {% else %}
             <!-- Check if we have sections in metadata -->
@@ -180,8 +180,36 @@
             </div>
             {% endif %}
 
-            <!-- NSPE Code of Ethics References Section -->
-            {% if case.doc_metadata.sections_dual.references and case.doc_metadata.sections_dual.references.html %}
+            <!-- NSPE Code of Ethics References Section: structured render
+                 from the parsed board-stated provision set, linked to the
+                 NSPE Code ontology on OntServe; raw scraped HTML fallback
+                 for cases the parser has not covered. -->
+            {% if case.doc_metadata.provision_references %}
+            <div class="mb-4" id="references-section">
+                <h4>NSPE Code of Ethics References</h4>
+                {% for ref in case.doc_metadata.provision_references %}
+                <div class="mb-3">
+                    <div>
+                        {% set ref_url = ref.code|nspe_ontology_url %}
+                        {% if ref_url %}
+                        <a href="{{ ref_url }}" target="_blank" class="fw-bold text-decoration-none" title="View this provision in the NSPE Code of Ethics ontology">{{ ref.code_raw }} <i class="bi bi-box-arrow-up-right" style="font-size: 0.7rem;"></i></a>
+                        {% else %}
+                        <span class="fw-bold">{{ ref.code_raw }}</span>
+                        {% endif %}
+                        <span class="ms-1">{{ ref.text }}</span>
+                    </div>
+                    {% if ref.subjects %}
+                    <div class="mt-1">
+                        <small class="text-muted me-1">Subject Reference:</small>
+                        {% for subj in ref.subjects %}
+                        <span class="badge bg-light text-dark border" style="font-size: 0.7rem;">{{ subj }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% elif case.doc_metadata.sections_dual.references and case.doc_metadata.sections_dual.references.html %}
             <div class="mb-4" id="references-section">
                 <h4>NSPE Code of Ethics References</h4>
                 {{ case.doc_metadata.sections_dual.references.html|safe }}

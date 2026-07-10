@@ -101,6 +101,19 @@ class DecisionPointSynthesizer(LLMStrategiesMixin):
             for e in entities:
                 if e.entity_label and e.entity_uri:
                     lookup[e.entity_label.lower()] = e.entity_uri
+        # Fresh-architecture temp rows carry no entity_uri (URIs are minted at
+        # commit), which left this lookup EMPTY and the fallback conversions
+        # unable to bind labels. The committed case graph carries every
+        # individual's label and IRI; use it as the backing source
+        # (2026-07-08 Decisions analysis).
+        try:
+            from rdflib import RDFS
+            from app.services.entity.committed_case_graph import load_case_graph
+            g = load_case_graph(case_id)
+            for s, o in g.subject_objects(RDFS.label):
+                lookup.setdefault(str(o).lower(), str(s))
+        except Exception as exc:  # noqa: BLE001 - no committed TTL yet
+            logger.info(f"Case-graph label lookup unavailable for case {case_id}: {exc}")
         return lookup
 
     def _build_normative_status_context(self, case_id: int) -> str:
@@ -300,6 +313,7 @@ class DecisionPointSynthesizer(LLMStrategiesMixin):
                         fallback_trace.local_resolved_count = fallback_enrichment.local_resolved_count
                         fallback_trace.entities_not_found = fallback_enrichment.not_found_count
 
+                    self._verify_board_choices(case_id, canonical_points, conclusions)
                     self._store_canonical_points(case_id, canonical_points, session_id, fallback_trace)
                     return result
             logger.warning("No decision points generated - returning empty result")
@@ -376,6 +390,8 @@ class DecisionPointSynthesizer(LLMStrategiesMixin):
 
         # Stage 3.4: Storage
         logger.info("Stage 3.4: Storing canonical decision points")
+        if not skip_llm:
+            self._verify_board_choices(case_id, canonical_points, conclusions)
         self._store_canonical_points(case_id, canonical_points, session_id, synthesis_trace)
 
         logger.info(f"Phase 3 complete: {result.canonical_count} decision points synthesized")
@@ -636,6 +652,21 @@ class DecisionPointSynthesizer(LLMStrategiesMixin):
     # =========================================================================
     # STAGE 3.4: STORAGE
     # =========================================================================
+
+    def _verify_board_choices(self, case_id, canonical_points, conclusions) -> None:
+        """Single-purpose post-pass: verify/override is_board_choice against the
+        full board conclusions (2026-07-08 Phase-B audit: generation-embedded
+        marking inverted the flag in violation cases and prompt rules did not
+        fix it). Never fatal."""
+        try:
+            from app.services.decision_point_synthesizer.board_choice_verifier import (
+                verify_board_choices,
+            )
+            summary = verify_board_choices(
+                case_id, canonical_points, conclusions, llm_client=self.llm_client)
+            logger.info(f"Board-choice verification case {case_id}: {summary}")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Board-choice verification failed for case {case_id}: {exc}")
 
     def _store_canonical_points(
         self,

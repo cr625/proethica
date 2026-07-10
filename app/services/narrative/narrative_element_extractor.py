@@ -473,9 +473,47 @@ class NarrativeElementExtractor:
 
     def _extract_setting(self, foundation) -> NarrativeSetting:
         """Extract setting from States and Resources."""
-        # Build initial states as fluents
+        # Opening states are the fluents that hold at t0. The former
+        # foundation.states[:10] stamped the first ten states in extraction
+        # order as holds(..., 0), so mid-case fluents ("Post-Accident
+        # Realization", "Construction Claim Litigation Phase") appeared as
+        # opening conditions (2026-07-09 Narrative walkthrough, case 9). The
+        # event-calculus layer gives the principled filter: a State that some
+        # in-case happening INITIATES (proeth-core:initiates in the committed
+        # graph) begins mid-case and is definitionally not initial. Matched
+        # by normalized label (temp-extraction and committed URIs differ).
+        initiated_labels = set()
+        if getattr(foundation, 'case_id', None):
+            try:
+                import re as _re
+                import rdflib as _rdflib
+                from rdflib import RDFS as _RDFS
+                from app.services.entity.committed_case_graph import load_case_graph
+                _CORE = _rdflib.Namespace('http://proethica.org/ontology/core#')
+                _g = load_case_graph(foundation.case_id)
+                # A state begun mid-case appears as the OBJECT of initiates
+                # (happening -> State, core v2.7.0) or the SUBJECT of
+                # activatedByEvent (the older State-side fluent family).
+                for _s, _o in _g.subject_objects(_CORE.initiates):
+                    for _l in _g.objects(_o, _RDFS.label):
+                        initiated_labels.add(
+                            _re.sub(r'[^a-z0-9 ]', '', str(_l).lower()).strip())
+                for _s, _o in _g.subject_objects(_CORE.activatedByEvent):
+                    for _l in _g.objects(_s, _RDFS.label):
+                        initiated_labels.add(
+                            _re.sub(r'[^a-z0-9 ]', '', str(_l).lower()).strip())
+            except Exception:  # noqa: BLE001 - no committed graph yet
+                logger.info(f"Initial-state EC filter unavailable for case "
+                            f"{foundation.case_id}; using unfiltered states")
+
+        import re as _re2
+
+        def _is_initial(state) -> bool:
+            n = _re2.sub(r'[^a-z0-9 ]', '', (state.label or '').lower()).strip()
+            return n not in initiated_labels
+
         initial_states = []
-        for state in foundation.states[:10]:
+        for state in [s for s in foundation.states if _is_initial(s)][:10]:
             fluent_expr = f"holds(case, {state.label.replace(' ', '_')}, 0)"
             initial_states.append({
                 'uri': state.uri,

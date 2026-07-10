@@ -88,8 +88,11 @@ _RELATION = {
     # causal-chain endpoints (cause/effect/responsibleAgent minted as edges; see causal_edges.py)
     "cause", "effect", "responsibleAgent", "causedByAction",
     # Step-4 argument / conclusion relations to named entities
-    "answersQuestion", "claimEntity", "warrantEntity", "backingProvision",
-    "qualifierConstraint", "validatesArgument", "validatesObligationRef",
+    # (answersQuestion / extendsQuestion are the committed Q&C object
+    # properties, proethica-cases v3.5.0)
+    "answersQuestion", "extendsQuestion", "claimEntity", "warrantEntity",
+    "backingProvision", "qualifierConstraint", "validatesArgument",
+    "validatesObligationRef",
 }
 
 # LLM judgments: booleans, scores, categorical ratings. Not relations.

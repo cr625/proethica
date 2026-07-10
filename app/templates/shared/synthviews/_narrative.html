@@ -158,6 +158,18 @@
   </div>
   {% endif %}
 
+  {% if view.board_deliberation %}
+  <h6 class="mt-4"><i class="bi bi-bank me-1"></i>The Board&rsquo;s deliberation</h6>
+  <p class="section-helper">How the Board of Ethical Review resolved the case, verbatim from its published conclusions.</p>
+  <div class="mb-2">
+    {% for c in view.board_deliberation %}
+    <div class="mb-2 p-2 border-start border-3 border-primary bg-light rounded-end">
+      <span class="small">{{ c }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
 {% else %}
   <p class="text-muted mb-0">No narrative data extracted for this case.</p>
 {% endif %}

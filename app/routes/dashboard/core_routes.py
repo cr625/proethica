@@ -15,11 +15,6 @@ from app.models.entity_triple import EntityTriple
 from app.models.ontology import Ontology
 from app.models.deconstructed_case import DeconstructedCase
 try:
-    from app.models.case_guideline_associations import CaseGuidelineAssociation
-except ImportError:
-    # Create a placeholder for testing if the model doesn't exist yet
-    CaseGuidelineAssociation = None
-try:
     from app.models.temporary_concept import TemporaryConcept
 except ImportError:
     # Create a placeholder for testing if the model doesn't exist yet

@@ -108,6 +108,11 @@ def register_creation_from_source(bp):
                     else:
                         combined_content += f"{conclusion}\n\n"
 
+                from app.utils.provision_references import (
+                    parse_references_html, parse_references_text)
+                provision_references = (parse_references_html(references)
+                                        or parse_references_text(references))
+
                 metadata = {
                     'case_number': case_number,
                     'year': year,
@@ -121,6 +126,9 @@ def register_creation_from_source(bp):
                     },
                     'questions_list': questions_list,
                     'conclusion_items': conclusion_items,
+                    # Board-stated provision set, parsed deterministically at
+                    # ingestion (provisions-harmonization.md workstream A).
+                    'provision_references': provision_references,
                     'extraction_method': 'pipeline_preserved'
                 }
 

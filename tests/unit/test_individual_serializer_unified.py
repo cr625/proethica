@@ -145,6 +145,59 @@ def test_decision_point_options_and_conclusion_provisions():
     assert (c, PROETHICA['citedProvision'], Literal('III.2.b')) in g2
 
 
+def test_qc_relationship_edges_not_literals():
+    """proethica-cases v3.5.0 (plan qc-rdf-edges): the conclusion-to-question
+    and analytical-to-board-question linkages are object properties to the
+    deterministic case#Question_<n> URIs; the former proeth:answersQuestion
+    string literal and proeth:sourceQuestion integer literal are not emitted
+    (edge-primary, CMT-3)."""
+    svc = _svc()
+    g = Graph()
+    c = CASE['Conclusion_2']
+    svc._add_individual_properties(g, c, _entity('ethical_conclusion'), {
+        'conclusionText': 'Both duties bind',
+        'conclusionNumber': 2,
+        'answersQuestions': [1, '101'],
+    }, CASE)
+    assert (c, CASES['answersQuestion'], CASE['Question_1']) in g
+    assert (c, CASES['answersQuestion'], CASE['Question_101']) in g
+    assert list(g.objects(c, PROETHICA['answersQuestion'])) == []
+
+    g2 = Graph()
+    q = CASE['Question_201']
+    svc._add_individual_properties(g2, q, _entity('ethical_question'), {
+        'questionText': 'Does loyalty conflict with safety?',
+        'questionNumber': 201,
+        'questionType': 'principle_tension',
+        'sourceQuestion': 2,
+    }, CASE)
+    assert (q, CASES['extendsQuestion'], CASE['Question_2']) in g2
+    assert list(g2.objects(q, PROETHICA['sourceQuestion'])) == []
+
+
+def test_prune_dangling_qc_edges():
+    """The finalized-graph endpoint guard (qc-rdf-edges review): a Q&C edge
+    minted from a hallucinated question number is dropped when no typed
+    EthicalQuestion individual with that URI exists in the commit graph;
+    edges to real questions survive. The declared range would otherwise
+    INFER the type onto the phantom node, so the Pellet gate cannot catch
+    a missing endpoint (only a wrong-class one)."""
+    svc = _svc()
+    g = Graph()
+    q1 = CASE['Question_1']
+    g.add((q1, RDF.type, CASES['EthicalQuestion']))
+    c = CASE['Conclusion_1']
+    g.add((c, CASES['answersQuestion'], q1))
+    g.add((c, CASES['answersQuestion'], CASE['Question_7']))       # phantom
+    q301 = CASE['Question_301']
+    g.add((q301, RDF.type, CASES['EthicalQuestion']))
+    g.add((q301, CASES['extendsQuestion'], CASE['Question_9']))    # phantom parent
+    assert svc._prune_dangling_qc_edges(g) == 2
+    assert (c, CASES['answersQuestion'], q1) in g
+    assert list(g.objects(c, CASES['answersQuestion'])) == [q1]
+    assert list(g.objects(q301, CASES['extendsQuestion'])) == []
+
+
 # --- Agent layer (Option C: cross-section actor identity) --------------------
 
 def test_agent_layer_unifies_cross_section_actor():

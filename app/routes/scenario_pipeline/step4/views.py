@@ -13,6 +13,7 @@ from typing import Dict, List
 from flask import render_template, request, jsonify, redirect, url_for, session as flask_session, current_app
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
+from app.routes.scenario_pipeline.step4.precedents import CITATION_TREATMENTS
 from app.services.pipeline_status_service import PipelineStatusService
 from app.utils.environment_auth import auth_optional
 
@@ -387,15 +388,21 @@ def register_view_routes(bp):
                 for r in sim_results:
                     target_doc = Document.query.get(r.target_case_id)
                     target_title = target_doc.title if target_doc else f'Case {r.target_case_id}'
-                    # Check if target cites the source
+                    # Check if target cites the source; fetch its outcome
+                    # polarity (BoardOutcomeScheme term) for display -- the
+                    # former value here was a BOOLEAN (alignment > 0) that
+                    # rendered as "True" next to the Same outcome badge.
                     target_cited_ids = set()
+                    target_outcome = ''
                     try:
                         t_result = db.session.execute(
-                            text("SELECT cited_case_ids FROM case_precedent_features WHERE case_id = :cid"),
+                            text("SELECT cited_case_ids, outcome_type FROM case_precedent_features WHERE case_id = :cid"),
                             {'cid': r.target_case_id}
                         ).fetchone()
                         if t_result and t_result[0]:
                             target_cited_ids = set(t_result[0])
+                        if t_result and t_result[1]:
+                            target_outcome = t_result[1]
                     except Exception:
                         pass
                     similar_cases.append({
@@ -405,7 +412,7 @@ def register_view_routes(bp):
                         'component_scores': {k: round(v, 3) for k, v in r.component_scores.items()},
                         'matching_provisions': r.matching_provisions or [],
                         'outcome_match': r.outcome_match,
-                        'target_outcome': r.component_scores.get('outcome_alignment', 0) > 0,
+                        'target_outcome': target_outcome,
                         'is_cited_precedent': r.target_case_id in source_cited_ids,
                         'is_cited_by': case_id in target_cited_ids,
                         'overlapping_tags': [],
@@ -593,6 +600,10 @@ def register_view_routes(bp):
                 'precedents': precedents_objs,
                 'precedents_json': precedents_list,
                 'precedent_count': len(precedents_list),
+                # Treatment-term definitions for the badge tooltips; the
+                # authoritative source is the CitationTreatmentScheme in
+                # proethica-cases (see CITATION_TREATMENTS in precedents.py).
+                'citation_treatments': CITATION_TREATMENTS,
                 'question_count': len(questions),
                 'conclusion_count': len(conclusions),
                 'has_synthesis_annotations': len(existing_annotations) > 0,

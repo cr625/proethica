@@ -87,6 +87,25 @@ class QCViewMixin:
             text = (p.entity_definition or '').strip()
             if code and text:
                 provision_text_lookup[code] = text
+        # Raw-spelling aliases: citations arrive as 'II.1.c.', 'NSPE I.1',
+        # 'I.1 Public Welfare Paramount' etc. (24 of 42 codes carried more
+        # than one spelling in the 2026-07-08 Provisions census) while the
+        # lookup keys are the canonical forms above. Index every entry under
+        # its normalized code, then alias each cited raw form to it so the
+        # template's raw-key lookups resolve.
+        from app.utils.provision_codes import normalize_provision_code
+        normalized_lookup = {}
+        for k, v in list(provision_text_lookup.items()):
+            nk = normalize_provision_code(k)
+            if nk:
+                normalized_lookup.setdefault(nk, v)
+        for c in conclusions:
+            rdf = c.rdf_json_ld if isinstance(c.rdf_json_ld, dict) else {}
+            for cp in rdf.get('citedProvisions') or []:
+                if cp and cp not in provision_text_lookup:
+                    t = normalized_lookup.get(normalize_provision_code(cp) or '')
+                    if t:
+                        provision_text_lookup[cp] = t
 
         # Build conclusion lookup by question. Each conclusion is added to
         # the FIRST question listed in its answersQuestions array — its
@@ -122,41 +141,56 @@ class QCViewMixin:
                 'also_answers': [a for a in answers[1:] if a != primary_q],
             })
 
-        def _parent_question(label: str) -> Optional[str]:
-            """Derive parent board question from numbering convention.
-
-            Question_1 → None (is a board question)
-            Question_101 → "Question_1" (first digit = board question number)
-            Question_201 → "Question_2"
-            Question_301, Question_401 → "Question_3"
-            """
-            suffix = label.replace('Question_', '')
-            if not suffix.isdigit():
-                return None
-            n = int(suffix)
-            if n < 10:
-                return None  # board question itself
-            parent_n = n // 100
-            return f"Question_{parent_n}" if parent_n > 0 else None
+        # Secondary linkages: conclusions whose answersQuestions cites this
+        # question after its primary target. The primary-only conclusion_map
+        # (the case-5 fix) is correct for full-text embedding, but it made
+        # discussed-but-not-primarily-answered questions look unanswered
+        # (2026-07-08 census: theoretical 54/59 addressed by some conclusion,
+        # 13/59 shown). These render as reference chips, never embedded text.
+        secondary_map: Dict[str, list] = {}
+        for conc in conclusions:
+            rdf_data = conc.rdf_json_ld or {}
+            answers = rdf_data.get('answersQuestions', []) or []
+            for a in answers[1:]:
+                key = f"Question_{a}" if isinstance(a, int) else str(a)
+                secondary_map.setdefault(key, []).append({
+                    'label': conc.entity_label,
+                    'text': conc.entity_definition,
+                })
 
         formatted = []
         for q in questions:
             rdf_data = q.rdf_json_ld or {}
             q_number = q.entity_label  # e.g., "Question_1"
+            # Real parent linkage only: sourceQuestion is the board question
+            # the LLM generated this analytical question FROM (persisted since
+            # 2026-07-08; older rows lack it). The former number-offset
+            # heuristic (parent = n // 100) read a CATEGORY code as a parent
+            # pointer -- analytical numbering is implicit=101+, tension=201+,
+            # theoretical=301+, counterfactual=401+ -- so implicit questions
+            # always nested under Q1 and case 16's counterfactuals nested
+            # under board Q4 spuriously. Do not reintroduce it.
+            source_q = rdf_data.get('sourceQuestion')
+            parent = f"Question_{source_q}" if isinstance(source_q, int) and source_q > 0 else None
             formatted.append({
                 'id': q.id,
                 'number': q_number,
                 'question_text': q.entity_definition,
                 'question_type': rdf_data.get('questionType', 'board_explicit'),
-                'parent_question': _parent_question(q_number),
+                'parent_question': parent,
+                'ethical_framework': rdf_data.get('ethicalFramework'),
                 'related_provisions': rdf_data.get('relatedProvisions', []),
                 'mentioned_entities': rdf_data.get('mentionedEntities', {}),
-                'linked_conclusions': conclusion_map.get(q_number, [])
+                'linked_conclusions': conclusion_map.get(q_number, []),
+                'secondary_conclusions': secondary_map.get(q_number, []),
             })
 
         # Build grouped structure: board questions with their sub-questions,
         # split into analytical (implicit, principle_tension) and theory
         # (theoretical, counterfactual) groups for progressive disclosure.
+        # Sub-questions without a persisted sourceQuestion parent go to the
+        # type-grouped analytical section (cross_cutting key kept for the
+        # template contract).
         board_questions = [q for q in formatted if q['question_type'] == 'board_explicit']
         board_numbers = {q['number'] for q in board_questions}
         analytical_by_parent: Dict[str, list] = {}
@@ -166,11 +200,6 @@ class QCViewMixin:
             if q['question_type'] == 'board_explicit':
                 continue
             parent = q.get('parent_question')
-            # When the sub-question's parent number does not match any
-            # extracted board question (e.g. a Question_401 counterfactual
-            # whose parent would be Question_4 but the case only has board
-            # Q1-Q3), surface it as a cross-cutting question rather than
-            # silently dropping it.
             if not parent or parent not in board_numbers:
                 cross_cutting.append(q)
                 continue

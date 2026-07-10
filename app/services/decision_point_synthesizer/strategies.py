@@ -44,6 +44,19 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+# Toulmin (1958) field specification, single-sourced into every decision-point
+# prompt. Each field must respect its category from The Uses of Argument; the
+# 2026-07-08 audit found the earlier loose paraphrases ("what creates
+# uncertainty") let rebuttals drift into generic counter-considerations and
+# omitted claim and qualifier entirely.
+TOULMIN_FIELD_SPEC = """Toulmin argument structure (Toulmin 1958). Each field must respect its category:
+- toulmin_claim: the CLAIM. The course of action asserted as the right one. Where the Board ruled, this states the Board's chosen course; where it did not, the course the case record best supports.
+- toulmin_data: the GROUNDS. The specific case facts appealed to in support of the claim. Facts only; no duties, principles, or evaluations.
+- toulmin_warrants: the WARRANT(s). The general professional rules that license the step from those facts to the claim, stated as rules (e.g. "Engineers must hold paramount the safety of the public"). Where duties compete, state the competing warrants and which prevails.
+- toulmin_qualifier: the QUALIFIER. The modal strength of the claim and any conditions the Board attached (e.g. "presumably", "unless the contract requires disclosure", "provided consent is obtained"). Empty string only when the claim is unconditional.
+- toulmin_rebuttals: the REBUTTAL. The conditions of exception: the circumstances under which the warrant would NOT license the claim, stated as a defeating condition drawn from the case ("unless ...", "would not apply if ..."). Not a generic counter-argument and never empty; use the strongest case-supplied defeater.
+- provision_labels: the BACKING. The NSPE Code sections that authorize the warrants (e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here."""
+
 
 class LLMStrategiesMixin:
     """LLM refinement + the two generation fallbacks (causal-links, Q&C-direct)
@@ -143,7 +156,7 @@ class LLMStrategiesMixin:
                         response_text = streaming_completion(
                             self.llm_client,
                             model=ModelConfig.get_claude_model("default"),
-                            max_tokens=16000,
+                            max_tokens=32000,
                             prompt=prompt,
                             temperature=0.2,
                         )
@@ -155,7 +168,8 @@ class LLMStrategiesMixin:
                             questions,
                             conclusions,
                             question_emergence,
-                            resolution_patterns
+                            resolution_patterns,
+                            case_id=case_id
                         )
                         all_canonical.extend(batch_points)
                         all_prompts.append(prompt)
@@ -244,12 +258,16 @@ class LLMStrategiesMixin:
         # Format questions
         questions_text = []
         for i, q in enumerate(questions[:10]):  # Limit to 10
-            questions_text.append(f"Q{i+1}: {q.get('question_text', q.get('text', ''))[:200]}")
+            questions_text.append(f"Q{i+1}: {q.get('question_text', q.get('text', ''))[:400]}")
 
-        # Format conclusions
+        # Format conclusions. FULL text: the previous 200-character truncation
+        # starved the model of the very holdings it must paraphrase and mark
+        # board choices against -- the grounding failures the Phase-B judging
+        # found persisted under prompt rules because the model never saw the
+        # conclusions (2026-07-08 Decisions analysis).
         conclusions_text = []
         for i, c in enumerate(conclusions[:10]):  # Limit to 10
-            conclusions_text.append(f"C{i+1}: {c.get('conclusion_text', c.get('text', ''))[:200]}")
+            conclusions_text.append(f"C{i+1}: {c.get('conclusion_text', c.get('text', ''))[:1200]}")
 
         prompt = f"""You are analyzing an ethics case to identify key decision points where ethical choices must be made.
 
@@ -276,10 +294,10 @@ For each decision point, provide:
 6. 2-3 options available to the decision-maker, with one marked as the Board's choice
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
-9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
-10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"])
-11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
-12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
+9. The full Toulmin argument structure and backing provisions:
+{TOULMIN_FIELD_SPEC}
+10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
 CRITICAL FORMATTING:
 - Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
@@ -293,6 +311,20 @@ CRITICAL FORMATTING:
 - Bad labels: "Option A", "Option B", "Alternative Approach"
 - Descriptions expand on the label with case-specific detail.
 - Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
+
+GROUNDING RULES (2026-07-08 Phase-B audit; each was a judged failure mode):
+- is_board_choice marks the course the Board held to be the ETHICAL one. When the Board
+  found the party's actual conduct unethical, the board choice is the compliant
+  alternative (e.g. "Obtain Client Consent"), NOT the conduct that occurred. Never mark
+  condemned conduct as the Board's choice.
+- Options must be alternatives the case states or clearly implies were available to the
+  decision-maker at that moment. Do NOT invent options the case never mentions or
+  contemplates, and do not split one course of action into two near-identical options.
+- board_resolution must paraphrase only what the Board's conclusions state. Do not add
+  interpretive elaborations, carve-outs, or rationales the conclusions do not contain.
+- toulmin_claim must agree with the option marked is_board_choice: the claim IS the
+  board-endorsed course restated as an assertion (or the case-supported course when the
+  Board made no determination).
 
 Return as JSON array:
 ```json
@@ -309,9 +341,11 @@ Return as JSON array:
     ],
     "addresses_questions": ["Q1", "Q2"],
     "board_resolution": "The board concluded that... (C1)",
-    "toulmin_data": "Summary of triggering facts (1-2 sentences)",
-    "toulmin_warrants": "Summary of the obligations or duties that justify the Board's chosen option (1-2 sentences, cite Code provisions inline)",
-    "toulmin_rebuttals": "Summary of what creates uncertainty or supports an alternative (1-2 sentences)",
+    "toulmin_claim": "The course of action argued for (1 sentence)",
+    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
     "provision_labels": ["II.1.f", "I.1"],
     "intensity_score": 0.78,
     "qc_alignment_score": 0.82
@@ -339,7 +373,7 @@ Return as JSON array:
             response_text = streaming_completion(
                 self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=16000,
+                max_tokens=32000,
                 prompt=prompt,
                 temperature=0.3,
             )
@@ -403,10 +437,19 @@ Return as JSON array:
             # the high-level fields; older outputs that predate the prompt
             # update will simply produce empty strings, which render as
             # missing Toulmin in the view.
-            provision_labels = dp_data.get('provision_labels', []) or []
+            # provision_labels must cite NSPE code sections; the LLM
+            # intermittently emits duty/principle names there (44 across the
+            # gold corpus, 2026-07-08 Provisions census). Non-codes drop --
+            # the normative content is already carried by obligation_label
+            # and the Toulmin warrants.
+            from app.utils.provision_codes import is_provision_code
+            provision_labels = [x for x in (dp_data.get('provision_labels', []) or [])
+                                if is_provision_code(x)]
             toulmin = ToulminStructure(
+                claim=dp_data.get('toulmin_claim', ''),
                 data_summary=dp_data.get('toulmin_data', ''),
                 warrants_summary=dp_data.get('toulmin_warrants', ''),
+                qualifier=dp_data.get('toulmin_qualifier', ''),
                 rebuttals_summary=dp_data.get('toulmin_rebuttals', ''),
                 backing_provisions=provision_labels,
             )
@@ -434,6 +477,23 @@ Return as JSON array:
                     'is_board_choice': bool(opt.get('is_board_choice', False)),
                 })
 
+            # Conclusion alignment, mirroring the refinement parser: the
+            # conclusions whose answersQuestions cover the DP's addressed
+            # questions supply aligned_conclusion_* and the resolution text
+            # verbatim. The fallback path never set these (Phase-C census
+            # 2026-07-08: case 10's five fallback DPs all had empty
+            # aligned_conclusion_uri, so the Step-5 resolution-pattern join
+            # matched nothing).
+            addresses_uris = [q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])]
+            addressed_nums = {q.get('question_number') for q in questions
+                              if q.get('uri') in addresses_uris and q.get('question_number') is not None}
+            answering = [c for c in conclusions
+                         if addressed_nums & set(c.get('answersQuestions') or [])]
+            aligned_c = answering[0] if answering else None
+            derived_resolution = ' '.join(
+                (c.get('conclusion_text') or c.get('text') or '').strip()
+                for c in answering[:2]).strip()
+
             # Create canonical decision point
             dp = CanonicalDecisionPoint(
                 focus_id=dp_data.get('focus_id', f'DP{i+1}'),
@@ -448,8 +508,11 @@ Return as JSON array:
                 toulmin=toulmin,
                 aligned_question_uri=aligned_q_uri,
                 aligned_question_text=aligned_q_text,
-                board_resolution=dp_data.get('board_resolution', ''),
-                addresses_questions=[q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])],
+                aligned_conclusion_uri=aligned_c.get('uri') if aligned_c else None,
+                aligned_conclusion_text=aligned_c.get('text') if aligned_c else None,
+                board_resolution=(derived_resolution[:800] if derived_resolution
+                                  else dp_data.get('board_resolution', '')),
+                addresses_questions=addresses_uris,
                 options=options_out,
                 intensity_score=intensity_score,
                 qc_alignment_score=qc_alignment_score,
@@ -560,10 +623,10 @@ For each decision point, provide:
 6. 2-3 options that DIRECTLY ANSWER the decision_question, with one marked as the Board's choice
 7. Which question(s) this addresses (reference Q numbers)
 8. How the board resolved it (reference C numbers)
-9. Toulmin argument structure: data_summary (triggering facts), warrants_summary (competing obligations or duties at stake), rebuttals_summary (sources of uncertainty or counter-considerations)
-10. NSPE Code provisions cited as backing (provision_labels, e.g. ["II.1.f", "I.1"])
-11. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
-12. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
+9. The full Toulmin argument structure and backing provisions:
+{TOULMIN_FIELD_SPEC}
+10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
 
 CRITICAL FORMATTING:
 - Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
@@ -577,6 +640,11 @@ CRITICAL COHERENCE: The decision_question and options must form a coherent decis
 - Each option must be a direct answer to that question. Reading the question then the option,
   the option must be a plausible course of action the role could choose.
 - The role_label must be the agent making the decision, not a passive party.
+- is_board_choice marks the course the Board held ETHICAL; when the Board condemned the
+  actual conduct, the board choice is the compliant alternative, never the condemned act.
+- Options must be alternatives the case states or implies; do not invent unmentioned ones.
+- board_resolution paraphrases only what the conclusions state; toulmin_claim agrees
+  with the option marked is_board_choice.
 
 CRITICAL OPTION FORMAT:
 - Labels must be 3-8 words, Title Case, starting with a verb. NEVER "Option A", "Option B".
@@ -600,9 +668,11 @@ Return as JSON array:
     ],
     "addresses_questions": ["Q1", "Q2"],
     "board_resolution": "The board concluded that... (C1)",
-    "toulmin_data": "Summary of triggering facts (1-2 sentences)",
-    "toulmin_warrants": "Summary of the obligations or duties that justify the Board's chosen option (1-2 sentences, cite Code provisions inline)",
-    "toulmin_rebuttals": "Summary of what creates uncertainty or supports an alternative (1-2 sentences)",
+    "toulmin_claim": "The course of action argued for (1 sentence)",
+    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
     "provision_labels": ["II.1.f", "I.1"],
     "intensity_score": 0.78,
     "qc_alignment_score": 0.82
@@ -628,7 +698,7 @@ Return as JSON array:
             response_text = streaming_completion(
                 self.llm_client,
                 model=ModelConfig.get_claude_model("default"),
-                max_tokens=16000,
+                max_tokens=32000,
                 prompt=prompt,
                 temperature=0.3,
             )
@@ -726,7 +796,9 @@ Synthesize {target_count} decision points that:
 1. **Preserve entity grounding** - Keep URI references from candidates
 2. **Align with Q&C** - Each point should address real board concerns
 3. **Merge similar candidates** - Combine candidates addressing the same issue
-4. **Include Toulmin structure** - Show DATA, WARRANTs, and REBUTTAL for each
+4. **Include the full Toulmin structure** - all six categories, each respecting
+   its definition:
+{TOULMIN_FIELD_SPEC}
 5. **Coherent question-option structure** - Options must directly answer the question
 
 CRITICAL FORMATTING REQUIREMENT:
@@ -806,9 +878,11 @@ CRITICAL OPTION REQUIREMENTS:
     "provision_labels": ["II.1.c"],
     "provision_uris": ["URIs"],
     "involved_action_uris": ["action URIs"],
-    "toulmin_data": "Summary of triggering facts",
-    "toulmin_warrants": "Summary of competing obligations",
-    "toulmin_rebuttals": "What creates uncertainty",
+    "toulmin_claim": "The course of action argued for",
+    "toulmin_data": "The case facts appealed to (facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...'",
     "addresses_questions": ["Q0", "Q1"],
     "board_resolution": "How board resolved this",
     "qc_alignment_score": 0.85,
@@ -834,7 +908,8 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
         questions: List[Dict],
         conclusions: List[Dict],
         question_emergence: List[Dict],
-        resolution_patterns: List[Dict]
+        resolution_patterns: List[Dict],
+        case_id: int = None
     ) -> List[CanonicalDecisionPoint]:
         """Parse LLM refinement response into canonical decision points."""
 
@@ -863,13 +938,32 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
             if g.constraint_label and g.constraint_uri:
                 entity_uri_lookup[g.constraint_label.lower()] = g.constraint_uri
 
+        # Back the candidate lookup with the committed case graph: candidates
+        # cover only the composed groundings, and an unvalidated fallback to the
+        # LLM-echoed URI put obligation URIs into role slots (2026-07-08
+        # Decisions analysis, case 9). A URI the case graph does not know is
+        # dropped rather than stored.
+        known_uris = set(entity_uri_lookup.values())
+        if case_id is not None:
+            try:
+                from rdflib import RDFS as _RDFS
+                from app.services.entity.committed_case_graph import load_case_graph
+                _g = load_case_graph(case_id)
+                for _s, _o in _g.subject_objects(_RDFS.label):
+                    entity_uri_lookup.setdefault(str(_o).lower(), str(_s))
+                    known_uris.add(str(_s))
+            except Exception as _exc:  # noqa: BLE001 - no committed TTL yet
+                logger.info(f"Case-graph label lookup unavailable for case {case_id}: {_exc}")
+            known_uris.update(entity_uri_lookup.values())
+
         def _resolve_uri(label: str, llm_uri: str) -> str:
-            """Resolve label to real URI via candidate lookup, falling back to LLM URI."""
+            """Label -> URI via candidates + case graph; an LLM-echoed URI is
+            kept only when the case graph knows it."""
             if label:
                 resolved = entity_uri_lookup.get(label.lower())
                 if resolved:
                     return resolved
-            return llm_uri
+            return llm_uri if llm_uri in known_uris else ''
 
         def _resolve_role_label(label: str, resolved_uri: str) -> str:
             """Normalize role label to the canonical (shortest) form for the URI."""
@@ -881,11 +975,16 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
         canonical_points = []
         for i, data in enumerate(synthesis_data, 1):
             # Build Toulmin structure
+            from app.utils.provision_codes import is_provision_code
+            provision_labels = [x for x in (data.get('provision_labels', []) or [])
+                                if is_provision_code(x)]
             toulmin = ToulminStructure(
+                claim=data.get('toulmin_claim', ''),
                 data_summary=data.get('toulmin_data', ''),
                 warrants_summary=data.get('toulmin_warrants', ''),
+                qualifier=data.get('toulmin_qualifier', ''),
                 rebuttals_summary=data.get('toulmin_rebuttals', ''),
-                backing_provisions=data.get('provision_labels', [])
+                backing_provisions=provision_labels
             )
 
             # Map question indices to URIs
@@ -911,6 +1010,27 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                         aligned_q = q
                         break
 
+            # Board resolution derived from the record, not LLM-authored: the
+            # conclusions whose answersQuestions cover the DP's addressed
+            # questions supply the text verbatim. The LLM-authored field
+            # embellished beyond the record even under explicit grounding
+            # rules (case-4 audit: a 'clearly labeled recommendation'
+            # carve-out present in neither conclusions nor discussion). The
+            # LLM text is kept only when no answering conclusion resolves.
+            addressed_nums = set()
+            for q in questions:
+                if q.get('uri') in addresses_q and q.get('question_number') is not None:
+                    addressed_nums.add(q.get('question_number'))
+            answering = [c for c in conclusions
+                         if addressed_nums & set(c.get('answersQuestions') or [])]
+            if answering:
+                aligned_c = answering[0]
+                derived = ' '.join(
+                    (c.get('conclusion_text') or c.get('text') or '').strip()
+                    for c in answering[:2]).strip()
+                if derived:
+                    data['board_resolution'] = derived[:800]
+
             canonical = CanonicalDecisionPoint(
                 focus_id=data.get('focus_id', f'DP{i}'),
                 focus_number=i,
@@ -922,9 +1042,20 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 obligation_label=data.get('obligation_label'),
                 constraint_uri=_resolve_uri(data.get('constraint_label'), data.get('constraint_uri', '')),
                 constraint_label=data.get('constraint_label'),
-                involved_action_uris=data.get('involved_action_uris', []),
+                # Action slot type-filtered: the LLM intermittently echoes
+                # Constraint/State class URIs or non-action individuals here
+                # (case 57: ScopeOfPracticeCompetenceConstraint,
+                # SupervisoryDirectionState), which silently defeats the
+                # timeline's decision-point nesting -- it matches this slot
+                # against temporal Action_/Event_ individuals. Same category
+                # discipline as the provision-slot filter.
+                involved_action_uris=[
+                    u for u in (data.get('involved_action_uris') or [])
+                    if isinstance(u, str)
+                    and ('#Action_' in u or '#Event_' in u)
+                ],
                 provision_uris=data.get('provision_uris', []),
-                provision_labels=data.get('provision_labels', []),
+                provision_labels=provision_labels,
                 toulmin=toulmin,
                 aligned_question_uri=aligned_q.get('uri') if aligned_q else None,
                 aligned_question_text=aligned_q.get('text') if aligned_q else None,
@@ -937,7 +1068,13 @@ Produce exactly {target_count} decision points capturing the key ethical issues.
                 qc_alignment_score=data.get('qc_alignment_score', 0.0),
                 source='unified',
                 source_candidate_ids=data.get('source_candidate_ids', []),
-                synthesis_method='algorithmic+llm',
+                # Honest provenance: when composition yields fewer candidates
+                # than the target count, the refinement generates additional
+                # DPs beyond the candidate pool. Those cite no algorithmic
+                # source, so labeling them 'algorithmic+llm' overstated the
+                # grounding (Phase-C census 2026-07-08: 10 of 76).
+                synthesis_method=('algorithmic+llm' if data.get('source_candidate_ids')
+                                  else 'llm_direct'),
                 llm_refined_description=data.get('description'),
                 llm_refined_question=data.get('decision_question')
             )

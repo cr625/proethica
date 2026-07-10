@@ -26,12 +26,10 @@ doc_structure_bp = Blueprint('doc_structure', __name__, url_prefix='/structure')
 
 from app.routes.document_structure.view_routes import register_view_routes
 from app.routes.document_structure.embedding_routes import register_embedding_routes
-from app.routes.document_structure.association_routes import register_association_routes
 from app.routes.document_structure.api_routes import register_api_routes
 
 register_view_routes(doc_structure_bp)
 register_embedding_routes(doc_structure_bp)
-register_association_routes(doc_structure_bp)
 register_api_routes(doc_structure_bp)
 
 

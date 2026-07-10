@@ -127,6 +127,24 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # (embedding shortlist + batched LLM multi-select, prov:Derivation).
     _run_family(results, "state_affects_edges", case_id, ttl_path)
 
+    # 2c2. Precedent-citation edges (deterministic): every
+    # proeth-cases:PrecedentCaseReference individual is linked to the
+    # case-scoped board agent with proeth-core:citedByAgent. The board
+    # authored the citations by definition (they come from its References
+    # and Discussion sections), so no embedding/LLM resolution is needed;
+    # the board agent resolves by the Agent_NSPE_Board localname or the
+    # board-pattern label. Without this family precedent references were
+    # committed as edge-less islands (2026-07-10 walkthrough, case 9: the
+    # three precedent nodes were the only unconnected entity-graph nodes).
+    try:
+        results["precedent_citation_edges"] = apply_precedent_citation_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: precedent-citation applier failed for case %s", case_id)
+        results["precedent_citation_edges"] = {"error": str(e)}
+
+
     # 2d. Participant edges (DB-driven, embedding-resolved): the Pass-2 component
     # 'who' fields (obligation obligatedParty / constraint constrainedEntity /
     # capability possessedBy / principle invokedBy) plus the actor-edge additions
@@ -305,3 +323,41 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         results["band_index"] = {"error": str(e)}
 
     return results
+
+
+def apply_precedent_citation_edges(case_id: int, ttl_path, write_back: bool = True) -> Dict[str, Any]:
+    """Deterministic applier: PrecedentCaseReference -> core:citedByAgent ->
+    the case-scoped board agent. See the registry comment in
+    materialize_edges_on_ttl (2c2)."""
+    import re
+    import rdflib
+    from rdflib import RDF, RDFS
+
+    CORE = rdflib.Namespace("http://proethica.org/ontology/core#")
+    CASES = rdflib.Namespace("http://proethica.org/ontology/cases#")
+    _BOARD = re.compile(r"board of ethical review", re.IGNORECASE)
+
+    g = rdflib.Graph()
+    g.parse(str(ttl_path), format="turtle")
+
+    board = None
+    for a in g.subjects(RDF.type, CORE.Agent):
+        if str(a).rsplit("#", 1)[-1] == "Agent_NSPE_Board":
+            board = a
+            break
+        if board is None:
+            for l in g.objects(a, RDFS.label):
+                if _BOARD.search(str(l)):
+                    board = a
+                    break
+    if board is None:
+        return {"added": 0, "skipped": "no board agent in graph"}
+
+    added = 0
+    for ref in g.subjects(RDF.type, CASES.PrecedentCaseReference):
+        if (ref, CORE.citedByAgent, board) not in g:
+            g.add((ref, CORE.citedByAgent, board))
+            added += 1
+    if write_back and added:
+        g.serialize(destination=str(ttl_path), format="turtle")
+    return {"added": added}
