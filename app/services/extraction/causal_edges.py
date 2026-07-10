@@ -434,6 +434,16 @@ def apply_causal_normative_link_edges(case_id: int, ttl_path, write_back: bool =
         act_lbl = re.sub(r"^CausalLink[_\s]+", "", lbl).strip()
         tgt = action_by_norm.get(_norm(act_lbl))
         if tgt is None:
+            # The URI minter caps local names, so CausalLink names can carry
+            # a TRUNCATED action label ('Construction_Documents_Issuanc');
+            # accept a UNIQUE prefix match (2026-07-10 alignment audit:
+            # 2 of case 9's 7 links were orphaned exactly this way).
+            norm_act = _norm(act_lbl)
+            prefixed = [u for k, u in action_by_norm.items()
+                        if k.startswith(norm_act)]
+            if len(prefixed) == 1:
+                tgt = prefixed[0]
+        if tgt is None:
             unresolved += 1
             continue
         if (s, PROETH.analyzesAction, tgt) in g:
