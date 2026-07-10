@@ -299,6 +299,38 @@ def apply_analysis_record_edges(case_id: int, ttl_path,
             "present": present, "by_predicate": by_pred, "misses": misses}
 
 
+def reconstruct_analysis_record_edges(case_id: int, ttl_path) -> Dict[str, Any]:
+    """Drop the WHOLE analysis-edge family -- every edge of the ten
+    predicates plus every provenance node of the family's IRI prefix -- and
+    re-apply from current expectations.
+
+    This is the correct refresh after a LAYER REBUILD replaces analysis
+    individuals: the rebuilds remove subjects' outgoing triples, but the
+    family's prov nodes are separate subjects and survive as orphans when
+    the new generation lacks their edge; and apply() alone re-mints prov
+    only for edges it ADDS. Reconstruction guarantees edges == expectations
+    and prov == edges (2026-07-10 pilot: an in-place prune corrupted prov;
+    this full-family rebuild is the clean path)."""
+    ttl_path = Path(ttl_path)
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+    removed_edges = removed_prov = 0
+    for pred in ANALYSIS_PREDICATES:
+        for s, o in list(g.subject_objects(CASES[pred])):
+            g.remove((s, CASES[pred], o))
+            removed_edges += 1
+    for s in {s for s in g.subjects()
+              if "#analysis_edge_provenance_" in str(s)}:
+        for t in list(g.triples((s, None, None))):
+            g.remove(t)
+        removed_prov += 1
+    g.serialize(destination=str(ttl_path), format="turtle")
+    result = apply_analysis_record_edges(case_id, ttl_path)
+    result["reconstructed"] = {"edges_dropped": removed_edges,
+                               "prov_dropped": removed_prov}
+    return result
+
+
 def check_analysis_record_edges(case_id: int, ttl_path) -> Dict[str, Any]:
     """Backfill acceptance gate: every expected edge present, no extras."""
     g = Graph()
