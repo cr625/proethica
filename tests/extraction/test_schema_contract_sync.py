@@ -83,6 +83,7 @@ _ALL_SHAPES = [
     'CapabilityDefinitionShape', 'CapabilityPropertyShape',
     'ConstraintDefinitionShape', 'ConstraintPropertyShape',
     'EventDefinitionShape',
+    'ActionPropertyShape',
     'CaseAnnotationShape',
 ]
 

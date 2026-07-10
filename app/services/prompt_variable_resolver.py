@@ -829,8 +829,10 @@ def _augment_pass_directive(base: str, section_type: str) -> str:
 
 # concept_type (plural, as the pipeline passes it) -> the core component class whose <Component>DefinitionShape
 # carries the controlled field contract. Roles is handled separately (it unions multiple shapes along its class
-# chain). Action has no shape (bare, per the spec). Modular: one builder reads ANY component's shape, so a new
-# component needs no new code -- add its row here and author its DefinitionShape.
+# chain). Action has no DefinitionShape (PropertyShape-only, per the spec; its schema slot is built in the
+# actions branch of concept_ontology_slots, NOT here -- an entry here would raise on the missing
+# DefinitionShape). Modular: one builder reads ANY component's shape, so a new component needs no new
+# code -- add its row here and author its DefinitionShape.
 _COMPONENT_SHAPE = {
     'obligations': 'Obligation', 'principles': 'Principle', 'states': 'State',
     'resources': 'Resource', 'capabilities': 'Capability', 'constraints': 'Constraint',
@@ -838,15 +840,17 @@ _COMPONENT_SHAPE = {
 }
 
 
-def _component_schema_block(component_class: str) -> str:
+def _component_schema_block(component_class: str, property_only: bool = False) -> str:
     """Generic {{ <concept>_schema }} field contract, read from the component's SHACL shapes in
     core-shapes.ttl -- the same single-source pattern as _role_schema_block, so a component prompt's
     controlled field list stays in lockstep with the ontology and the OntServe entity page. Reads the
     <Component>DefinitionShape (type-level fields) and, when present, the <Component>PropertyShape (per-case
     individual fields), and labels the two sections so the model is told which fields classify the type
     versus which it reads from the case (the Role template). Components without a PropertyShape render the
-    flat definitional list unchanged. Raises on an unreadable shapes file or a Definition shape with no
-    fields (a real misconfiguration, not silently swallowed)."""
+    flat definitional list unchanged. property_only renders a component whose contract is PropertyShape-ONLY
+    (Action, which deliberately has NO DefinitionShape per the ratified spec): the DefinitionShape is never
+    read and the <Component>PropertyShape becomes the shape required non-empty. Raises on an unreadable
+    shapes file or a required shape with no fields (a real misconfiguration, not silently swallowed)."""
     import os
     from pathlib import Path
     import rdflib
@@ -878,6 +882,16 @@ def _component_schema_block(component_class: str) -> str:
         return [f'- {n}: {d} (ontology- or commit-assigned; do not output)' if info_only
                 else f'- {n}: {d}'
                 for _o, n, d, info_only in sorted(rows)]
+
+    if property_only:
+        per_case = fields(f'{component_class}PropertyShape')
+        if not per_case:
+            raise RuntimeError(
+                f"{component_class}PropertyShape has no fields in core-shapes.ttl (per-case shape missing?)")
+        return '\n'.join(
+            [f'=== {component_class.upper()} SCHEMA (the controlled per-case fields, from the SHACL '
+             f'{component_class}PropertyShape; single source with the OntServe entity page) ===',
+             'Per-case fields (what the case supplies about this individual):'] + per_case)
 
     definitional = fields(f'{component_class}DefinitionShape')
     per_case = fields(f'{component_class}PropertyShape')
@@ -926,11 +940,13 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
                 _PASS_DIRECTIVES.get((concept_type, section_type), ''), section_type),
         }
     if concept_type == 'actions':
-        # Action has no SHACL DefinitionShape (bare, per the spec), so no {{ action_schema }} slot; it
-        # still gets the ontology definition anchor, the disjointness boundary, and the scope-note
-        # individuation derived from the ontology.
+        # Action has no SHACL DefinitionShape (bare, per the spec), so it stays out of _COMPONENT_SHAPE;
+        # its {{ action_schema }} slot renders the ActionPropertyShape alone (the per-case field
+        # contract) via the property_only branch. It still gets the ontology definition anchor, the
+        # disjointness boundary, and the scope-note individuation derived from the ontology.
         return {
             'action_definition': _component_definition_block('Action'),
+            'action_schema': _component_schema_block('Action', property_only=True),
             'action_boundary': _component_exclude_directive('Action'),
             'action_individuation': _component_individuation_directive('Action'),
             'pass_directive': _augment_pass_directive(
