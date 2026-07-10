@@ -444,6 +444,12 @@ class OntServeCommitService:
                 if individual_result.get('role_axis_vetoes_post_canonicalization'):
                     results['role_axis_vetoes_post_canonicalization'] = \
                         individual_result['role_axis_vetoes_post_canonicalization']
+                # Q&C endpoint guard count (present only when it acted): a
+                # dropped answersQuestion/extendsQuestion edge means a
+                # question number resolved to no committed individual --
+                # recommit the conclusions after the questions to restore.
+                if individual_result.get('qc_edges_dropped'):
+                    results['qc_edges_dropped'] = individual_result['qc_edges_dropped']
 
                 # C3 pre-commit conformance gate: SHACL + OWL-RL check + deterministic Tier-0
                 # repair (via the OntServe repair_conformance_ttl MCP tool) over the just-
@@ -1122,6 +1128,13 @@ class OntServeCommitService:
             # provable both-sides contradictions; logs every drop.
             role_axis_vetoes = self._apply_role_axis_guard(g, role_kind_by_uri)
 
+            # Q&C endpoint guard (same finalized-graph pattern): edges minted
+            # from LLM question numbers are kept only when the target
+            # Question individual exists in the graph. The count travels with
+            # the results (role_axis_vetoes pattern) so a commit that dropped
+            # edges cannot read as unqualified success.
+            qc_edges_dropped = self._prune_dangling_qc_edges(g)
+
             # Save the graph
             self._sanitize_graph_literals(g)
             g.serialize(destination=case_file, format='turtle')
@@ -1153,6 +1166,7 @@ class OntServeCommitService:
 
             return {'count': count, 'file': str(case_file),
                     'role_axis_vetoes': role_axis_vetoes,
+                    'qc_edges_dropped': qc_edges_dropped,
                     'role_axis_vetoes_post_canonicalization':
                         canon_stats['role_axis_vetoes_post_canonicalization']}
 
@@ -1541,6 +1555,31 @@ class OntServeCommitService:
                 sorted(str(u).split('#')[-1] for u in keep),
             )
         return dropped_total
+
+    def _prune_dangling_qc_edges(self, g: Graph) -> int:
+        """Finalized-graph sweep: drop any answersQuestion / extendsQuestion
+        edge whose target Question individual is not typed in the commit graph.
+
+        The question numbers behind the edge URIs are raw LLM output
+        (answersQuestions on conclusions, sourceQuestion on analytical
+        questions). A hallucinated or stale number would mint an edge to a
+        nonexistent individual, and the declared range then INFERS
+        rdf:type EthicalQuestion onto the phantom node instead of failing,
+        so the Pellet gate cannot catch it. Mirrors the backfill script's
+        never-fabricate-an-endpoint rule; every drop is logged.
+        """
+        dropped = 0
+        for pred in (PROETHICA_CASES['answersQuestion'],
+                     PROETHICA_CASES['extendsQuestion']):
+            for s, o in list(g.subject_objects(pred)):
+                if (o, RDF.type, PROETHICA_CASES.EthicalQuestion) not in g:
+                    g.remove((s, pred, o))
+                    dropped += 1
+                    logger.warning(
+                        "Dropped dangling Q&C edge %s -> %s (%s): no "
+                        "EthicalQuestion individual with that URI in the "
+                        "commit graph", s, o, pred)
+        return dropped
 
     def _canonicalize_with_role_axis_resweep(
         self, case_id, ttl_path, role_kind_by_uri: Optional[Dict] = None
@@ -2418,6 +2457,13 @@ class OntServeCommitService:
             # contradictions only; every drop is logged.
             role_axis_vetoes = self._apply_role_axis_guard(g, role_kind_by_uri)
 
+            # Q&C endpoint guard (same finalized-graph pattern): edges minted
+            # from LLM question numbers are kept only when the target
+            # Question individual exists in the graph. The count travels with
+            # the results (role_axis_vetoes pattern) so a commit that dropped
+            # edges cannot read as unqualified success.
+            qc_edges_dropped = self._prune_dangling_qc_edges(g)
+
             # Write file (overwrites existing)
             self._sanitize_graph_literals(g)
             g.serialize(destination=case_file, format='turtle')
@@ -2428,6 +2474,7 @@ class OntServeCommitService:
             # own professional/participant decision (never surfaced to users).
             return {'count': count, 'file': str(case_file),
                     'role_axis_vetoes': role_axis_vetoes,
+                    'qc_edges_dropped': qc_edges_dropped,
                     'role_kind_by_uri': role_kind_by_uri}
 
         except Exception as e:
@@ -2820,8 +2867,13 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['extractionReasoning'], Literal(rdf_data['extractionReasoning'])))
             for i, prov in enumerate(rdf_data.get('citedProvisions', []) or []):
                 g.add((uri, PROETHICA['citedProvision'], Literal(prov)))
-            for i, q in enumerate(rdf_data.get('answersQuestions', []) or []):
-                g.add((uri, PROETHICA['answersQuestion'], Literal(str(q))))
+            # Q&C relationship edge (proethica-cases v3.5.0): the
+            # conclusion-to-question linkage is an object property to the
+            # same-commit Question_<n> individual (edge-primary, CMT-3; the
+            # former proeth:answersQuestion string literal is not emitted).
+            for q in rdf_data.get('answersQuestions', []) or []:
+                g.add((uri, PROETHICA_CASES['answersQuestion'],
+                       case_ns[f"Question_{int(q)}"]))
 
         elif extraction_type == 'ethical_question' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.EthicalQuestion))
@@ -2831,10 +2883,15 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['questionType'], Literal(rdf_data['questionType'])))
             if rdf_data.get('questionNumber'):
                 g.add((uri, PROETHICA['questionNumber'], Literal(int(rdf_data['questionNumber']), datatype=XSD.integer)))
-            # New analytical-question metadata (2026-07-08 Q&C work).
+            # Q&C relationship edge (proethica-cases v3.5.0): an analytical
+            # question links to its source board question as an object
+            # property (edge-primary, CMT-3; the proeth:sourceQuestion
+            # integer literal is not emitted). The numbering offsets
+            # (101/201/301/401) are category codes, not parent pointers;
+            # this edge is the only parent linkage.
             if rdf_data.get('sourceQuestion') is not None:
-                g.add((uri, PROETHICA['sourceQuestion'],
-                       Literal(int(rdf_data['sourceQuestion']), datatype=XSD.integer)))
+                g.add((uri, PROETHICA_CASES['extendsQuestion'],
+                       case_ns[f"Question_{int(rdf_data['sourceQuestion'])}"]))
             if rdf_data.get('ethicalFramework'):
                 g.add((uri, PROETHICA['ethicalFramework'],
                        Literal(rdf_data['ethicalFramework'])))

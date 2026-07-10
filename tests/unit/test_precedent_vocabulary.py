@@ -1,9 +1,12 @@
-"""Citation-treatment vocabulary single-sourcing guard (2026-07-09 Precedents
-audit). The AUTHORITATIVE definitions are the skos:Concepts in
-OntServe/ontologies/proethica-cases.ttl (CitationTreatmentScheme); the
-extraction prompt carries the same text via CITATION_TREATMENTS. This test
-fails when either side is edited without the other, so the vocabulary cannot
-fork silently. Also covers the deterministic joint-citation splitter."""
+"""Controlled-vocabulary single-sourcing guard (2026-07-09 Precedents audit;
+question types added 2026-07-10). The AUTHORITATIVE definitions are the
+skos:Concepts in OntServe/ontologies/proethica-cases.ttl (the
+CitationTreatmentScheme, PrecedentRelationshipScheme, BoardOutcomeScheme, and
+QuestionTypeScheme); the code-side vocabulary blocks carry the same text
+(CITATION_TREATMENTS, RELATIONSHIP_TYPES, OUTCOME_TYPES, QUESTION_TYPES).
+These tests fail when either side is edited without the other, so a
+vocabulary cannot fork silently. Also covers the deterministic joint-citation
+splitter and the Q&C relationship edge declarations (v3.5.0)."""
 import os
 
 import pytest
@@ -104,6 +107,38 @@ def test_outcome_vocabulary_matches_ontology(cases_graph):
         definition = str(next(cases_graph.objects(concept, SKOS.definition)))
         ontology_terms[notation] = definition
     assert ontology_terms == OUTCOME_TYPES
+
+
+def test_question_type_vocabulary_matches_ontology(cases_graph):
+    from app.services.step4_synthesis.question_analyzer import QUESTION_TYPES
+    ontology_terms = {}
+    for concept in cases_graph.subjects(SKOS.inScheme, CASES.QuestionTypeScheme):
+        notation = str(next(cases_graph.objects(concept, SKOS.notation)))
+        definition = str(next(cases_graph.objects(concept, SKOS.definition)))
+        ontology_terms[notation] = definition
+    assert ontology_terms == QUESTION_TYPES
+
+
+def test_question_type_enum_matches_vocabulary():
+    from app.services.step4_synthesis.question_analyzer import (
+        QUESTION_TYPES,
+        QuestionType,
+    )
+    assert set(QUESTION_TYPES) == {t.value for t in QuestionType}
+
+
+def test_qc_edge_properties_declared(cases_graph):
+    """The v3.5.0 Q&C relationship edges the commit bridge emits: declared as
+    object properties with the domain/range that makes an endpoint typing
+    error reasoner-visible, and extendsQuestion irreflexive per the
+    prevailsOver precedent."""
+    for prop, domain in [(CASES.answersQuestion, CASES.EthicalConclusion),
+                         (CASES.extendsQuestion, CASES.EthicalQuestion)]:
+        assert (prop, rdflib.RDF.type, rdflib.OWL.ObjectProperty) in cases_graph
+        assert (prop, rdflib.RDFS.domain, domain) in cases_graph
+        assert (prop, rdflib.RDFS.range, CASES.EthicalQuestion) in cases_graph
+    assert (CASES.extendsQuestion, rdflib.RDF.type,
+            rdflib.OWL.IrreflexiveProperty) in cases_graph
 
 
 def test_outcome_alignment_semantics():

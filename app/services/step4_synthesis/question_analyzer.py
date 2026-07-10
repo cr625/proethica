@@ -43,6 +43,25 @@ class QuestionType(Enum):
     COUNTERFACTUAL = "counterfactual"       # What-if scenarios
 
 
+# Question-type vocabulary. AUTHORITATIVE SOURCE:
+# OntServe/ontologies/proethica-cases.ttl (skos:definition on the
+# QuestionTypeScheme concepts, v3.5.0; browsable at /ontology/proethica-cases).
+# tests/unit/test_precedent_vocabulary.py asserts this dict matches the
+# ontology and the QuestionType enum. The term rides committed question
+# individuals as the proeth:questionType literal; the committed question
+# number encodes the category by offset (board from 1, implicit from 101,
+# principle_tension from 201, theoretical from 301, counterfactual from 401),
+# and the parent linkage of an analytical question is the
+# proeth-cases:extendsQuestion edge, never the offset.
+QUESTION_TYPES = {
+    'board_explicit': 'A question the Board of Ethical Review itself posed in the case record, taken from the Questions section of the case (parsed directly when possible, otherwise extracted).',
+    'implicit': 'An analytical question the case raises but the Board did not explicitly ask, surfaced from the case facts and extracted entities.',
+    'principle_tension': 'An analytical question identifying a conflict between extracted principles or asking how such a conflict is to be balanced in the case.',
+    'theoretical': 'An analytical question reframing the case in the terms of an ethical theory (deontological, consequentialist, or virtue-ethical), carrying its framework designation.',
+    'counterfactual': 'An analytical question whose antecedent negates or alters a fact the case asserts, testing whether a specific board conclusion would still hold under the altered fact.',
+}
+
+
 class QuestionSource(Enum):
     """Source of question extraction."""
     IMPORTED = "imported"        # Parsed from case text without LLM
