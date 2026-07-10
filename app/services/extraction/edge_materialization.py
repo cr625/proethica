@@ -144,6 +144,24 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: precedent-citation applier failed for case %s", case_id)
         results["precedent_citation_edges"] = {"error": str(e)}
 
+    # 2c3. Analysis-record edges (deterministic, proethica-cases v3.6.0):
+    # emergence rationales, resolution patterns, provision references, and
+    # decision points are grounded to the individuals they analyze
+    # (explainsQuestion / describesResolutionOf / referencesProvision / the
+    # DecisionPoint family). Targets resolve positionally from the Step-4
+    # synthesis store, text-verified where the store carries the target text,
+    # endpoint existence- and type-checked always. Without this family the
+    # analysis records were committed as edge-less islands (2026-07-10
+    # alignment audit).
+    try:
+        from app.services.extraction.analysis_edges import apply_analysis_record_edges
+        results["analysis_record_edges"] = apply_analysis_record_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: analysis-record applier failed for case %s", case_id)
+        results["analysis_record_edges"] = {"error": str(e)}
+
 
     # 2d. Participant edges (DB-driven, embedding-resolved): the Pass-2 component
     # 'who' fields (obligation obligatedParty / constraint constrainedEntity /
