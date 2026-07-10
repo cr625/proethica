@@ -54,6 +54,7 @@ _GRAPH_EDGE_NS = (
     "http://proethica.org/ontology/core#",
     "http://proethica.org/ontology/intermediate#",
     "http://proethica.org/ontology/cases#",
+    "http://purl.org/dc/terms/",
 )
 
 
@@ -119,7 +120,7 @@ def _add_committed_graph_edges(case_id: int, nodes: list, edges: list, label_to_
         tid = label_to_node.get(str(o_l).lower())
         if not sid or not tid or sid == tid:
             continue
-        etype = ps.rsplit('#', 1)[-1]
+        etype = ps.rsplit('#', 1)[-1].rsplit('/', 1)[-1]
         key = (sid, tid, etype)
         if key in existing:
             continue

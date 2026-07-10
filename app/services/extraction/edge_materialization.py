@@ -208,6 +208,23 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: time-anchor applier failed for case %s", case_id)
         results["time_anchors"] = {"error": str(e)}
 
+    # 2f-ter. Timeline membership edges (deterministic): the single Step-3 timeline
+    # individual (rdf:type time:TemporalEntity) gains a dcterms:hasPart edge to every
+    # committed Action/Event individual, and its actionCount / eventCount /
+    # totalElements literals are refreshed from the committed member counts (honest
+    # counts: the extraction-time literals go stale when members are removed).
+    # Unordered membership; ordering stays with proeth:temporalSequence, the Allen
+    # relations, and the time:hasTime anchors. Guard-neutral (dcterms:hasPart is not
+    # in ALL_EDGE_RANGE).
+    try:
+        from app.services.extraction.timeline_edges import apply_timeline_haspart
+        results["timeline_haspart"] = apply_timeline_haspart(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: timeline-haspart applier failed for case %s", case_id)
+        results["timeline_haspart"] = {"error": str(e)}
+
     # 2f-bis. Temporal (Allen) relation endpoints (DB-driven, embedding-resolved): each
     # reified TemporalRelation's fromEntity/toEntity free-text timeline phrasings are
     # resolved to the committed Action/Event individuals and the proeth:fromEntity /
