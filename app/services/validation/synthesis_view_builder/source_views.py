@@ -147,7 +147,11 @@ class SourceViewsMixin:
             'provisions': formatted,
             'type_definitions': type_definitions,
             'description': 'Code provisions mapped to case elements, showing which sections '
-                          'of the professional code apply and how they connect to specific facts.'
+                          'of the professional code apply and how they connect to specific facts. '
+                          'This is the UNION of board-stated and analysis-found provisions (see '
+                          'the per-provision badges); the OntServe case page\'s Cited NSPE '
+                          'Provisions panel lists the subset actually cited by the committed '
+                          'conclusions, so its count is at most this one.'
         }
 
     def get_case_facts(self, case_id: int) -> Dict[str, Any]:
