@@ -423,7 +423,10 @@ Return as JSON array:
                 aligned_q_uri = q_uri_map.get(first_q, '')
                 for q in questions:
                     if q.get('uri') == aligned_q_uri:
-                        aligned_q_text = q.get('question_text', q.get('text', ''))
+                        # `or`, not dict-default: question_text may be PRESENT
+                        # but empty, which shadowed the text fallback (part of
+                        # the aligned_question_text 4/75 sparsity).
+                        aligned_q_text = q.get('question_text') or q.get('text', '')
                         break
 
             # Resolve role/obligation labels to proper extraction URIs

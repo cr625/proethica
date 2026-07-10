@@ -589,23 +589,12 @@ class CaseSynthesizer(NarrativeConstructionMixin, Phase2ExtractionMixin):
             extraction_type='ethical_conclusion'
         ).all()
 
-        questions = [
-            {
-                'uri': q.entity_uri or f"case-{case_id}#Q{i+1}",
-                'label': q.entity_label,
-                'text': q.entity_definition or q.entity_label
-            }
-            for i, q in enumerate(questions_raw)
-        ]
-
-        conclusions = [
-            {
-                'uri': c.entity_uri or f"case-{case_id}#C{i+1}",
-                'label': c.entity_label,
-                'text': c.entity_definition or c.entity_label
-            }
-            for i, c in enumerate(conclusions_raw)
-        ]
+        # Committed-URI reference keys (qc_refs single source; positional
+        # #Qk only as the legacy fallback for numberless rows).
+        from app.services.step4_synthesis.qc_refs import (question_refs,
+                                                          conclusion_refs)
+        questions = question_refs(case_id, questions_raw)
+        conclusions = conclusion_refs(case_id, conclusions_raw)
 
         return questions, conclusions
 

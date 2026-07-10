@@ -571,8 +571,12 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
         category_blocks = []
         example_blocks = []
 
+        # Category definitions lead with the ontology-governed QUESTION_TYPES
+        # text (drift-tested against proethica-cases QuestionTypeScheme), so
+        # ontology -> vocabulary dict -> prompt is one chain; the operational
+        # bullets below each definition stay prompt-local.
         if 'implicit' in categories:
-            category_blocks.append("""**IMPLICIT QUESTIONS**: Questions the case raises but the Board didn't explicitly ask.
+            category_blocks.append(f"""**IMPLICIT QUESTIONS**: {QUESTION_TYPES['implicit']}
    - What ethical issues lurk beneath the surface?
    - What questions should have been asked?""")
             example_blocks.append("""  "implicit": [
@@ -593,8 +597,9 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
                     label = _get_entity_field(p, 'label', 'entity_label', default='Unknown')
                     principles_list += f"  - {label}\n"
 
-            category_blocks.append(f"""**PRINCIPLE TENSIONS**: Where do extracted principles come into conflict?
+            category_blocks.append(f"""**PRINCIPLE TENSIONS**: {QUESTION_TYPES['principle_tension']}
    - "Does [Principle X] conflict with [Principle Y]?"
+   - "How should [Principle X] be balanced against [Principle Y]?"
    Extracted principles:
 {principles_list}""")
             example_blocks.append("""  "principle_tension": [
@@ -607,7 +612,7 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
   ]""")
 
         if 'theoretical' in categories:
-            category_blocks.append("""**THEORETICAL FRAMINGS**: Frame the case in ethical theory terms.
+            category_blocks.append(f"""**THEORETICAL FRAMINGS**: {QUESTION_TYPES['theoretical']}
    - Deontological: "Did the engineer fulfill their duty of...?"
    - Consequentialist: "Did the outcome justify...?"
    - Virtue Ethics: "Did the engineer act with professional integrity when...?"
@@ -623,7 +628,7 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
   ]""")
 
         if 'counterfactual' in categories:
-            category_blocks.append("""**COUNTERFACTUAL QUESTIONS**: fact-negating what-ifs that stress a Board conclusion.
+            category_blocks.append(f"""**COUNTERFACTUAL QUESTIONS**: {QUESTION_TYPES['counterfactual']}
    A counterfactual question must satisfy ALL of:
    - Its antecedent NEGATES or ALTERS a fact the case asserts (not a restatement, not
      something the case leaves open, and NOT merely an alternative course of action the

@@ -50,6 +50,7 @@ ANALYSIS_PREDICATES = (
 )
 
 _POS = re.compile(r"#([QC])(\d+)$")
+_DIRECT = re.compile(r"#(Question|Conclusion)_(\d+)$")
 
 
 def _rows(case_id: int, etype: str):
@@ -100,8 +101,32 @@ def build_expectations(case_id: int, g: Graph) -> Tuple[List[Tuple], List[str]]:
     core_sets = {cat: set(_individuals_in_category(g, cat))
                  for cat in ("Obligation", "Action", "Agent", "Constraint")}
 
+    q_by_num = {int((r.rdf_json_ld or {}).get("questionNumber")): (r.rdf_json_ld or {})
+                for r in q_rows if (r.rdf_json_ld or {}).get("questionNumber")}
+    c_by_num = {int((r.rdf_json_ld or {}).get("conclusionNumber")): (r.rdf_json_ld or {})
+                for r in c_rows if (r.rdf_json_ld or {}).get("conclusionNumber")}
+
     def positional(uri_str: Optional[str], expect_text: Optional[str] = None):
-        """case-<id>#Qk/#Ck -> committed Question_/Conclusion_<number> URI."""
+        """Resolve a stored Q/C reference to the committed individual.
+
+        Two key forms: the committed-URI form case-<id>#Question_<n> /
+        #Conclusion_<n> (qc_refs, since 2026-07-10) resolves directly by
+        number; the legacy positional case-<id>#Q<k>/#C<k> resolves by
+        enumeration. Both are existence-checked; text-verified when the
+        caller carries the target text."""
+        m = _DIRECT.search(uri_str or "")
+        if m:
+            frag = f"{m.group(1)}_{int(m.group(2))}"
+            is_q = m.group(1) == "Question"
+            tgt = case_ns[frag]
+            if tgt not in (committed_q if is_q else committed_c):
+                return None, f"{uri_str}: {frag} not committed/typed"
+            if expect_text:
+                d = (q_by_num if is_q else c_by_num).get(int(m.group(2)))
+                ref_text = (d or {}).get("questionText" if is_q else "conclusionText") or ""
+                if d is not None and not _texts_match(expect_text, ref_text):
+                    return None, f"{uri_str}: carried text does not match target row text"
+            return tgt, None
         m = _POS.search(uri_str or "")
         if not m:
             return None, f"unparseable positional key {uri_str!r}"

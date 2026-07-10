@@ -276,10 +276,14 @@ class Phase2ExtractionMixin:
                 q_results = question_analyzer.extract_questions(questions_text, all_entities_formatted, provisions)
 
                 for i, q in enumerate(q_results):
-                    # q is a dict from _question_to_dict, not an EthicalQuestion object
+                    # q is a dict from _question_to_dict, not an EthicalQuestion object.
+                    # Committed-URI key from the question number (qc_refs convention);
+                    # positional #Qk only when the number is absent.
+                    _qn = q.get('question_number') if isinstance(q, dict) else None
                     questions.append({
-                        'uri': f"case-{case_id}#Q{i+1}",
-                        'label': f"Question_{i+1}",
+                        'uri': (f"case-{case_id}#Question_{int(_qn)}" if _qn
+                                else f"case-{case_id}#Q{i+1}"),
+                        'label': f"Question_{int(_qn)}" if _qn else f"Question_{i+1}",
                         'text': q.get('question_text', str(q)) if isinstance(q, dict) else getattr(q, 'question_text', str(q)),
                         'mentioned_entities': q.get('mentioned_entities', []) if isinstance(q, dict) else getattr(q, 'mentioned_entities', []),
                         'related_provisions': q.get('related_provisions', []) if isinstance(q, dict) else getattr(q, 'related_provisions', [])
@@ -306,10 +310,14 @@ class Phase2ExtractionMixin:
                 c_results = conclusion_analyzer.extract_conclusions(conclusions_text, all_entities_formatted, provisions)
 
                 for i, c in enumerate(c_results):
-                    # c is a dict from _conclusion_to_dict, not an EthicalConclusion object
+                    # c is a dict from _conclusion_to_dict, not an EthicalConclusion object.
+                    # Committed-URI key from the conclusion number (qc_refs convention);
+                    # positional #Ck only when the number is absent.
+                    _cn = c.get('conclusion_number') if isinstance(c, dict) else None
                     conclusions.append({
-                        'uri': f"case-{case_id}#C{i+1}",
-                        'label': f"Conclusion_{i+1}",
+                        'uri': (f"case-{case_id}#Conclusion_{int(_cn)}" if _cn
+                                else f"case-{case_id}#C{i+1}"),
+                        'label': f"Conclusion_{int(_cn)}" if _cn else f"Conclusion_{i+1}",
                         'text': c.get('conclusion_text', str(c)) if isinstance(c, dict) else getattr(c, 'conclusion_text', str(c)),
                         'mentioned_entities': c.get('mentioned_entities', []) if isinstance(c, dict) else getattr(c, 'mentioned_entities', []),
                         'cited_provisions': c.get('cited_provisions', []) if isinstance(c, dict) else getattr(c, 'cited_provisions', []),

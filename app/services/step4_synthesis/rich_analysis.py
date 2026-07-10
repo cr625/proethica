@@ -218,10 +218,11 @@ not change or restate them. The CAUSAL CHAINS show what each action brings about
 
 For EACH action, write ONE sentence of REASONING explaining the normative significance of the
 action in its causal context: why fulfilling or violating those obligations matters given
-what the action causes downstream. Explain the edges; do not list them. Output JSON array:
+what the action causes downstream. Explain the edges; do not list them. Reference each action
+by its A-number (action_index 1 for A1). Output JSON array:
 ```json
 [
-  {{"action_label": "exact action label", "reasoning": "One grounded sentence.", "confidence": 0.8}}
+  {{"action_index": 1, "reasoning": "One grounded sentence.", "confidence": 0.8}}
 ]
 ```
 
@@ -277,8 +278,21 @@ Include all {len(batch_actions)} actions.
         """Build CausalNormativeLinks from the COMMITTED Step-3 edges (fulfills / violates /
         guided / agent) plus the LLM's per-action reasoning. No relation is re-derived here --
         the edges come straight from the temporal extraction; only the reasoning is new."""
+        # Index-keyed lookup (the established QE question_index / RP
+        # conclusion_index convention): the prompt numbers actions A1..An and
+        # asks for action_index back, which is deterministic. Label-echo
+        # matching remains only as the legacy fallback -- it silently missed
+        # when the model reworded a label (2026-07-10 replay: 3/5 matched;
+        # the 2026-07-08 gold run stored reasoning='' on every link).
+        reason_by_index = {}
+        for d in reasonings:
+            if isinstance(d, dict):
+                try:
+                    reason_by_index[int(d.get('action_index'))] = d
+                except (TypeError, ValueError):
+                    pass
         reason_by = {_normalize_label(d.get('action_label', '')): d
-                     for d in reasonings if isinstance(d, dict)}
+                     for d in reasonings if isinstance(d, dict) and d.get('action_label')}
 
         def _resolve(labels):
             # Resolve each Step-3 obligation/principle label to its case URI, but KEEP the label
@@ -296,10 +310,12 @@ Include all {len(batch_actions)} actions.
             return out
 
         results = []
-        for a in batch_actions:
+        for i, a in enumerate(batch_actions):
             nl = _normalize_label(a.label)
             ce = committed.get(nl, {})
-            rd = reason_by.get(nl, {})
+            # Index first (deterministic: the prompt numbers actions A1..An),
+            # label echo as the legacy fallback.
+            rd = reason_by_index.get(i + 1) or reason_by.get(nl, {})
             results.append(CausalNormativeLink(
                 action_id=getattr(a, 'uri', '') or '',
                 action_label=a.label,
