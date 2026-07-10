@@ -195,15 +195,19 @@ def load_phase2_data(case_id: int) -> Dict:
         extraction_type='ethical_question'
     ).all()
 
+    # Committed-URI reference keys (qc_refs single source; this loader was
+    # the sixth independently minted positional-key site -- c422755 review).
+    # answersQuestions / question_number ride along so the board-resolution
+    # join in the DP strategies works from this route exactly as it does
+    # from the service path.
+    from app.services.step4_synthesis.qc_refs import (question_refs,
+                                                      conclusion_refs)
     questions = [
-        {
-            'uri': q.entity_uri or f"case-{case_id}#Q{i+1}",
-            'label': q.entity_label,
-            'text': q.entity_definition or q.entity_label,
-            'mentioned_entities': q.rdf_json_ld.get('mentionedEntities', []) if q.rdf_json_ld else [],
-            'related_provisions': q.rdf_json_ld.get('relatedProvisions', []) if q.rdf_json_ld else []
-        }
-        for i, q in enumerate(questions_raw)
+        {**ref,
+         'question_number': ref['number'],
+         'mentioned_entities': q.rdf_json_ld.get('mentionedEntities', []) if q.rdf_json_ld else [],
+         'related_provisions': q.rdf_json_ld.get('relatedProvisions', []) if q.rdf_json_ld else []}
+        for q, ref in zip(questions_raw, question_refs(case_id, questions_raw))
     ]
 
     # Load conclusions
@@ -213,15 +217,13 @@ def load_phase2_data(case_id: int) -> Dict:
     ).all()
 
     conclusions = [
-        {
-            'uri': c.entity_uri or f"case-{case_id}#C{i+1}",
-            'label': c.entity_label,
-            'text': c.entity_definition or c.entity_label,
-            'cited_provisions': c.rdf_json_ld.get('citedProvisions', []) if c.rdf_json_ld else [],
-            'cited_actions': c.rdf_json_ld.get('citedActions', []) if c.rdf_json_ld else [],
-            'answers_questions': c.rdf_json_ld.get('answersQuestions', []) if c.rdf_json_ld else []
-        }
-        for i, c in enumerate(conclusions_raw)
+        {**ref,
+         'cited_provisions': c.rdf_json_ld.get('citedProvisions', []) if c.rdf_json_ld else [],
+         'cited_actions': c.rdf_json_ld.get('citedActions', []) if c.rdf_json_ld else [],
+         'answers_questions': c.rdf_json_ld.get('answersQuestions', []) if c.rdf_json_ld else [],
+         'answersQuestions': c.rdf_json_ld.get('answersQuestions', []) if c.rdf_json_ld else [],
+         'conclusion_text': ref['text']}
+        for c, ref in zip(conclusions_raw, conclusion_refs(case_id, conclusions_raw))
     ]
 
     # Load question emergence (Toulmin analysis)

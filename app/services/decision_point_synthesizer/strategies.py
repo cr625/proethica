@@ -747,8 +747,14 @@ Return as JSON array:
             ))
 
 
-        # Format questions with Toulmin analysis
-        qe_map = {qe.get('question_uri', ''): qe for qe in question_emergence}
+        # Format questions with Toulmin analysis. Stored QE/RP keys are
+        # normalized to the in-memory lists' key form (qc_refs key_aliases;
+        # mixed-generation join tolerance -- c422755 review).
+        from app.services.step4_synthesis.qc_refs import key_aliases
+        _q_alias = key_aliases(questions, 'Q')
+        _c_alias = key_aliases(conclusions, 'C')
+        qe_map = {_q_alias.get(qe.get('question_uri', ''), qe.get('question_uri', '')): qe
+                  for qe in question_emergence}
         questions_text = []
         for i, q in enumerate(questions):
             q_uri = q.get('uri', '')
@@ -761,8 +767,9 @@ Q{i}: {q.get('text', q.get('label', ''))}
   - REBUTTAL: {qe.get('rebuttal_conditions', 'Not analyzed')[:200] if qe.get('rebuttal_conditions') else 'None'}
 """)
 
-        # Format conclusions with resolution patterns
-        rp_map = {rp.get('conclusion_uri', ''): rp for rp in resolution_patterns}
+        # Format conclusions with resolution patterns (same normalization).
+        rp_map = {_c_alias.get(rp.get('conclusion_uri', ''), rp.get('conclusion_uri', '')): rp
+                  for rp in resolution_patterns}
         conclusions_text = []
         for i, c in enumerate(conclusions):
             c_uri = c.get('uri', '')

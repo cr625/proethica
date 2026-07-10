@@ -440,8 +440,15 @@ class DecisionPointSynthesizer(LLMStrategiesMixin):
 
         question_to_warrants = {}    # question_uri -> list of warrant pairs
 
+        # Normalize STORED reference keys against the in-memory list (qc_refs
+        # key_aliases): a mixed-generation store (legacy positional keys vs
+        # committed-URI lists, or vice versa) must keep joining.
+        from app.services.step4_synthesis.qc_refs import key_aliases
+        _q_alias = key_aliases(questions, 'Q')
+
         for qe in question_emergence:
             q_uri = qe.get('question_uri', '')
+            q_uri = _q_alias.get(q_uri, q_uri)
 
             # Collect competing warrants (obligation pairs)
             for warrant_pair in qe.get('competing_warrants', []):
@@ -587,7 +594,12 @@ class DecisionPointSynthesizer(LLMStrategiesMixin):
         """Convert algorithmic candidates to canonical format without LLM."""
 
         score_map = {s.candidate_id: s for s in alignment_scores}
-        qe_map = {qe.get('question_uri', ''): qe for qe in question_emergence}
+        # Stored QE keys normalized to the in-memory list's key form (qc_refs
+        # key_aliases; mixed-generation join tolerance).
+        from app.services.step4_synthesis.qc_refs import key_aliases
+        _q_alias = key_aliases(questions, 'Q')
+        qe_map = {_q_alias.get(qe.get('question_uri', ''), qe.get('question_uri', '')): qe
+                  for qe in question_emergence}
 
         canonical_points = []
         for i, candidate in enumerate(candidates, 1):

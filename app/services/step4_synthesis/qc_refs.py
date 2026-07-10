@@ -56,3 +56,25 @@ def question_refs(case_id: int, rows: Optional[list] = None) -> List[Dict]:
 def conclusion_refs(case_id: int, rows: Optional[list] = None) -> List[Dict]:
     rows = rows if rows is not None else _rows(case_id, 'ethical_conclusion')
     return [_ref(case_id, r, i + 1, 'C') for i, r in enumerate(rows)]
+
+
+def key_aliases(refs: List[Dict], kind: str) -> Dict[str, str]:
+    """alias key -> canonical key, over an id-ordered reference list.
+
+    Any join between STORED Step-4 reference keys (question_uri /
+    conclusion_uri / aligned_*_uri, possibly written under the legacy
+    positional convention) and an in-memory reference list must normalize
+    BOTH sides through this map, or a mixed-generation store silently stops
+    joining (c422755 review, major finding: the DP-synthesis and Step-5
+    joins used exact string equality). Aliases cover the canonical
+    committed-URI form and the legacy positional form at the same list
+    position; unknown keys pass through unchanged via ``.get(k, k)``."""
+    out: Dict[str, str] = {}
+    pos = 'Q' if kind == 'Q' else 'C'
+    for k, ref in enumerate(refs, 1):
+        canon = ref.get('uri') or ''
+        if not canon or '#' not in canon:
+            continue
+        out[canon] = canon
+        out[f"{canon.split('#')[0]}#{pos}{k}"] = canon
+    return out
