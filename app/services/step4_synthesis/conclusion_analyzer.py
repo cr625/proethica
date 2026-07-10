@@ -492,7 +492,7 @@ class ConclusionAnalyzer:
                 logger.info(f"Batch '{desc}': {total} conclusions")
                 return analytical
 
-            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError, ValueError) as e:  # ValueError = strict-parse failure on a malformed response: retryable nondeterminism (2026-07-10)
                 last_error = e
                 wait = 2 ** (attempt + 1)
                 logger.warning(f"Analytical batch '{desc}' attempt {attempt + 1}/{max_retries} failed: {e}. Retrying in {wait}s...")

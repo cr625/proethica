@@ -256,7 +256,7 @@ Include all {len(batch_actions)} actions.
                 reasonings = parse_json_response(response_text, f"causal links batch {batch_num}", strict=True) or []
                 return self._build_grounded_links(reasonings, batch_actions, committed, entity_dict)
 
-            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError, ValueError) as e:  # ValueError = strict-parse failure on a malformed response: retryable nondeterminism (2026-07-10)
                 last_error = e
                 wait = 2 ** (attempt + 1)
                 logger.warning(f"Causal links batch {batch_num} attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
@@ -446,7 +446,7 @@ Include all questions in this batch.
                     return self._resolve_question_emergence(analyses_data, questions, entity_dict)
                 return []
 
-            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError, ValueError) as e:  # ValueError = strict-parse failure on a malformed response: retryable nondeterminism (2026-07-10)
                 last_error = e
                 wait = 2 ** (attempt + 1)
                 logger.warning(f"Question emergence attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
@@ -653,7 +653,7 @@ Include all {len(batch_conclusions)} conclusions in this batch.
                     )
                 return []
 
-            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError, ValueError) as e:  # ValueError = strict-parse failure on a malformed response: retryable nondeterminism (2026-07-10)
                 last_error = e
                 wait = 2 ** (attempt + 1)
                 logger.warning(f"Resolution patterns batch {batch_num} attempt {attempt + 1}/{max_retries} failed (connection): {e}. Retrying in {wait}s...")
