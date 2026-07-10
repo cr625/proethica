@@ -1432,7 +1432,7 @@
                             {% for prov in views.provisions.provisions %}
                             <div class="provision-card mb-3">
                                 <div class="provision-header">
-                                    <span class="provision-code">{{ prov.code_section }}</span>
+                                    <span class="provision-code">{{ prov.display_code or prov.code_section }}</span>
                                     <span class="provision-text">{{ prov.provision_text }}</span>
                                 </div>
                                 {% if prov.case_excerpt %}

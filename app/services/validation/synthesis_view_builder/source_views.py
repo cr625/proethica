@@ -72,7 +72,8 @@ class SourceViewsMixin:
         # missed still appear, marked accordingly.
         from flask import current_app
         from app.utils.provision_codes import (normalize_provision_code,
-                                               nspe_provision_fragment)
+                                               nspe_provision_fragment,
+                                               provision_display_code)
         doc = Document.query.get(case_id)
         board_refs = ((doc.doc_metadata or {}).get('provision_references')
                       if doc else None) or []
@@ -96,6 +97,10 @@ class SourceViewsMixin:
             formatted.append({
                 'id': prov.id,
                 'code_section': prov.entity_label,
+                # Identifier-cased display form ('II.3.a'), matching the
+                # OntServe citation surfaces; raw spelling kept as fallback.
+                'display_code': provision_display_code(prov.entity_label)
+                                or prov.entity_label,
                 'code': code,
                 'provenance': 'both' if code in board_by_code else 'analysis',
                 'ontserve_url': _ontserve_url(code) if code else None,
@@ -112,6 +117,7 @@ class SourceViewsMixin:
             formatted.append({
                 'id': None,
                 'code_section': code,
+                'display_code': provision_display_code(code) or code,
                 'code': code,
                 'provenance': 'board',
                 'ontserve_url': _ontserve_url(code),
