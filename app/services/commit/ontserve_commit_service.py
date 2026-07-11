@@ -2928,6 +2928,13 @@ class OntServeCommitService:
             g.add((uri, PROETHICA_CASES['citationType'],
                    Literal(rdf_data['citationType'])))
 
+        # Provision-application excerpts (intermediate relevantExcerpt,
+        # 2026-07-11): the '[section] text' spans that apply the cited
+        # provision, previously dropped by the nested-structure skip. The
+        # appliesTo dicts become object edges via the analysis-edge applier.
+        if extraction_type == 'code_provision_reference' and rdf_data:
+            emit_cpr_enrichment(g, uri, rdf_data)
+
         if extraction_type == 'canonical_decision_point' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.DecisionPoint))
             if rdf_data.get('focus_id'):
@@ -2940,9 +2947,10 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['decisionQuestion'], Literal(rdf_data['decision_question'])))
             if rdf_data.get('role_label'):
                 g.add((uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
-            for i, opt in enumerate(rdf_data.get('options', []) or []):
-                if isinstance(opt, dict) and opt.get('description'):
-                    g.add((uri, PROETHICA['option'], Literal(f"{i+1}. {opt['description']}")))
+            # The analytic literals (Toulmin slots, board resolution, scores,
+            # provisions, options incl. the board choice) come from the shared
+            # enrichment helper so the backfill path cannot drift from this one.
+            emit_decision_point_enrichment(g, uri, rdf_data)
 
         elif extraction_type == 'ethical_conclusion' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.EthicalConclusion))
@@ -3487,6 +3495,69 @@ class OntServeCommitService:
         result['success'] = len(result['errors']) == 0
         return result
 
+
+
+def emit_decision_point_enrichment(g: Graph, uri: URIRef, rdf_data: dict) -> None:
+    """DecisionPoint analytic literals (the Chapter-3 spec fields the Phase-3
+    synthesis persists): the Toulmin summary slots, the board-resolution
+    narrative, the two ranking scores (xsd:decimal), the provision
+    designations, the numbered options, and the board-chosen option.
+
+    Module-level with REPLACE semantics -- every owned predicate is cleared
+    before re-emission -- so the live commit serializer and the gold-15
+    backfill share one idempotent implementation and cannot drift."""
+    d = rdf_data or {}
+    toulmin = d.get('toulmin') or {}
+    for pred in ('boardResolution', 'intensityScore', 'qcAlignmentScore',
+                 'toulminClaim', 'toulminData', 'toulminWarrant',
+                 'toulminRebuttal', 'toulminQualifier', 'boardChosenOption',
+                 'citedProvision', 'option'):
+        g.remove((uri, PROETHICA[pred], None))
+    if d.get('board_resolution'):
+        g.add((uri, PROETHICA['boardResolution'], Literal(d['board_resolution'])))
+    for key, pred in (('intensity_score', 'intensityScore'),
+                      ('qc_alignment_score', 'qcAlignmentScore')):
+        v = d.get(key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            g.add((uri, PROETHICA[pred], Literal(str(v), datatype=XSD.decimal)))
+    for key, pred in (('claim', 'toulminClaim'),
+                      ('data_summary', 'toulminData'),
+                      ('warrants_summary', 'toulminWarrant'),
+                      ('rebuttals_summary', 'toulminRebuttal'),
+                      ('qualifier', 'toulminQualifier')):
+        if toulmin.get(key):
+            g.add((uri, PROETHICA[pred], Literal(toulmin[key])))
+    # One designation set: the Toulmin backing when carried, else the row's
+    # provision_labels (the two are the same list in practice; emitting both
+    # would double every code). Same citedProvision predicate the conclusion
+    # emission uses.
+    for code in (toulmin.get('backing_provisions')
+                 or d.get('provision_labels') or []):
+        if code:
+            g.add((uri, PROETHICA['citedProvision'], Literal(str(code))))
+    for i, opt in enumerate(d.get('options') or []):
+        if not (isinstance(opt, dict) and opt.get('description')):
+            continue
+        label = (opt.get('label') or '').strip()
+        text = (f"{i + 1}. {label}: {opt['description']}" if label
+                else f"{i + 1}. {opt['description']}")
+        g.add((uri, PROETHICA['option'], Literal(text)))
+        if opt.get('is_board_choice') and label:
+            g.add((uri, PROETHICA['boardChosenOption'], Literal(label)))
+
+
+def emit_cpr_enrichment(g: Graph, uri: URIRef, rdf_data: dict) -> None:
+    """CodeProvisionReference relevantExcerpt literals ('[section] text', one
+    per excerpt). REPLACE semantics; shared by the serializer and the gold-15
+    backfill. The appliesTo dicts are deliberately NOT flattened here -- they
+    become object edges via the analysis-record edge applier, which carries
+    each application's reasoning on the provenance derivation."""
+    g.remove((uri, PROETHICA['relevantExcerpt'], None))
+    for ex in ((rdf_data or {}).get('relevantExcerpts') or []):
+        if isinstance(ex, dict) and ex.get('text'):
+            sec = (ex.get('section') or '').strip()
+            text = f"[{sec}] {ex['text']}" if sec else str(ex['text'])
+            g.add((uri, PROETHICA['relevantExcerpt'], Literal(text)))
 
 
 _Q_TYPE_NAMES = {'board_explicit': 'Board question', 'implicit': 'Implicit question',
