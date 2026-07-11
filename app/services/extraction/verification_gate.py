@@ -27,6 +27,17 @@ from app.services.extraction.extraction_verifier import verify_and_reground, det
 logger = logging.getLogger(__name__)
 
 _DUTY_COMPONENTS = {'obligations', 'constraints'}
+
+# The seven pass-1/2 components whose extraction contract ALWAYS carries verbatim
+# textReferences (gold-corpus census 2026-07-11: 100 percent of rows). A quoteless
+# row here is a contract breach, so the gate requires a confirmed grounding span
+# for it (repair-first: a found span is attached as the entity's quotes; no span
+# is a fabrication drop). Step-4 synthesis families and the Step-3 temporal
+# records are excluded -- they are derived analysis records whose grounding
+# contracts differ (causalLanguage, evidence) and are legitimately quoteless.
+_GROUNDED_COMPONENTS = {'roles', 'states', 'resources', 'principles',
+                        'obligations', 'constraints', 'capabilities'}
+
 _OVERREACH_VOTES = 5
 _OVERREACH_DROP_AT = 4   # supermajority of a 5-vote panel: cuts the run-to-run variance a 3/3-unanimous
                          # threshold suffered (a single dissenter no longer blocks a clear over-reach),
@@ -54,6 +65,9 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     from model_config import ModelConfig
     model = model or ModelConfig.get_claude_model("gate")
     res = GateResult()
+    # Copies keep the gate pure: the require_quote annotation below must not
+    # leak into the caller's dicts.
+    entities = [dict(e) for e in entities]
 
     # 0. Null/empty labels -> drop (deterministic).
     live: List[Dict] = []
@@ -64,13 +78,20 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
             live.append(e)
 
     # 1. Verbatim grounding over every live entity: re-ground paraphrases, drop full fabrications.
+    #    Quoteless rows in the grounded components take the same pass (require_quote): a confirmed
+    #    span repairs them, no span drops them -- closing the text_references=[] bypass.
     if live:
+        for e in live:
+            e['require_quote'] = (e.get('component') or '').lower() in _GROUNDED_COMPONENTS
         gverdicts = verify_and_reground(case_text, live, model=model)
         for e, v in zip(live, gverdicts):
             if v.unsupported and not v.regrounded and not v.kept_verbatim:
-                res.dropped.append((e.get('id'), e.get('label'), 'fabrication: no quote has a supporting span'))
+                reason = ('fabrication: no quote has a supporting span' if e.get('quotes')
+                          else 'quoteless: no case span supports the label/definition')
+                res.dropped.append((e.get('id'), e.get('label'), reason))
             elif v.regrounded or v.unsupported:
-                # the quote set changed (some re-grounded and/or some unsupported dropped)
+                # the quote set changed (some re-grounded, some unsupported dropped,
+                # or a quoteless entity gained its grounding span)
                 res.corrected_quotes[e.get('id')] = v.kept_verbatim + v.regrounded
 
     # 2. Over-reach over the surviving duty CLASSES (obligations + constraints), multi-vote. Detection runs
@@ -124,11 +145,17 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
 
 def quotes_of(rdf_json_ld: Dict) -> List[str]:
     """Extract an entity's quote list from temp_rdf rdf_json_ld for the gate input. Prefers the full
-    properties.textReferences list, falling back to the primary source_text."""
+    properties.textReferences list; the Step-3 temporal JSON-LD shape carries its quotes under the
+    top-level proeth:textReferences key instead (previously unread, so every temporal action/event
+    entered the gate quoteless and its quotes were never verified); falls back to source_text."""
     jl = rdf_json_ld or {}
     q = (jl.get('properties') or {}).get('textReferences') or []
+    if not q:
+        q = jl.get('proeth:textReferences') or []
     if not q and jl.get('source_text'):
         q = [jl['source_text']]
+    if isinstance(q, str):
+        q = [q]
     return [s for s in q if s and str(s).strip()]
 
 
@@ -155,6 +182,13 @@ def apply_corrected_quotes(rdf_json_ld: Dict, spans: List[str]) -> Dict:
     if not spans:
         return rdf_json_ld
     jl = dict(rdf_json_ld or {})
+    if '@type' in jl:
+        # Step-3 temporal JSON-LD shape: quotes ride the top-level
+        # proeth:textReferences key only. The pass-1/2 wrapper fields must not
+        # be introduced here -- the temporal commit path iterates prefixed keys
+        # and an unprefixed 'properties'/'source_text' key would not survive it.
+        jl['proeth:textReferences'] = list(spans)
+        return jl
     props = dict(jl.get('properties') or {})
     props['textReferences'] = list(spans)
     props['sourceText'] = list(spans)

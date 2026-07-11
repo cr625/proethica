@@ -120,13 +120,20 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     verdicts = [QuoteVerdict(label=str(e.get('label') or '?')) for e in entities]
     pending: List[tuple] = []   # (entity_index, quote) pairs needing a span from the model
     for i, e in enumerate(entities):
-        for q in (e.get('quotes') or []):
-            if not (q and q.strip()):
-                continue
+        quotes = [q for q in (e.get('quotes') or []) if q and str(q).strip()]
+        for q in quotes:
             if _verbatim(q, ts):
                 verdicts[i].kept_verbatim.append(q)
             else:
                 pending.append((i, q))
+        if not quotes and e.get('require_quote'):
+            # Quoteless entity in a component whose contract is verbatim
+            # grounding: previously it skipped this pass entirely (the one
+            # bypass of the fabrication check -- text_references=[] meant no
+            # grounding ever ran). Ask for a span supporting the entity
+            # itself; a confirmed span repairs it (the entity gains its
+            # grounding), no span marks it a fabrication candidate.
+            pending.append((i, None))
 
     if not pending:
         return verdicts
@@ -135,11 +142,15 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     lines = []
     for pid, (i, q) in enumerate(pending):
         e = entities[i]
-        lines.append(f'[{pid}] {e.get("label")} -- {e.get("definition") or ""}\n     current (paraphrase): "{q}"')
+        if q is None:
+            lines.append(f'[{pid}] {e.get("label")} -- {e.get("definition") or ""}\n'
+                         f'     current: NONE (extracted without any quote; find the supporting span)')
+        else:
+            lines.append(f'[{pid}] {e.get("label")} -- {e.get("definition") or ""}\n     current (paraphrase): "{q}"')
     prompt = (
         "Verify quote grounding for extracted ethics concepts. Below is a case text, then entities "
         "each with a label, a definition, and a CURRENT quote that is a paraphrase rather than an "
-        "exact quote from the case.\n\n"
+        "exact quote from the case (or NONE when the entity was extracted without any quote).\n\n"
         "For each entity id, return the EXACT verbatim span(s) from the case text that support its "
         "label and definition -- copied character-for-character as a real contiguous substring of "
         "the case (1-2 best spans, prefer the single most on-point sentence or clause). If NO span "
@@ -162,7 +173,7 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
         if accepted:
             verdicts[i].regrounded.extend(accepted)
         else:
-            verdicts[i].unsupported.append(q)
+            verdicts[i].unsupported.append(q if q is not None else '(no quote extracted)')
     return verdicts
 
 
