@@ -72,6 +72,21 @@ def test_failed_ballots_dropped_and_total_failure_falls_back():
     assert out is None  # every vote failed -> embedding fallback
 
 
+def test_raising_ballot_is_dropped_not_fatal():
+    """A vote that RAISES (empty stream -> extract_json ValueError, transient
+    API fault) is dropped like a None ballot; the panel proceeds on the
+    remaining votes. The case-9 shadow run lost its whole state-edge select
+    to one empty first vote escaping to the outer except (2026-07-11)."""
+    healthy = {"1": "iri://a", "2": None}
+    out, mock_attempt = _select_with_ballots(
+        [ValueError("Empty response text"), healthy, healthy])
+    assert out == healthy
+    assert mock_attempt.call_count == 3
+
+    out, _ = _select_with_ballots([ValueError("boom")] * 3)
+    assert out is None  # all raised -> embedding fallback
+
+
 def test_single_vote_path_unchanged():
     """votes=1 (every other caller of the shared driver) keeps the original
     single-attempt + all-none-retry contract, uncached."""

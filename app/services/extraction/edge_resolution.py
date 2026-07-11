@@ -286,6 +286,13 @@ def _select_attempt(client, model, prompt: str, items: List[Dict[str, Any]],
     logger.debug("edge_resolution: select raw response (%d chars): %r", len(raw), raw[:2000])
     if diag is not None:
         diag.setdefault("raws", []).append(raw)
+    if not raw.strip():
+        # A thinking-default model can spend the whole budget before emitting
+        # text, or the API can return an empty stream; either way this is a
+        # failed ATTEMPT (ballot dropped / caller falls back), not an
+        # exception to propagate.
+        logger.warning("edge_resolution: select stream produced no text")
+        return None
     data = extract_json_from_response(raw)
     if not isinstance(data, dict):
         logger.warning("edge_resolution: select response parsed to %s, not a JSON object",
@@ -341,12 +348,25 @@ def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=
 
         if votes > 1:
             ballots = []
-            for _ in range(votes):
-                out = _select_attempt(client, model, prompt, items,
-                                      cache_prompt=True, diag=diag)
+            for vote_i in range(votes):
+                # Per-ballot isolation: a single failed vote (empty stream,
+                # parse error, transient API fault) is DROPPED, not allowed to
+                # abort the panel -- absorbing one bad generation is the whole
+                # point of voting. The case-9 shadow run lost its entire
+                # state-edge select to one empty first vote escaping to the
+                # outer except (2026-07-11).
+                try:
+                    out = _select_attempt(client, model, prompt, items,
+                                          cache_prompt=True, diag=diag)
+                except Exception as ballot_err:  # noqa: BLE001
+                    logger.warning("edge_resolution: vote %d/%d failed (%s); "
+                                   "ballot dropped", vote_i + 1, votes, ballot_err)
+                    out = None
                 if out is not None:
                     ballots.append(out)
             if not ballots:
+                logger.warning("edge_resolution: all %d votes failed; embedding fallback",
+                               votes)
                 return None
             merged: Dict[str, Any] = {}
             need = len(ballots) // 2 + 1
