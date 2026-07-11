@@ -21,6 +21,7 @@ The current approach allows easy clearing of test classes via clear_extracted_cl
 import os
 import json
 import logging
+import re
 from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timezone
 import subprocess
@@ -751,8 +752,13 @@ class OntServeCommitService:
                 g.add((class_uri, RDF.type, OWL.Class))
                 disp = label
                 if disp and ' ' not in disp and any(c.isupper() for c in disp[1:]):
-                    disp = _re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', disp)
-                    disp = _re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', disp)
+                    # NameError '_re' until 2026-07-11: this branch shipped in the
+                    # 2026-07-07 sweep referencing an import that never existed and
+                    # only executes for a genuinely NEW CamelCase class label --
+                    # gold recommits take the accumulate path, so the shadow gate
+                    # was the first run to reach it.
+                    disp = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', disp)
+                    disp = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', disp)
                 g.add((class_uri, RDFS.label, Literal(disp, lang='en')))
 
                 # Definitions: rdfs:comment + skos:definition (primary) and

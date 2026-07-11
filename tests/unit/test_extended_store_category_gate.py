@@ -46,6 +46,18 @@ def test_graph_core_category_walks_extended_chain():
     assert svc._graph_core_category(g, cls) == "Capability"
 
 
+def test_camelcase_normalization_import_present():
+    """The class-mint branch's CamelCase label split referenced a module
+    import that never existed (NameError shipped 2026-07-07, first executed
+    by the shadow gate 2026-07-11: gold recommits take the accumulate path,
+    so only a genuinely NEW CamelCase class label reaches it)."""
+    import re
+    import app.services.commit.ontserve_commit_service as ocs
+    assert ocs.re is re
+    disp = ocs.re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', 'DesignReviewCapability')
+    assert disp == 'Design Review Capability'
+
+
 def test_cross_category_parent_would_be_vetoed():
     """The gate condition itself: existing chain says Capability, incoming
     parent resolves to Principle -> disagreement detected."""
