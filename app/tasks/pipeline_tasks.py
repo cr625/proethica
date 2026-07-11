@@ -1303,6 +1303,14 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
             'ontserve_synced': result.get('ontserve_synced', False),
             'errors': result.get('errors', [])
         }
+        if result.get('error') and result['error'] not in results['errors']:
+            results['errors'].append(result['error'])
+
+        # The staged harness gates on payload success, so a commit whose TTL
+        # write or OntServe sync failed must not return an unqualified
+        # success. The run status still resolves below (interactive runs are
+        # not left stuck); only the payload carries the failure.
+        commit_ok = bool(result.get('success')) and not results['errors']
 
         run.mark_step_complete(step_name, results)
         mode = (run.config or {}).get('mode')
@@ -1311,6 +1319,11 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         elif mode == 'interactive':
             run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
         db.session.commit()
+
+        if not commit_ok:
+            logger.error(f"[Task {self.request.id}] OntServe commit reported errors: {results['errors']}")
+            return {'success': False, 'step': step_name, 'results': results,
+                    'error': '; '.join(str(e) for e in results['errors']) or 'commit failed'}
 
         logger.info(f"[Task {self.request.id}] OntServe commit completed: {results}")
         return {'success': True, 'step': step_name, 'results': results}

@@ -465,6 +465,20 @@ class OntServeCommitService:
                     results['conformance'] = {"status": "gate_error", "error": str(e)}
                 self._record_conformance_provenance(case_id, results.get('conformance'))
 
+            # A class- or individuals-commit error means a TTL write failed.
+            # Abort BEFORE publishing: a row marked published while absent from
+            # the committed TTL is silent data loss that every later
+            # recommit-from-temp_rdf sweep inherits. Temp rows stay unpublished
+            # for retry. The sync warnings appended after this point remain
+            # non-fatal here because the TTL is already durable on disk then
+            # (the orchestrating task decides whether they fail the run).
+            if results['errors']:
+                from app import db
+                db.session.rollback()
+                results['success'] = False
+                results['error'] = '; '.join(str(e) for e in results['errors'])
+                return results
+
             # Mark entities as published and record content hashes
             now = datetime.now(timezone.utc)
             for entity in entities:
@@ -510,6 +524,14 @@ class OntServeCommitService:
 
         except Exception as e:
             logger.error(f"Error committing entities: {e}")
+            # A DB-origin exception leaves the shared session poisoned; without
+            # the rollback every later query in this request/task raises
+            # InFailedSqlTransaction and masks this original error.
+            try:
+                from app import db
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
             return {
                 'success': False,
                 'error': str(e)
