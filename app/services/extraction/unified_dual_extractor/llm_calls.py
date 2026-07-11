@@ -267,7 +267,25 @@ class LLMCallMixin:
             f"tools={len(self.ONTOLOGY_LOOKUP_TOOLS)}"
         )
 
-        messages = [{"role": "user", "content": prompt}]
+        # Within-call prompt caching (build-gate decision 2026-07-11, the
+        # sequential rebuild's one paying cache pattern): every tool round
+        # re-sends the FULL conversation, and label_only extraction routinely
+        # runs 10-15 rounds, so the 20-90KB initial prompt would be re-billed
+        # at full price each round. Two breakpoints (of the allowed four): a
+        # stable anchor on the initial prompt and a moving one on the latest
+        # tool_result, so each round writes only its own delta and reads the
+        # rest at ~0.1x (5-minute TTL; rounds are seconds apart). Worst case
+        # (zero tool rounds) costs the 1.25x write premium on the prompt once;
+        # the first tool round already recovers it.
+        messages = [{
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": prompt,
+                "cache_control": {"type": "ephemeral"},
+            }],
+        }]
+        _prev_tail_mark: Dict[str, Any] | None = None
         max_rounds = 25
         _system = (getattr(self, '_rendered_system', '') or '').strip()
 
@@ -347,6 +365,16 @@ class LLMCallMixin:
                             "content": tool_result,
                         })
 
+                    if tool_results:
+                        # Move the tail breakpoint: unmark the previous
+                        # round's block (max 4 breakpoints per request) and
+                        # mark the newest tool_result so the cached prefix
+                        # tracks the conversation tail.
+                        if _prev_tail_mark is not None:
+                            _prev_tail_mark.pop("cache_control", None)
+                        tool_results[-1]["cache_control"] = {"type": "ephemeral"}
+                        _prev_tail_mark = tool_results[-1]
+
                     messages.append({
                         "role": "user",
                         "content": tool_results,
@@ -365,7 +393,9 @@ class LLMCallMixin:
                 return extract_json_from_response(response_text)
 
             # Exhausted max rounds -- try one final call without tools
-            # to force the LLM to produce its JSON response.
+            # to force the LLM to produce its JSON response. (Dropping the
+            # tools list changes the request prefix, so this rare path is a
+            # full cache miss by construction; accepted.)
             logger.warning(
                 f"Tool-use loop hit max rounds ({max_rounds}) "
                 f"for {self.concept_type}, forcing final response"

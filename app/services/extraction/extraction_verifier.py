@@ -71,19 +71,27 @@ _MIN_REPAIR_SPAN_TOKENS = 3
 
 
 def _structured_stream_json(client, model: str, prompt: str, schema: Dict,
-                            max_tokens: int) -> Dict:
+                            max_tokens: int, cache_prompt: bool = False) -> Dict:
     """Stream one structured-output call and parse its JSON, retrying once on a partial response.
 
     Structured outputs guarantee FORMAT only for a COMPLETE response: a stream cut by max_tokens
     or a dropped connection delivers unparseable partial JSON (case-6 run 30 lost a whole commit
     sub-task to one ~450-char partial over-reach vote response). The retry doubles the token cap
     in case the cut was max_tokens; a second failure propagates -- the callers' contract is
-    surface-the-error, and the commit path re-runs the gate on its next sub-task."""
+    surface-the-error, and the commit path re-runs the gate on its next sub-task.
+
+    ``cache_prompt`` marks the prompt as a cached prefix (5-minute TTL). Set it ONLY where the
+    identical prompt is re-sent within the TTL (the over-reach vote panel sends it five times);
+    a breakpoint on a never-re-read prompt just pays the 1.25x cache-write premium. Below the
+    model's minimum cacheable length (4096 tokens on the Opus gate tier) the marker is a silent
+    no-op -- no write premium, no reads -- so short-case prompts neither pay nor save."""
+    content = ([{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
+               if cache_prompt else prompt)
     for attempt in range(2):
         chunks: List[str] = []
         with client.messages.stream(
             model=model, max_tokens=max_tokens * (attempt + 1),
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content}],
             output_config={"format": {"type": "json_schema", "schema": schema}},
         ) as stream:
             for t in stream.text_stream:
@@ -270,7 +278,10 @@ def _overreach_once(case_text: str, duty_entities: List[Dict], model: str) -> Di
     client = get_llm_client()
     if not client:
         raise RuntimeError("detect_overreach: no LLM client available")
-    data = _structured_stream_json(client, model, prompt, _OVERREACH_SCHEMA, max_tokens=4000)
+    # cache_prompt: the vote panel sends this identical prompt N times within
+    # seconds -- vote 1 writes the prefix, votes 2..N read it at ~0.1x.
+    data = _structured_stream_json(client, model, prompt, _OVERREACH_SCHEMA, max_tokens=4000,
+                                   cache_prompt=True)
     return {r["id"]: (bool(r["overreach"]), r.get("reason", ""), r.get("limiting_quote", ""))
             for r in data.get("results", [])}
 
