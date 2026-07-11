@@ -324,8 +324,10 @@ PIPELINE_STEPS = [
         'step': 4,
         'name': 'Synthesis',
         'color': '#ec4899',
-        'concepts': ['provisions', 'questions', 'conclusions', 'transformation', 'rich_analysis', 'decision_synthesis'],
-        'read_only': True  # Step 4 prompts are read-only in the editor
+        # Phase keys into STEP4_PHASES (the step-4 nav links to view_step4_phase);
+        # each phase's prompts are editable DB templates since the 2026-07-11 migration.
+        'concepts': ['provisions', 'precedents', 'questions', 'conclusions', 'transformation',
+                     'rich_analysis', 'decision_synthesis', 'narrative'],
     }
 ]
 
@@ -408,7 +410,10 @@ GUIDELINE_CONCEPTS = {
     }
 }
 
-# Step 4 phase metadata - describes the synthesis phases
+# Step 4 phase metadata - describes the synthesis phases. Each prompt entry's
+# 'template' is its editable DB template (step_number=4 row, seeded from
+# app/utils/prompts/step4/<template>.md); 'method' remains the builder that
+# assembles the variables and renders it (source view).
 STEP4_PHASES = {
     'provisions': {
         'name': 'Provisions',
@@ -416,8 +421,21 @@ STEP4_PHASES = {
         'service_file': 'app/services/provision/provision_group_validator.py',
         'color': '#f97316',
         'prompts': [
-            {'name': 'Provision Group Validator', 'method': '_create_validation_prompt'},
-            {'name': 'Code Provision Linker', 'method': '_create_linking_prompt', 'file': 'app/services/provision/code_provision_linker.py'}
+            {'name': 'Provision Group Validator', 'method': '_create_validation_prompt',
+             'template': 'step4_provision_validate'},
+            {'name': 'Code Provision Linker', 'method': '_create_batch_linking_prompt',
+             'file': 'app/services/provision/code_provision_linker.py',
+             'template': 'step4_provision_link'}
+        ]
+    },
+    'precedents': {
+        'name': 'Precedents',
+        'description': 'Cited-precedent extraction with citation-treatment classification',
+        'service_file': 'app/routes/scenario_pipeline/step4/precedents.py',
+        'color': '#eab308',
+        'prompts': [
+            {'name': 'Precedent Extraction', 'method': 'build_precedent_prompt',
+             'template': 'step4_precedents'}
         ]
     },
     'questions': {
@@ -426,8 +444,10 @@ STEP4_PHASES = {
         'service_file': 'app/services/step4_synthesis/question_analyzer.py',
         'color': '#3b82f6',
         'prompts': [
-            {'name': 'Board Question Extraction', 'method': '_create_board_extraction_prompt'},
-            {'name': 'Analytical Question Generation', 'method': '_create_analytical_prompt'}
+            {'name': 'Board Question Extraction', 'method': '_create_board_extraction_prompt',
+             'template': 'step4_q_board'},
+            {'name': 'Analytical Question Generation', 'method': '_create_analytical_prompt',
+             'template': 'step4_q_analytical'}
         ]
     },
     'conclusions': {
@@ -436,8 +456,13 @@ STEP4_PHASES = {
         'service_file': 'app/services/step4_synthesis/conclusion_analyzer.py',
         'color': '#10b981',
         'prompts': [
-            {'name': 'Board Conclusion Extraction', 'method': '_create_board_extraction_prompt'},
-            {'name': 'Analytical Conclusion Generation', 'method': '_create_analytical_prompt'}
+            {'name': 'Board Conclusion Extraction', 'method': '_create_board_extraction_prompt',
+             'template': 'step4_c_board'},
+            {'name': 'Analytical Conclusion Generation', 'method': '_create_analytical_prompt',
+             'template': 'step4_c_analytical'},
+            {'name': 'Question-Conclusion Linking', 'method': '_create_linking_prompt',
+             'file': 'app/services/step4_synthesis/question_conclusion_linker.py',
+             'template': 'step4_qc_link'}
         ]
     },
     'transformation': {
@@ -446,29 +471,77 @@ STEP4_PHASES = {
         'service_file': 'app/services/case_analysis/transformation_classifier.py',
         'color': '#8b5cf6',
         'prompts': [
-            {'name': 'Transformation Classification', 'method': 'classify'}
+            {'name': 'Transformation Classification', 'method': 'classify',
+             'template': 'step4_transformation'}
         ]
     },
     'rich_analysis': {
         'name': 'Rich Analysis',
         'description': 'Causal-normative links, question emergence, resolution patterns',
-        'service_file': 'app/services/case_synthesizer.py',
+        'service_file': 'app/services/step4_synthesis/rich_analysis.py',
         'color': '#06b6d4',
         'prompts': [
-            {'name': 'Causal-Normative Analysis', 'method': '_analyze_causal_normative_links'},
-            {'name': 'Question Emergence', 'method': '_analyze_question_emergence'},
-            {'name': 'Resolution Patterns', 'method': '_analyze_resolution_patterns'}
+            {'name': 'Causal-Normative Analysis', 'method': '_analyze_causal_normative_links',
+             'template': 'step4_causal_reasoning'},
+            {'name': 'Question Emergence', 'method': '_analyze_question_emergence',
+             'template': 'step4_question_emergence'},
+            {'name': 'Resolution Patterns', 'method': '_analyze_resolution_patterns',
+             'template': 'step4_resolution_patterns'}
         ]
     },
     'decision_synthesis': {
         'name': 'Decision Synthesis',
         'description': 'E1-E3 algorithmic composition + LLM refinement with Toulmin structure',
-        'service_file': 'app/services/decision_point_synthesizer.py',
+        'service_file': 'app/services/decision_point_synthesizer/strategies.py',
         'color': '#ec4899',
         'prompts': [
-            {'name': 'Decision Refinement', 'method': '_build_refinement_prompt'}
+            {'name': 'DP from Causal Links (fallback)', 'method': '_llm_generate_from_causal_links',
+             'template': 'step4_dp_causal'},
+            {'name': 'DP from Q&C Direct (last resort)', 'method': '_llm_generate_from_qc_direct',
+             'template': 'step4_dp_qc_direct'},
+            {'name': 'Decision Refinement', 'method': '_build_refinement_prompt',
+             'template': 'step4_dp_refine'},
+            {'name': 'Board Choice Verification', 'method': 'verify_board_choices',
+             'file': 'app/services/decision_point_synthesizer/board_choice_verifier.py',
+             'template': 'step4_dp_board_verify'},
+            {'name': 'Obligation Decision-Relevance (E1 fallback)', 'method': '_llm_identify_decision_relevant',
+             'file': 'app/services/entity_analysis/obligation_coverage_analyzer.py',
+             'template': 'step4_obligation_relevance'}
         ],
         'algorithmic_stages': ['E1: Obligation Coverage', 'E2: Action-Option Mapping', 'E3: Decision Composition', 'Q&C Alignment Scoring']
+    },
+    'narrative': {
+        'name': 'Narrative',
+        'description': 'Phase-4 narrative construction: characters, tensions, timeline, options, insights',
+        'service_file': 'app/services/narrative/narrative_element_extractor.py',
+        'color': '#64748b',
+        'prompts': [
+            {'name': 'Character Enhancement', 'method': '_enhance_characters_with_llm',
+             'template': 'step4_narrative_characters'},
+            {'name': 'Ethical Tension Rating', 'method': '_enhance_tensions_with_llm',
+             'template': 'step4_narrative_tensions'},
+            {'name': 'Timeline Enhancement', 'method': '_enhance_timeline_with_llm',
+             'file': 'app/services/narrative/timeline_constructor.py',
+             'template': 'step4_narrative_timeline'},
+            {'name': 'Option Label', 'method': '_generate_option_label_llm',
+             'file': 'app/services/narrative/scenario_seed_generator.py',
+             'template': 'step4_narrative_option_label'},
+            {'name': 'Option Set', 'method': '_generate_options_llm',
+             'file': 'app/services/narrative/scenario_seed_generator.py',
+             'template': 'step4_narrative_option_set'},
+            {'name': 'Opening Context', 'method': '_enhance_opening_with_llm',
+             'file': 'app/services/narrative/scenario_seed_generator.py',
+             'template': 'step4_narrative_opening'},
+            {'name': 'Insights', 'method': '_generate_insights_with_llm',
+             'file': 'app/services/narrative/insight_deriver.py',
+             'template': 'step4_narrative_insights'},
+            {'name': 'Case Summary (alternate surface)', 'method': '_construct_narrative_with_llm',
+             'file': 'app/services/case_synthesizer/narrative.py',
+             'template': 'step4_case_summary'},
+            {'name': 'Timeline Phases (alternate surface)', 'method': '_construct_narrative_with_llm',
+             'file': 'app/services/case_synthesizer/narrative.py',
+             'template': 'step4_timeline_phases'}
+        ]
     }
 }
 

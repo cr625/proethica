@@ -20,9 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 def register_step4(bp):
-    @bp.route('/tools/prompts/4/<phase>')
+    # Own subpath: '/tools/prompts/4/<concept>' must fall through to the generic
+    # edit_template route for the step-4 template concept_types (the static '4'
+    # segment would otherwise shadow the <int:step> rule for every step-4 URL).
+    @bp.route('/tools/prompts/4/phase/<phase>')
     def view_step4_phase(phase):
-        """View a Step 4 synthesis phase (read-only prompts; settings editable by admins)."""
+        """View a Step 4 synthesis phase: each prompt links to its editable DB template
+        (step_number=4 rows since the 2026-07-11 migration); the source view shows the
+        builder that assembles the variables and renders it."""
         from app.models.extraction_prompt_template import STEP4_PHASES
         from app.models.synthesis_config import SynthesisConfig, SYNTHESIS_PARAMETERS
 
