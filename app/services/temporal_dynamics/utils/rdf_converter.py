@@ -199,9 +199,24 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     # committed with zero textReference in both case-7 runs). Same top-level
     # proeth:textReferences key the commit serializer already routes.
     _add_text_references(rdf_entity, action)
+    _add_source_section(rdf_entity, action)
 
     _add_fluent_and_time(rdf_entity, action)
     return rdf_entity
+
+
+def _add_source_section(rdf_entity: Dict, src: Dict) -> None:
+    """Attach the source-section provenance a happening or chain carries (which case
+    section, 'facts' or 'discussion', grounds it). Shared by the action, event, and
+    causal-chain converters; the prompts request the field on all three but only the
+    chain converter emitted it, so committed Actions/Events carried no section
+    provenance (unrecoverable after storage: the converter runs before temp_rdf).
+    Emitted under proeth:discoveredInSection; the commit serializer routes it to the
+    typed PROV-O predicate. Absent/empty is not emitted -- a minted default would be
+    indistinguishable from a real attribution."""
+    section = str(src.get('source_section') or '').strip()
+    if section:
+        rdf_entity['proeth:discoveredInSection'] = section
 
 
 def _add_text_references(rdf_entity: Dict, src: Dict) -> None:
@@ -280,6 +295,7 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
     # textReference in both case-7 runs while every other component carries them).
     # Emission shared with the action converter via _add_text_references.
     _add_text_references(rdf_entity, event)
+    _add_source_section(rdf_entity, event)
     confidence = event.get('confidence')
     if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
         # Plain string is fine here: proeth:confidence now declares rdfs:range
@@ -361,11 +377,10 @@ def convert_causal_chain_to_rdf(chain: Dict, case_id: int,
     }
 
     # Source-section provenance: which case section grounds this causal claim, so the
-    # (irreducible) NESS analysis can be audited against the original text. Emitted under
-    # proeth:discoveredInSection; the commit serializer routes it to the typed PROV-O
-    # predicate. The causalLanguage quote above is the supporting span.
-    if chain.get('source_section'):
-        rdf_entity['proeth:discoveredInSection'] = chain['source_section']
+    # (irreducible) NESS analysis can be audited against the original text. Shared
+    # helper with the action/event converters. The causalLanguage quote above is the
+    # supporting span.
+    _add_source_section(rdf_entity, chain)
 
     # Add NESS test
     ness = chain.get('ness_test', {})
@@ -383,6 +398,19 @@ def convert_causal_chain_to_rdf(chain: Dict, case_id: int,
         rdf_entity['proeth:responsibleAgent'] = responsibility.get('responsible_agent', 'Unknown')
         rdf_entity['proeth:responsibilityType'] = responsibility.get('responsibility_type', 'unknown')
         rdf_entity['proeth:withinAgentControl'] = responsibility.get('within_control', False)
+        # Responsibility-attribution knowledge fields: the prompt requests both
+        # (what the agent knew; circumstances between contribution and effect)
+        # but they were dropped pre-storage. Emitted only when present -- the
+        # 'Unknown' defaults above are the legacy contract, not extended here.
+        knowledge = str(responsibility.get('agent_knowledge') or '').strip()
+        if knowledge:
+            rdf_entity['proeth:agentKnowledge'] = knowledge
+        factors = responsibility.get('intervening_factors') or []
+        if not isinstance(factors, list):
+            factors = [factors]
+        factors = [str(x).strip() for x in factors if str(x).strip()]
+        if factors:
+            rdf_entity['proeth:interveningFactors'] = factors
 
     # Add causal chain sequence
     causal_chain_data = chain.get('causal_chain', {})
