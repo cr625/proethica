@@ -1281,13 +1281,22 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
                         f"pre-commit: {_gate.report['dropped_detail']}")
         # Durable outcomes: a drop deselects the row (never re-gated, never
         # committed, review-visible with its reason); a vetted survivor is
-        # audit-tagged so later sub-tasks skip its vote panel.
+        # audit-tagged so later sub-tasks skip its vote panel; a below-threshold
+        # over-reach FLAG rides the vetted tag -- the flag is one-shot LLM
+        # judgment and the vetted skip guarantees the panel never re-derives
+        # it, so an unpersisted flag is gone forever.
+        _flag_by_id = {i: (r, q) for i, _l, r, q in getattr(_gate, 'flagged', [])}
         for e in _gate_rows:
             if e.id in _gate.dropped_ids:
                 e.is_selected = False
                 _d = _detail_by_id.get(e.id) or {}
                 _reason = _d.get('reason') or 'dropped by the verification gate'
                 e.review_notes = f"verification-gate: dropped run {run_id}: {_reason}"[:1000]
+            elif e.id in _flag_by_id and (not e.review_notes
+                                          or e.review_notes.startswith(_GATE_VETTED)):
+                _r, _q = _flag_by_id[e.id]
+                e.review_notes = (f"{_GATE_VETTED} run {run_id}; FLAGGED over-reach "
+                                  f"(below drop threshold): {_r} | limit: {_q}")[:1000]
             elif not e.review_notes:
                 e.review_notes = f"{_GATE_VETTED} run {run_id}"
         db.session.commit()
@@ -1299,10 +1308,29 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
                 if _row is not None and _eid not in _gate.dropped_ids:
                     _row.rdf_json_ld = apply_corrected_quotes(_row.rdf_json_ld, _spans)
                     flag_modified(_row, 'rdf_json_ld')
+                    # Mark WHICH committed quotes are gate work: the committed
+                    # TTL attributes sourceText to the extraction model, so
+                    # without the marker a gate-supplied span is
+                    # indistinguishable from model output.
+                    _marker = ('quotes ATTACHED at gate (model emitted none)'
+                               if _eid in getattr(_gate, 'repaired_quoteless', set())
+                               else 'quotes re-grounded at gate')
+                    _note = _row.review_notes or f"{_GATE_VETTED} run {run_id}"
+                    if _marker not in _note:
+                        _row.review_notes = f"{_note}; {_marker}"[:1000]
                     _regrounded += 1
             if _regrounded:
                 db.session.commit()
                 logger.info(f"[verification-gate] case {run.case_id} re-grounded {_regrounded} entities to verbatim")
+        # The gate report (drop/flag/requote detail incl. limiting quotes) is
+        # the most consequential decision record of a run; review_notes alone
+        # does not survive a re-prep, the provenance activity does.
+        try:
+            from model_config import ModelConfig as _MC
+            _gate_plan = {'gate_model': _MC.get_claude_model('gate')}
+        except Exception:  # noqa: BLE001
+            _gate_plan = {}
+        _record_pass(run, 'gate', 'verification_gate', _gate.report, plan=_gate_plan)
 
         if not entity_ids:
             # The gate dropped every candidate. A case in this state deserves

@@ -140,6 +140,70 @@ def test_temporal_ungrounded_flagged_not_dropped():
     assert 'ungrounded' in res.flagged[0][2]
 
 
+def _duty(idx, label, storage_type='class', class_ref=''):
+    return {'id': idx, 'label': label, 'definition': 'a duty', 'component': 'obligations',
+            'storage_type': storage_type,
+            'quotes': ['Engineer A prepared the structural design'], 'class_ref': class_ref}
+
+
+def test_overreach_drop_covers_label_variant_twins():
+    """Label variants collapse to the SAME committed URI, so a 5/5 drop on one
+    variant must drop the whole group (and cascade to individuals referencing
+    either spelling) -- otherwise the twin silently commits the dropped duty."""
+    from app.services.extraction.verification_gate import verify_case_entities
+    from app.services.extraction.extraction_verifier import OverreachVerdict
+    entities = [
+        _duty(1, 'ProfessionalAccountabilityObligation'),
+        _duty(2, 'Professional Accountability Obligation'),
+        _duty(3, 'Some Individual', storage_type='individual',
+              class_ref='Professional Accountability Obligation'),
+    ]
+    verdict = OverreachVerdict(label='ProfessionalAccountabilityObligation', overreach=True,
+                               votes_for=5, votes_total=5, reason='broader than the case holds',
+                               limiting_quote='')
+    with patch('app.services.extraction.verification_gate.detect_overreach',
+               return_value=[verdict]) as mock_over, \
+         patch('app.services.extraction.verification_gate.verify_and_reground',
+               return_value=[MagicMock(kept_verbatim=['q'], regrounded=[], unsupported=[])] * 3), \
+         patch('model_config.ModelConfig') as mock_cfg:
+        mock_cfg.get_claude_model.return_value = 'test-model'
+        res = verify_case_entities(entities, CASE_TEXT, case_id=9)
+    # One panel for the deduped group, all three rows dropped.
+    assert len(mock_over.call_args[0][1]) == 1
+    assert res.dropped_ids == {1, 2, 3}
+
+
+def test_overreach_flag_applies_to_variant_group():
+    from app.services.extraction.verification_gate import verify_case_entities
+    from app.services.extraction.extraction_verifier import OverreachVerdict
+    entities = [_duty(4, 'Disclosure Duty'), _duty(5, 'DisclosureDuty')]
+    verdict = OverreachVerdict(label='Disclosure Duty', overreach=True, votes_for=2,
+                               votes_total=5, reason='conditional in the case',
+                               limiting_quote='acted ethically in disclosing the defect')
+    with patch('app.services.extraction.verification_gate.detect_overreach',
+               return_value=[verdict]), \
+         patch('app.services.extraction.verification_gate.verify_and_reground',
+               return_value=[MagicMock(kept_verbatim=['q'], regrounded=[], unsupported=[])] * 2), \
+         patch('model_config.ModelConfig') as mock_cfg:
+        mock_cfg.get_claude_model.return_value = 'test-model'
+        res = verify_case_entities(entities, CASE_TEXT, case_id=9)
+    assert res.dropped == []
+    assert {f[0] for f in res.flagged} == {4, 5}
+    assert res.report['flagged'] == 2
+
+
+def test_quoteless_repair_tracked_for_audit_marker():
+    """A quoteless entity that gains a span is recorded in repaired_quoteless
+    (the pipeline writes the gate-attached marker from it)."""
+    entities = [{'id': 10, 'label': 'Structural Design Role', 'definition': 'x',
+                 'component': 'roles', 'storage_type': 'individual', 'quotes': [],
+                 'class_ref': ''}]
+    span = 'Engineer A prepared the structural design'
+    res = _gate(entities, {'results': [{'id': 0, 'supported': True, 'spans': [span]}]})
+    assert res.repaired_quoteless == {10}
+    assert res.report['quoteless_repaired_ids'] == [10]
+
+
 def test_quotes_of_reads_temporal_jsonld_shape():
     jl = {'@id': 'x', '@type': 'proeth:Action',
           'proeth:textReferences': ['Engineer A prepared the structural design']}

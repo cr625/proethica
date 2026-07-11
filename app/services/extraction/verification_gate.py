@@ -19,6 +19,7 @@ temp_rdf, so it is unit-testable on plain dicts.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -49,6 +50,7 @@ class GateResult:
     corrected_quotes: Dict[object, List[str]] = field(default_factory=dict)   # {entity_id: [verbatim spans]}
     dropped: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason)]
     flagged: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason, limiting_quote)]
+    repaired_quoteless: set = field(default_factory=set)                      # entity_ids whose quotes are GATE-ATTACHED (model emitted none)
     report: Dict = field(default_factory=dict)
 
     @property
@@ -102,6 +104,11 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
                 # the quote set changed (some re-grounded, some unsupported dropped,
                 # or a quoteless entity gained its grounding span)
                 res.corrected_quotes[e.get('id')] = v.kept_verbatim + v.regrounded
+                if not e.get('quotes'):
+                    # Gate-attached, not model-extracted: the distinction must
+                    # survive into the audit trail (the committed TTL will
+                    # attribute the quote to the model otherwise).
+                    res.repaired_quoteless.add(e.get('id'))
 
     # 2. Over-reach over the surviving duty CLASSES (obligations + constraints), multi-vote. Detection runs
     #    on classes because that is where the canonicalization/injection loop lives. The DROP then cascades
@@ -114,27 +121,41 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
               and e.get('id') not in res.dropped_ids]
     overreach_dropped_labels = set()
     if duties:
-        overs = detect_overreach(case_text, duties, model=model, votes=_OVERREACH_VOTES)
-        for e, v in zip(duties, overs):
+        # Judge once per NORMALIZED label and apply the verdict to the whole
+        # variant group: label variants ('Professional Accountability
+        # Obligation' vs 'ProfessionalAccountabilityObligation') collapse to
+        # the SAME committed URI, so a 5/5 drop on one variant is silently
+        # negated if a twin survives its own panel (case-9 lesson: the dropped
+        # duty was committed anyway through its spaced-label twin).
+        groups: Dict[str, List[Dict]] = {}
+        for e in duties:
+            groups.setdefault(_norm_label(e.get('label')), []).append(e)
+        reps = [members[0] for members in groups.values()]
+        overs = detect_overreach(case_text, reps, model=model, votes=_OVERREACH_VOTES)
+        for rep, v in zip(reps, overs):
             if not v.overreach:
                 continue
+            members = groups[_norm_label(rep.get('label'))]
             if v.votes_for >= _OVERREACH_DROP_AT:
-                res.dropped.append((e.get('id'), e.get('label'),
-                                    f'over-reach ({v.votes_for}/{v.votes_total}): {v.reason}'))
-                overreach_dropped_labels.add(str(e.get('label') or '').strip())
+                for e in members:
+                    res.dropped.append((e.get('id'), e.get('label'),
+                                        f'over-reach ({v.votes_for}/{v.votes_total}): {v.reason}'))
+                    overreach_dropped_labels.add(_norm_label(e.get('label')))
             else:
-                res.flagged.append((e.get('id'), e.get('label'), v.reason, v.limiting_quote))
+                for e in members:
+                    res.flagged.append((e.get('id'), e.get('label'), v.reason, v.limiting_quote))
 
     # 2b. Cascade the over-reach drop to the duty INDIVIDUALS that instantiate a dropped class (matched by
-    #     their class_ref label). The class drop alone breaks the loop, but a matched over-reaching individual
-    #     would still commit and assert the duty; dropping it keeps the over-reach out of the committed case.
+    #     their NORMALIZED class_ref label, so a label-variant reference cannot dodge the cascade). The class
+    #     drop alone breaks the loop, but a matched over-reaching individual would still commit and assert
+    #     the duty; dropping it keeps the over-reach out of the committed case.
     if overreach_dropped_labels:
         for e in live:
             if e.get('id') in res.dropped_ids:
                 continue
             if (e.get('component') or '').lower() in _DUTY_COMPONENTS \
                and (e.get('storage_type') or '') == 'individual' \
-               and str(e.get('class_ref') or '').strip() in overreach_dropped_labels:
+               and _norm_label(e.get('class_ref')) in overreach_dropped_labels:
                 res.dropped.append((e.get('id'), e.get('label'),
                                     f"over-reach cascade: instance of dropped class '{e.get('class_ref')}'"))
 
@@ -142,6 +163,8 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
         'case_id': case_id,
         'entities': len(entities),
         'requoted': len(res.corrected_quotes),
+        'requoted_ids': sorted(res.corrected_quotes, key=str),
+        'quoteless_repaired_ids': sorted(res.repaired_quoteless, key=str),
         'dropped': len(res.dropped),
         'flagged': len(res.flagged),
         'dropped_detail': [{'label': l, 'reason': r} for _, l, r in res.dropped],
@@ -150,6 +173,14 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     logger.info(f"[verification-gate] case {case_id}: {len(res.corrected_quotes)} re-grounded, "
                 f"{len(res.dropped)} dropped, {len(res.flagged)} flagged")
     return res
+
+
+def _norm_label(label) -> str:
+    """Collapse a label to the form the committed-URI mapping collapses it to
+    (alphanumeric, lowercased): 'Professional Accountability Obligation' and
+    'ProfessionalAccountabilityObligation' are the SAME committed class, so
+    every gate decision keyed by label must key by this form."""
+    return re.sub(r'[^a-z0-9]', '', str(label or '').lower())
 
 
 def quotes_of(rdf_json_ld: Dict) -> List[str]:
