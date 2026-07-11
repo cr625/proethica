@@ -133,52 +133,72 @@ def _allnone_json(n):
     return "{" + ", ".join(f'"{i}": "none"' for i in range(1, n + 1)) + "}"
 
 
-def test_llm_select_run21_allnone_batch_retries_then_embedding_fallback():
-    """A persistent all-none batch (>= 5 items) is retried once, then returns
-    None so the caller falls back to the calibrated embedding thresholds --
-    a single anomalous generation can no longer zero the whole family."""
+def test_llm_select_unanimous_allnone_accepted_under_voting():
+    """The 2026-07-11 calibration: state_edges votes 3x on the default tier,
+    and a UNANIMOUS all-none majority is accepted as the answer -- three
+    independent judgments already guard the one-flaky-call case the
+    single-vote retry existed for, and overriding them with embedding
+    thresholds would undo the precision layer."""
     items = _mk_items(6)
     client = _SeqClient(_allnone_json(6))
     out = se._llm_select(items, client=client, model="x")
-    assert out is None
-    assert client.calls == 2
+    assert out == {str(i): None for i in range(1, 7)}
+    assert client.calls == 3
 
 
-def test_llm_select_allnone_retry_recovers_healthy_generation():
-    """First generation anomalous (all-none), retry healthy (the replay
-    evidence shape: most items resolve, a few legitimate nones)."""
+def test_llm_select_majority_recovers_from_one_anomalous_vote():
+    """One anomalous all-none vote against two healthy votes: the per-item
+    majority keeps the healthy picks, so the run-to-run flip the single call
+    suffered (the pilot's 2->0 repeat) can no longer zero the family."""
     items = _mk_items(6)
     healthy = '{"1": 1, "2": 2, "3": 1, "4": 1, "5": "none", "6": 2}'
-    client = _SeqClient(_allnone_json(6), healthy)
+    client = _SeqClient(_allnone_json(6), healthy, healthy)
     out = se._llm_select(items, client=client, model="x")
-    assert client.calls == 2
+    assert client.calls == 3
     assert out["1"] == CASE["E1a"]
     assert out["2"] == CASE["E2b"]
     assert out["5"] is None
     assert sum(1 for v in out.values() if v is not None) == 5
 
 
-def test_llm_select_small_allnone_is_a_judgment_not_retried():
-    """Below the guard size an all-none selection is a plausible judgment and
-    is accepted on the first call."""
+def test_llm_select_small_allnone_is_a_judgment():
+    """A small all-none batch stays an accepted judgment under voting."""
     items = _mk_items(2)
     client = _SeqClient(_allnone_json(2))
     out = se._llm_select(items, client=client, model="x")
     assert out == {"1": None, "2": None}
-    assert client.calls == 1
+    assert client.calls == 3
 
 
 def test_llm_select_unwraps_single_key_wrapper():
     """A {"selections": {...}} wrapper previously mapped to {} (indistinguishable
-    from all-none); it is now unwrapped on the first call."""
+    from all-none); it is unwrapped on every vote."""
     items = _mk_items(6)
     wrapped = ('{"selections": {"1": 1, "2": "none", "3": 2, "4": 1, "5": 1, "6": 1}}')
     client = _SeqClient(wrapped)
     out = se._llm_select(items, client=client, model="x")
-    assert client.calls == 1
+    assert client.calls == 3
     assert out["1"] == CASE["E1a"]
     assert out["2"] is None
     assert out["3"] == CASE["E3b"]
+
+
+def test_generic_single_vote_keeps_run21_allnone_semantics():
+    """Every OTHER caller of the shared driver stays on votes=1, whose run-21
+    contract is unchanged: a large all-none batch is retried once then handed
+    to the embedding fallback (None); a small all-none batch is an accepted
+    judgment on the first call."""
+    items = _mk_items(6)
+    client = _SeqClient(_allnone_json(6))
+    out = er._llm_select(items, se._build_select_prompt, client=client, model="x")
+    assert out is None
+    assert client.calls == 2
+
+    small = _mk_items(2)
+    client2 = _SeqClient(_allnone_json(2))
+    out2 = er._llm_select(small, se._build_select_prompt, client=client2, model="x")
+    assert out2 == {"1": None, "2": None}
+    assert client2.calls == 1
 
 
 def test_llm_select_coerces_numeric_strings_floats_and_labels():
