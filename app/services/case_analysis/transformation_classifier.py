@@ -336,40 +336,16 @@ class TransformationClassifier:
                 entities_context = "\n".join(entity_parts)
 
         # Build comprehensive prompt
-        prompt = f"""{framework_context}
-
-CASE ANALYSIS: {case_title}
-
-CASE FACTS:
-{case_facts[:2000] if case_facts else "(Facts not available - analyze based on questions and conclusions)"}
-
-{f"EXTRACTED ENTITIES:{chr(10)}{entities_context}" if entities_context else ""}
-
-ETHICAL QUESTIONS POSED TO THE BOARD:
-{questions_text}
-
-BOARD'S CONCLUSIONS:
-{conclusions_text}
-
-{f"RESOLUTION PATTERNS:{chr(10)}{patterns_text}" if patterns_text else ""}
-
-ANALYSIS TASK:
-Based on the academic framework above and the case details, classify HOW the ethical situation
-was transformed through the Board's resolution. Focus on:
-1. How obligations shifted between parties
-2. Whether tensions were resolved or remain
-3. The temporal pattern of responsibility
-
-Return your analysis as JSON:
-{{
-    "transformation_type": "transfer|stalemate|oscillation|phase_lag|unclear",
-    "confidence": 0.0-1.0,
-    "reasoning": "2-3 sentence explanation grounded in the case facts and framework definitions",
-    "pattern_description": "Specific description of the transformation pattern in THIS case",
-    "supporting_evidence": ["quote or fact 1", "quote or fact 2", "quote or fact 3"],
-    "involved_roles": ["role1", "role2"],
-    "obligation_shifts": ["description of how obligations moved"]
-}}"""
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        prompt = get_step4_template('step4_transformation').render(
+            framework_context=framework_context,
+            case_title=case_title,
+            case_facts=case_facts[:2000] if case_facts else '',
+            entities_context=entities_context,
+            questions_text=questions_text,
+            conclusions_text=conclusions_text,
+            patterns_text=patterns_text,
+        )
 
         self.last_prompt = prompt
 

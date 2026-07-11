@@ -1,0 +1,34 @@
+Link NSPE Code provisions to extracted Roles entities from this engineering ethics case.
+
+**Case Context:**
+Case 9: Engineer serving on a public board whose firm seeks municipal work.
+
+**NSPE Code Provisions (Board-Selected):**
+1. **I.1**: Hold paramount the safety, health, and welfare of the public.
+2. **II.4.e**: Engineers shall not solicit or accept a contract from a governmental body on which a principal or officer of their organization serves as a member.
+
+
+**Roles Entities:**
+**Roles:**
+- Engineer A: A professional engineer serving on the municipal planning board.
+- City Engineer: The public official responsible for reviewing and approving engineering submittals on behalf of the municipality, including plans prepared by outside ...
+
+
+A provision applies to a role entity if: The provision governs the professional conduct of that role
+
+For each provision, list which roles entities it applies to (if any). Only include clear, direct connections.
+
+Respond ONLY with a JSON array (no other text). Keep each reasoning value to a single short sentence with no special characters or line breaks.
+
+```json
+[
+  {
+    "code_provision": "I.1",
+    "applies_to": [
+      {"entity_label": "Example Entity", "reasoning": "Brief reason in one sentence"}
+    ]
+  }
+]
+```
+
+Use exact entity labels. Omit provisions with no links to these entities.

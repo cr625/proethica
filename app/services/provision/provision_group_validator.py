@@ -191,51 +191,12 @@ Citation: "{mention.citation_text}"
 Excerpt: "{mention.excerpt}"
 """
 
-        prompt = f"""You are validating that case text excerpts discuss a specific NSPE Code of Ethics provision.
-
-**CODE PROVISION**: {provision_code}
-**PROVISION TEXT**: "{provision_text}"
-
-**TASK**: The excerpts below all explicitly mention provision {provision_code}. For each excerpt, determine:
-
-1. **Is it RELEVANT?** Does the excerpt discuss THIS provision's content/requirements?
-   - Yes: If it discusses compliance, violation, interpretation, or application of {provision_code}
-   - No: If it only cites the number without discussing the content
-
-2. **What is discussed?** (compliance, violation, interpretation, Board reasoning, etc.)
-
-3. **Confidence**: How confident are you? (0.0-1.0)
-
-**EXCERPTS TO VALIDATE**:
-{mentions_text}
-
-**OUTPUT FORMAT** (JSON array):
-```json
-[
-  {{
-    "mention_number": 1,
-    "is_relevant": true,
-    "confidence": 0.95,
-    "content_type": "violation",
-    "reasoning": "This excerpt discusses Engineer A's violation of {provision_code} by accepting a contract while serving on the governmental body."
-  }},
-  {{
-    "mention_number": 2,
-    "is_relevant": false,
-    "confidence": 0.85,
-    "content_type": "citation_only",
-    "reasoning": "This excerpt merely cites {provision_code} without discussing what the provision requires or how it applies."
-  }}
-]
-```
-
-**IMPORTANT**:
-- "is_relevant": true only if the excerpt discusses the provision's CONTENT
-- "content_type" options: compliance, violation, interpretation, Board_reasoning, citation_only, background
-- Be specific in reasoning - explain what content is being discussed
-"""
-
-        return prompt
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        return get_step4_template('step4_provision_validate').render(
+            provision_code=provision_code,
+            provision_text=provision_text,
+            mentions_text=mentions_text,
+        )
 
     def _parse_validation_response(
         self,

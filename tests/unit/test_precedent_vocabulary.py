@@ -14,7 +14,7 @@ import rdflib
 
 from app.routes.scenario_pipeline.step4.precedents import (
     CITATION_TREATMENTS,
-    PRECEDENT_EXTRACTION_PROMPT,
+    _treatments_block,
     normalize_precedents,
 )
 
@@ -51,9 +51,22 @@ def test_citation_type_property_declared(cases_graph):
 
 
 def test_prompt_carries_every_term():
+    """Since the step4-template migration the prompt is assembled at render
+    time (build_precedent_prompt = seeded step4_precedents template +
+    _treatments_block()); render the sidecar body directly so the guarantee
+    holds without a seeded database."""
+    from jinja2 import Template
+
+    from app.utils.seed_step4_prompts import SIDECAR_DIR, parse_sidecar
+
+    _, body = parse_sidecar(SIDECAR_DIR / 'step4_precedents.md')
+    prompt = Template(body).render(
+        case_text='CASE TEXT PLACEHOLDER',
+        citation_treatments_block=_treatments_block(),
+    )
     for term, definition in CITATION_TREATMENTS.items():
-        assert f'"{term}"' in PRECEDENT_EXTRACTION_PROMPT
-        assert definition in PRECEDENT_EXTRACTION_PROMPT
+        assert f'"{term}"' in prompt
+        assert definition in prompt
 
 
 def test_joint_citation_split():

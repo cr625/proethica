@@ -515,7 +515,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
 def _run_precedents(case_id: int, llm_client) -> dict:
     """Extract precedent case references cited in board discussion."""
     from app.routes.scenario_pipeline.step4.precedents import (
-        PRECEDENT_EXTRACTION_PROMPT, _update_cited_cases, normalize_precedents
+        build_precedent_prompt, _update_cited_cases, normalize_precedents
     )
     from app.utils.llm_utils import streaming_completion
     from model_config import ModelConfig
@@ -547,7 +547,7 @@ def _run_precedents(case_id: int, llm_client) -> dict:
         db.session.commit()
 
         case_text = '\n\n'.join(case_text_parts)
-        prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+        prompt = build_precedent_prompt(case_text)
 
         raw_response = streaming_completion(
             llm_client, model=ModelConfig.get_claude_model("default"),

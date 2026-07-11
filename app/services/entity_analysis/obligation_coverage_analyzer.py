@@ -637,34 +637,13 @@ class ObligationCoverageAnalyzer:
             for i, c in enumerate(conclusions[:5])  # Limit to first 5
         ])
 
-        prompt = f"""Analyze these ethical obligations and constraints from an NSPE ethics case.
-
-OBLIGATIONS:
-{obligations_text}
-
-CONSTRAINTS:
-{constraints_text}
-
-QUESTIONS THE BOARD CONSIDERED:
-{questions_text}
-
-BOARD'S CONCLUSIONS:
-{conclusions_text}
-
-TASK: Identify which obligations/constraints are DECISION-RELEVANT - meaning they are central to the ethical dilemma and the board's analysis.
-
-Return a JSON object with this structure:
-{{
-  "decision_relevant_indices": [1, 3, 5],  // Indices from the lists above
-  "reasoning": "Brief explanation of why these are central to the case"
-}}
-
-Focus on obligations that:
-1. Are directly referenced in the questions or conclusions
-2. Create ethical tension or conflict
-3. Require the engineer to make a difficult choice
-
-Return ONLY the JSON object, no other text."""
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        prompt = get_step4_template('step4_obligation_relevance').render(
+            obligations_text=obligations_text,
+            constraints_text=constraints_text,
+            questions_text=questions_text,
+            conclusions_text=conclusions_text,
+        )
 
         try:
             from app.utils.llm_utils import text_from_message, direct_call_params

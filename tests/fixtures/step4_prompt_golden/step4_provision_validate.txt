@@ -1,0 +1,52 @@
+You are validating that case text excerpts discuss a specific NSPE Code of Ethics provision.
+
+**CODE PROVISION**: II.4.e
+**PROVISION TEXT**: "Engineers shall not solicit or accept a contract from a governmental body on which a principal or officer of their organization serves as a member."
+
+**TASK**: The excerpts below all explicitly mention provision II.4.e. For each excerpt, determine:
+
+1. **Is it RELEVANT?** Does the excerpt discuss THIS provision's content/requirements?
+   - Yes: If it discusses compliance, violation, interpretation, or application of II.4.e
+   - No: If it only cites the number without discussing the content
+
+2. **What is discussed?** (compliance, violation, interpretation, Board reasoning, etc.)
+
+3. **Confidence**: How confident are you? (0.0-1.0)
+
+**EXCERPTS TO VALIDATE**:
+
+MENTION 1:
+Section: discussion
+Citation: "Code II.4.e"
+Excerpt: "Engineer A accepted the contract while serving on the planning board."
+
+MENTION 2:
+Section: facts
+Citation: "Section II.4.e"
+Excerpt: "The RFP cited Section II.4.e of the NSPE Code without further analysis."
+
+
+**OUTPUT FORMAT** (JSON array):
+```json
+[
+  {
+    "mention_number": 1,
+    "is_relevant": true,
+    "confidence": 0.95,
+    "content_type": "violation",
+    "reasoning": "This excerpt discusses Engineer A's violation of II.4.e by accepting a contract while serving on the governmental body."
+  },
+  {
+    "mention_number": 2,
+    "is_relevant": false,
+    "confidence": 0.85,
+    "content_type": "citation_only",
+    "reasoning": "This excerpt merely cites II.4.e without discussing what the provision requires or how it applies."
+  }
+]
+```
+
+**IMPORTANT**:
+- "is_relevant": true only if the excerpt discusses the provision's CONTENT
+- "content_type" options: compliance, violation, interpretation, Board_reasoning, citation_only, background
+- Be specific in reasoning - explain what content is being discussed
