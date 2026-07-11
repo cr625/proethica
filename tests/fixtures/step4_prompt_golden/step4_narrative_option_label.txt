@@ -1,0 +1,21 @@
+Generate a concise option label for an ethical decision scenario.
+
+DECISION QUESTION: Should Engineer A disclose the structural deficiencies to the local building authority despite the confidentiality directive from Client W?
+
+RELEVANT OBLIGATIONS: Hold paramount the safety of the public, Maintain client confidentiality
+
+OPTION NUMBER: 1 of 2
+IS BOARD'S RECOMMENDED CHOICE: True
+
+Generate:
+1. A short action-oriented label (5-10 words)
+2. A brief description (1 sentence)
+
+The label should describe what the person would DO, not just "Option 1".
+For example: "Report concerns to regulatory authority" or "Maintain confidentiality with employer"
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.
+
+Output format (exactly two lines):
+LABEL: [your label]
+DESCRIPTION: [your description]

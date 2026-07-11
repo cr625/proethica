@@ -1,0 +1,19 @@
+Enhance these timeline events from an NSPE ethics case with clearer, more narrative descriptions.
+
+TIMELINE EVENTS:
+1. [Initial Situation] Structural inspection: Engineer A inspects the parking garage for Client W and documents deteriorated support columns in th...
+2. [Conflict Emerges] Confidentiality directive: Client W directs Engineer A to keep the findings confidential...
+
+For each event, provide a clearer 1-2 sentence description that:
+1. Uses professional but accessible language
+2. Explains the significance of the event
+3. Maintains objective tone
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.
+
+Output as JSON array:
+```json
+[
+  {"event_number": 1, "enhanced_description": "..."}
+]
+```

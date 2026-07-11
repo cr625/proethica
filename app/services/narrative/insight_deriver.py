@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client
 from app.services.prompt_style import STYLE_FORMATTING_LINE
+from app.services.step4_synthesis.template_loader import get_step4_template
 from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -345,34 +346,14 @@ class InsightDeriver:
             for p in principles[:3]
         ])
 
-        prompt = f"""Analyze this NSPE ethics case and derive insights.
-
-CONFLICTS:
-{conflicts_desc}
-
-RESOLUTION:
-{resolution_desc}
-
-TRANSFORMATION TYPE: {transformation_type or 'unknown'}
-
-PRINCIPLES IDENTIFIED:
-{principles_desc}
-
-Provide:
-1. 3 key takeaways (1 sentence each)
-2. 1-2 novel aspects of this case (if any)
-3. 1-2 limitations in the board's reasoning (if any)
-
-{STYLE_FORMATTING_LINE}
-
-Output as JSON:
-```json
-{{
-  "takeaways": ["...", "...", "..."],
-  "novel_aspects": [{{"description": "...", "why_novel": "..."}}],
-  "limitations": [{{"description": "...", "affected_area": "reasoning|scope|applicability"}}]
-}}
-```"""
+        variables = {
+            'conflicts_desc': conflicts_desc,
+            'resolution_desc': resolution_desc,
+            'transformation_type': transformation_type or 'unknown',
+            'principles_desc': principles_desc,
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        prompt = get_step4_template('step4_narrative_insights').render(**variables)
 
         llm_trace = None
         try:

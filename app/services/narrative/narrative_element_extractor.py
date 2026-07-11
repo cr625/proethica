@@ -24,6 +24,7 @@ from app import db
 from app.models import TemporaryRDFStorage
 from app.utils.llm_utils import get_llm_client
 from app.services.prompt_style import STYLE_FORMATTING_LINE
+from app.services.step4_synthesis.template_loader import get_step4_template
 from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -772,42 +773,13 @@ class NarrativeElementExtractor:
         facts_text = self._load_case_facts(case_id)
         facts_block = facts_text if facts_text else "(Facts section unavailable)"
 
-        prompt = f"""Analyze these roles from an NSPE ethics case and provide brief character insights.
-
-CASE FACTS:
-{facts_block}
-
-ROLES ALREADY EXTRACTED:
-{character_list}
-
-OBLIGATIONS IN THE CASE:
-{obligations_list}
-
-Two tasks:
-
-1. For each role in ROLES ALREADY EXTRACTED, provide a 1-sentence professional
-   description and likely motivation.
-
-2. MISSING-CHARACTER RESCAN. Read CASE FACTS and identify any present-case actor
-   (a person, named party, or distinctly individuated role such as "Engineer B",
-   "the Client", "the Contractor") who participates in the facts but is NOT already
-   covered by ROLES ALREADY EXTRACTED. Do NOT invent actors, and do NOT include the
-   Board of Ethical Review or generic ontology categories. Return each genuinely
-   omitted actor in "missing_characters". Leave the array empty if none are missing.
-
-{STYLE_FORMATTING_LINE}
-
-Output as JSON object:
-```json
-{{
-  "enhancements": [
-    {{"role": "Role label", "description": "...", "motivation": "..."}}
-  ],
-  "missing_characters": [
-    {{"label": "Engineer B", "role_type": "stakeholder", "description": "...", "motivation": "..."}}
-  ]
-}}
-```"""
+        variables = {
+            'facts_block': facts_block,
+            'character_list': character_list,
+            'obligations_list': obligations_list,
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        prompt = get_step4_template('step4_narrative_characters').render(**variables)
 
         llm_trace = None
         try:
@@ -973,65 +945,14 @@ Output as JSON object:
         else:
             existing_tensions = "None identified yet"
 
-        prompt = f"""Analyze ethical tensions in an NSPE engineering ethics case. Each tension has an algorithmically assigned ID (e.g. tension_3). Rate every listed tension on Jones (1991) moral-intensity dimensions, and optionally add up to 3 additional tensions you judge the algorithmic pass missed.
-
-OBLIGATIONS (duties the engineer must fulfill):
-{obligations_list}
-
-CONSTRAINTS (limitations on what the engineer can do):
-{constraints_list}
-
-ROLES INVOLVED:
-{roles_list}
-
-EXISTING TENSIONS TO RATE (all of these):
-{existing_tensions}
-
-For EACH existing tension above, return a rating keyed by its ID. For any additional tensions you identify, return them in the "additional" array with full entity details. Use these fields per Jones (1991):
-
-- magnitude_of_consequences: high | medium | low (how serious are potential harms?)
-- probability_of_effect: high | medium | low (how likely are negative outcomes?)
-- temporal_immediacy: immediate | near-term | long-term (when will consequences occur?)
-- proximity: direct | indirect | remote (how close is the decision-maker to the affected parties?)
-- concentration_of_effect: concentrated | diffuse (are harms focused on a few parties or spread across many?)
-
-Output JSON with this exact shape:
-```json
-{{
-  "ratings": [
-    {{
-      "conflict_id": "tension_1",
-      "magnitude_of_consequences": "high",
-      "probability_of_effect": "medium",
-      "temporal_immediacy": "immediate",
-      "proximity": "direct",
-      "concentration_of_effect": "concentrated"
-    }}
-  ],
-  "additional": [
-    {{
-      "entity1_id": "URI fragment of first entity",
-      "entity1_label": "Label of first entity",
-      "entity1_type": "obligation or constraint",
-      "entity2_id": "URI fragment of second entity",
-      "entity2_label": "Label of second entity",
-      "entity2_type": "obligation or constraint",
-      "description": "Why these are in tension",
-      "conflict_type": "obligation_vs_obligation or obligation_vs_constraint",
-      "affected_roles": ["Role labels affected"],
-      "magnitude_of_consequences": "high",
-      "probability_of_effect": "medium",
-      "temporal_immediacy": "immediate",
-      "proximity": "direct",
-      "concentration_of_effect": "concentrated"
-    }}
-  ]
-}}
-```
-
-Rate every tension in EXISTING TENSIONS TO RATE. The "additional" array may be empty.
-
-{STYLE_FORMATTING_LINE}"""
+        variables = {
+            'obligations_list': obligations_list,
+            'constraints_list': constraints_list,
+            'roles_list': roles_list,
+            'existing_tensions': existing_tensions,
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        prompt = get_step4_template('step4_narrative_tensions').render(**variables)
 
         llm_trace = None
         try:

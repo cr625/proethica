@@ -1,0 +1,17 @@
+Generate two ethical decision options for this scenario.
+
+DECISION QUESTION: Should Engineer A disclose the structural deficiencies to the local building authority despite the confidentiality directive from Client W?
+
+RELEVANT OBLIGATIONS: Hold paramount the safety of the public, Maintain client confidentiality
+
+Generate exactly 2 options that represent meaningful choices.
+Option 1 should typically align with professional duty (mark as board choice).
+Option 2 should represent an alternative approach.
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.
+
+Output format:
+OPTION1_LABEL: [action-oriented label, 5-10 words]
+OPTION1_DESC: [1 sentence description]
+OPTION2_LABEL: [action-oriented label, 5-10 words]
+OPTION2_DESC: [1 sentence description]

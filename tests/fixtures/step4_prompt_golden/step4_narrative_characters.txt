@@ -1,0 +1,38 @@
+Analyze these roles from an NSPE ethics case and provide brief character insights.
+
+CASE FACTS:
+Engineer A, a licensed professional engineer, performed a structural inspection of a parking garage owned by Client W. The inspection found deteriorated support columns that Engineer A judged to present a risk to public safety. Client W directed Engineer A to keep the findings confidential while repair negotiations proceeded.
+
+ROLES ALREADY EXTRACTED:
+- Engineer A: Licensed structural engineer
+- Client W: Role
+
+OBLIGATIONS IN THE CASE:
+- Hold paramount the safety of the public
+- Maintain client confidentiality
+
+Two tasks:
+
+1. For each role in ROLES ALREADY EXTRACTED, provide a 1-sentence professional
+   description and likely motivation.
+
+2. MISSING-CHARACTER RESCAN. Read CASE FACTS and identify any present-case actor
+   (a person, named party, or distinctly individuated role such as "Engineer B",
+   "the Client", "the Contractor") who participates in the facts but is NOT already
+   covered by ROLES ALREADY EXTRACTED. Do NOT invent actors, and do NOT include the
+   Board of Ethical Review or generic ontology categories. Return each genuinely
+   omitted actor in "missing_characters". Leave the array empty if none are missing.
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.
+
+Output as JSON object:
+```json
+{
+  "enhancements": [
+    {"role": "Role label", "description": "...", "motivation": "..."}
+  ],
+  "missing_characters": [
+    {"label": "Engineer B", "role_type": "stakeholder", "description": "...", "motivation": "..."}
+  ]
+}
+```

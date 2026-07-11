@@ -21,6 +21,7 @@ from enum import Enum
 
 from app.utils.llm_utils import get_llm_client
 from app.services.prompt_style import STYLE_FORMATTING_LINE
+from app.services.step4_synthesis.template_loader import get_step4_template
 from model_config import ModelConfig
 from app.academic_references.frameworks.declarative_ethics import (
     get_event_trace_template,
@@ -602,24 +603,11 @@ class TimelineConstructor:
             for i, e in enumerate(events[:8])
         ])
 
-        prompt = f"""Enhance these timeline events from an NSPE ethics case with clearer, more narrative descriptions.
-
-TIMELINE EVENTS:
-{event_list}
-
-For each event, provide a clearer 1-2 sentence description that:
-1. Uses professional but accessible language
-2. Explains the significance of the event
-3. Maintains objective tone
-
-{STYLE_FORMATTING_LINE}
-
-Output as JSON array:
-```json
-[
-  {{"event_number": 1, "enhanced_description": "..."}}
-]
-```"""
+        variables = {
+            'event_list': event_list,
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        prompt = get_step4_template('step4_narrative_timeline').render(**variables)
 
         llm_trace = None
         try:

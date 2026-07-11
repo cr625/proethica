@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, asdict
 
 from app.utils.llm_utils import get_llm_client, text_from_message, direct_call_params
 from app.services.prompt_style import STYLE_FORMATTING_LINE
+from app.services.step4_synthesis.template_loader import get_step4_template
 from model_config import ModelConfig
 from app.academic_references.frameworks.transformation_classification import (
     TRANSFORMATION_TYPES,
@@ -352,27 +353,14 @@ class ScenarioSeedGenerator:
         """Use LLM to generate meaningful option labels."""
         obligations_text = ", ".join([o for o in competing_obligations if o][:3])
 
-        prompt = f"""Generate a concise option label for an ethical decision scenario.
-
-DECISION QUESTION: {question}
-
-RELEVANT OBLIGATIONS: {obligations_text or 'Professional engineering ethics'}
-
-OPTION NUMBER: {option_index + 1} of 2
-IS BOARD'S RECOMMENDED CHOICE: {is_board_choice}
-
-Generate:
-1. A short action-oriented label (5-10 words)
-2. A brief description (1 sentence)
-
-The label should describe what the person would DO, not just "Option 1".
-For example: "Report concerns to regulatory authority" or "Maintain confidentiality with employer"
-
-{STYLE_FORMATTING_LINE}
-
-Output format (exactly two lines):
-LABEL: [your label]
-DESCRIPTION: [your description]"""
+        variables = {
+            'question': question,
+            'obligations_text': obligations_text or 'Professional engineering ethics',
+            'option_number': option_index + 1,
+            'is_board_choice': is_board_choice,
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        prompt = get_step4_template('step4_narrative_option_label').render(**variables)
 
         try:
             response = self.llm_client.messages.create(
@@ -448,23 +436,12 @@ DESCRIPTION: [your description]"""
         """Use LLM to generate complete option set."""
         obligations_text = ", ".join([o for o in competing_obligations if o][:3])
 
-        prompt = f"""Generate two ethical decision options for this scenario.
-
-DECISION QUESTION: {question}
-
-RELEVANT OBLIGATIONS: {obligations_text or 'Professional engineering ethics'}
-
-Generate exactly 2 options that represent meaningful choices.
-Option 1 should typically align with professional duty (mark as board choice).
-Option 2 should represent an alternative approach.
-
-{STYLE_FORMATTING_LINE}
-
-Output format:
-OPTION1_LABEL: [action-oriented label, 5-10 words]
-OPTION1_DESC: [1 sentence description]
-OPTION2_LABEL: [action-oriented label, 5-10 words]
-OPTION2_DESC: [1 sentence description]"""
+        variables = {
+            'question': question,
+            'obligations_text': obligations_text or 'Professional engineering ethics',
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        prompt = get_step4_template('step4_narrative_option_set').render(**variables)
 
         try:
             response = self.llm_client.messages.create(
@@ -620,31 +597,14 @@ OPTION2_DESC: [1 sentence description]"""
                 lines.append(f"  {i+1}. [{b.decision_maker_label}] {b.question[:150]}")
             branch_summary = "\n".join(lines)
 
-        prompt = f"""Write the opening context paragraph for an interactive professional ethics scenario.
-
-## Case Facts
-{case_facts[:1500]}
-
-## Setting
-{narrative_elements.setting.description if narrative_elements.setting else 'Professional context'}
-
-## Primary Decision-Maker
-{primary_maker}
-
-## Decision Questions the User Will Face
-{branch_summary}
-
-## Rules (strict)
-1. Begin with "You are {primary_maker}" and write in second person.
-2. Set up the factual situation BEFORE the decisions. Do not narrate what the protagonist chose or what happened as a result.
-3. Include specific parties, projects, and technical details from the case facts. Do not be abstract or vague.
-4. {STYLE_FORMATTING_LINE}
-5. Do not editorialize, flatter ("seasoned professional"), or use dramatic framing ("now sits at the center of").
-6. Do not reveal the board's conclusions or how the case was resolved.
-7. End with a forward-looking sentence about the decisions ahead, without naming specific choices.
-8. Write 3-6 sentences, approximately 500-800 characters.
-
-Output ONLY the opening context text, no commentary."""
+        variables = {
+            'case_facts': case_facts[:1500],
+            'setting_description': narrative_elements.setting.description if narrative_elements.setting else 'Professional context',
+            'primary_maker': primary_maker,
+            'branch_summary': branch_summary,
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        prompt = get_step4_template('step4_narrative_opening').render(**variables)
 
         llm_trace = None
         try:

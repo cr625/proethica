@@ -1,0 +1,62 @@
+Analyze ethical tensions in an NSPE engineering ethics case. Each tension has an algorithmically assigned ID (e.g. tension_3). Rate every listed tension on Jones (1991) moral-intensity dimensions, and optionally add up to 3 additional tensions you judge the algorithmic pass missed.
+
+OBLIGATIONS (duties the engineer must fulfill):
+- [Obligation_public_safety] Hold paramount the safety of the public
+- [Obligation_client_confidentiality] Maintain client confidentiality
+
+CONSTRAINTS (limitations on what the engineer can do):
+- [Constraint_contract_terms] Contractual confidentiality clause
+
+ROLES INVOLVED:
+- Engineer A
+- Client W
+
+EXISTING TENSIONS TO RATE (all of these):
+[tension_1] Hold paramount the safety of the public vs Maintain client confidentiality: Public safety duty conflicts with the confidentiality directive
+[tension_2] Hold paramount the safety of the public vs Contractual confidentiality clause
+
+For EACH existing tension above, return a rating keyed by its ID. For any additional tensions you identify, return them in the "additional" array with full entity details. Use these fields per Jones (1991):
+
+- magnitude_of_consequences: high | medium | low (how serious are potential harms?)
+- probability_of_effect: high | medium | low (how likely are negative outcomes?)
+- temporal_immediacy: immediate | near-term | long-term (when will consequences occur?)
+- proximity: direct | indirect | remote (how close is the decision-maker to the affected parties?)
+- concentration_of_effect: concentrated | diffuse (are harms focused on a few parties or spread across many?)
+
+Output JSON with this exact shape:
+```json
+{
+  "ratings": [
+    {
+      "conflict_id": "tension_1",
+      "magnitude_of_consequences": "high",
+      "probability_of_effect": "medium",
+      "temporal_immediacy": "immediate",
+      "proximity": "direct",
+      "concentration_of_effect": "concentrated"
+    }
+  ],
+  "additional": [
+    {
+      "entity1_id": "URI fragment of first entity",
+      "entity1_label": "Label of first entity",
+      "entity1_type": "obligation or constraint",
+      "entity2_id": "URI fragment of second entity",
+      "entity2_label": "Label of second entity",
+      "entity2_type": "obligation or constraint",
+      "description": "Why these are in tension",
+      "conflict_type": "obligation_vs_obligation or obligation_vs_constraint",
+      "affected_roles": ["Role labels affected"],
+      "magnitude_of_consequences": "high",
+      "probability_of_effect": "medium",
+      "temporal_immediacy": "immediate",
+      "proximity": "direct",
+      "concentration_of_effect": "concentrated"
+    }
+  ]
+}
+```
+
+Rate every tension in EXISTING TENSIONS TO RATE. The "additional" array may be empty.
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.
