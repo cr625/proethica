@@ -202,6 +202,43 @@ class OntServeCommitService:
             self._base_cat_cache = cache
         return cache.get(class_local_name)
 
+    _NINE_CORE = {'Role', 'Principle', 'Obligation', 'State', 'Resource',
+                  'Action', 'Event', 'Capability', 'Constraint'}
+
+    def _core_category_of_iri(self, iri: str) -> Optional[str]:
+        """Core category an IRI resolves to: the IRI itself when it IS one of
+        the nine core classes, else the base map (core + intermediate)."""
+        local = str(iri).split('#')[-1].split('/')[-1]
+        if str(iri).startswith(str(PROETHICA_CORE)) and local in self._NINE_CORE:
+            return local
+        return self._base_core_category(local)
+
+    def _graph_core_category(self, g, class_uri) -> Optional[str]:
+        """Core category a class's EXISTING subClassOf chain reaches, walking
+        the given graph (the extended store being written) with the base map
+        resolving parents declared outside it. None when the chain reaches no
+        core class (the caller then has no ground to veto on)."""
+        seen = set()
+
+        def walk(cls):
+            if cls in seen:
+                return None
+            seen.add(cls)
+            cat = self._core_category_of_iri(str(cls))
+            if cat:
+                return cat
+            for sup in g.objects(cls, RDFS.subClassOf):
+                r = walk(sup)
+                if r:
+                    return r
+            return None
+
+        for sup in g.objects(class_uri, RDFS.subClassOf):
+            r = walk(sup)
+            if r:
+                return r
+        return None
+
     def _category_safe_class_local(self, class_local_name: str, concept_category: Optional[str]) -> str:
         """Disambiguate a class local name when it collides, in the immutable base,
         with a DIFFERENT (disjoint) core category than the entity's own.
@@ -684,9 +721,25 @@ class OntServeCommitService:
                     self._accumulate_class_context(g, class_uri, entity, rdf_data, PROETHICA_PROV)
                     # Reconcile subClassOf parents a prior commit may be missing --
                     # notably the occupational archetype on role classes minted
-                    # before the resolver was wired. Additive only (archetype parents
-                    # all chain to the same core class, so no disjointness risk).
+                    # before the resolver was wired. GATED on core-category
+                    # agreement (2026-07-11 shadow-gate review): the parents
+                    # come from THIS extraction's category fields, so a
+                    # re-discovery of the same label under a different concept
+                    # category would otherwise add a second subClassOf into a
+                    # disjoint core branch, making every case that loads the
+                    # extended store Pellet-inconsistent. Same lesson as the
+                    # KI2026 endpoint-chain repair: trust the chain, not the
+                    # incoming category claim.
+                    existing_cat = self._graph_core_category(g, class_uri)
                     for sc_uri in self._resolve_subclass_uris(entity, rdf_data):
+                        parent_cat = self._core_category_of_iri(sc_uri)
+                        if existing_cat and parent_cat and parent_cat != existing_cat:
+                            logger.warning(
+                                "cross-category subClassOf VETOED on %s: existing "
+                                "chain -> %s, incoming parent %s -> %s "
+                                "(re-discovery under a different category)",
+                                class_uri, existing_cat, sc_uri, parent_cat)
+                            continue
                         if (class_uri, RDFS.subClassOf, URIRef(sc_uri)) not in g:
                             g.add((class_uri, RDFS.subClassOf, URIRef(sc_uri)))
                     continue

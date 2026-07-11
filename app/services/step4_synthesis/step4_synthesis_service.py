@@ -602,7 +602,11 @@ def _run_precedents(case_id: int, llm_client) -> dict:
             if case_number:
                 try:
                     resolved = Document.query.filter(
-                        Document.doc_metadata['case_number'].astext == case_number
+                        Document.doc_metadata['case_number'].astext == case_number,
+                        # Shadow-gate clones share the gold's case_number; a
+                        # precedent must never bind to a shadow document
+                        # (deleted at shadow-cleanup -> dangling internalCaseId).
+                        Document.doc_metadata['shadow_of'].astext.is_(None)
                     ).first()
                     p['internalCaseId'] = resolved.id if resolved else None
                     p['resolved'] = resolved is not None
