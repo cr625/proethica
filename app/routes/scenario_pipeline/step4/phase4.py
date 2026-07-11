@@ -87,17 +87,13 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
             # raw_response gets full data for Step 5, results_summary gets counts for display
             session_id = str(uuid.uuid4())
 
-            # Extract actual LLM prompts from llm_traces
-            actual_prompts = []
-            if hasattr(result, 'llm_traces') and result.llm_traces:
-                for trace in result.llm_traces:
-                    if isinstance(trace, dict) and trace.get('prompt'):
-                        stage = trace.get('stage', 'UNKNOWN')
-                        actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
-
-            prompt_text = "\n\n".join(actual_prompts) if actual_prompts else f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages"
-            if len(prompt_text) > 10000:
-                prompt_text = prompt_text[:9950] + "\n... [truncated]"
+            # Real rendered prompts from llm_traces via the shared joiner
+            # (no truncation: prompt_text is db.Text and a truncated capture
+            # defeats the row's audit purpose).
+            from app.services.narrative.trace_capture import join_llm_traces
+            prompt_text, _ = join_llm_traces(getattr(result, 'llm_traces', None))
+            prompt_text = prompt_text or (
+                f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages (no llm_traces)")
 
             extraction_prompt = ExtractionPrompt(
                 case_id=case_id,
@@ -354,16 +350,10 @@ def register_phase4_routes(bp, build_entity_foundation, load_canonical_points, l
                 # Save provenance
                 # raw_response gets full data for Step 5, results_summary gets counts for display
                 try:
-                    # Extract actual LLM prompts from accumulated llm_traces
-                    actual_prompts = []
-                    for trace in llm_traces:
-                        if isinstance(trace, dict) and trace.get('prompt'):
-                            stage = trace.get('stage', 'UNKNOWN')
-                            actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
-
-                    prompt_text = "\n\n".join(actual_prompts) if actual_prompts else "Phase 4 Narrative Construction - streaming"
-                    if len(prompt_text) > 10000:
-                        prompt_text = prompt_text[:9950] + "\n... [truncated]"
+                    # Real rendered prompts via the shared joiner (no truncation).
+                    from app.services.narrative.trace_capture import join_llm_traces
+                    prompt_text, _ = join_llm_traces(llm_traces)
+                    prompt_text = prompt_text or "Phase 4 Narrative Construction - streaming (no llm_traces)"
 
                     extraction_prompt = ExtractionPrompt(
                         case_id=case_id,

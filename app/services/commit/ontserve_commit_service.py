@@ -361,8 +361,10 @@ class OntServeCommitService:
                 case_id=case_id, agent_type='shacl_engine', agent_name='pyshacl+owl-rl',
                 execution_plan={'shapes': 'validation/shapes/core-shapes.ttl',
                                 'engine': 'SHACL + OWL-RL', 'via': 'OntServe repair_conformance_ttl MCP'},
-                result={'conforms': conf.get('conforms'), 'remaining': conf.get('remaining'),
-                        'reason': conf.get('reason'), 'status': conf.get('status')},
+                # gate_case_ttl's contract: status always; conforms/repairs_applied/
+                # residual when status == ok; error on gate_unavailable/gate_error.
+                result={'conforms': conf.get('conforms'), 'residual': conf.get('residual'),
+                        'error': conf.get('error'), 'status': conf.get('status')},
             )
             repairs = conf.get('repairs_applied')
             if repairs:
@@ -450,6 +452,11 @@ class OntServeCommitService:
                 # recommit the conclusions after the questions to restore.
                 if individual_result.get('qc_edges_dropped'):
                     results['qc_edges_dropped'] = individual_result['qc_edges_dropped']
+                # Canonicalization counters (roles_decomposed, states/obligations
+                # materialized, compound_classes_removed): always present so the
+                # persisted run record shows the step ran, even when all-zero.
+                if 'canonicalization' in individual_result:
+                    results['canonicalization'] = individual_result['canonicalization']
 
                 # C3 pre-commit conformance gate: SHACL + OWL-RL check + deterministic Tier-0
                 # repair (via the OntServe repair_conformance_ttl MCP tool) over the just-
@@ -1252,7 +1259,12 @@ class OntServeCommitService:
                     'role_axis_vetoes': role_axis_vetoes,
                     'qc_edges_dropped': qc_edges_dropped,
                     'role_axis_vetoes_post_canonicalization':
-                        canon_stats['role_axis_vetoes_post_canonicalization']}
+                        canon_stats['role_axis_vetoes_post_canonicalization'],
+                    # The full canonicalization counters (roles_decomposed etc.)
+                    # were previously only logged; the run record persists them.
+                    'canonicalization': {
+                        k: v for k, v in canon_stats.items()
+                        if k != 'role_axis_vetoes_post_canonicalization'}}
 
         except Exception as e:
             logger.error(f"Error committing individuals: {e}")
@@ -1853,7 +1865,7 @@ class OntServeCommitService:
     _PROV_PROP_KEYS = frozenset({
         'generatedAtTime', 'wasAttributedTo', 'wasGeneratedBy',
         'firstDiscoveredInCase', 'firstDiscoveredAt', 'discoveredInCase',
-        'discoveredInSection', 'discoveredInPass', 'sourceText',
+        'discoveredInSection', 'discoveredInStep', 'sourceText',
     })
 
     # Routing inputs and commit-resolved carrier fields the CLASS path must not
@@ -1916,8 +1928,8 @@ class OntServeCommitService:
             g.add((subject_uri, PP.discoveredInCase, Literal(int(case_id_val), datatype=XSD.integer)))
         if props.get('discoveredInSection'):
             g.add((subject_uri, PP.discoveredInSection, Literal(props['discoveredInSection'][0])))
-        if props.get('discoveredInPass'):
-            g.add((subject_uri, PP.discoveredInPass, Literal(int(props['discoveredInPass'][0]), datatype=XSD.integer)))
+        if props.get('discoveredInStep'):
+            g.add((subject_uri, PP.discoveredInStep, Literal(int(props['discoveredInStep'][0]), datatype=XSD.integer)))
 
         # sourceText: the props value plus every distinct per-section snippet from
         # the top-level source_texts dict (section attribution is on discoveredInSection).
@@ -2177,6 +2189,9 @@ class OntServeCommitService:
                     if canon_stats['role_axis_vetoes_post_canonicalization']:
                         results['role_axis_vetoes_post_canonicalization'] = \
                             canon_stats['role_axis_vetoes_post_canonicalization']
+                    results['canonicalization'] = {
+                        k: v for k, v in canon_stats.items()
+                        if k != 'role_axis_vetoes_post_canonicalization'}
 
             if classes_to_commit:
                 # For classes, we still append to intermediate-extended.ttl
@@ -2958,6 +2973,12 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['conclusionText'], Literal(rdf_data['conclusionText'])))
             if rdf_data.get('conclusionType'):
                 g.add((uri, PROETHICA['conclusionType'], Literal(rdf_data['conclusionType'])))
+            # Board disposition (violation/no_violation/compliance/recommendation/
+            # interpretation, detected deterministically by ConclusionAnalyzer).
+            # 'unknown' is a detector non-answer, not a disposition; skip it.
+            if rdf_data.get('boardConclusionType') and rdf_data['boardConclusionType'] != 'unknown':
+                g.add((uri, PROETHICA['boardConclusionType'],
+                       Literal(rdf_data['boardConclusionType'])))
             if rdf_data.get('conclusionNumber'):
                 g.add((uri, PROETHICA['conclusionNumber'], Literal(int(rdf_data['conclusionNumber']), datatype=XSD.integer)))
             # Readable rdfs:label, mirroring the question treatment
@@ -3274,6 +3295,19 @@ class OntServeCommitService:
         elif jtype == 'time:TemporalEntity':
             g.add((uri, RDF.type, TIME['TemporalEntity']))
 
+        # Extraction-time generation timestamp, stamped by the temporal
+        # converter (the only extraction-time point in the temporal path).
+        # Distinct from the commit-time markers elsewhere in this file; the
+        # generic proeth: literal loop below never sees the plain key.
+        _gen = rdf_data.get('generatedAtTime')
+        if _gen:
+            try:
+                g.add((uri, PROV.generatedAtTime,
+                       Literal(datetime.fromisoformat(str(_gen)), datatype=XSD.dateTime)))
+            except (ValueError, TypeError):
+                logger.warning("unparseable generatedAtTime %r on temporal individual %s",
+                               _gen, uri)
+
         # The Allen converter emits OWL-Time triples whose object IRI uses the
         # legacy http://proethica.org/cases/{id}#Action_X scheme, but committed
         # individuals live at http://proethica.org/ontology/case/{id}#<safe_label>.
@@ -3328,16 +3362,16 @@ class OntServeCommitService:
                         step_no += 1
                         g.add((uri, PROETHICA['causalStep'], Literal(f"{step_no}. {text}")))
                 continue
-            if local in ('discoveredInSection', 'sourceText', 'discoveredInPass'):
+            if local in ('discoveredInSection', 'sourceText', 'discoveredInStep'):
                 # Temporal individuals carry provenance inline (no 'properties' wrapper for
                 # _emit_provenance to read), so route these to the typed PROV-O predicates
                 # here, giving the causal / temporal claims auditable source provenance.
                 for v in (value if isinstance(value, list) else [value]):
                     if v in (None, ''):
                         continue
-                    if local == 'discoveredInPass':
+                    if local == 'discoveredInStep':
                         try:
-                            g.add((uri, PROETHICA_PROV.discoveredInPass, Literal(int(v), datatype=XSD.integer)))
+                            g.add((uri, PROETHICA_PROV.discoveredInStep, Literal(int(v), datatype=XSD.integer)))
                         except (TypeError, ValueError):
                             pass
                     else:

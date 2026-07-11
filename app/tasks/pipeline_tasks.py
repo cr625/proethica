@@ -1360,6 +1360,13 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
             'ontserve_synced': result.get('ontserve_synced', False),
             'errors': result.get('errors', [])
         }
+        # Commit-time guard and gate statistics: mark_step_complete is the only
+        # durable record of the commit, so these must ride along or they exist
+        # only in the log stream.
+        for stat_key in ('role_axis_vetoes', 'role_axis_vetoes_post_canonicalization',
+                         'qc_edges_dropped', 'canonicalization', 'conformance'):
+            if stat_key in result:
+                results[stat_key] = result[stat_key]
         if result.get('error') and result['error'] not in results['errors']:
             results['errors'].append(result['error'])
 

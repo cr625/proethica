@@ -202,7 +202,19 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     _add_source_section(rdf_entity, action)
 
     _add_fluent_and_time(rdf_entity, action)
+    _stamp_generated(rdf_entity)
     return rdf_entity
+
+
+def _stamp_generated(rdf_entity: Dict) -> None:
+    """Stamp the extraction-time prov:generatedAtTime source on a temporal
+    individual's JSON record. The converter is the only point in the temporal
+    path that runs at extraction time (temp_rdf rows and the commit serializer
+    both run later), so the timestamp is minted here and the serializer turns
+    it into the typed PROV-O triple. Plain top-level key (no proeth: prefix):
+    the serializer's generic literal loop must not double-emit it."""
+    from datetime import datetime, timezone
+    rdf_entity['generatedAtTime'] = datetime.now(timezone.utc).isoformat()
 
 
 def _add_source_section(rdf_entity: Dict, src: Dict) -> None:
@@ -334,6 +346,7 @@ def convert_event_to_rdf(event: Dict, case_id: int) -> Dict:
         rdf_entity['proeth:causedByAction'] = action_ref
 
     _add_fluent_and_time(rdf_entity, event)
+    _stamp_generated(rdf_entity)
     return rdf_entity
 
 
@@ -424,6 +437,7 @@ def convert_causal_chain_to_rdf(chain: Dict, case_id: int,
             for step in causal_chain_data['sequence']
         ]
 
+    _stamp_generated(rdf_entity)
     return rdf_entity
 
 
@@ -477,6 +491,7 @@ def convert_timeline_to_rdf(timeline_data: Dict, case_id: int) -> Dict:
             'proeth:contradictions': consistency.get('contradictions', [])
         }
 
+    _stamp_generated(rdf_entity)
     return rdf_entity
 
 
@@ -558,6 +573,7 @@ def convert_allen_relation_to_rdf(allen_relation: Dict, case_id: int,
         'proeth:description': allen_metadata.get('description', '')
     }
 
+    _stamp_generated(rdf_entity)
     return rdf_entity
 
 

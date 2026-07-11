@@ -239,6 +239,7 @@ def register_precedent_routes(bp):
                         entity_type='precedent_references',
                         entity_label=p.get('caseCitation', 'Unknown Case'),
                         entity_definition=p.get('citationContext', ''),
+                        extraction_model=STEP4_DEFAULT_MODEL,
                         rdf_json_ld={
                             '@type': 'proeth-case:PrecedentCaseReference',
                             'caseCitation': p.get('caseCitation', ''),
@@ -384,6 +385,7 @@ def register_precedent_routes(bp):
                     entity_type='precedent_references',
                     entity_label=p.get('caseCitation', 'Unknown Case'),
                     entity_definition=p.get('citationContext', ''),
+                    extraction_model=STEP4_DEFAULT_MODEL,
                     rdf_json_ld={
                         '@type': 'proeth-case:PrecedentCaseReference',
                         'caseCitation': p.get('caseCitation', ''),

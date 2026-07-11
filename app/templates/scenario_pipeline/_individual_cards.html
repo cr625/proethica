@@ -144,7 +144,7 @@
                 {% set ns = namespace(has_content=false) %}
                 {% set skip_props = ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase',
                                      'generatedAtTime', 'firstDiscoveredInCase', 'firstDiscoveredAt',
-                                     'discoveredInSection', 'discoveredInPass',
+                                     'discoveredInSection', 'discoveredInStep',
                                      'sourceText', 'relationships', 'attributes'] %}
                 {% set quote_props = ['textReferences', 'hasExample'] %}
                 {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}

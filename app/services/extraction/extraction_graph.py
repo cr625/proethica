@@ -456,7 +456,11 @@ def _extract_properties(
     props['discoveredInSection'] = [section_type]
 
     if pass_number is not None:
-        props['discoveredInPass'] = [str(pass_number)]
+        # The value is the pipeline STEP that discovered the entity
+        # (1 contextual, 2 normative, 3 temporal) -- not the facts/discussion
+        # pass within a step. The property was named discoveredInPass until
+        # the 2026-07-11 rename aligned it with the step terminology.
+        props['discoveredInStep'] = [str(pass_number)]
 
     # Add source text to properties as well
     source_text = getattr(obj, 'source_text', None)

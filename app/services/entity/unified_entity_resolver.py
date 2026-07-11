@@ -366,7 +366,7 @@ class UnifiedEntityResolver:
                     other_type = tn.rsplit('#', 1)[-1].rsplit('/', 1)[-1]
             extraction_type = self.ENTITY_TYPE_MAP.get(category, other_type)
 
-            source_pass = g.value(s, PROETH_PROV.discoveredInPass)
+            source_pass = g.value(s, PROETH_PROV.discoveredInStep)
             text_refs = [str(o) for o in g.objects(s, PROETH.textReferences)]
             uri = str(s)
 

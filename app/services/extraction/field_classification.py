@@ -134,7 +134,7 @@ _DERIVED = {
 _PROVENANCE = {
     "generatedAtTime", "wasAttributedTo", "wasGeneratedBy",
     "firstDiscoveredInCase", "firstDiscoveredAt", "discoveredInCase",
-    "discoveredInSection", "discoveredInPass", "sourceText",
+    "discoveredInSection", "discoveredInStep", "sourceText",
     "matchedOntologyClass", "matchedOntologyLabel", "matchConfidence",
     "matchesExisting", "matchReasoning",
     "synthesisLiteral",

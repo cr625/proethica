@@ -492,7 +492,8 @@ def _safe_frag(iri) -> str:
 
 
 def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
-                   desc: str, label: str, comment: str):
+                   desc: str, label: str, comment: str,
+                   generated_at: Optional[str] = None):
     """Shared PROV-O Derivation emitter for a materialized (subj, prop, obj) edge --
     the single home for the provenance-node shape the edge-applier family used to
     copy-paste eight times (rule of three). ``prefix`` is the LITERAL provenance-IRI
@@ -500,7 +501,9 @@ def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
     ``case#<prefix><safe_frag(subj)>_<prop>_<safe_frag(obj)>`` -- byte-identical to the
     pre-consolidation scheme, and idempotent. The per-family ``label``/``comment`` stay
     local config and are passed through; only the node-shape logic is centralized.
-    Returns the node IRI."""
+    ``generated_at`` (ISO-8601 string) is opt-in: families that record the
+    derivation time emit a typed prov:generatedAtTime; existing callers that
+    omit it stay byte-identical. Returns the node IRI."""
     case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
     prov_iri = case_ns[prefix + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
     if (prov_iri, RDF.type, PROV.Derivation) in g:
@@ -512,6 +515,10 @@ def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
     if desc:
         g.add((prov_iri, PROV.value, Literal(str(desc))))
     g.add((prov_iri, RDFS.comment, Literal(comment)))
+    if generated_at:
+        from rdflib import XSD as _XSD
+        g.add((prov_iri, PROV.generatedAtTime,
+               Literal(str(generated_at), datatype=_XSD.dateTime)))
     return prov_iri
 
 

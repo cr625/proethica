@@ -49,6 +49,7 @@ def store_provisions_to_rdf(case_id, provisions, session_id):
             entity_type='provisions',
             entity_label=provision.get('code_provision', 'Unknown'),
             entity_definition=provision.get('provision_text', ''),
+            extraction_model=STEP4_DEFAULT_MODEL,
             rdf_json_ld={
                 '@type': 'proeth-case:CodeProvisionReference',
                 'codeProvision': provision.get('code_provision', ''),
@@ -194,6 +195,7 @@ def extract_and_link_provisions(case_id: int, case: Document):
             entity_type='resources',
             entity_label=label,
             entity_definition=provision['provision_text'],
+            extraction_model=STEP4_DEFAULT_MODEL,
             rdf_json_ld={
                 '@type': 'proeth-case:CodeProvisionReference',
                 'label': label,
@@ -327,6 +329,39 @@ def register_provision_routes(bp):
                 yield sse_msg({'stage': 'STORING', 'progress': 90, 'messages': ['Storing provisions in database...']})
                 session_id = str(uuid.uuid4())
                 store_provisions_to_rdf(case_id, provisions, session_id)
+
+                # Prompt provenance (this streaming path stored provisions
+                # with NO extraction_prompts row until 2026-07-11). Validator
+                # retains only its LAST group's call; linker retains the
+                # batch-joined prompts.
+                _parts_p, _parts_r = [], []
+                if getattr(validator, 'last_validation_prompt', None):
+                    _parts_p.append("=== GROUP_VALIDATION (last group only) ===\n"
+                                    f"{validator.last_validation_prompt}")
+                    _parts_r.append("=== GROUP_VALIDATION (last group only) ===\n"
+                                    f"{validator.last_validation_response or ''}")
+                if getattr(linker, 'last_linking_prompt', None):
+                    _parts_p.append(f"=== PROVISION_LINKING ===\n{linker.last_linking_prompt}")
+                    _parts_r.append(f"=== PROVISION_LINKING ===\n{linker.last_linking_response or ''}")
+                db.session.add(ExtractionPrompt(
+                    case_id=case_id,
+                    concept_type='code_provision_reference',
+                    step_number=4,
+                    section_type='references',
+                    prompt_text="\n\n".join(_parts_p) or 'Code provision extraction (no LLM prompt retained)',
+                    llm_model=STEP4_DEFAULT_MODEL,
+                    extraction_session_id=session_id,
+                    raw_response="\n\n".join(_parts_r),
+                    results_summary={
+                        'total_provisions': len(provisions),
+                        'total_links': total_links,
+                    },
+                    is_active=True,
+                    times_used=1,
+                    created_at=datetime.utcnow(),
+                    last_used_at=datetime.utcnow()
+                ))
+                db.session.commit()
 
                 status_messages = []
                 for p in provisions:
