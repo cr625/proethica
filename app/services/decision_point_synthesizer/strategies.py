@@ -33,6 +33,7 @@ from app.services.ontserve.mcp_entity_enrichment_service import (
     enrich_prompt_with_metadata,
     EnrichmentResult,
 )
+from app.services.step4_synthesis.template_loader import get_step4_template
 
 from .models import (
     ToulminStructure,
@@ -269,90 +270,12 @@ class LLMStrategiesMixin:
         for i, c in enumerate(conclusions[:10]):  # Limit to 10
             conclusions_text.append(f"C{i+1}: {c.get('conclusion_text', c.get('text', ''))[:1200]}")
 
-        prompt = f"""You are analyzing an ethics case to identify key decision points where ethical choices must be made.
-
-The E1-E3 algorithmic composition found no decision point candidates. However, the case analysis has identified
-the following CAUSAL-NORMATIVE LINKS (relationships between actions and obligations):
-
-{chr(10).join(causal_links_text)}
-
-ETHICAL QUESTIONS identified in the case:
-{chr(10).join(questions_text)}
-
-BOARD CONCLUSIONS:
-{chr(10).join(conclusions_text)}
-
-Based on these causal links, generate 3-5 canonical decision points. Each decision point should represent
-a moment where an agent must choose between actions with ethical implications.
-
-For each decision point, provide:
-1. A focus_id (e.g., "DP1", "DP2")
-2. A description of the decision situation
-3. A decision_question (what choice must be made?)
-4. The primary role/agent facing the decision
-5. The relevant obligation or constraint
-6. 2-3 options available to the decision-maker, with one marked as the Board's choice
-7. Which question(s) this addresses (reference Q numbers)
-8. How the board resolved it (reference C numbers)
-9. The full Toulmin argument structure and backing provisions:
-{TOULMIN_FIELD_SPEC}
-10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
-11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
-
-CRITICAL FORMATTING:
-- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
-- role_label must be a SHORT identifier for the decision-maker (e.g., "Engineer A", "Firm C", "Engineers A and B").
-  Do NOT append obligation names, case descriptions, or topic keywords to the role_label.
-  BAD: "Engineer A Construction Observation Engineer" or "Engineer H Public Hearing Testimony Completeness"
-  GOOD: "Engineer A" or "Engineer H"
-- decision_question should be concise (1-2 sentences). Frame as "Should [role] [action]?" or "Must [role] [choice]?"
-- Option labels must be short action phrases (3-8 words), NEVER "Option A", "Option B", "Option C".
-- Good labels: "Disclose AI Tool Usage", "Verify Code with Expert", "Withdraw from Project"
-- Bad labels: "Option A", "Option B", "Alternative Approach"
-- Descriptions expand on the label with case-specific detail.
-- Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
-
-GROUNDING RULES (2026-07-08 Phase-B audit; each was a judged failure mode):
-- is_board_choice marks the course the Board held to be the ETHICAL one. When the Board
-  found the party's actual conduct unethical, the board choice is the compliant
-  alternative (e.g. "Obtain Client Consent"), NOT the conduct that occurred. Never mark
-  condemned conduct as the Board's choice.
-- Options must be alternatives the case states or clearly implies were available to the
-  decision-maker at that moment. Do NOT invent options the case never mentions or
-  contemplates, and do not split one course of action into two near-identical options.
-- board_resolution must paraphrase only what the Board's conclusions state. Do not add
-  interpretive elaborations, carve-outs, or rationales the conclusions do not contain.
-- toulmin_claim must agree with the option marked is_board_choice: the claim IS the
-  board-endorsed course restated as an assertion (or the case-supported course when the
-  Board made no determination).
-
-Return as JSON array:
-```json
-[
-  {{
-    "focus_id": "DP1",
-    "description": "...",
-    "decision_question": "...",
-    "role_label": "...",
-    "obligation_label": "...",
-    "options": [
-      {{"option_id": "O1", "label": "Disclose X to Stakeholders", "description": "Formally notify all affected stakeholders of X through written communication", "is_board_choice": true}},
-      {{"option_id": "O2", "label": "Withhold Disclosure of X", "description": "Continue without disclosure, relying on existing contractual scope limitations", "is_board_choice": false}}
-    ],
-    "addresses_questions": ["Q1", "Q2"],
-    "board_resolution": "The board concluded that... (C1)",
-    "toulmin_claim": "The course of action argued for (1 sentence)",
-    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
-    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
-    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
-    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
-    "provision_labels": ["II.1.f", "I.1"],
-    "intensity_score": 0.78,
-    "qc_alignment_score": 0.82
-  }}
-]
-```
-"""
+        prompt = get_step4_template('step4_dp_causal').render(
+            causal_links_block="\n".join(causal_links_text),
+            questions_block="\n".join(questions_text),
+            conclusions_block="\n".join(conclusions_text),
+            toulmin_field_spec=TOULMIN_FIELD_SPEC,
+        )
 
         # HO-005: surface obligation compliance / capability proficiency
         prompt = self._append_normative_status(prompt)
@@ -591,98 +514,15 @@ Return as JSON array:
         for i, r in enumerate(roles[:10]):
             role_text.append(f"R{i+1}: {r.entity_label}")
 
-        prompt = f"""You are analyzing an ethics case to identify key decision points where ethical choices must be made.
-
-The algorithmic composition and causal link analysis found no decision point candidates for this case.
-However, the case has rich analytical data. Synthesize decision points from the following context.
-
-ETHICAL QUESTIONS identified in the case:
-{chr(10).join(questions_text)}
-
-BOARD CONCLUSIONS:
-{chr(10).join(conclusions_text)}
-
-QUESTION EMERGENCE (how ethical questions arise from case facts):
-{chr(10).join(qe_text)}
-
-RESOLUTION PATTERNS (how the board resolved questions):
-{chr(10).join(rp_text)}
-
-OBLIGATIONS extracted from the case:
-{chr(10).join(obl_text)}
-
-ROLES in the case:
-{chr(10).join(role_text)}
-
-Based on this analysis, generate 3-5 canonical decision points. Each should represent
-a moment where an agent must choose between actions with ethical implications.
-
-For each decision point, provide:
-1. A focus_id (e.g., "DP1", "DP2")
-2. A description of the decision situation
-3. A decision_question -- an actionable choice framed as "Should [role] do X or Y?"
-4. The primary role/agent facing the decision (use exact role labels from above)
-5. The relevant obligation (use exact obligation labels from above)
-6. 2-3 options that DIRECTLY ANSWER the decision_question, with one marked as the Board's choice
-7. Which question(s) this addresses (reference Q numbers)
-8. How the board resolved it (reference C numbers)
-9. The full Toulmin argument structure and backing provisions:
-{TOULMIN_FIELD_SPEC}
-10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
-11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
-
-CRITICAL FORMATTING:
-- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
-- role_label must be a SHORT identifier (e.g., "Engineer A", "Firm C"). Do NOT append topic descriptions.
-  BAD: "Engineer D Bid Document Material Information Inclusion" GOOD: "Engineer D"
-
-CRITICAL COHERENCE: The decision_question and options must form a coherent decision:
-- The question must present an actionable choice the named role faces.
-  BAD: "Whether the obligation arose at point X" (analytical, not a choice)
-  GOOD: "Should Engineer Doe submit full findings or limit disclosure to correcting false data?"
-- Each option must be a direct answer to that question. Reading the question then the option,
-  the option must be a plausible course of action the role could choose.
-- The role_label must be the agent making the decision, not a passive party.
-- is_board_choice marks the course the Board held ETHICAL; when the Board condemned the
-  actual conduct, the board choice is the compliant alternative, never the condemned act.
-- Options must be alternatives the case states or implies; do not invent unmentioned ones.
-- board_resolution paraphrases only what the conclusions state; toulmin_claim agrees
-  with the option marked is_board_choice.
-
-CRITICAL OPTION FORMAT:
-- Labels must be 3-8 words, Title Case, starting with a verb. NEVER "Option A", "Option B".
-- Good labels: "Disclose Conflict to Client", "Recuse from Project", "Seek Independent Review"
-- Descriptions expand on the label with 1-2 sentences of case-specific detail.
-- Options must represent genuinely defensible positions, not straw-man alternatives.
-- Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
-
-Return as JSON array:
-```json
-[
-  {{
-    "focus_id": "DP1",
-    "description": "...",
-    "decision_question": "...",
-    "role_label": "...",
-    "obligation_label": "...",
-    "options": [
-      {{"option_id": "O1", "label": "Disclose Conflict to Client", "description": "Formally notify the client of the conflict of interest and recommend independent oversight", "is_board_choice": true}},
-      {{"option_id": "O2", "label": "Recuse from Project", "description": "Withdraw from the project entirely to avoid any appearance of compromised judgment", "is_board_choice": false}}
-    ],
-    "addresses_questions": ["Q1", "Q2"],
-    "board_resolution": "The board concluded that... (C1)",
-    "toulmin_claim": "The course of action argued for (1 sentence)",
-    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
-    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
-    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
-    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
-    "provision_labels": ["II.1.f", "I.1"],
-    "intensity_score": 0.78,
-    "qc_alignment_score": 0.82
-  }}
-]
-```
-"""
+        prompt = get_step4_template('step4_dp_qc_direct').render(
+            questions_block="\n".join(questions_text),
+            conclusions_block="\n".join(conclusions_text),
+            qe_block="\n".join(qe_text),
+            rp_block="\n".join(rp_text),
+            obligations_block="\n".join(obl_text),
+            roles_block="\n".join(role_text),
+            toulmin_field_spec=TOULMIN_FIELD_SPEC,
+        )
 
         # HO-005: surface obligation compliance / capability proficiency
         prompt = self._append_normative_status(prompt)
@@ -781,133 +621,14 @@ C{i}: {c.get('text', c.get('label', ''))}
   - Resolution: {rp.get('resolution_narrative', '')[:200] if rp.get('resolution_narrative') else 'Not analyzed'}
 """)
 
-        _refinement_prompt = f"""You are synthesizing decision points for NSPE ethics case {case_id}.
-
-## TOP ALGORITHMIC CANDIDATES (Scored by Q&C Alignment)
-
-These candidates were composed algorithmically from extracted entities and scored against the board's actual questions and conclusions:
-
-{''.join(candidates_text)}
-
-## BOARD'S QUESTIONS (with Toulmin Analysis)
-
-These are the actual ethical questions with their Toulmin structure:
-
-{''.join(questions_text)}
-
-## BOARD'S CONCLUSIONS (with Resolution Patterns)
-
-{''.join(conclusions_text)}
-
-## TASK
-
-Synthesize {target_count} decision points that:
-
-1. **Preserve entity grounding** - Keep URI references from candidates
-2. **Align with Q&C** - Each point should address real board concerns
-3. **Merge similar candidates** - Combine candidates addressing the same issue
-4. **Include the full Toulmin structure** - all six categories, each respecting
-   its definition:
-{TOULMIN_FIELD_SPEC}
-5. **Coherent question-option structure** - Options must directly answer the question
-
-CRITICAL FORMATTING REQUIREMENT:
-
-- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
-
-CRITICAL ROLE LABEL REQUIREMENT:
-
-- The role_label must be a SHORT identifier for the decision-maker: "Engineer A", "Firm C",
-  "Engineers A and B", "Client", etc. Do NOT append obligation names, case descriptions,
-  or topic keywords to the role_label.
-  - BAD: "Engineer A Construction Observation Engineer", "Engineer H Public Hearing Testimony Completeness ZZZ Truck Stop"
-  - GOOD: "Engineer A", "Engineer H"
-- The role_label must be the agent who faces the decision. Do not assign a decision to a party
-  who is not making the choice (e.g., do not assign a disclosure decision to the "Client"
-  when it is the engineer who must decide whether to disclose).
-
-CRITICAL COHERENCE REQUIREMENT:
-
-The decision_question, description, and options must form a coherent decision structure:
-
-1. The "decision_question" must be framed as an actionable choice the named role faces:
-   - Format: "Should [role] [action A] or [action B]?" or "Must [role] [choice]?"
-   - The question must present the core tension between competing courses of action.
-   - Keep it to 1-2 sentences. Do not embed long subordinate clauses.
-   - BAD: "Whether the obligation arose at point X or point Y" (analytical, not actionable)
-   - BAD: "The interaction between principle X and principle Y" (abstract, no agent choosing)
-   - GOOD: "Should Engineer A disclose the conflict to the client before accepting the project, or rely on internal firewalls?"
-
-2. Each option must be a DIRECT ANSWER to the decision_question. If you read the question
-   then read each option, the option must be a plausible response the named role could choose.
-   - BAD: Question asks "when did the obligation arise?" but options are "Submit Report" / "Limit Disclosure"
-   - GOOD: Question asks "Should Doe submit full findings or limit disclosure?" and options are
-     "Submit Full Report" / "Limit Disclosure to Correcting False Data" / "Seek Ethics Guidance First"
-
-CRITICAL OPTION REQUIREMENTS:
-
-1. Each option MUST have a short "label" (3-8 words, Title Case, action phrase starting with a verb)
-   and a longer "description" (1-2 sentences elaborating the action).
-   The label is a DISCRETE CHOICE that a decision-maker selects from a list.
-   - Good labels: "Disclose Conflict to Client", "Recuse from Evaluation", "Report to State Agency"
-   - Bad labels: "Option A", "Proactively disclose AI tool usage and identify AI-generated sections to client before submission"
-   The label must be distinct enough to distinguish options at a glance.
-
-2. Each decision point MUST have 2-3 options that represent GENUINELY DEFENSIBLE positions.
-   Do NOT create straw-man alternatives. Each option should be an action a reasonable
-   professional could plausibly choose given competing pressures (time, cost, client
-   relationship, scope of duty, professional judgment).
-
-   - BAD (straw-man negation):
-     O1: "Conduct rigorous line-by-line review before sealing"
-     O2: "Seal without any verification"
-   - GOOD (genuine tension):
-     O1: "Conduct full independent technical review of all AI outputs before sealing"
-     O2: "Apply standard firm QA protocols to AI outputs at the same level as conventional CAD software"
-     O3: "Engage a third-party reviewer with AI expertise for safety-critical elements while applying standard review to remaining outputs"
-
-   The non-board-choice options must represent positions with real justifications
-   (efficiency, precedent, scope limitation, competing obligations) -- not simply
-   omitting or refusing to perform the ethical action.
-
-## OUTPUT FORMAT (JSON)
-
-```json
-[
-  {{
-    "focus_id": "DP1",
-    "source_candidate_ids": ["DP1", "DP3"],
-    "description": "Clear description",
-    "decision_question": "The key ethical question",
-    "role_label": "Engineer A",
-    "role_uri": "URI from candidate",
-    "obligation_label": "From candidate",
-    "obligation_uri": "URI",
-    "constraint_label": null,
-    "constraint_uri": null,
-    "provision_labels": ["II.1.c"],
-    "provision_uris": ["URIs"],
-    "involved_action_uris": ["action URIs"],
-    "toulmin_claim": "The course of action argued for",
-    "toulmin_data": "The case facts appealed to (facts only)",
-    "toulmin_warrants": "The general rules licensing facts to claim",
-    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
-    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...'",
-    "addresses_questions": ["Q0", "Q1"],
-    "board_resolution": "How board resolved this",
-    "qc_alignment_score": 0.85,
-    "intensity_score": 0.7,
-    "options": [
-      {{"option_id": "O1", "label": "Disclose AI Usage to Client Before Submission", "description": "Proactively disclose AI tool usage and identify AI-generated sections to client before submission", "action_uri": "URI", "is_board_choice": true}},
-      {{"option_id": "O2", "label": "Treat AI as Internal Drafting Tool", "description": "Treat AI tool as internal drafting software equivalent to CAD, disclosing only upon direct client inquiry", "action_uri": "URI", "is_board_choice": false}},
-      {{"option_id": "O3", "label": "Disclose in Project Documentation Only", "description": "Disclose AI usage in project documentation without separate client notification, following existing firm software disclosure policy", "action_uri": "URI", "is_board_choice": false}}
-    ]
-  }}
-]
-```
-
-Produce exactly {target_count} decision points capturing the key ethical issues. Do NOT produce more than the requested count.
-"""
+        _refinement_prompt = get_step4_template('step4_dp_refine').render(
+            case_id=case_id,
+            candidates_block=''.join(candidates_text),
+            questions_block=''.join(questions_text),
+            conclusions_block=''.join(conclusions_text),
+            toulmin_field_spec=TOULMIN_FIELD_SPEC,
+            target_count=target_count,
+        )
         # HO-005: surface obligation compliance / capability proficiency
         return self._append_normative_status(_refinement_prompt)
 

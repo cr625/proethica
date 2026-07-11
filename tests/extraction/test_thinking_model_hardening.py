@@ -108,9 +108,18 @@ def test_text_from_message_skips_thinking_first_block():
 
 def test_transformation_classifier_resolves_default_tier(monkeypatch):
     from app.services.case_analysis.transformation_classifier import TransformationClassifier
+    import app.services.step4_synthesis.template_loader as template_loader
     import app.utils.llm_utils as llm_utils
 
     captured = {}
+
+    # Since the step4-template migration the builder fetches the seeded
+    # step4_transformation template; stub the loader so this stays DB-free
+    # (the assertion is about the model tier, not the prompt text).
+    monkeypatch.setattr(
+        template_loader, "get_step4_template",
+        lambda concept_type: SimpleNamespace(render=lambda **variables: "PROMPT"),
+    )
 
     def fake_streaming_completion(client, model, max_tokens, prompt, temperature=0.1):
         captured["model"] = model

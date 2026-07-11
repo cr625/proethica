@@ -21,6 +21,8 @@ from typing import List, Optional
 
 from model_config import ModelConfig
 
+from app.services.step4_synthesis.template_loader import get_step4_template
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,24 +57,10 @@ def verify_board_choices(case_id: int, canonical_points: List, conclusions: List
         'options': [o.get('label') for o in _options_of(dp)],
     } for i, dp in enumerate(dps, 1)]
 
-    prompt = f"""For each decision point below, identify which option is the course of action the
-Board of Ethical Review held to be the ETHICAL one, based ONLY on the Board's conclusions.
-
-Rules:
-- The Board's choice is the conduct the Board endorsed or required. When the Board found
-  the party's actual conduct unethical, the endorsed course is the compliant alternative,
-  NEVER the condemned conduct.
-- When the conclusions make no determination that selects among the options, return null.
-- Return the option label EXACTLY as given.
-
-BOARD CONCLUSIONS:
-{concl_text}
-
-DECISION POINTS:
-{json.dumps(payload, indent=1)}
-
-Return STRICT JSON only:
-{{"picks": [{{"id": "DP1", "board_option_label": "<exact label or null>", "reason": "<one clause>"}}]}}"""
+    prompt = get_step4_template('step4_dp_board_verify').render(
+        concl_text=concl_text,
+        payload_json=json.dumps(payload, indent=1),
+    )
 
     if llm_client is None:
         from app.utils.llm_utils import get_llm_client

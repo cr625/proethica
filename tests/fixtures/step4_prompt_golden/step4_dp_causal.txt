@@ -1,0 +1,104 @@
+You are analyzing an ethics case to identify key decision points where ethical choices must be made.
+
+The E1-E3 algorithmic composition found no decision point candidates. However, the case analysis has identified
+the following CAUSAL-NORMATIVE LINKS (relationships between actions and obligations):
+
+
+1. CausalLink_Submit Sealed Drawings Without Full Review
+   - Action: Submit Sealed Drawings Without Full Review
+   - Obligation: []
+   - Violates: ['Duty of Competent Practice']
+   - Description: Sealing without verification exposed the public to undetected structural errors.
+
+
+2. CausalLink_Disclose AI Tool Usage to Client
+   - Action: Disclose AI Tool Usage to Client
+   - Obligation: ['Duty of Full Disclosure']
+   - Violates: []
+   - Description: Disclosure let the client weigh the provenance of the design.
+
+
+ETHICAL QUESTIONS identified in the case:
+Q1: Was it ethical for Engineer A to seal drawings produced with AI assistance without full verification?
+Q2: Did Engineer A have an obligation to disclose the use of AI tools to the client?
+
+BOARD CONCLUSIONS:
+C1: It was unethical for Engineer A to seal the drawings without full verification of the AI-generated calculations.
+C2: Engineer A was obligated to disclose the use of AI tools to the client.
+
+Based on these causal links, generate 3-5 canonical decision points. Each decision point should represent
+a moment where an agent must choose between actions with ethical implications.
+
+For each decision point, provide:
+1. A focus_id (e.g., "DP1", "DP2")
+2. A description of the decision situation
+3. A decision_question (what choice must be made?)
+4. The primary role/agent facing the decision
+5. The relevant obligation or constraint
+6. 2-3 options available to the decision-maker, with one marked as the Board's choice
+7. Which question(s) this addresses (reference Q numbers)
+8. How the board resolved it (reference C numbers)
+9. The full Toulmin argument structure and backing provisions:
+Toulmin argument structure (Toulmin 1958). Each field must respect its category:
+- toulmin_claim: the CLAIM. The course of action asserted as the right one. Where the Board ruled, this states the Board's chosen course; where it did not, the course the case record best supports.
+- toulmin_data: the GROUNDS. The specific case facts appealed to in support of the claim. Facts only; no duties, principles, or evaluations.
+- toulmin_warrants: the WARRANT(s). The general professional rules that license the step from those facts to the claim, stated as rules (e.g. "Engineers must hold paramount the safety of the public"). Where duties compete, state the competing warrants and which prevails.
+- toulmin_qualifier: the QUALIFIER. The modal strength of the claim and any conditions the Board attached (e.g. "presumably", "unless the contract requires disclosure", "provided consent is obtained"). Empty string only when the claim is unconditional.
+- toulmin_rebuttals: the REBUTTAL. The conditions of exception: the circumstances under which the warrant would NOT license the claim, stated as a defeating condition drawn from the case ("unless ...", "would not apply if ..."). Not a generic counter-argument and never empty; use the strongest case-supplied defeater.
+- provision_labels: the BACKING. The NSPE Code sections that authorize the warrants (e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here.
+10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
+
+CRITICAL FORMATTING:
+- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
+- role_label must be a SHORT identifier for the decision-maker (e.g., "Engineer A", "Firm C", "Engineers A and B").
+  Do NOT append obligation names, case descriptions, or topic keywords to the role_label.
+  BAD: "Engineer A Construction Observation Engineer" or "Engineer H Public Hearing Testimony Completeness"
+  GOOD: "Engineer A" or "Engineer H"
+- decision_question should be concise (1-2 sentences). Frame as "Should [role] [action]?" or "Must [role] [choice]?"
+- Option labels must be short action phrases (3-8 words), NEVER "Option A", "Option B", "Option C".
+- Good labels: "Disclose AI Tool Usage", "Verify Code with Expert", "Withdraw from Project"
+- Bad labels: "Option A", "Option B", "Alternative Approach"
+- Descriptions expand on the label with case-specific detail.
+- Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
+
+GROUNDING RULES (2026-07-08 Phase-B audit; each was a judged failure mode):
+- is_board_choice marks the course the Board held to be the ETHICAL one. When the Board
+  found the party's actual conduct unethical, the board choice is the compliant
+  alternative (e.g. "Obtain Client Consent"), NOT the conduct that occurred. Never mark
+  condemned conduct as the Board's choice.
+- Options must be alternatives the case states or clearly implies were available to the
+  decision-maker at that moment. Do NOT invent options the case never mentions or
+  contemplates, and do not split one course of action into two near-identical options.
+- board_resolution must paraphrase only what the Board's conclusions state. Do not add
+  interpretive elaborations, carve-outs, or rationales the conclusions do not contain.
+- toulmin_claim must agree with the option marked is_board_choice: the claim IS the
+  board-endorsed course restated as an assertion (or the case-supported course when the
+  Board made no determination).
+
+Return as JSON array:
+```json
+[
+  {
+    "focus_id": "DP1",
+    "description": "...",
+    "decision_question": "...",
+    "role_label": "...",
+    "obligation_label": "...",
+    "options": [
+      {"option_id": "O1", "label": "Disclose X to Stakeholders", "description": "Formally notify all affected stakeholders of X through written communication", "is_board_choice": true},
+      {"option_id": "O2", "label": "Withhold Disclosure of X", "description": "Continue without disclosure, relying on existing contractual scope limitations", "is_board_choice": false}
+    ],
+    "addresses_questions": ["Q1", "Q2"],
+    "board_resolution": "The board concluded that... (C1)",
+    "toulmin_claim": "The course of action argued for (1 sentence)",
+    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
+    "provision_labels": ["II.1.f", "I.1"],
+    "intensity_score": 0.78,
+    "qc_alignment_score": 0.82
+  }
+]
+```

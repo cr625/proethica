@@ -6,10 +6,27 @@ it. Covers: override to the checker's pick, clearing when the Board made no
 determination, and leaving flags unchanged on unmatched picks or checker
 failure."""
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+from jinja2 import Template
+
 from app.services.decision_point_synthesizer.board_choice_verifier import verify_board_choices
+
+_SIDECAR = (Path(__file__).resolve().parents[2] / 'app' / 'utils' / 'prompts'
+            / 'step4' / 'step4_dp_board_verify.md')
+
+
+@pytest.fixture(autouse=True)
+def _sidecar_template(monkeypatch):
+    """The prompt now comes from the seeded step4_dp_board_verify template;
+    keep these tests hermetic (no DB) by rendering the sidecar body directly."""
+    import app.services.decision_point_synthesizer.board_choice_verifier as mod
+    body = _SIDECAR.read_text().split('---\n', 2)[2].lstrip('\n')
+    monkeypatch.setattr(mod, 'get_step4_template',
+                        lambda name: SimpleNamespace(render=Template(body).render))
 
 
 def _dp(focus_id, options):

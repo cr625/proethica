@@ -25,6 +25,7 @@ from app.utils.entity_prompt_utils import (
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from model_config import ModelConfig
 
+from app.services.step4_synthesis.template_loader import get_step4_template
 from app.services.step4_synthesis.case_synthesis_models import (
     EntityFoundation, LLMTrace,
     CausalNormativeLink, QuestionEmergenceAnalysis, ResolutionPatternAnalysis
@@ -206,29 +207,12 @@ class RichAnalyzer:
             blocks.append(f"A{i+1}. {a.label}\n   fulfills: {f}\n   violates: {v}\n   guided by: {g}")
         actions_text = "\n".join(blocks)
 
-        prompt = f"""These ACTIONS and their normative relations were ALREADY extracted from
-this engineering-ethics case. The fulfills / violates / guided-by edges below are GIVEN -- do
-not change or restate them. The CAUSAL CHAINS show what each action brings about.
-
-## ACTIONS (with their committed normative edges)
-{actions_text}
-
-## CAUSAL CHAINS (Step-3 causal extraction)
-{causal_text or '  (none)'}
-
-For EACH action, write ONE sentence of REASONING explaining the normative significance of the
-action in its causal context: why fulfilling or violating those obligations matters given
-what the action causes downstream. Explain the edges; do not list them. Reference each action
-by its A-number (action_index 1 for A1). Output JSON array:
-```json
-[
-  {{"action_index": 1, "reasoning": "One grounded sentence.", "confidence": 0.8}}
-]
-```
-
-Include all {len(batch_actions)} actions.
-
-{STYLE_FORMATTING_LINE}"""
+        prompt = get_step4_template('step4_causal_reasoning').render(
+            actions_text=actions_text,
+            causal_text=causal_text,
+            action_count=len(batch_actions),
+            style_formatting_line=STYLE_FORMATTING_LINE,
+        )
 
         max_retries = 3
         last_error = None
@@ -386,37 +370,12 @@ Include all {len(batch_actions)} actions.
         except ImportError:
             toulmin_context = ""
 
-        prompt = f"""Analyze WHY each ethical question emerged using Toulmin's model.
-
-{toulmin_context}
-
-## QUESTIONS TO ANALYZE
-{questions_text}
-
-## EXTRACTED ENTITIES
-{entities_text}
-
-For EACH question, use exact entity labels from the list above. Output JSON:
-```json
-[
-  {{
-    "question_index": 1,
-    "data_events": ["event label", ...],
-    "data_actions": ["action label", ...],
-    "involves_roles": ["role label", ...],
-    "competing_warrants": [["obligation A label", "obligation B label"]],
-    "data_warrant_tension": "1 sentence on how data triggers multiple warrants",
-    "competing_claims": "1 sentence on what different warrants conclude",
-    "rebuttal_conditions": "1 sentence on what creates uncertainty",
-    "emergence_narrative": "1-2 sentences explaining why this question arose",
-    "confidence": 0.8
-  }}
-]
-```
-
-Include all questions in this batch.
-
-{STYLE_FORMATTING_LINE}"""
+        prompt = get_step4_template('step4_question_emergence').render(
+            toulmin_context=toulmin_context,
+            questions_text=questions_text,
+            entities_text=entities_text,
+            style_formatting_line=STYLE_FORMATTING_LINE,
+        )
 
         max_retries = 3
         last_error = None
@@ -569,58 +528,14 @@ Include all questions in this batch.
             for i, p in enumerate(provisions)
         ]) if provisions else "No provisions extracted"
 
-        prompt = f"""Analyze HOW the board resolved each ethical question in their conclusions.
-
-## BOARD CONCLUSIONS (determinations made)
-{conclusions_text}
-
-## ETHICAL QUESTIONS (that needed answers)
-{questions_text}
-
-## CODE PROVISIONS (that could be cited)
-{provisions_text}
-
-## CASE NORMATIVE STRUCTURE (already extracted -- ground the weighing in these)
-{norm_structure or '  (not available)'}
-
-A board resolution is DEFEASIBLE: it holds only under the facts and conditions
-that obtained in this case, and would not hold (or would reverse) if those
-conditions changed. Express each resolution conditionally, not as an absolute
-rule. State the activating conditions ("holds WHEN ...") and, where the board
-signalled them, the defeating conditions ("would NOT hold UNLESS ..." / "absent ...").
-
-For EACH conclusion above, analyze:
-1. Which QUESTIONS does it answer? (by Q number)
-2. What PRINCIPLES were determinative? (up to 3 key principles)
-3. What FACTS were determinative? (up to 3 key facts)
-4. What PROVISIONS were cited? (by P number)
-5. How were COMPETING OBLIGATIONS weighed? (1 sentence)
-6. Under WHAT CONDITIONS does this resolution hold, and what would defeat or
-   reverse it? Phrase as "Holds when <conditions>; would not hold if/unless
-   <defeating conditions>." (1-2 sentences)
-7. A 1-2 sentence NARRATIVE explaining how the board reached this conclusion,
-   framed conditionally on the determinative facts above (not as a universal rule)
-
-Output as JSON array:
-```json
-[
-  {{
-    "conclusion_index": 1,
-    "answers_questions": [1, 2],
-    "determinative_principles": ["principle 1", "principle 2"],
-    "determinative_facts": ["fact 1", "fact 2"],
-    "cited_provisions": [1, 3],
-    "weighing_process": "One sentence on how competing obligations were balanced.",
-    "resolution_conditions": "Holds when the engineer disclosed the conflict in writing; would not hold if the disclosure were withheld.",
-    "resolution_narrative": "Given that X obtained, the board concluded Y because...",
-    "confidence": 0.8
-  }}
-]
-```
-
-Include all {len(batch_conclusions)} conclusions in this batch.
-
-{STYLE_FORMATTING_LINE}"""
+        prompt = get_step4_template('step4_resolution_patterns').render(
+            conclusions_text=conclusions_text,
+            questions_text=questions_text,
+            provisions_text=provisions_text,
+            norm_structure=norm_structure,
+            conclusion_count=len(batch_conclusions),
+            style_formatting_line=STYLE_FORMATTING_LINE,
+        )
 
         max_retries = 3
         last_error = None
