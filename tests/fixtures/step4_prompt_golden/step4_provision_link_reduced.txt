@@ -1,0 +1,33 @@
+Link NSPE Code provisions to extracted Obligations entities from this engineering ethics case.
+
+**Case Context:**
+Engineering professional ethics case.
+
+**NSPE Code Provisions (Board-Selected):**
+1. **I.1**: Hold paramount the safety, health, and welfare of the public.
+2. **II.4.e**: Engineers shall not solicit or accept a contract from a governmental body on which a principal or officer of their organization serves as a member.
+
+
+**Obligations Entities:**
+**Obligations:**
+- Duty to disclose conflict of interest: Obligation to disclose any financial interest to affected parties.
+
+
+A provision applies to a obligation entity if: The provision specifies or relates to that obligation
+
+For each provision, list which obligations entities it applies to (if any). Only include clear, direct connections.
+
+Respond ONLY with a JSON array (no other text). Keep each reasoning value to a single short sentence with no special characters or line breaks.
+
+```json
+[
+  {
+    "code_provision": "I.1",
+    "applies_to": [
+      {"entity_label": "Example Entity", "reasoning": "Brief reason in one sentence"}
+    ]
+  }
+]
+```
+
+Use exact entity labels. Omit provisions with no links to these entities.

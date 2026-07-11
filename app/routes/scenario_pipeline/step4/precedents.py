@@ -47,43 +47,25 @@ CITATION_TREATMENTS = {
     'overruling': 'The Board cites the prior case as superseded: its holding is disapproved, limited, or no longer reflects the Code as applied.',
 }
 
-_TREATMENT_PROMPT_BLOCK = "\n".join(
-    f'   - "{term}": {defn}' for term, defn in CITATION_TREATMENTS.items())
+def _treatments_block() -> str:
+    """The indented treatment-term lines injected into the prompt template."""
+    return "\n".join(
+        f'   - "{term}": {defn}' for term, defn in CITATION_TREATMENTS.items())
 
-PRECEDENT_EXTRACTION_PROMPT = """You are analyzing an ethics case from the NSPE Board of Ethical Review (BER).
-Identify ALL prior cases, decisions, or rulings cited by the board in their discussion.
 
-CASE TEXT:
-{case_text}
+def build_precedent_prompt(case_text: str) -> str:
+    """Render the precedent-extraction prompt from the seeded template.
 
-For each cited case, extract:
-1. caseCitation: The exact citation as it appears in the text (e.g., "BER Case 94-8", "Case No. 85-3")
-2. caseNumber: Normalized case number (e.g., "94-8", "85-3"). EXACTLY ONE case number
-   per entry: when the board cites several cases jointly ("Cases 65-9 and 73-9"),
-   emit one entry per case, repeating the shared context.
-3. citationContext: A 1-2 sentence summary of WHY the board cited this case -- what point it supports
-4. citationType: One of the following treatment terms, by the board's actual use of the citation:
-""" + _TREATMENT_PROMPT_BLOCK + """
-5. principleEstablished: The key principle, holding, or precedent that the cited case establishes
-6. relevantExcerpts: Array of objects with "section" (facts/discussion/question/conclusion) and "text" (the exact passage where the citation appears, up to 200 characters)
-
-Return a JSON array. If no prior cases are cited, return an empty array [].
-
-Example output:
-[
-  {{
-    "caseCitation": "BER Case 94-8",
-    "caseNumber": "94-8",
-    "citationContext": "The Board cited this case to establish that engineers must have an objective basis to assess another engineer's competency before delegating work.",
-    "citationType": "supporting",
-    "principleEstablished": "Engineers must verify that colleagues have sufficient education, experience, and training before delegating professional responsibilities.",
-    "relevantExcerpts": [
-      {{"section": "discussion", "text": "In BER Case 94-8, Engineer A, a professional engineer, was working with..."}}
-    ]
-  }}
-]
-
-Respond ONLY with the JSON array, no other text."""
+    Render-time replacement for the former module-level
+    PRECEDENT_EXTRACTION_PROMPT constant (which baked the treatments block
+    in at import time). Used by both routes here and by
+    step4_synthesis_service._run_precedents.
+    """
+    from app.services.step4_synthesis.template_loader import get_step4_template
+    return get_step4_template('step4_precedents').render(
+        case_text=case_text,
+        citation_treatments_block=_treatments_block(),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +184,7 @@ def register_precedent_routes(bp):
                 yield sse_msg({'stage': 'PREPARED', 'progress': 15, 'messages': [f'Prepared {len(case_text_parts)} case sections for analysis']})
 
                 # Build prompt
-                prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+                prompt = build_precedent_prompt(case_text)
                 yield sse_msg({'stage': 'PROMPTING', 'progress': 25, 'messages': ['Sending to LLM for precedent analysis...']})
 
                 # Call LLM
@@ -364,7 +346,7 @@ def register_precedent_routes(bp):
                 return jsonify({'success': False, 'error': 'No case sections found'}), 400
 
             case_text = '\n\n'.join(case_text_parts)
-            prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+            prompt = build_precedent_prompt(case_text)
 
             # Call LLM
             response = llm_client.messages.create(

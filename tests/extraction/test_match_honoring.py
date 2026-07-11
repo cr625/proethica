@@ -22,6 +22,11 @@ Three behaviors:
    CLASS channel (storage_type='class' rows), which by design dedup against the
    curated base and never become individuals.
 
+4. Same-label additive merge (skip-guard removal, pre-rebuild item): a re-seen
+   same-label row merges its facts additively onto the existing node instead of
+   being skipped; identical re-commits stay no-ops; the cross-category
+   disambiguation (7d9d70c) still mints a second URI.
+
 DB/MCP-free: services are built with object.__new__ to bypass __init__, mirroring
 tests/extraction/test_matcher_category_gate.py.
 """
@@ -29,6 +34,7 @@ from types import SimpleNamespace
 
 import pytest
 from rdflib import Graph, Namespace, OWL, RDF, RDFS, URIRef
+from rdflib.compare import isomorphic
 
 from app.services.commit.ontserve_commit_service import OntServeCommitService
 from app.services.extraction import category_resolver
@@ -38,6 +44,7 @@ INT_NS = "http://proethica.org/ontology/intermediate#"
 CONCEPTS_NS = "http://proethica.org/ontology/concepts#"
 CORE_NS = "http://proethica.org/ontology/core#"
 PROV_NS = Namespace("http://proethica.org/provenance#")
+CASES_NS = Namespace("http://proethica.org/ontology/cases#")
 
 
 # ---------------------------------------------------------------------------
@@ -425,3 +432,115 @@ def test_new_class_channel_row_still_writes_to_extended(tmp_path, monkeypatch):
     cls = URIRef(f'{INT_NS}NovelAIVerificationPrinciple')
     assert (cls, RDF.type, OWL.Class) in g
     assert not list(g.subjects(RDF.type, OWL.NamedIndividual))
+
+
+# ---------------------------------------------------------------------------
+# Same-label additive merge (commit-side skip-guard removal, pre-rebuild item)
+# ---------------------------------------------------------------------------
+
+def _ber_resource_row():
+    """A resources row typed to the established CasePrecedent class (the
+    committed case-9 shape a cited precedent resolves to)."""
+    entity = _placement_entity('BER Case 07-6', extraction_type='resources')
+    return entity, {'types': [f'{INT_NS}CasePrecedent']}
+
+
+def _ber_precedent_row():
+    """The Step-4 citation stub for the same precedent: analysis-layer type
+    only (no nine-core category) plus the citation-treatment term."""
+    entity = _placement_entity('BER Case 07-6',
+                               extraction_type='precedent_case_reference')
+    return entity, {'citationType': 'followed'}
+
+
+def _ber_service(tmp_path, monkeypatch):
+    return _placement_service(
+        tmp_path, monkeypatch,
+        lambda local: 'Resource' if local == 'CasePrecedent' else None)
+
+
+@pytest.mark.parametrize('order', ['resource_first', 'precedent_first'])
+def test_same_label_rows_merge_additively_onto_one_node(
+        tmp_path, monkeypatch, order):
+    """The case-8 'BER Case 07-6' shape: a resources row and a
+    precedent_case_reference stub share one label. The old skip guard dropped
+    the second commit in BOTH orders (the stub carries no nine-core type, so
+    the cross-category branch never fires); merged additively, ONE node
+    carries the union: Resource typing + CasePrecedent + PrecedentCaseReference
+    + citationType."""
+    svc = _ber_service(tmp_path, monkeypatch)
+    rows = [_ber_resource_row(), _ber_precedent_row()]
+    if order == 'precedent_first':
+        rows.reverse()
+
+    first = svc._commit_individuals_to_case_ontology(8, [rows[0]])
+    second = svc._commit_individuals_to_case_ontology(8, [rows[1]])
+
+    assert first.get('error') is None, first
+    assert second.get('error') is None, second
+    assert (first['count'], first['merged']) == (1, 0)
+    assert (second['count'], second['merged']) == (0, 1)
+
+    g = Graph()
+    g.parse(second['file'], format='turtle')
+    ind = Namespace('http://proethica.org/ontology/case/8#')['BER_Case_07-6']
+    assert (ind, RDF.type, OWL.NamedIndividual) in g
+    assert (ind, RDF.type, URIRef(f'{CORE_NS}Resource')) in g
+    assert (ind, RDF.type, URIRef(f'{INT_NS}CasePrecedent')) in g
+    assert (ind, RDF.type, CASES_NS['PrecedentCaseReference']) in g
+    assert (ind, CASES_NS['citationType'], None) in g
+    # ONE node: no second same-label individual, no disambiguated twin.
+    assert set(g.subjects(RDF.type, OWL.NamedIndividual)) == {ind}
+
+
+def test_identical_row_recommitted_twice_is_isomorphic(tmp_path, monkeypatch):
+    """The protection the skip guard used to provide, now carried by rdflib
+    set semantics alone: committing the identical row twice changes nothing."""
+    svc = _ber_service(tmp_path, monkeypatch)
+
+    first = svc._commit_individuals_to_case_ontology(9, [_ber_resource_row()])
+    assert first.get('error') is None, first
+    g1 = Graph()
+    g1.parse(first['file'], format='turtle')
+
+    second = svc._commit_individuals_to_case_ontology(9, [_ber_resource_row()])
+    assert second.get('error') is None, second
+    assert (second['count'], second['merged']) == (0, 1)
+    g2 = Graph()
+    g2.parse(second['file'], format='turtle')
+
+    assert isomorphic(g1, g2)
+
+
+def test_cross_category_collision_still_disambiguates(tmp_path, monkeypatch):
+    """The 7d9d70c guard survives the merge change: an obligation and a
+    capability sharing a label yield TWO URIs, and no individual carries two
+    disjoint nine-core types."""
+    svc = _placement_service(tmp_path, monkeypatch, lambda local: None)
+    ob = (_placement_entity('Shared Label', extraction_type='obligations'),
+          {'types': [f'{INT_NS}SharedLabelObligation']})
+    cap = (_placement_entity('Shared Label', extraction_type='capabilities'),
+           {'types': [f'{INT_NS}SharedLabelCapability']})
+
+    first = svc._commit_individuals_to_case_ontology(10, [ob])
+    second = svc._commit_individuals_to_case_ontology(10, [cap])
+    assert first.get('error') is None, first
+    assert second.get('error') is None, second
+    # The collision MINTS a second node (counted as new, not merged).
+    assert (second['count'], second['merged']) == (1, 0)
+
+    g = Graph()
+    g.parse(second['file'], format='turtle')
+    case_ns = Namespace('http://proethica.org/ontology/case/10#')
+    ob_uri = case_ns['Shared_Label']
+    cap_uri = case_ns['Shared_Label_Capability']
+    assert (ob_uri, RDF.type, OWL.NamedIndividual) in g
+    assert (cap_uri, RDF.type, OWL.NamedIndividual) in g
+    assert (ob_uri, RDF.type, URIRef(f'{CORE_NS}Obligation')) in g
+    assert (cap_uri, RDF.type, URIRef(f'{CORE_NS}Capability')) in g
+    nine = {URIRef(f'{CORE_NS}{c}') for c in (
+        'Role', 'Principle', 'Obligation', 'State', 'Resource',
+        'Action', 'Event', 'Capability', 'Constraint')}
+    for node in g.subjects(RDF.type, OWL.NamedIndividual):
+        core_types = nine & set(g.objects(node, RDF.type))
+        assert len(core_types) <= 1, (node, core_types)

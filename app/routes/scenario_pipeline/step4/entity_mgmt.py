@@ -206,6 +206,19 @@ def register_entity_mgmt_routes(bp):
             entity.entity_label = label
         if definition:
             entity.entity_definition = definition
+            # Keep the dedicated text field coherent with the edit: the Q/C
+            # readers (qc_refs, the commit bridge) serve questionText /
+            # conclusionText from rdf_json_ld, so an edit that only touched
+            # entity_definition would stop reaching synthesis and commit
+            # (c422755 review). Writer-side coherence, not reader-side
+            # preference juggling.
+            _textkey = {'ethical_question': 'questionText',
+                        'ethical_conclusion': 'conclusionText'}.get(
+                entity.extraction_type)
+            if _textkey and isinstance(entity.rdf_json_ld, dict):
+                updated = dict(entity.rdf_json_ld)
+                updated[_textkey] = definition
+                entity.rdf_json_ld = updated
 
         entity.is_reviewed = True
         db.session.commit()

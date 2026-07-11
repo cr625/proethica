@@ -151,6 +151,15 @@ def resolve_entity_labels_to_uris(
     if not mentioned_entities:
         return {}
 
+    if isinstance(mentioned_entities, list):
+        # The model sometimes emits a flat label list instead of the
+        # {"<type>": [labels]} shape; resolve each label through the
+        # cross-type fallback under a generic key instead of crashing the
+        # whole analytical batch (2026-07-10 regeneration: the
+        # question-responses batch died on .items() over a list).
+        mentioned_entities = {'entities': [l for l in mentioned_entities
+                                           if isinstance(l, str)]}
+
     label_index = _build_label_index(all_entities)
     resolved = {}
 

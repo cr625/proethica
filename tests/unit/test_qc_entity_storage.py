@@ -38,6 +38,8 @@ def test_make_question_storage_golden():
         'mentionedEntities': {'roles': ['Engineer A']},
         'relatedProvisions': ['II.1.a'],
         'extractionReasoning': 'stated in the question section',
+        'sourceQuestion': None,
+        'ethicalFramework': None,
     }
     # entity_uri / extraction_model / ontology_target are NOT set (distinguishes
     # this from the phase2_extractor / case_synthesizer variants).

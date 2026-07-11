@@ -14,7 +14,7 @@ import rdflib
 
 from app.routes.scenario_pipeline.step4.precedents import (
     CITATION_TREATMENTS,
-    PRECEDENT_EXTRACTION_PROMPT,
+    _treatments_block,
     normalize_precedents,
 )
 
@@ -51,9 +51,22 @@ def test_citation_type_property_declared(cases_graph):
 
 
 def test_prompt_carries_every_term():
+    """Since the step4-template migration the prompt is assembled at render
+    time (build_precedent_prompt = seeded step4_precedents template +
+    _treatments_block()); render the sidecar body directly so the guarantee
+    holds without a seeded database."""
+    from jinja2 import Template
+
+    from app.utils.seed_step4_prompts import SIDECAR_DIR, parse_sidecar
+
+    _, body = parse_sidecar(SIDECAR_DIR / 'step4_precedents.md')
+    prompt = Template(body).render(
+        case_text='CASE TEXT PLACEHOLDER',
+        citation_treatments_block=_treatments_block(),
+    )
     for term, definition in CITATION_TREATMENTS.items():
-        assert f'"{term}"' in PRECEDENT_EXTRACTION_PROMPT
-        assert definition in PRECEDENT_EXTRACTION_PROMPT
+        assert f'"{term}"' in prompt
+        assert definition in prompt
 
 
 def test_joint_citation_split():
@@ -139,6 +152,34 @@ def test_qc_edge_properties_declared(cases_graph):
         assert (prop, rdflib.RDFS.range, CASES.EthicalQuestion) in cases_graph
     assert (CASES.extendsQuestion, rdflib.RDF.type,
             rdflib.OWL.IrreflexiveProperty) in cases_graph
+
+
+def test_analysis_record_edge_properties_declared(cases_graph):
+    """The v3.6.0 analysis-record relationship family the deterministic
+    applier (analysis_edges.py) emits: every predicate declared as an object
+    property with the domain/range that makes an endpoint typing error
+    reasoner-visible. ANALYSIS_PREDICATES is the applier's own emission list,
+    so applier and ontology cannot drift apart."""
+    from app.services.extraction.analysis_edges import ANALYSIS_PREDICATES
+    CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+    expected = {
+        'explainsQuestion': (CASES.QuestionEmergence, CASES.EthicalQuestion),
+        'describesResolutionOf': (CASES.ResolutionPattern, CASES.EthicalConclusion),
+        'referencesProvision': (CASES.CodeProvisionReference, CORE.CodeProvision),
+        'decidesQuestion': (CASES.DecisionPoint, CASES.EthicalQuestion),
+        'addressesQuestion': (CASES.DecisionPoint, CASES.EthicalQuestion),
+        'alignsWithConclusion': (CASES.DecisionPoint, CASES.EthicalConclusion),
+        'involvesObligation': (CASES.DecisionPoint, CORE.Obligation),
+        'involvesAction': (CASES.DecisionPoint, CORE.Action),
+        'involvesConstraint': (CASES.DecisionPoint, CORE.Constraint),
+        'decidedByAgent': (CASES.DecisionPoint, CORE.Agent),
+    }
+    assert set(ANALYSIS_PREDICATES) == set(expected)
+    for name, (domain, range_) in expected.items():
+        prop = CASES[name]
+        assert (prop, rdflib.RDF.type, rdflib.OWL.ObjectProperty) in cases_graph, name
+        assert (prop, rdflib.RDFS.domain, domain) in cases_graph, name
+        assert (prop, rdflib.RDFS.range, range_) in cases_graph, name
 
 
 def test_outcome_alignment_semantics():

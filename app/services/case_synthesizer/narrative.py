@@ -16,6 +16,8 @@ from app import db
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt
 from app.utils.llm_utils import get_llm_client
 from app.domains import DomainConfig, get_domain_config
+from app.services.prompt_style import STYLE_FORMATTING_LINE
+from app.services.step4_synthesis.template_loader import get_step4_template
 from model_config import ModelConfig
 
 # Data models (extracted to separate module for modularity)
@@ -225,31 +227,16 @@ class NarrativeConstructionMixin:
         # =================================================================
         # LLM-Enhanced Case Summary
         # =================================================================
-        summary_prompt = f"""Generate a concise 2-3 sentence summary of this NSPE ethics case.
-
-## Case: {case_title}
-
-## Facts (excerpt):
-{facts_text}
-
-## Key Participants:
-{', '.join([r.label for r in foundation.roles[:5]])}
-
-## Obligations at stake:
-{', '.join([o.label for o in foundation.obligations[:5]])}
-
-## Decision Points:
-{chr(10).join([f"- {dp.decision_question}" for dp in canonical_points[:3]])}
-
-## Board Conclusions:
-{chr(10).join([f"- {c.get('text', c.get('label', ''))[:100]}" for c in conclusions[:2]])}
-
-Write a professional, objective summary that:
-1. Identifies the key ethical tension
-2. Names the primary decision-maker role (without using "Engineer A" - describe their role)
-3. Hints at the resolution
-
-Output ONLY the 2-3 sentence summary, no additional text."""
+        summary_variables = {
+            'case_title': case_title,
+            'facts_text': facts_text,
+            'participants': ', '.join([r.label for r in foundation.roles[:5]]),
+            'obligations': ', '.join([o.label for o in foundation.obligations[:5]]),
+            'decision_points': '\n'.join([f"- {dp.decision_question}" for dp in canonical_points[:3]]),
+            'board_conclusions': '\n'.join([f"- {c.get('text', c.get('label', ''))[:100]}" for c in conclusions[:2]]),
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        summary_prompt = get_step4_template('step4_case_summary').render(**summary_variables)
 
         try:
             from app.utils.llm_utils import direct_call_params
@@ -278,34 +265,17 @@ Output ONLY the 2-3 sentence summary, no additional text."""
         # =================================================================
         # LLM-Enhanced Timeline
         # =================================================================
-        timeline_prompt = f"""Create a timeline of key events for this ethics case. For each phase, write a 1-2 sentence description.
-
-## Case: {case_title}
-
-## Extracted Entities:
-- Roles: {', '.join([r.label for r in foundation.roles[:5]])}
-- States: {', '.join([s.label for s in foundation.states[:5]])}
-- Actions: {', '.join([a.label for a in foundation.actions[:5]])}
-- Events: {', '.join([e.label for e in foundation.events[:5]])}
-
-## Decision Points:
-{chr(10).join([f"{i+1}. {dp.decision_question}" for i, dp in enumerate(canonical_points[:4])])}
-
-## Conclusions:
-{chr(10).join([f"- {c.get('text', c.get('label', ''))[:150]}" for c in conclusions[:2]])}
-
-Generate 4-6 timeline phases. For each, output:
-1. Phase label (e.g., "Initial Situation", "Conflict Emerges", "Decision Point", "Resolution")
-2. Description (1-2 sentences, objective professional tone)
-3. Event type: state/action/event/decision/outcome
-
-Output as JSON array:
-```json
-[
-  {{"phase_label": "...", "description": "...", "event_type": "state"}},
-  ...
-]
-```"""
+        timeline_variables = {
+            'case_title': case_title,
+            'roles': ', '.join([r.label for r in foundation.roles[:5]]),
+            'states': ', '.join([s.label for s in foundation.states[:5]]),
+            'actions': ', '.join([a.label for a in foundation.actions[:5]]),
+            'events': ', '.join([e.label for e in foundation.events[:5]]),
+            'decision_points': '\n'.join([f"{i+1}. {dp.decision_question}" for i, dp in enumerate(canonical_points[:4])]),
+            'conclusions': '\n'.join([f"- {c.get('text', c.get('label', ''))[:150]}" for c in conclusions[:2]]),
+            'style_formatting_line': STYLE_FORMATTING_LINE,
+        }
+        timeline_prompt = get_step4_template('step4_timeline_phases').render(**timeline_variables)
 
         try:
             from app.utils.llm_utils import direct_call_params

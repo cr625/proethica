@@ -2,10 +2,16 @@
    Parent provides `view` = the provisions view object. Styling:
    synthesis_views.css; behaviors: synthesis_views.js (type-chip popovers). #}
 <div class="synthview">
+<p class="text-muted small mb-3">
+  All provisions in play for this case: the union of board-stated references and
+  analysis-found citations (see each provision's provenance badge). The OntServe case
+  page's Cited NSPE Provisions panel shows the subset actually cited by the committed
+  conclusions, so its count can be lower.
+</p>
 {% for prov in view.provisions %}
 <div class="provision-card mb-3">
   <div class="provision-header">
-    <span class="provision-code">{{ prov.code_section }}</span>
+    <span class="provision-code">{{ prov.display_code or prov.code_section }}</span>
     {% if prov.provenance == 'both' %}
     <span class="badge bg-success ms-1" style="font-size: 0.6rem;" title="Stated in the case's NSPE Code of Ethics References section AND found by the Step-4 analysis.">board + analysis</span>
     {% elif prov.provenance == 'board' %}

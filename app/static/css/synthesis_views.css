@@ -80,14 +80,17 @@
 .synthview .tl-obl-nest.tl-raises   { background: #fffbe6; border-left-color: #d6a405; }
 .synthview .tl-obl-nest.tl-states    { background: #f0f4fa; border-left-color: #0d6efd; }
 .synthview .tl-obl-nest.tl-decisions { background: #f6f2fb; border-left-color: #6f42c1; }
+.synthview .tl-obl-nest.tl-causal    { background: #f0f7f6; border-left-color: #0f766e; }
 .synthview .tl-obl-header { font-weight: 600; margin-bottom: 3px; display: inline-flex; align-items: center; gap: 4px; }
 .synthview .tl-obl-nest.tl-fulfills .tl-obl-header { color: #146c43; }
 .synthview .tl-obl-nest.tl-violates .tl-obl-header { color: #b02a37; }
 .synthview .tl-obl-nest.tl-raises   .tl-obl-header { color: #8a6100; }
 .synthview .tl-obl-nest.tl-states    .tl-obl-header { color: #0a58ca; }
 .synthview .tl-obl-nest.tl-decisions .tl-obl-header { color: #59359a; }
+.synthview .tl-obl-nest.tl-causal    .tl-obl-header { color: #0c5f59; }
 .synthview .tl-obl-list { margin: 0; padding-left: 1.1rem; line-height: 1.45; color: #2d3848; }
 .synthview .tl-obl-list li { margin-bottom: 2px; }
+.synthview .tl-obl-prose { margin: 0; line-height: 1.45; color: #2d3848; }
 .synthview .tl-description { padding: 8px 12px; margin-bottom: 6px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.82rem; line-height: 1.5; color: #2d3848; }
 .synthview .tl-entry-chevron { transition: transform 0.2s ease; flex-shrink: 0; }
 .synthview .tl-compact-node[aria-expanded="true"] .tl-entry-chevron { transform: rotate(90deg); }
@@ -156,6 +159,9 @@
 .synthview .qc-sub-type-chip.qc-type-principle_tension { background: #cff4fc; color: #055160; }
 .synthview .qc-sub-type-chip.qc-type-theoretical       { background: #e2d9f3; color: #4b2e83; }
 .synthview .qc-sub-type-chip.qc-type-counterfactual    { background: #fff3cd; color: #664d03; }
+.synthview .qc-resolution { border-left: 3px solid #0f766e; background: #f0f7f6; padding: 0.45rem 0.7rem; border-radius: 4px; }
+.synthview .qc-resolution .qc-resolution-label { font-weight: 600; color: #0c5f59; }
+.synthview .qc-resolution-chip { cursor: help; }
 
 /* ============================================================================
  * Decisions view: collapsible decision cards with options + Toulmin structure.

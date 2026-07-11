@@ -1,0 +1,28 @@
+Generate a concise 2-3 sentence summary of this NSPE ethics case.
+
+## Case: Case 24-2: Structural Deficiencies and Client Confidentiality
+
+## Facts (excerpt):
+Engineer A, a licensed professional engineer, performed a structural inspection of a parking garage owned by Client W. The inspection found deteriorated support columns that Engineer A judged to present a risk to public safety. Client W directed Engineer A to keep the findings confidential while repair negotiations proceeded.
+
+## Key Participants:
+Engineer A, Client W
+
+## Obligations at stake:
+Hold paramount the safety of the public, Maintain client confidentiality
+
+## Decision Points:
+- Should Engineer A disclose the structural deficiencies to the local building authority despite the confidentiality directive from Client W?
+
+## Board Conclusions:
+- Engineer A has an obligation to report the deteriorated support columns to the appropriate building 
+- The duty of client confidentiality yields when the public safety obligation is engaged.
+
+Write a professional, objective summary that:
+1. Identifies the key ethical tension
+2. Names the primary decision-maker role (without using "Engineer A" - describe their role)
+3. Hints at the resolution
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.
+
+Output ONLY the 2-3 sentence summary, no additional text.

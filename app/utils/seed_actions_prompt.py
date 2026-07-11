@@ -3,9 +3,10 @@
 Migrates Action off the orphaned DB-only template (its former source
 app/services/extraction/dual_actions_extractor.py was deleted, leaving the live prompt a DB row with
 no on-disk source) to the per-component .md/seeder pattern, matching seed_events_prompt.py. Action is
-SINGLE-PASS (pass_type='all') and BARE (no SHACL DefinitionShape), so there is no {{ action_schema }}
-slot; the smoke test verifies the ontology-derived TYPING slots {{ action_boundary }} +
-{{ action_individuation }} (concept_ontology_slots('actions')) instead -- the disjointness boundary and
+SINGLE-PASS (pass_type='all') and PropertyShape-ONLY (no SHACL DefinitionShape, per the ratified
+spec): its {{ action_schema }} slot renders the per-case ActionPropertyShape fields alone, and the
+smoke test verifies it together with the ontology-derived TYPING slots {{ action_boundary }} +
+{{ action_individuation }} (concept_ontology_slots('actions')) -- the disjointness boundary and
 the scope-note individuation that Action previously hard-coded as "CRITICAL DISTINCTION FROM EVENTS".
 
 The prompt TEXT lives in prompts/actions.md; the shared METADATA in prompts/actions_meta.json.
@@ -30,11 +31,14 @@ def seed_actions_prompt(replace_existing: bool = False):
     meta = json.loads((_DIR / "actions_meta.json").read_text())
     created = updated = skipped = 0
 
-    # Smoke test: Action is bare (no SHACL shape), so verify the ontology-derived TYPING slots resolve
-    # (the disjointness boundary + the scope-note individuation). Fail the seed loudly if either is
-    # empty so a silent "{{ action_boundary }} renders to ''" cannot reach extraction.
+    # Smoke test: Action is PropertyShape-only (no SHACL DefinitionShape), so verify the
+    # {{ action_schema }} per-case field contract (read from the ActionPropertyShape) plus the
+    # ontology-derived TYPING slots (the disjointness boundary + the scope-note individuation).
+    # Fail the seed loudly if any is empty so a silent "{{ action_schema }} renders to ''" cannot
+    # reach extraction.
     from app.services.prompt_variable_resolver import concept_ontology_slots
-    _required = ('action_definition', 'action_boundary', 'action_individuation', 'pass_directive')
+    _required = ('action_definition', 'action_schema', 'action_boundary', 'action_individuation',
+                 'pass_directive')
     for st in meta["passes"]:
         slots = concept_ontology_slots('actions', st)
         missing = [k for k in _required if not slots.get(k)]

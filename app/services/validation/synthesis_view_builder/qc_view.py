@@ -37,6 +37,17 @@ class QCViewMixin:
             extraction_type='ethical_conclusion'
         )).all()
 
+        # Resolution patterns (Step 4 Phase 2B) carry the board's weighing
+        # process per conclusion. Deliberately NOT wrapped in
+        # _published_filter: resolution_pattern rows stay unpublished even on
+        # committed cases (verified is_published=false corpus-wide), so the
+        # study-mode gate would blank the resolution surface over correct
+        # data. This mirrors the timeline mixin's unfiltered temporal query.
+        rp_rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='resolution_pattern'
+        ).order_by(TemporaryRDFStorage.id).all()
+
         # Provision text lookup, keyed by code section (e.g., "II.2.a"), so
         # the cited-provision badges below can carry hover popovers with
         # the actual NSPE provision text. Conclusions store citedProvisions
@@ -106,6 +117,53 @@ class QCViewMixin:
                     t = normalized_lookup.get(normalize_provision_code(cp) or '')
                     if t:
                         provision_text_lookup[cp] = t
+        # Resolution patterns cite provisions under their own raw spellings
+        # ('I.1.', 'III.8.'); alias those too so the resolution provision
+        # chips resolve in the same lookup.
+        for r in rp_rows:
+            rdf = r.rdf_json_ld if isinstance(r.rdf_json_ld, dict) else {}
+            for cp in rdf.get('cited_provisions') or []:
+                if cp and cp not in provision_text_lookup:
+                    t = normalized_lookup.get(normalize_provision_code(cp) or '')
+                    if t:
+                        provision_text_lookup[cp] = t
+
+        # Join resolution patterns to conclusions through qc_refs. Stored
+        # conclusion_uri keys arrive in the committed-URI form
+        # ('case-9#Conclusion_1', all gold stores) or the legacy positional
+        # form ('case-11#C1'); BOTH sides normalize through key_aliases with
+        # aliases.get(k, k), or a mixed-generation store silently stops
+        # joining (the c422755 finding). The reference list enumerates ALL
+        # conclusion rows in id order (the alias-defining enumeration),
+        # independent of the published filter above. Rows without a
+        # conclusion_uri (case 4 carries three) anchor to nothing and are
+        # skipped.
+        from app.services.step4_synthesis.qc_refs import conclusion_refs, key_aliases
+        conc_rows_all = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='ethical_conclusion'
+        ).order_by(TemporaryRDFStorage.id).all()
+        conc_refs = conclusion_refs(case_id, rows=conc_rows_all)
+        aliases = key_aliases(conc_refs, 'C')
+        canon_by_conc_id = {
+            row.id: aliases.get(ref['uri'] or '', ref['uri'] or '')
+            for row, ref in zip(conc_rows_all, conc_refs)
+        }
+        resolution_by_canon: Dict[str, Dict[str, Any]] = {}
+        for r in rp_rows:
+            rdf = r.rdf_json_ld if isinstance(r.rdf_json_ld, dict) else {}
+            raw_key = (rdf.get('conclusion_uri') or '').strip()
+            if not raw_key:
+                continue
+            resolution_by_canon[aliases.get(raw_key, raw_key)] = {
+                'weighing_process': rdf.get('weighing_process') or '',
+                'determinative_principles': rdf.get('determinative_principles') or [],
+                'determinative_facts': rdf.get('determinative_facts') or [],
+                'resolution_conditions': rdf.get('resolution_conditions') or '',
+                'resolution_narrative': rdf.get('resolution_narrative') or '',
+                'confidence': rdf.get('confidence'),
+                'cited_provisions': rdf.get('cited_provisions') or [],
+            }
 
         # Build conclusion lookup by question. Each conclusion is added to
         # the FIRST question listed in its answersQuestions array — its
@@ -139,6 +197,7 @@ class QCViewMixin:
                 'conclusion_type': 'board' if is_board else 'analytical',
                 'cited_provisions': rdf_data.get('citedProvisions', []),
                 'also_answers': [a for a in answers[1:] if a != primary_q],
+                'resolution': resolution_by_canon.get(canon_by_conc_id.get(conc.id, '')),
             })
 
         # Secondary linkages: conclusions whose answersQuestions cites this

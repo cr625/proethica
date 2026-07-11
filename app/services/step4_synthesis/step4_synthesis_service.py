@@ -515,7 +515,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
 def _run_precedents(case_id: int, llm_client) -> dict:
     """Extract precedent case references cited in board discussion."""
     from app.routes.scenario_pipeline.step4.precedents import (
-        PRECEDENT_EXTRACTION_PROMPT, _update_cited_cases, normalize_precedents
+        build_precedent_prompt, _update_cited_cases, normalize_precedents
     )
     from app.utils.llm_utils import streaming_completion
     from model_config import ModelConfig
@@ -547,7 +547,7 @@ def _run_precedents(case_id: int, llm_client) -> dict:
         db.session.commit()
 
         case_text = '\n\n'.join(case_text_parts)
-        prompt = PRECEDENT_EXTRACTION_PROMPT.format(case_text=case_text)
+        prompt = build_precedent_prompt(case_text)
 
         raw_response = streaming_completion(
             llm_client, model=ModelConfig.get_claude_model("default"),
@@ -997,23 +997,25 @@ def _run_phase3(case_id: int, llm_client) -> dict:
         # (2026-07-08 Q/C analysis, finding 3). URI synthesis mirrors
         # CaseSynthesizer._load_qc (enumeration-based case-N#Qn), the convention
         # the resolution patterns already carry.
+        # Committed-URI reference keys (qc_refs single source; positional
+        # #Qk only as the legacy fallback for numberless rows).
+        from app.services.step4_synthesis.qc_refs import (question_refs,
+                                                          conclusion_refs)
         q_rows = TemporaryRDFStorage.query.filter_by(
             case_id=case_id, extraction_type='ethical_question').all()
         questions = [
-            {**(r.rdf_json_ld or {}),
-             'uri': r.entity_uri or f"case-{case_id}#Q{i+1}",
-             'question_text': (r.rdf_json_ld or {}).get('questionText', r.entity_definition or ''),
-             'question_number': (r.rdf_json_ld or {}).get('questionNumber', i + 1)}
-            for i, r in enumerate(q_rows)
+            {**(r.rdf_json_ld or {}), **ref,
+             'question_text': ref['text'],
+             'question_number': ref['number'] or i + 1}
+            for i, (r, ref) in enumerate(zip(q_rows, question_refs(case_id, q_rows)))
         ]
         c_rows = TemporaryRDFStorage.query.filter_by(
             case_id=case_id, extraction_type='ethical_conclusion').all()
         conclusions = [
-            {**(r.rdf_json_ld or {}),
-             'uri': r.entity_uri or f"case-{case_id}#C{i+1}",
-             'text': (r.rdf_json_ld or {}).get('conclusionText', r.entity_definition or ''),
-             'conclusion_text': (r.rdf_json_ld or {}).get('conclusionText', r.entity_definition or '')}
-            for i, r in enumerate(c_rows)
+            {**(r.rdf_json_ld or {}), **ref,
+             'text': ref['text'],
+             'conclusion_text': ref['text']}
+            for i, (r, ref) in enumerate(zip(c_rows, conclusion_refs(case_id, c_rows)))
         ]
         question_emergence = [e.rdf_json_ld for e in TemporaryRDFStorage.query.filter_by(
             case_id=case_id, extraction_type='question_emergence').all()]

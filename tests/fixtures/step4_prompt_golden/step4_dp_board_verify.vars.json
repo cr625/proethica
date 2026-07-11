@@ -1,0 +1,4 @@
+{
+  "concl_text": "- It was unethical for Engineer A to seal the drawings without full verification of the AI-generated calculations.\n- Engineer A was obligated to disclose the use of AI tools to the client.",
+  "payload_json": "[\n {\n  \"id\": \"DP1\",\n  \"question\": \"Should Engineer A conduct a full independent review of the AI-generated calculations before sealing the drawings?\",\n  \"options\": [\n   \"Conduct Full Independent Review\",\n   \"Apply Standard QA Protocols Only\"\n  ]\n },\n {\n  \"id\": \"DP2\",\n  \"question\": \"Should Engineer A disclose the use of AI tools to the client before submission?\",\n  \"options\": [\n   \"Disclose AI Usage to Client\",\n   \"Treat AI as Internal Drafting Tool\"\n  ]\n }\n]"
+}

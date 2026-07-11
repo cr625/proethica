@@ -1,0 +1,53 @@
+You are analyzing NSPE Board of Ethical Review questions and conclusions to determine which conclusion answers which question.
+
+**QUESTIONS:**
+
+**Question 1:**
+"Was it ethical for Engineer A to retain an ownership interest in the equipment vendor while specifying its products?"
+
+**Question 2:**
+"Was Engineer A obligated to disclose the vendor interest to Client W?"
+
+
+**CONCLUSIONS:**
+
+**Conclusion 1:**
+"Engineer A acted unethically by specifying the vendor equipment without disclosing the ownership interest."
+Type: board_explicit
+
+**Conclusion 2:**
+"The design itself met the applicable safety standards."
+Type: board_explicit
+
+
+**TASK:**
+For each conclusion, determine which question(s) it answers.
+
+Consider:
+- Direct answers: Conclusion explicitly addresses the question
+- Partial answers: Conclusion addresses part of a multi-part question
+- Implicit answers: Conclusion answers question without restating it
+
+**OUTPUT FORMAT (JSON):**
+```json
+[
+  {
+    "conclusion_number": 1,
+    "answers_questions": [1],
+    "confidence": 0.95,
+    "reasoning": "Conclusion 1 directly addresses Question 1 by stating whether Engineer A violated II.4.e, which is exactly what Question 1 asked."
+  },
+  {
+    "conclusion_number": 2,
+    "answers_questions": [1, 2],
+    "confidence": 0.90,
+    "reasoning": "Conclusion 2 addresses both Question 1 (violation determination) and Question 2 (disclosure requirement) as related issues."
+  }
+]
+```
+
+**IMPORTANT:**
+- A conclusion can answer multiple questions
+- Multiple conclusions can answer the same question
+- Provide confidence (0.0-1.0) and reasoning for each link
+- If a conclusion doesn't answer any question, use answers_questions: []

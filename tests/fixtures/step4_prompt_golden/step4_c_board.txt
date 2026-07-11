@@ -1,0 +1,74 @@
+You are analyzing the Conclusions section from an NSPE Board of Ethical Review case.
+
+**CONCLUSIONS SECTION TEXT:**
+The Board concluded that Engineer A acted unethically by specifying the vendor equipment without disclosing the ownership interest to Client W. The Board further concluded that the design itself met the applicable safety standards.
+
+**EXTRACTED CASE ENTITIES:**
+
+**Roles:**
+  - Engineer A: Professional engineer retained by Client W to design the water treatment facility.
+  - Client W: Municipal water authority that retained Engineer A.
+
+**States:**
+  - Undisclosed Financial Interest: Engineer A holds an ownership stake in the equipment vendor, unknown to Client W.
+
+**Resources:** (none extracted)
+
+**Principles:**
+  - Public Safety Paramountcy: Hold paramount the safety, health, and welfare of the public.
+  - Faithful Agency: Act for each employer or client as a faithful agent or trustee.
+
+**Obligations:**
+  - Disclose Conflicts of Interest: Disclose all known or potential conflicts of interest that could influence judgment.
+
+**Constraints:** (none extracted)
+
+**Capabilities:** (none extracted)
+
+**Actions:**
+  - Acquiring the Vendor Stake: Engineer A acquired an ownership interest in the equipment vendor during the project.
+
+**Events:** (none extracted)
+
+
+
+**CODE PROVISIONS EXTRACTED:**
+- II.4.a: Engineers shall disclose all known or potential conflicts of interest that could influence or appear...
+- III.5.a: Engineers shall not accept financial or other considerations, including free engineering designs, fr...
+
+
+**TASK:**
+Extract ONLY the Board's explicit conclusions (their formal determinations on each question).
+These are the conclusions the Board reached on the ethical issues.
+
+For each conclusion:
+1. **Conclusion Text**: The verbatim conclusion text
+2. **Mentioned Entities**: Which entities from the case are referenced? Use exact labels from the list above.
+3. **Cited Provisions**: Which code provisions are cited in the reasoning?
+4. **Board Conclusion Type**: What kind of conclusion?
+   - 'violation': Found a violation of ethics code
+   - 'compliance': Found compliance with ethics code
+   - 'no_violation': Found no violation occurred
+   - 'interpretation': Clarifies interpretation of provision
+   - 'recommendation': Recommends action
+5. **Reasoning**: Brief explanation of the conclusion
+
+**OUTPUT FORMAT (JSON):**
+```json
+[
+  {
+    "conclusion_number": 1,
+    "conclusion_text": "Engineer A violated Section II.4.e by accepting the contract.",
+    "conclusion_type": "board_explicit",
+    "board_conclusion_type": "violation",
+    "mentioned_entities": {
+      "roles": ["Engineer A"],
+      "actions": ["accepting the contract"]
+    },
+    "cited_provisions": ["II.4.e"],
+    "extraction_reasoning": "The Board found a violation based on the conflict of interest."
+  }
+]
+```
+
+Extract ALL conclusions the Board reached. Use EXACT entity labels from the lists above.

@@ -81,6 +81,27 @@ def _foundation_with_one_role():
     return f
 
 
+def _sidecar_template(concept_type):
+    """Sidecar-backed stand-in for the seeded Step-4 template (no DB)."""
+    import jinja2
+    from app.utils.seed_step4_prompts import SIDECAR_DIR, parse_sidecar
+
+    _, body = parse_sidecar(SIDECAR_DIR / f'{concept_type}.md')
+
+    class _Template:
+        def render(self, **variables):
+            return jinja2.Template(body).render(**variables)
+
+    return _Template()
+
+
+def _patch_template_loader():
+    return patch(
+        "app.services.narrative.narrative_element_extractor.get_step4_template",
+        _sidecar_template,
+    )
+
+
 class TestB3CharacterRescan:
     def test_rescan_appends_omitted_actor(self):
         extractor = NarrativeElementExtractor(use_llm=False)
@@ -96,7 +117,8 @@ class TestB3CharacterRescan:
                  "description": "Reviewing engineer", "motivation": "Wants accurate plans"}
             ],
         }
-        with patch("app.utils.llm_utils.streaming_completion", return_value="ignored"), \
+        with _patch_template_loader(), \
+             patch("app.utils.llm_utils.streaming_completion", return_value="ignored"), \
              patch("app.utils.llm_json_utils.parse_json_response", return_value=llm_payload), \
              patch.object(extractor, "_load_case_facts", return_value="Engineer B reviewed the plans."):
             result, trace = extractor._enhance_characters_with_llm(characters, foundation, case_id=60)
@@ -123,7 +145,8 @@ class TestB3CharacterRescan:
                 {"label": ""},                                  # empty
             ],
         }
-        with patch("app.utils.llm_utils.streaming_completion", return_value="ignored"), \
+        with _patch_template_loader(), \
+             patch("app.utils.llm_utils.streaming_completion", return_value="ignored"), \
              patch("app.utils.llm_json_utils.parse_json_response", return_value=llm_payload), \
              patch.object(extractor, "_load_case_facts", return_value="facts"):
             result, _ = extractor._enhance_characters_with_llm(characters, foundation, case_id=60)
@@ -139,7 +162,8 @@ class TestB3CharacterRescan:
         foundation = _foundation_with_one_role()
 
         legacy = [{"role": "Engineer A", "description": "desc", "motivation": "mot"}]
-        with patch("app.utils.llm_utils.streaming_completion", return_value="ignored"), \
+        with _patch_template_loader(), \
+             patch("app.utils.llm_utils.streaming_completion", return_value="ignored"), \
              patch("app.utils.llm_json_utils.parse_json_response", return_value=legacy), \
              patch.object(extractor, "_load_case_facts", return_value="facts"):
             result, _ = extractor._enhance_characters_with_llm(characters, foundation, case_id=60)
@@ -160,7 +184,8 @@ class TestB3CharacterRescan:
             captured["prompt"] = kwargs.get("prompt", "")
             return "ignored"
 
-        with patch("app.utils.llm_utils.streaming_completion", side_effect=_capture), \
+        with _patch_template_loader(), \
+             patch("app.utils.llm_utils.streaming_completion", side_effect=_capture), \
              patch("app.utils.llm_json_utils.parse_json_response", return_value={"enhancements": [], "missing_characters": []}), \
              patch.object(extractor, "_load_case_facts", return_value="Engineer B inspected the site."):
             extractor._enhance_characters_with_llm(characters, foundation, case_id=60)

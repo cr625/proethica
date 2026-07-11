@@ -692,6 +692,13 @@ div.reference-panel {
                     {% if template and template.output_schema and template.output_schema is mapping %}
                     {% for key, schema_info in template.output_schema.items() %}
                     <div class="schema-group">
+                        {% if schema_info is not mapping %}
+                        {# Flat schema (the Step-4 synthesis family): key -> type/description string #}
+                        <div class="schema-field">
+                            <span>{{ key }}</span>
+                            <span class="schema-type">{{ schema_info }}</span>
+                        </div>
+                        {% else %}
                         <div class="schema-group-header">
                             {{ key }}
                             {% if schema_info.get('dataclass') %}<small class="text-muted">({{ schema_info.get('dataclass') }})</small>{% endif %}
@@ -706,6 +713,7 @@ div.reference-panel {
                                    title="Relation range -- open {{ field_info.get('range') }} in OntServe">&rarr; {{ field_info.get('range') }} <i class="bi bi-box-arrow-up-right" style="font-size:.6rem;"></i></a>{% endif %}</span>
                         </div>
                         {% endfor %}
+                        {% endif %}
                         {% endif %}
                     </div>
                     {% endfor %}

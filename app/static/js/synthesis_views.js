@@ -15,14 +15,15 @@
       return;
     }
     // Popovers: character mentions, provision-code badges, role badges,
-    // provision type chips, secondary-conclusion chips. Skip any element
-    // already initialized.
+    // provision type chips, secondary-conclusion chips, resolution-pattern
+    // chips. Skip any element already initialized.
     var popoverSelectors = [
       '.char-mention[data-bs-toggle="popover"]',
       '.provision-badge[data-bs-toggle="popover"]',
       '.role-badge[data-bs-toggle="popover"]',
       '.provision-type-chip[data-bs-toggle="popover"]',
       '.qc-secondary-chip[data-bs-toggle="popover"]',
+      '.qc-resolution-chip[data-bs-toggle="popover"]',
       '.tl-grounding-chip[data-bs-toggle="popover"]'
     ];
     // Shared keep-open plumbing (ontology-popovers.js, loaded before this

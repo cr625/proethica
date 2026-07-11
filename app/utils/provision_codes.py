@@ -57,3 +57,17 @@ def nspe_provision_fragment(raw) -> str | None:
     if len(parts) == 3:
         parts[2] = parts[2].lower()
     return '_'.join(parts)
+
+
+def provision_display_code(raw) -> str | None:
+    """USER-FACING form of a provision code, matching the NSPE ontology's
+    dct:identifier casing exactly (Roman numerals uppercase, subsection
+    letter lowercase, no trailing dot: 'II.3.a'). Derived from
+    nspe_provision_fragment so display text, entity-page URIs, and the
+    ontology identifiers cannot drift apart (2026-07-10 alignment audit:
+    the tab showed the raw LLM spelling 'II.3.a.' while OntServe showed the
+    identifier 'II.3.a', and the internal join canonical is 'II.3.A').
+    None when the value is not a modern NSPE code (historical Canons/Rules
+    keep their raw spelling)."""
+    frag = nspe_provision_fragment(raw)
+    return frag.replace('_', '.') if frag else None

@@ -731,7 +731,16 @@ def _load_canonical_decision_points(case_id: int) -> list:
         case_id=case_id,
         extraction_type='resolution_pattern'
     ).all()
-    resolutions = {r.rdf_json_ld.get('conclusion_uri', ''): r.rdf_json_ld for r in resolution_records if r.rdf_json_ld}
+    # Both sides of this join are STORED keys (RP conclusion_uri vs DP
+    # aligned_conclusion_uri) and may come from different generations;
+    # normalize both through qc_refs key_aliases (c422755 review).
+    from app.services.step4_synthesis.qc_refs import conclusion_refs, key_aliases
+    _c_alias = key_aliases(conclusion_refs(case_id), 'C')
+    resolutions = {}
+    for r in resolution_records:
+        if r.rdf_json_ld:
+            _k = r.rdf_json_ld.get('conclusion_uri', '')
+            resolutions[_c_alias.get(_k, _k)] = r.rdf_json_ld
 
     for record in dp_records:
         data = record.rdf_json_ld or {}
@@ -742,7 +751,7 @@ def _load_canonical_decision_points(case_id: int) -> list:
 
         # Find matching resolution pattern
         conclusion_uri = data.get('aligned_conclusion_uri', '')
-        resolution = resolutions.get(conclusion_uri, {})
+        resolution = resolutions.get(_c_alias.get(conclusion_uri, conclusion_uri), {})
 
         decision_points.append({
             'focus_id': dp_id,

@@ -1,0 +1,66 @@
+Analyze WHY each ethical question emerged using Toulmin's model.
+
+TOULMIN ANALYSIS: Questions emerge when argument structure is contested.
+
+- DATA: Facts/events/actions that created the ethical situation
+- WARRANT: Obligation/principle that authorizes moving from data to conclusion
+- REBUTTAL: Conditions under which the warrant would not apply
+
+Analyze: What DATA triggered the question? What competing WARRANTs could apply?
+What REBUTTAL conditions create uncertainty?
+
+## QUESTIONS TO ANALYZE
+Q1. Question 1: Was it ethical for Engineer A to seal drawings produced with AI assistance without full verification?
+Q2. Question 2: Did Engineer A have an obligation to disclose the use of AI tools to the client?
+
+## EXTRACTED ENTITIES
+
+**Roles:**
+  - Engineer A: Licensed professional engineer responsible for the structural design.
+
+**States:** (none extracted)
+
+**Resources:** (none extracted)
+
+**Principles:** (none extracted)
+
+**Obligations:**
+  - Duty of Competent Practice: Perform services only in areas of competence.
+  - Duty of Full Disclosure: Be objective and truthful; disclose material facts.
+
+**Constraints:** (none extracted)
+
+**Capabilities:** (none extracted)
+
+**Actions:**
+  - Submit Sealed Drawings Without Full Review: Engineer A seals structural drawings after only a cursory review of AI-generated calculations.
+      [violates] Duty of Competent Practice
+      [guided by] Public Safety Paramount
+  - Disclose AI Tool Usage to Client: Engineer A notifies the client that AI tools generated portions of the design.
+      [fulfills] Duty of Full Disclosure
+
+**Events:**
+  - Client Discovers AI Involvement: The client learns after submission that AI tools produced the calculations.
+
+
+For EACH question, use exact entity labels from the list above. Output JSON:
+```json
+[
+  {
+    "question_index": 1,
+    "data_events": ["event label", ...],
+    "data_actions": ["action label", ...],
+    "involves_roles": ["role label", ...],
+    "competing_warrants": [["obligation A label", "obligation B label"]],
+    "data_warrant_tension": "1 sentence on how data triggers multiple warrants",
+    "competing_claims": "1 sentence on what different warrants conclude",
+    "rebuttal_conditions": "1 sentence on what creates uncertainty",
+    "emergence_narrative": "1-2 sentences explaining why this question arose",
+    "confidence": 0.8
+  }
+]
+```
+
+Include all questions in this batch.
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.

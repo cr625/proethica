@@ -1,0 +1,6 @@
+{
+  "actions_text": "A1. Submit Sealed Drawings Without Full Review\n   fulfills: none\n   violates: Duty of Competent Practice; Duty to Verify Work Before Sealing\n   guided by: Public Safety Paramount\nA2. Disclose AI Tool Usage to Client\n   fulfills: Duty of Full Disclosure\n   violates: none\n   guided by: Honesty and Integrity",
+  "causal_text": "  - Sealing unverified drawings -> Undetected structural errors reach construction (responsible: Engineer A)\n  - Disclosing AI tool usage -> Client can weigh the design provenance",
+  "action_count": 2,
+  "style_formatting_line": "FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences."
+}

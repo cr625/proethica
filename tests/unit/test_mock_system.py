@@ -20,7 +20,6 @@ class TestMockLLMClient:
             'obligations_facts', 'obligations_discussion',
             'constraints_facts', 'constraints_discussion',
             'capabilities_facts', 'capabilities_discussion',
-            'actions_events',
             'provisions', 'questions', 'conclusions', 'transformation',
             'participants', 'decision_points'
         ]
@@ -139,20 +138,6 @@ class TestMockFixtureContent:
         required_fields = ['name', 'role_classification', 'attributes', 'relationships']
         for field in required_fields:
             assert field in individual, f"Missing field: {field}"
-
-    def test_actions_events_fixture_structure(self, mock_llm_client):
-        """Verify actions_events fixture has correct structure."""
-        response = mock_llm_client.call(
-            prompt="test",
-            extraction_type='actions_events',
-            section_type='facts'
-        )
-        data = json.loads(response.content)
-
-        assert 'actions' in data
-        assert 'events' in data
-        assert len(data['actions']) > 0
-        assert len(data['events']) > 0
 
     def test_provisions_fixture_structure(self, mock_llm_client):
         """Verify provisions fixture has correct structure."""

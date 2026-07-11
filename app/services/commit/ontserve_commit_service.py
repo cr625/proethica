@@ -820,6 +820,11 @@ class OntServeCommitService:
         Commit individuals to a case-specific ontology file.
 
         Creates proethica-case-N.ttl files that import from proethica-cases.
+
+        Result counters: 'count' is newly minted individuals (the same value
+        the former skip guard produced -- a re-seen row never incremented it);
+        'merged' is same-label rows whose facts were unioned additively onto
+        an existing node. Downstream individuals_committed reads 'count'.
         """
         try:
             case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
@@ -891,8 +896,10 @@ class OntServeCommitService:
             self._role_edge_archetyped = set()
 
             count = 0
+            merged = 0
             for entity, rdf_data in individuals:
                 extraction_type = entity.extraction_type or ''
+                is_merge = False
 
                 # Determine label - use short IDs for certain entity types
                 # For types with dedicated property fields (focus, questionText, etc.), skip rdfs:comment
@@ -922,11 +929,18 @@ class OntServeCommitService:
                 # Check if individual already exists
                 if (individual_uri, RDF.type, OWL.NamedIndividual) in g:
                     # A same-label individual is already committed. If it is the SAME
-                    # concept category (the same entity re-seen in another section),
-                    # merge by skipping. If it is a DIFFERENT category (a genuine label
-                    # collision -- e.g. an obligation and a capability that happen to
-                    # share an entity_label), disambiguate the URI by category so the
-                    # second individual is not silently dropped (display-to-RDF fidelity).
+                    # concept category (the same entity re-seen in another section, or
+                    # a partial recommit), fall through and merge ADDITIVELY: the loop
+                    # body below is g.add()-based, so an identical row is a no-op and a
+                    # row carrying new facts unions them onto the existing node --
+                    # matching _write_case_ttl_fresh and the class path. (The former
+                    # skip dropped the second row's facts entirely: a
+                    # PrecedentCaseReference stub could never regain its Resource
+                    # typing on recommit, the case-8 lesson.) If it is a DIFFERENT
+                    # category (a genuine label collision -- e.g. an obligation and a
+                    # capability that happen to share an entity_label), disambiguate
+                    # the URI by category so the second individual is not silently
+                    # dropped (display-to-RDF fidelity).
                     new_cat = self._get_concept_category(entity)
                     # The materialized direct rdf:type proeth-core:<Category> (CMT-1)
                     # is the per-individual category signal now that the
@@ -949,8 +963,8 @@ class OntServeCommitService:
                             f"{str(disambiguated).split('#')[-1]}")
                         individual_uri = disambiguated
                     else:
-                        logger.info(f"Individual {label} already exists, skipping")
-                        continue
+                        logger.info(f"Individual {label} already exists, merging additively")
+                        is_merge = True
 
                 # Add individual as NamedIndividual
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))
@@ -1085,7 +1099,22 @@ class OntServeCommitService:
                 if resolved_cat == 'Event':
                     _origin = resolve_event_origin_category(rdf_data)
                     if _origin:
-                        g.add((individual_uri, RDF.type, PROETHICA_CORE[_origin]))
+                        # Additive-merge hardening: the origins are pairwise disjoint,
+                        # so a re-sighting whose eventType maps to a DIFFERENT origin
+                        # must not stack a second one onto the node. First origin wins;
+                        # a conflicting later sighting is logged, not asserted.
+                        _prior_origins = {
+                            o for o in _EVENT_ORIGIN_SUBCLASS.values()
+                            if (individual_uri, RDF.type, PROETHICA_CORE[o]) in g
+                        }
+                        if not _prior_origins:
+                            g.add((individual_uri, RDF.type, PROETHICA_CORE[_origin]))
+                        elif _origin not in _prior_origins:
+                            logger.warning(
+                                "Event origin conflict on %s: already typed %s, incoming "
+                                "eventType maps to %s; keeping the existing origin.",
+                                str(individual_uri).split('#')[-1],
+                                sorted(_prior_origins), _origin)
 
                 # Per-individual property serialization. SINGLE shared serializer for
                 # both commit paths (see _add_individual_properties): typed provenance,
@@ -1116,7 +1145,10 @@ class OntServeCommitService:
                 if entity.extraction_model:
                     g.add((individual_uri, PROV.wasAttributedTo, Literal(entity.extraction_model)))
 
-                count += 1
+                if is_merge:
+                    merged += 1
+                else:
+                    count += 1
 
             # Emit the Agent layer (one proeth-core:Agent per actor + hasRole to
             # each role facet) once all facets have been written.
@@ -1138,7 +1170,7 @@ class OntServeCommitService:
             # Save the graph
             self._sanitize_graph_literals(g)
             g.serialize(destination=case_file, format='turtle')
-            logger.info(f"Committed {count} individuals to {case_file}")
+            logger.info(f"Committed {count} new individuals ({merged} merged onto existing) to {case_file}")
 
             # Materialize the relational edge layer (defeasibility + R->P->O +
             # cites-provision) on the just-written TTL. The pipeline commit
@@ -1164,7 +1196,7 @@ class OntServeCommitService:
             # (commit_selected_entities), which runs after this returns so the
             # edge-bearing TTL is on disk before the version import.
 
-            return {'count': count, 'file': str(case_file),
+            return {'count': count, 'merged': merged, 'file': str(case_file),
                     'role_axis_vetoes': role_axis_vetoes,
                     'qc_edges_dropped': qc_edges_dropped,
                     'role_axis_vetoes_post_canonicalization':

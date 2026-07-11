@@ -203,6 +203,13 @@ _PROVIDERS: Dict[str, Callable[[], Dict]] = {
     'merge_canonicalize': _merge_canonicalize_sample,
 }
 
+# The Step-4 synthesis family (step_number=4 rows) registers per-batch provider
+# modules; same Preview/Test contract as the shared prompts above.
+for _mod in ('step4_prompt_samples_qc', 'step4_prompt_samples_rich_dp',
+             'step4_prompt_samples_analysis', 'step4_prompt_samples_narrative'):
+    _m = __import__(f'app.services.extraction.{_mod}', fromlist=['PROVIDERS'])
+    _PROVIDERS.update(_m.PROVIDERS)
+
 
 def is_shared_prompt(concept_type: str) -> bool:
     """True if `concept_type` is a shared prompt with a registered sample provider."""

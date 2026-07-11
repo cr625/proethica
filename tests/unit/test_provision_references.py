@@ -83,3 +83,45 @@ def test_nspe_fragment_rule_roundtrips_against_ontology():
         assert frag == local, f"{ident} -> {frag} != {local}"
         checked += 1
     assert checked >= 50  # the full section canon must round-trip
+
+
+def test_display_code_matches_ontology_identifiers():
+    """provision_display_code is the user-facing spelling on the Provisions
+    tab; it must equal the NSPE ontology's dct:identifier exactly for every
+    provision, so the tab and the OntServe citation surfaces show the same
+    label (2026-07-10 alignment audit: the tab showed raw LLM spellings like
+    'II.3.a.' and the internal 'II.3.A' canonical, OntServe showed 'II.3.a')."""
+    import os
+    import pytest
+    import rdflib
+    from app.utils.provision_codes import provision_display_code
+
+    # Spelling variants all collapse to the identifier form.
+    assert provision_display_code('II.3.a.') == 'II.3.a'
+    assert provision_display_code('II.3.A') == 'II.3.a'
+    assert provision_display_code('NSPE Section III.1.a.') == 'III.1.a'
+    assert provision_display_code('I.1 Public Welfare Paramount') == 'I.1'
+    assert provision_display_code('Preamble') == 'Preamble'
+    assert provision_display_code('Canon 15') is None  # historical: keep raw
+
+    path = os.path.join(
+        os.environ.get('ONTSERVE_ONTOLOGIES_PATH',
+                       os.path.join(os.path.dirname(__file__), '..', '..', '..',
+                                    'OntServe', 'ontologies')),
+        'NSPE Code of Ethics.ttl')
+    if not os.path.exists(path):
+        pytest.skip(f'NSPE TTL not found at {path}')
+    g = rdflib.Graph()
+    g.parse(path, format='turtle')
+    DCT_ID = rdflib.URIRef('http://purl.org/dc/terms/identifier')
+    NSPE = 'http://proethica.org/ontology/nspe#'
+    checked = 0
+    for s, _, ident in g.triples((None, DCT_ID, None)):
+        if not str(s).startswith(NSPE):
+            continue
+        disp = provision_display_code(str(ident))
+        if disp is None:
+            continue
+        assert disp == str(ident), f"display {disp!r} != identifier {ident!r}"
+        checked += 1
+    assert checked >= 50

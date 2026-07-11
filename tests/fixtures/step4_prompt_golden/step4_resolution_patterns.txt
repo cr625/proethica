@@ -1,0 +1,82 @@
+Analyze HOW the board resolved each ethical question in their conclusions.
+
+## BOARD CONCLUSIONS (determinations made)
+C1. Conclusion 1: It was unethical for Engineer A to seal the drawings without full verification of the AI-generated calculations.
+C2. Conclusion 2: Engineer A was obligated to disclose the use of AI tools to the client.
+
+## ETHICAL QUESTIONS (that needed answers)
+Q1. Question 1: Was it ethical for Engineer A to seal drawings produced with AI assistance without full verification?
+Q2. Question 2: Did Engineer A have an obligation to disclose the use of AI tools to the client?
+
+## CODE PROVISIONS (that could be cited)
+P1. NSPE II.2.a: II.2.a - Engineers shall undertake assignments only when qualified by education or experience in the specific
+P2. NSPE I.1: I.1 - Hold paramount the safety, health, and welfare of the public.
+
+## CASE NORMATIVE STRUCTURE (already extracted -- ground the weighing in these)
+
+**Roles:**
+  - Engineer A: Licensed professional engineer responsible for the structural design.
+
+**States:** (none extracted)
+
+**Resources:** (none extracted)
+
+**Principles:** (none extracted)
+
+**Obligations:**
+  - Duty of Competent Practice: Perform services only in areas of competence.
+  - Duty of Full Disclosure: Be objective and truthful; disclose material facts.
+
+**Constraints:** (none extracted)
+
+**Capabilities:** (none extracted)
+
+**Actions:**
+  - Submit Sealed Drawings Without Full Review: Engineer A seals structural drawings after only a cursory review of AI-generated calculations.
+      [violates] Duty of Competent Practice
+      [guided by] Public Safety Paramount
+  - Disclose AI Tool Usage to Client: Engineer A notifies the client that AI tools generated portions of the design.
+      [fulfills] Duty of Full Disclosure
+
+**Events:**
+  - Client Discovers AI Involvement: The client learns after submission that AI tools produced the calculations.
+
+
+A board resolution is DEFEASIBLE: it holds only under the facts and conditions
+that obtained in this case, and would not hold (or would reverse) if those
+conditions changed. Express each resolution conditionally, not as an absolute
+rule. State the activating conditions ("holds WHEN ...") and, where the board
+signalled them, the defeating conditions ("would NOT hold UNLESS ..." / "absent ...").
+
+For EACH conclusion above, analyze:
+1. Which QUESTIONS does it answer? (by Q number)
+2. What PRINCIPLES were determinative? (up to 3 key principles)
+3. What FACTS were determinative? (up to 3 key facts)
+4. What PROVISIONS were cited? (by P number)
+5. How were COMPETING OBLIGATIONS weighed? (1 sentence)
+6. Under WHAT CONDITIONS does this resolution hold, and what would defeat or
+   reverse it? Phrase as "Holds when <conditions>; would not hold if/unless
+   <defeating conditions>." (1-2 sentences)
+7. A 1-2 sentence NARRATIVE explaining how the board reached this conclusion,
+   framed conditionally on the determinative facts above (not as a universal rule)
+
+Output as JSON array:
+```json
+[
+  {
+    "conclusion_index": 1,
+    "answers_questions": [1, 2],
+    "determinative_principles": ["principle 1", "principle 2"],
+    "determinative_facts": ["fact 1", "fact 2"],
+    "cited_provisions": [1, 3],
+    "weighing_process": "One sentence on how competing obligations were balanced.",
+    "resolution_conditions": "Holds when the engineer disclosed the conflict in writing; would not hold if the disclosure were withheld.",
+    "resolution_narrative": "Given that X obtained, the board concluded Y because...",
+    "confidence": 0.8
+  }
+]
+```
+
+Include all 2 conclusions in this batch.
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.

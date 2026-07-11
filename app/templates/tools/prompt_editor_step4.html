@@ -81,7 +81,15 @@
                                     {{ prompt.get('file', phase_info.service_file).split('/')[-1] }} :: {{ prompt.method }}()
                                 </div>
                             </div>
-                            <i class="bi bi-chevron-down"></i>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if prompt.get('template') %}
+                                <a href="{{ url_for('prompt_editor.edit_template', step=4, concept=prompt.template) }}"
+                                   class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation()">
+                                    <i class="bi bi-pencil-square"></i> Template
+                                </a>
+                                {% endif %}
+                                <i class="bi bi-chevron-down"></i>
+                            </div>
                         </div>
                         <div class="prompt-card-body">
                             <pre class="code-view" id="code-{{ loop.index }}">Loading...</pre>

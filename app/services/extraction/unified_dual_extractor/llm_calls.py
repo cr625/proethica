@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 # process. As of 2026-07-04 all nine per-concept schemas fit (probed against the API): the Optional[str]
 # null-branch collapse in schemas._clean_structured_output_node bought back the grammar budget that
 # previously pushed roles and actions over the ceiling. This set remains as the safety net for future
-# schema growth (only the legacy combined 'actions_events' schema, which the pipeline never dispatches,
-# still exceeds the ceiling).
+# schema growth. (The combined 'actions_events' concept type, whose schema exceeded the ceiling, was
+# retired 2026-07-10; Step 3 runs the separate actions and events extractors.)
 _GRAMMAR_TOO_LARGE: set = set()
 
 

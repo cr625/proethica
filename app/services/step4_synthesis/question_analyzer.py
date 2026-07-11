@@ -476,7 +476,7 @@ class QuestionAnalyzer:
                 logger.info(f"Batch '{desc}': {total} questions")
                 return analytical
 
-            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError, ValueError) as e:  # ValueError = strict-parse failure on a malformed response: retryable nondeterminism (2026-07-10)
                 last_error = e
                 wait = 2 ** (attempt + 1)
                 logger.warning(f"Analytical batch '{desc}' attempt {attempt + 1}/{max_retries} failed: {e}. Retrying in {wait}s...")
@@ -497,47 +497,23 @@ class QuestionAnalyzer:
         code_provisions: List[Dict]
     ) -> str:
         """Create prompt to extract Board's explicit questions via LLM."""
-        entities_text = format_entities_compact(all_entities)
-        provisions_text = self._format_provisions(code_provisions)
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        return get_step4_template('step4_q_board').render(
+            **self._board_extraction_variables(questions_text, all_entities, code_provisions)
+        )
 
-        return f"""You are analyzing the Questions section from an NSPE Board of Ethical Review case.
-
-**QUESTIONS SECTION TEXT:**
-{questions_text}
-
-**EXTRACTED CASE ENTITIES:**
-{entities_text}
-
-{provisions_text}
-
-**TASK:**
-Extract ONLY the Board's explicit questions (the actual questions posed to the Board).
-These are the questions the case was asked to answer.
-
-For each question:
-1. **Question Text**: The verbatim question text
-2. **Mentioned Entities**: Which entities from the case are referenced? Use exact labels from the list above.
-3. **Related Provisions**: Which code provisions (if any) are mentioned?
-4. **Reasoning**: What is this question really asking?
-
-**OUTPUT FORMAT (JSON):**
-```json
-[
-  {{
-    "question_number": 1,
-    "question_text": "Was it ethical for Engineer A to accept the contract?",
-    "question_type": "board_explicit",
-    "mentioned_entities": {{
-      "roles": ["Engineer A"]
-    }},
-    "related_provisions": ["II.4.e"],
-    "extraction_reasoning": "Asks whether accepting the contract violated ethical duties."
-  }}
-]
-```
-
-Extract ALL questions the Board was asked. Use EXACT entity labels from the lists above.
-"""
+    def _board_extraction_variables(
+        self,
+        questions_text: str,
+        all_entities: Dict[str, List],
+        code_provisions: List[Dict]
+    ) -> Dict[str, str]:
+        """Variables for the step4_q_board template."""
+        return {
+            'questions_text': questions_text,
+            'entities_text': format_entities_compact(all_entities),
+            'provisions_text': self._format_provisions(code_provisions),
+        }
 
     def _create_analytical_prompt(
         self,
@@ -552,6 +528,30 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
 
         Args:
             categories: Which question categories to generate. Defaults to all four.
+        """
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        return get_step4_template('step4_q_analytical').render(
+            **self._analytical_prompt_variables(
+                board_questions, all_entities, code_provisions,
+                case_facts, case_conclusion, categories
+            )
+        )
+
+    def _analytical_prompt_variables(
+        self,
+        board_questions: List[EthicalQuestion],
+        all_entities: Dict[str, List],
+        code_provisions: List[Dict],
+        case_facts: str,
+        case_conclusion: str,
+        categories: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Variables for the step4_q_analytical template.
+
+        The per-category instruction blocks and output-JSON example fragments
+        are built here (category selection plus the ontology-sourced
+        QUESTION_TYPES text) and passed to the template as the `categories`
+        list of {block, example} dicts; the template holds the frame.
         """
         if categories is None:
             categories = ['implicit', 'principle_tension', 'theoretical', 'counterfactual']
@@ -571,8 +571,12 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
         category_blocks = []
         example_blocks = []
 
+        # Category definitions lead with the ontology-governed QUESTION_TYPES
+        # text (drift-tested against proethica-cases QuestionTypeScheme), so
+        # ontology -> vocabulary dict -> prompt is one chain; the operational
+        # bullets below each definition stay prompt-local.
         if 'implicit' in categories:
-            category_blocks.append("""**IMPLICIT QUESTIONS**: Questions the case raises but the Board didn't explicitly ask.
+            category_blocks.append(f"""**IMPLICIT QUESTIONS**: {QUESTION_TYPES['implicit']}
    - What ethical issues lurk beneath the surface?
    - What questions should have been asked?""")
             example_blocks.append("""  "implicit": [
@@ -593,8 +597,9 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
                     label = _get_entity_field(p, 'label', 'entity_label', default='Unknown')
                     principles_list += f"  - {label}\n"
 
-            category_blocks.append(f"""**PRINCIPLE TENSIONS**: Where do extracted principles come into conflict?
+            category_blocks.append(f"""**PRINCIPLE TENSIONS**: {QUESTION_TYPES['principle_tension']}
    - "Does [Principle X] conflict with [Principle Y]?"
+   - "How should [Principle X] be balanced against [Principle Y]?"
    Extracted principles:
 {principles_list}""")
             example_blocks.append("""  "principle_tension": [
@@ -607,7 +612,7 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
   ]""")
 
         if 'theoretical' in categories:
-            category_blocks.append("""**THEORETICAL FRAMINGS**: Frame the case in ethical theory terms.
+            category_blocks.append(f"""**THEORETICAL FRAMINGS**: {QUESTION_TYPES['theoretical']}
    - Deontological: "Did the engineer fulfill their duty of...?"
    - Consequentialist: "Did the outcome justify...?"
    - Virtue Ethics: "Did the engineer act with professional integrity when...?"
@@ -623,7 +628,7 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
   ]""")
 
         if 'counterfactual' in categories:
-            category_blocks.append("""**COUNTERFACTUAL QUESTIONS**: fact-negating what-ifs that stress a Board conclusion.
+            category_blocks.append(f"""**COUNTERFACTUAL QUESTIONS**: {QUESTION_TYPES['counterfactual']}
    A counterfactual question must satisfy ALL of:
    - Its antecedent NEGATES or ALTERS a fact the case asserts (not a restatement, not
      something the case leaves open, and NOT merely an alternative course of action the
@@ -646,44 +651,17 @@ Extract ALL questions the Board was asked. Use EXACT entity labels from the list
     }
   ]""")
 
-        numbered_categories = "\n\n".join(
-            f"{i+1}. {block}" for i, block in enumerate(category_blocks)
-        )
-        json_example = "{{\n" + ",\n".join(example_blocks) + "\n}}"
-
-        return f"""You are an ethics analyst examining an NSPE Board of Ethical Review case.
-
-**BOARD'S EXPLICIT QUESTIONS:**
-{board_q_text}
-
-**CASE FACTS:**
-{case_facts if case_facts else "(not provided)"}
-
-**BOARD'S CONCLUSION:**
-{case_conclusion if case_conclusion else "(not provided)"}
-
-**ALL EXTRACTED ENTITIES:**
-{entities_text}
-
-{provisions_text}
-
-**TASK:**
-Generate analytical questions that deepen understanding beyond the Board's explicit questions.
-
-{numbered_categories}
-
-**FORMATTING RULES:**
-- Write questions in plain English. Do NOT embed URIs in question_text.
-- Reference entities by their exact label in the mentioned_entities field.
-- Generate UP TO 4 questions per category; fewer or zero is acceptable. Emit only
-  questions that meet the category's criteria -- do not pad a category to reach a count.
-- Link to source Board questions when applicable (source_question field).
-
-**OUTPUT FORMAT (JSON):**
-```json
-{json_example}
-```
-"""
+        return {
+            'board_q_text': board_q_text,
+            'case_facts': case_facts,
+            'case_conclusion': case_conclusion,
+            'entities_text': entities_text,
+            'provisions_text': provisions_text,
+            'categories': [
+                {'block': block, 'example': example}
+                for block, example in zip(category_blocks, example_blocks)
+            ],
+        }
 
     def _format_provisions(self, code_provisions: List[Dict]) -> str:
         """Format code provisions for prompt."""

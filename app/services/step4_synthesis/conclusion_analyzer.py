@@ -492,7 +492,7 @@ class ConclusionAnalyzer:
                 logger.info(f"Batch '{desc}': {total} conclusions")
                 return analytical
 
-            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError) as e:
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError, ConnectionError, ValueError) as e:  # ValueError = strict-parse failure on a malformed response: retryable nondeterminism (2026-07-10)
                 last_error = e
                 wait = 2 ** (attempt + 1)
                 logger.warning(f"Analytical batch '{desc}' attempt {attempt + 1}/{max_retries} failed: {e}. Retrying in {wait}s...")
@@ -513,55 +513,23 @@ class ConclusionAnalyzer:
         code_provisions: List[Dict]
     ) -> str:
         """Create prompt to extract Board's explicit conclusions via LLM."""
-        entities_text = format_entities_compact(all_entities)
-        provisions_text = self._format_provisions(code_provisions)
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        return get_step4_template('step4_c_board').render(
+            **self._board_extraction_variables(conclusions_text, all_entities, code_provisions)
+        )
 
-        return f"""You are analyzing the Conclusions section from an NSPE Board of Ethical Review case.
-
-**CONCLUSIONS SECTION TEXT:**
-{conclusions_text}
-
-**EXTRACTED CASE ENTITIES:**
-{entities_text}
-
-{provisions_text}
-
-**TASK:**
-Extract ONLY the Board's explicit conclusions (their formal determinations on each question).
-These are the conclusions the Board reached on the ethical issues.
-
-For each conclusion:
-1. **Conclusion Text**: The verbatim conclusion text
-2. **Mentioned Entities**: Which entities from the case are referenced? Use exact labels from the list above.
-3. **Cited Provisions**: Which code provisions are cited in the reasoning?
-4. **Board Conclusion Type**: What kind of conclusion?
-   - 'violation': Found a violation of ethics code
-   - 'compliance': Found compliance with ethics code
-   - 'no_violation': Found no violation occurred
-   - 'interpretation': Clarifies interpretation of provision
-   - 'recommendation': Recommends action
-5. **Reasoning**: Brief explanation of the conclusion
-
-**OUTPUT FORMAT (JSON):**
-```json
-[
-  {{
-    "conclusion_number": 1,
-    "conclusion_text": "Engineer A violated Section II.4.e by accepting the contract.",
-    "conclusion_type": "board_explicit",
-    "board_conclusion_type": "violation",
-    "mentioned_entities": {{
-      "roles": ["Engineer A"],
-      "actions": ["accepting the contract"]
-    }},
-    "cited_provisions": ["II.4.e"],
-    "extraction_reasoning": "The Board found a violation based on the conflict of interest."
-  }}
-]
-```
-
-Extract ALL conclusions the Board reached. Use EXACT entity labels from the lists above.
-"""
+    def _board_extraction_variables(
+        self,
+        conclusions_text: str,
+        all_entities: Dict[str, List],
+        code_provisions: List[Dict]
+    ) -> Dict[str, str]:
+        """Variables for the step4_c_board template."""
+        return {
+            'conclusions_text': conclusions_text,
+            'entities_text': format_entities_compact(all_entities),
+            'provisions_text': self._format_provisions(code_provisions),
+        }
 
     def _create_analytical_prompt(
         self,
@@ -577,6 +545,32 @@ Extract ALL conclusions the Board reached. Use EXACT entity labels from the list
 
         Args:
             categories: Which conclusion categories to generate. Defaults to all three.
+        """
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        return get_step4_template('step4_c_analytical').render(
+            **self._analytical_prompt_variables(
+                board_conclusions, all_entities, code_provisions,
+                board_questions, analytical_questions, case_facts, categories
+            )
+        )
+
+    def _analytical_prompt_variables(
+        self,
+        board_conclusions: List[EthicalConclusion],
+        all_entities: Dict[str, List],
+        code_provisions: List[Dict],
+        board_questions: List[Dict],
+        analytical_questions: List[Dict],
+        case_facts: str,
+        categories: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Variables for the step4_c_analytical template.
+
+        The per-category instruction blocks and output-JSON example fragments
+        are built here (category selection; the blocks are static strings,
+        unlike the question side) and passed to the template as the
+        `categories` list of {block, example} dicts; the template holds the
+        frame.
         """
         if categories is None:
             categories = ['analytical_extension', 'question_response', 'principle_synthesis']
@@ -662,47 +656,18 @@ Extract ALL conclusions the Board reached. Use EXACT entity labels from the list
     }
   ]""")
 
-        numbered_categories = "\n\n".join(
-            f"{i+1}. {block}" for i, block in enumerate(category_blocks)
-        )
-        json_example = "{{\n" + ",\n".join(example_blocks) + "\n}}"
-
-        return f"""You are an ethics analyst examining an NSPE Board of Ethical Review case.
-
-**BOARD'S EXPLICIT CONCLUSIONS:**
-{board_c_text}
-
-**BOARD'S QUESTIONS:**
-{board_q_text}
-
-**ANALYTICAL QUESTIONS (generated):**
-{analytical_text if analytical_text else "(none provided)"}
-
-**CASE FACTS:**
-{case_facts if case_facts else "(not provided)"}
-
-**ALL EXTRACTED ENTITIES:**
-{entities_text}
-
-{provisions_text}
-
-**TASK:**
-Generate analytical conclusions that deepen understanding beyond the Board's explicit conclusions.
-
-{numbered_categories}
-
-**FORMATTING RULES:**
-- Write conclusions in plain English. Do NOT embed URIs in conclusion_text.
-- Reference entities by their exact label in the mentioned_entities field.
-- Generate 1-3 conclusions per category.
-- Link to source_conclusion (Board conclusion number) when extending Board's reasoning.
-- Link to related_analytical_questions (question numbers) when responding to them.
-
-**OUTPUT FORMAT (JSON):**
-```json
-{json_example}
-```
-"""
+        return {
+            'board_c_text': board_c_text,
+            'board_q_text': board_q_text,
+            'analytical_text': analytical_text,
+            'case_facts': case_facts,
+            'entities_text': entities_text,
+            'provisions_text': provisions_text,
+            'categories': [
+                {'block': block, 'example': example}
+                for block, example in zip(category_blocks, example_blocks)
+            ],
+        }
 
     def _format_provisions(self, code_provisions: List[Dict]) -> str:
         """Format code provisions for prompt."""

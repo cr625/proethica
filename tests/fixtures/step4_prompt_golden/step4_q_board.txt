@@ -1,0 +1,66 @@
+You are analyzing the Questions section from an NSPE Board of Ethical Review case.
+
+**QUESTIONS SECTION TEXT:**
+Question: Was it ethical for Engineer A to retain an ownership interest in the equipment vendor while specifying its products for the Client W facility, and was Engineer A obligated to disclose that interest?
+
+**EXTRACTED CASE ENTITIES:**
+
+**Roles:**
+  - Engineer A: Professional engineer retained by Client W to design the water treatment facility.
+  - Client W: Municipal water authority that retained Engineer A.
+
+**States:**
+  - Undisclosed Financial Interest: Engineer A holds an ownership stake in the equipment vendor, unknown to Client W.
+
+**Resources:** (none extracted)
+
+**Principles:**
+  - Public Safety Paramountcy: Hold paramount the safety, health, and welfare of the public.
+  - Faithful Agency: Act for each employer or client as a faithful agent or trustee.
+
+**Obligations:**
+  - Disclose Conflicts of Interest: Disclose all known or potential conflicts of interest that could influence judgment.
+
+**Constraints:** (none extracted)
+
+**Capabilities:** (none extracted)
+
+**Actions:**
+  - Acquiring the Vendor Stake: Engineer A acquired an ownership interest in the equipment vendor during the project.
+
+**Events:** (none extracted)
+
+
+
+**CODE PROVISIONS EXTRACTED:**
+- II.4.a: Engineers shall disclose all known or potential conflicts of interest that could influence or appear...
+- III.5.a: Engineers shall not accept financial or other considerations, including free engineering designs, fr...
+
+
+**TASK:**
+Extract ONLY the Board's explicit questions (the actual questions posed to the Board).
+These are the questions the case was asked to answer.
+
+For each question:
+1. **Question Text**: The verbatim question text
+2. **Mentioned Entities**: Which entities from the case are referenced? Use exact labels from the list above.
+3. **Related Provisions**: Which code provisions (if any) are mentioned?
+4. **Reasoning**: What is this question really asking?
+
+**OUTPUT FORMAT (JSON):**
+```json
+[
+  {
+    "question_number": 1,
+    "question_text": "Was it ethical for Engineer A to accept the contract?",
+    "question_type": "board_explicit",
+    "mentioned_entities": {
+      "roles": ["Engineer A"]
+    },
+    "related_provisions": ["II.4.e"],
+    "extraction_reasoning": "Asks whether accepting the contract violated ethical duties."
+  }
+]
+```
+
+Extract ALL questions the Board was asked. Use EXACT entity labels from the lists above.

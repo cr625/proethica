@@ -1,0 +1,98 @@
+You are an ethics analyst examining an NSPE Board of Ethical Review case.
+
+**BOARD'S EXPLICIT QUESTIONS:**
+(No explicit Board questions identified - generate based on case facts)
+
+**CASE FACTS:**
+Engineer A, retained by Client W to design a water treatment facility, acquired an ownership stake in an equipment vendor during the project and specified that vendor's filtration units in the final design without disclosing the interest.
+
+**BOARD'S CONCLUSION:**
+(not provided)
+
+**ALL EXTRACTED ENTITIES:**
+
+**Roles:**
+  - Engineer A: Professional engineer retained by Client W to design the water treatment facility.
+  - Client W: Municipal water authority that retained Engineer A.
+
+**States:**
+  - Undisclosed Financial Interest: Engineer A holds an ownership stake in the equipment vendor, unknown to Client W.
+
+**Resources:** (none extracted)
+
+**Principles:**
+  - Public Safety Paramountcy: Hold paramount the safety, health, and welfare of the public.
+  - Faithful Agency: Act for each employer or client as a faithful agent or trustee.
+
+**Obligations:**
+  - Disclose Conflicts of Interest: Disclose all known or potential conflicts of interest that could influence judgment.
+
+**Constraints:** (none extracted)
+
+**Capabilities:** (none extracted)
+
+**Actions:**
+  - Acquiring the Vendor Stake: Engineer A acquired an ownership interest in the equipment vendor during the project.
+
+**Events:** (none extracted)
+
+
+
+**CODE PROVISIONS EXTRACTED:**
+- II.4.a: Engineers shall disclose all known or potential conflicts of interest that could influence or appear...
+- III.5.a: Engineers shall not accept financial or other considerations, including free engineering designs, fr...
+
+
+**TASK:**
+Generate analytical questions that deepen understanding beyond the Board's explicit questions.
+
+1. **THEORETICAL FRAMINGS**: An analytical question reframing the case in the terms of an ethical theory (deontological, consequentialist, or virtue-ethical), carrying its framework designation.
+   - Deontological: "Did the engineer fulfill their duty of...?"
+   - Consequentialist: "Did the outcome justify...?"
+   - Virtue Ethics: "Did the engineer act with professional integrity when...?"
+   Include an "ethical_framework" field (deontological, consequentialist, virtue_ethics).
+
+2. **COUNTERFACTUAL QUESTIONS**: An analytical question whose antecedent negates or alters a fact the case asserts, testing whether a specific board conclusion would still hold under the altered fact.
+   A counterfactual question must satisfy ALL of:
+   - Its antecedent NEGATES or ALTERS a fact the case asserts (not a restatement, not
+     something the case leaves open, and NOT merely an alternative course of action the
+     party could have taken).
+   - The altered fact and the entities involved appear in the case material.
+   - If the antecedent held, a specific Board conclusion would plausibly change or need
+     qualification -- name the duty or conclusion being stressed.
+   - It is not a rewording of a Board question or of another generated question.
+   Example shape: the case asserts X; ask "If X had not been the case (e.g. the access
+   constraint had NOT been disclosed to the contractor), would the Board still have found
+   the public safety duty satisfied?" Emit FEWER questions (or none) rather than pad the
+   category with items that fail these criteria.
+
+**FORMATTING RULES:**
+- Write questions in plain English. Do NOT embed URIs in question_text.
+- Reference entities by their exact label in the mentioned_entities field.
+- Generate UP TO 4 questions per category; fewer or zero is acceptable. Emit only
+  questions that meet the category's criteria -- do not pad a category to reach a count.
+- Link to source Board questions when applicable (source_question field).
+
+**OUTPUT FORMAT (JSON):**
+```json
+{{
+  "theoretical": [
+    {
+      "question_text": "From a deontological perspective, did Engineer A fulfill their duty of transparency?",
+      "mentioned_entities": {"roles": ["Engineer A"], "obligations": ["Transparency"]},
+      "related_provisions": [],
+      "ethical_framework": "deontological",
+      "source_question": 1
+    }
+  ],
+  "counterfactual": [
+    {
+      "question_text": "If the limited-access condition had not been disclosed on the design documents, would the Board still have concluded that Engineer A met the public safety obligation?",
+      "mentioned_entities": {"roles": ["Engineer A"], "obligations": ["Public Safety"]},
+      "related_provisions": [],
+      "negated_fact": "The design documents disclosed the limited-access condition",
+      "source_question": 1
+    }
+  ]
+}}
+```

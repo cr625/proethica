@@ -1,0 +1,102 @@
+You are analyzing an ethics case to identify key decision points where ethical choices must be made.
+
+The algorithmic composition and causal link analysis found no decision point candidates for this case.
+However, the case has rich analytical data. Synthesize decision points from the following context.
+
+ETHICAL QUESTIONS identified in the case:
+Q1 [board]: Was it ethical for Engineer A to seal drawings produced with AI assistance without full verification?
+Q2: Did Engineer A have an obligation to disclose the use of AI tools to the client?
+
+BOARD CONCLUSIONS:
+C1 [board]: It was unethical for Engineer A to seal the drawings without full verification of the AI-generated calculations.
+C2: Engineer A was obligated to disclose the use of AI tools to the client.
+
+QUESTION EMERGENCE (how ethical questions arise from case facts):
+QE1 (re Q1): The question arises because sealing implies personal verification while the calculations came from an opaque AI tool.
+QE2 (re Q2): The question arises because the client relied on the firm for engineering judgment without knowing its provenance.
+
+RESOLUTION PATTERNS (how the board resolved questions):
+RP1 (re C1): The board weighed the duty of competent practice over schedule pressure and found the cursory review inadequate.
+
+OBLIGATIONS extracted from the case:
+O1: Duty of Competent Practice -- Perform services only in areas of competence.
+O2: Duty of Full Disclosure -- Be objective and truthful; disclose material facts.
+
+ROLES in the case:
+R1: Engineer A
+R2: Client Representative
+
+Based on this analysis, generate 3-5 canonical decision points. Each should represent
+a moment where an agent must choose between actions with ethical implications.
+
+For each decision point, provide:
+1. A focus_id (e.g., "DP1", "DP2")
+2. A description of the decision situation
+3. A decision_question -- an actionable choice framed as "Should [role] do X or Y?"
+4. The primary role/agent facing the decision (use exact role labels from above)
+5. The relevant obligation (use exact obligation labels from above)
+6. 2-3 options that DIRECTLY ANSWER the decision_question, with one marked as the Board's choice
+7. Which question(s) this addresses (reference Q numbers)
+8. How the board resolved it (reference C numbers)
+9. The full Toulmin argument structure and backing provisions:
+Toulmin argument structure (Toulmin 1958). Each field must respect its category:
+- toulmin_claim: the CLAIM. The course of action asserted as the right one. Where the Board ruled, this states the Board's chosen course; where it did not, the course the case record best supports.
+- toulmin_data: the GROUNDS. The specific case facts appealed to in support of the claim. Facts only; no duties, principles, or evaluations.
+- toulmin_warrants: the WARRANT(s). The general professional rules that license the step from those facts to the claim, stated as rules (e.g. "Engineers must hold paramount the safety of the public"). Where duties compete, state the competing warrants and which prevails.
+- toulmin_qualifier: the QUALIFIER. The modal strength of the claim and any conditions the Board attached (e.g. "presumably", "unless the contract requires disclosure", "provided consent is obtained"). Empty string only when the claim is unconditional.
+- toulmin_rebuttals: the REBUTTAL. The conditions of exception: the circumstances under which the warrant would NOT license the claim, stated as a defeating condition drawn from the case ("unless ...", "would not apply if ..."). Not a generic counter-argument and never empty; use the strongest case-supplied defeater.
+- provision_labels: the BACKING. The NSPE Code sections that authorize the warrants (e.g. ["II.1.f", "I.1"]). Entries MUST be NSPE code section citations; do NOT put duty or principle names here.
+10. intensity_score (float 0.0-1.0): moral intensity of this decision (urgency, magnitude of consequences, proximity)
+11. qc_alignment_score (float 0.0-1.0): strength of alignment between this decision and the Questions/Conclusions
+
+CRITICAL FORMATTING:
+- Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
+- role_label must be a SHORT identifier (e.g., "Engineer A", "Firm C"). Do NOT append topic descriptions.
+  BAD: "Engineer D Bid Document Material Information Inclusion" GOOD: "Engineer D"
+
+CRITICAL COHERENCE: The decision_question and options must form a coherent decision:
+- The question must present an actionable choice the named role faces.
+  BAD: "Whether the obligation arose at point X" (analytical, not a choice)
+  GOOD: "Should Engineer Doe submit full findings or limit disclosure to correcting false data?"
+- Each option must be a direct answer to that question. Reading the question then the option,
+  the option must be a plausible course of action the role could choose.
+- The role_label must be the agent making the decision, not a passive party.
+- is_board_choice marks the course the Board held ETHICAL; when the Board condemned the
+  actual conduct, the board choice is the compliant alternative, never the condemned act.
+- Options must be alternatives the case states or implies; do not invent unmentioned ones.
+- board_resolution paraphrases only what the conclusions state; toulmin_claim agrees
+  with the option marked is_board_choice.
+
+CRITICAL OPTION FORMAT:
+- Labels must be 3-8 words, Title Case, starting with a verb. NEVER "Option A", "Option B".
+- Good labels: "Disclose Conflict to Client", "Recuse from Project", "Seek Independent Review"
+- Descriptions expand on the label with 1-2 sentences of case-specific detail.
+- Options must represent genuinely defensible positions, not straw-man alternatives.
+- Exactly one option per decision point must have is_board_choice=true; the rest is_board_choice=false.
+
+Return as JSON array:
+```json
+[
+  {
+    "focus_id": "DP1",
+    "description": "...",
+    "decision_question": "...",
+    "role_label": "...",
+    "obligation_label": "...",
+    "options": [
+      {"option_id": "O1", "label": "Disclose Conflict to Client", "description": "Formally notify the client of the conflict of interest and recommend independent oversight", "is_board_choice": true},
+      {"option_id": "O2", "label": "Recuse from Project", "description": "Withdraw from the project entirely to avoid any appearance of compromised judgment", "is_board_choice": false}
+    ],
+    "addresses_questions": ["Q1", "Q2"],
+    "board_resolution": "The board concluded that... (C1)",
+    "toulmin_claim": "The course of action argued for (1 sentence)",
+    "toulmin_data": "The case facts appealed to (1-2 sentences, facts only)",
+    "toulmin_warrants": "The general rules licensing facts to claim (1-2 sentences)",
+    "toulmin_qualifier": "Modal strength or attached conditions ('' if unconditional)",
+    "toulmin_rebuttals": "The conditions of exception, 'would not apply if ...' (1-2 sentences)",
+    "provision_labels": ["II.1.f", "I.1"],
+    "intensity_score": 0.78,
+    "qc_alignment_score": 0.82
+  }
+]
+```

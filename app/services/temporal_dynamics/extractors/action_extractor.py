@@ -212,6 +212,10 @@ COMPETING PRIORITIES:
     _slots = concept_ontology_slots('actions', 'all')
     definition_block = (_slots.get('action_definition') or '').strip()
     typing_block = "\n".join(s for s in (_slots.get('action_boundary'), _slots.get('action_individuation')) if s).strip()
+    # The same {{ action_schema }} block the seeded actions prompt renders: the per-case field
+    # contract read from the SHACL ActionPropertyShape (PropertyShape-only; Action deliberately
+    # has no DefinitionShape).
+    schema_block = (_slots.get('action_schema') or '').strip()
     # Shared cross-component extraction directives (no-fabrication, actor-scope, quote fidelity),
     # the same {{ pass_directive }} block every other component prompt renders. A/E were the only
     # components whose live prompts lacked them (Stage-2 audit item 7).
@@ -227,6 +231,8 @@ TYPING (rules the ontology enforces):
 
 EXTRACTION DIRECTIVES (shared across components):
 {directives_block}
+
+{schema_block}
 
 For each ACTION, extract:
 1. label: A SHORT, GENERAL action name of AT MOST 4 words. Name the KIND of action,

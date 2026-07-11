@@ -1185,17 +1185,6 @@ class DefeasibilityEdgeExtractionResult(BaseModel):
     edges: List[DefeasibilityEdge] = Field(default_factory=list)
 
 
-# ---------------------------------------------------------------------------
-# Combined Actions & Events (Temporal Dynamics pass)
-# ---------------------------------------------------------------------------
-
-class TemporalDynamicsExtractionResult(BaseModel):
-    """Combined extraction result for the temporal dynamics pass."""
-    new_action_classes: List[CandidateActionClass] = Field(default_factory=list)
-    action_individuals: List[ActionIndividual] = Field(default_factory=list)
-    new_event_classes: List[CandidateEventClass] = Field(default_factory=list)
-    event_individuals: List[EventIndividual] = Field(default_factory=list)
-
 
 # ---------------------------------------------------------------------------
 # Ontology IRI Mapping
@@ -1326,7 +1315,6 @@ CONCEPT_SCHEMAS: Dict[str, type[BaseModel]] = {
     'events': EventExtractionResult,
     'capabilities': CapabilityExtractionResult,
     'constraints': ConstraintExtractionResult,
-    'actions_events': TemporalDynamicsExtractionResult,
 }
 
 #: Maps concept name to its (CandidateClass, Individual) model pair.

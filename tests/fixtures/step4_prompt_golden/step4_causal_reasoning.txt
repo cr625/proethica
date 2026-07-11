@@ -1,0 +1,31 @@
+These ACTIONS and their normative relations were ALREADY extracted from
+this engineering-ethics case. The fulfills / violates / guided-by edges below are GIVEN -- do
+not change or restate them. The CAUSAL CHAINS show what each action brings about.
+
+## ACTIONS (with their committed normative edges)
+A1. Submit Sealed Drawings Without Full Review
+   fulfills: none
+   violates: Duty of Competent Practice; Duty to Verify Work Before Sealing
+   guided by: Public Safety Paramount
+A2. Disclose AI Tool Usage to Client
+   fulfills: Duty of Full Disclosure
+   violates: none
+   guided by: Honesty and Integrity
+
+## CAUSAL CHAINS (Step-3 causal extraction)
+  - Sealing unverified drawings -> Undetected structural errors reach construction (responsible: Engineer A)
+  - Disclosing AI tool usage -> Client can weigh the design provenance
+
+For EACH action, write ONE sentence of REASONING explaining the normative significance of the
+action in its causal context: why fulfilling or violating those obligations matters given
+what the action causes downstream. Explain the edges; do not list them. Reference each action
+by its A-number (action_index 1 for A1). Output JSON array:
+```json
+[
+  {"action_index": 1, "reasoning": "One grounded sentence.", "confidence": 0.8}
+]
+```
+
+Include all 2 actions.
+
+FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.

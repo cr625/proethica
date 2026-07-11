@@ -1,0 +1,26 @@
+Write the opening context paragraph for an interactive professional ethics scenario.
+
+## Case Facts
+Engineer A, a licensed professional engineer, performed a structural inspection of a parking garage owned by Client W. The inspection found deteriorated support columns that Engineer A judged to present a risk to public safety. Client W directed Engineer A to keep the findings confidential while repair negotiations proceeded.
+
+## Setting
+Commercial parking garage assessment for a private client
+
+## Primary Decision-Maker
+Engineer A
+
+## Decision Questions the User Will Face
+  1. [Engineer A] Should Engineer A disclose the structural deficiencies to the local building authority despite the confidentiality directive from Client W?
+  2. [Engineer A] Should Engineer A continue the engagement while repairs are negotiated?
+
+## Rules (strict)
+1. Begin with "You are Engineer A" and write in second person.
+2. Set up the factual situation BEFORE the decisions. Do not narrate what the protagonist chose or what happened as a result.
+3. Include specific parties, projects, and technical details from the case facts. Do not be abstract or vague.
+4. FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences.
+5. Do not editorialize, flatter ("seasoned professional"), or use dramatic framing ("now sits at the center of").
+6. Do not reveal the board's conclusions or how the case was resolved.
+7. End with a forward-looking sentence about the decisions ahead, without naming specific choices.
+8. Write 3-6 sentences, approximately 500-800 characters.
+
+Output ONLY the opening context text, no commentary.

@@ -15,6 +15,50 @@
 </div>
 {% endif %}
 {% endmacro %}
+{% macro resolution_line(c, view) %}
+{% if c.resolution and (c.resolution.weighing_process or c.resolution.resolution_narrative) %}
+{% set res = c.resolution %}
+<div class="qc-resolution mt-2 small">
+  <span class="qc-resolution-label"><i class="bi bi-arrow-left-right me-1"></i>Resolved by:</span>
+  {{ res.weighing_process or res.resolution_narrative }}
+  {% if res.confidence %}<span class="text-muted">(confidence {{ '%.2f'|format(res.confidence) }})</span>{% endif %}
+  <div class="mt-1">
+    {% for prov in res.cited_provisions %}
+    {% set prov_text = view.provision_text_lookup.get(prov, '') %}
+    {% set prov_url = prov|nspe_ontology_url %}
+    <span class="badge bg-primary provision-badge" style="font-size: 0.6rem;" tabindex="0"
+          data-bs-toggle="popover" data-bs-trigger="focus hover" data-bs-html="true"
+          data-bs-title="NSPE Code {{ prov }}"
+          data-bs-content="{{ (prov_text|e|e if prov_text else 'Provision text not available for this case.') }}{% if prov_url %}&lt;br&gt;&lt;a href=&quot;{{ prov_url }}&quot; target=&quot;_blank&quot;&gt;View in the NSPE Code ontology&lt;/a&gt;{% endif %}">{{ prov }}</span>
+    {% endfor %}
+    {% if res.determinative_principles %}
+    <span class="badge bg-light text-dark border qc-resolution-chip" style="font-size: 0.6rem;" tabindex="0"
+          data-bs-toggle="popover" data-bs-trigger="focus hover"
+          data-bs-title="Determinative principles"
+          data-bs-content="{{ res.determinative_principles|join('; ')|escape }}">{{ res.determinative_principles|length }} principle{{ 's' if res.determinative_principles|length != 1 }}</span>
+    {% endif %}
+    {% if res.determinative_facts %}
+    <span class="badge bg-light text-dark border qc-resolution-chip" style="font-size: 0.6rem;" tabindex="0"
+          data-bs-toggle="popover" data-bs-trigger="focus hover"
+          data-bs-title="Determinative facts"
+          data-bs-content="{{ res.determinative_facts|join('; ')|escape }}">{{ res.determinative_facts|length }} fact{{ 's' if res.determinative_facts|length != 1 }}</span>
+    {% endif %}
+    {% if res.resolution_conditions %}
+    <span class="badge bg-light text-dark border qc-resolution-chip" style="font-size: 0.6rem;" tabindex="0"
+          data-bs-toggle="popover" data-bs-trigger="focus hover"
+          data-bs-title="Resolution conditions"
+          data-bs-content="{{ res.resolution_conditions|escape }}">Conditions</span>
+    {% endif %}
+    {% if res.weighing_process and res.resolution_narrative %}
+    <span class="badge bg-light text-dark border qc-resolution-chip" style="font-size: 0.6rem;" tabindex="0"
+          data-bs-toggle="popover" data-bs-trigger="focus hover"
+          data-bs-title="Resolution narrative"
+          data-bs-content="{{ res.resolution_narrative|escape }}">Narrative</span>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endmacro %}
 {% if view and view.board_questions %}
   {% for bq in view.board_questions %}
   {% set bq_num = bq.number|replace('Question_', '') %}
@@ -50,6 +94,7 @@
                 {% endfor %}
               </div>
               {% endif %}
+              {{ resolution_line(c, view) }}
             </div>
           </div>
         </div>
@@ -77,7 +122,7 @@
                 <div class="qc-conclusion qc-conclusion-analytical">
                   <div class="d-flex align-items-start">
                     <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
-                    <div><span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span><span class="small">{{ c.text }}</span></div>
+                    <div><span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span><span class="small">{{ c.text }}</span>{{ resolution_line(c, view) }}</div>
                   </div>
                 </div>
                 {% endfor %}
@@ -116,7 +161,7 @@
           <div class="qc-conclusion qc-conclusion-analytical">
             <div class="d-flex align-items-start">
               <span class="qc-conclusion-arrow"><i class="bi bi-arrow-return-right"></i></span>
-              <div><span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span><span class="small">{{ c.text }}</span></div>
+              <div><span class="badge bg-secondary me-1" style="font-size: 0.6rem;">Analytical</span><span class="small">{{ c.text }}</span>{{ resolution_line(c, view) }}</div>
             </div>
           </div>
           {% endfor %}

@@ -1,0 +1,89 @@
+You are an ethics analyst examining an NSPE Board of Ethical Review case.
+
+**BOARD'S EXPLICIT QUESTIONS:**
+1. Was it ethical for Engineer A to retain an ownership interest in the equipment vendor while specifying its products?
+2. Was Engineer A obligated to disclose the vendor interest to Client W?
+
+**CASE FACTS:**
+Engineer A, retained by Client W to design a water treatment facility, acquired an ownership stake in an equipment vendor during the project and specified that vendor's filtration units in the final design without disclosing the interest.
+
+**BOARD'S CONCLUSION:**
+Engineer A acted unethically in failing to disclose the vendor interest; the design itself met the applicable safety standards.
+
+**ALL EXTRACTED ENTITIES:**
+
+**Roles:**
+  - Engineer A: Professional engineer retained by Client W to design the water treatment facility.
+  - Client W: Municipal water authority that retained Engineer A.
+
+**States:**
+  - Undisclosed Financial Interest: Engineer A holds an ownership stake in the equipment vendor, unknown to Client W.
+
+**Resources:** (none extracted)
+
+**Principles:**
+  - Public Safety Paramountcy: Hold paramount the safety, health, and welfare of the public.
+  - Faithful Agency: Act for each employer or client as a faithful agent or trustee.
+
+**Obligations:**
+  - Disclose Conflicts of Interest: Disclose all known or potential conflicts of interest that could influence judgment.
+
+**Constraints:** (none extracted)
+
+**Capabilities:** (none extracted)
+
+**Actions:**
+  - Acquiring the Vendor Stake: Engineer A acquired an ownership interest in the equipment vendor during the project.
+
+**Events:** (none extracted)
+
+
+
+**CODE PROVISIONS EXTRACTED:**
+- II.4.a: Engineers shall disclose all known or potential conflicts of interest that could influence or appear...
+- III.5.a: Engineers shall not accept financial or other considerations, including free engineering designs, fr...
+
+
+**TASK:**
+Generate analytical questions that deepen understanding beyond the Board's explicit questions.
+
+1. **IMPLICIT QUESTIONS**: An analytical question the case raises but the Board did not explicitly ask, surfaced from the case facts and extracted entities.
+   - What ethical issues lurk beneath the surface?
+   - What questions should have been asked?
+
+2. **PRINCIPLE TENSIONS**: An analytical question identifying a conflict between extracted principles or asking how such a conflict is to be balanced in the case.
+   - "Does [Principle X] conflict with [Principle Y]?"
+   - "How should [Principle X] be balanced against [Principle Y]?"
+   Extracted principles:
+  - Public Safety Paramountcy
+  - Faithful Agency
+
+
+**FORMATTING RULES:**
+- Write questions in plain English. Do NOT embed URIs in question_text.
+- Reference entities by their exact label in the mentioned_entities field.
+- Generate UP TO 4 questions per category; fewer or zero is acceptable. Emit only
+  questions that meet the category's criteria -- do not pad a category to reach a count.
+- Link to source Board questions when applicable (source_question field).
+
+**OUTPUT FORMAT (JSON):**
+```json
+{{
+  "implicit": [
+    {
+      "question_text": "Should Engineer A have disclosed the conflict earlier?",
+      "mentioned_entities": {"roles": ["Engineer A"]},
+      "related_provisions": [],
+      "source_question": 1
+    }
+  ],
+  "principle_tension": [
+    {
+      "question_text": "How should Engineer A balance client loyalty against public safety obligations?",
+      "mentioned_entities": {"principles": ["Client Loyalty", "Public Safety"]},
+      "related_provisions": ["III.1.a"],
+      "source_question": null
+    }
+  ]
+}}
+```

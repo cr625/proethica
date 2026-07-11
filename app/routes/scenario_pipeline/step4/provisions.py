@@ -20,7 +20,7 @@ from app.services.provision.code_provision_linker import CodeProvisionLinker
 from app.utils.llm_utils import get_llm_client
 from app.utils.environment_auth import auth_required_for_llm
 
-from app.routes.scenario_pipeline.step4.config import STEP4_POWERFUL_MODEL
+from app.routes.scenario_pipeline.step4.config import STEP4_DEFAULT_MODEL
 from app.routes.scenario_pipeline.step4.helpers import get_all_case_entities
 
 logger = logging.getLogger(__name__)
@@ -166,7 +166,10 @@ def extract_and_link_provisions(case_id: int, case: Document):
         step_number=4,
         section_type='references',
         prompt_text=linker.last_linking_prompt or 'Code provision extraction',
-        llm_model=STEP4_POWERFUL_MODEL,
+        # Provenance: validator + linker calls above run the DEFAULT tier
+        # (the row previously recorded STEP4_POWERFUL_MODEL, which no call
+        # in this family uses).
+        llm_model=STEP4_DEFAULT_MODEL,
         extraction_session_id=session_id,
         raw_response=linker.last_linking_response or '',
         results_summary={

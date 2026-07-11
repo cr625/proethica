@@ -1,0 +1,36 @@
+For each decision point below, identify which option is the course of action the
+Board of Ethical Review held to be the ETHICAL one, based ONLY on the Board's conclusions.
+
+Rules:
+- The Board's choice is the conduct the Board endorsed or required. When the Board found
+  the party's actual conduct unethical, the endorsed course is the compliant alternative,
+  NEVER the condemned conduct.
+- When the conclusions make no determination that selects among the options, return null.
+- Return the option label EXACTLY as given.
+
+BOARD CONCLUSIONS:
+- It was unethical for Engineer A to seal the drawings without full verification of the AI-generated calculations.
+- Engineer A was obligated to disclose the use of AI tools to the client.
+
+DECISION POINTS:
+[
+ {
+  "id": "DP1",
+  "question": "Should Engineer A conduct a full independent review of the AI-generated calculations before sealing the drawings?",
+  "options": [
+   "Conduct Full Independent Review",
+   "Apply Standard QA Protocols Only"
+  ]
+ },
+ {
+  "id": "DP2",
+  "question": "Should Engineer A disclose the use of AI tools to the client before submission?",
+  "options": [
+   "Disclose AI Usage to Client",
+   "Treat AI as Internal Drafting Tool"
+  ]
+ }
+]
+
+Return STRICT JSON only:
+{"picks": [{"id": "DP1", "board_option_label": "<exact label or null>", "reason": "<one clause>"}]}

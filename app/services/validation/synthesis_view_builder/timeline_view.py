@@ -126,6 +126,8 @@ class TimelineViewMixin:
                 'violates_obligations': violates if isinstance(violates, list) else [],
                 'raises_obligations': raises if isinstance(raises, list) else [],
                 'decision_points': [],  # filled below by fragment match
+                'causal_reasoning': '',  # filled below by fragment match
+                'causal_confidence': None,
             }
             entries.append(entry)
 
@@ -171,6 +173,29 @@ class TimelineViewMixin:
                 'entity_label': data.get('description', dp_row.entity_label),
                 'options': data.get('options', []) or [],
             })
+
+        # Causal-normative reasoning (Step 4 Phase 2B causal_normative_link
+        # rows): why this happening matters normatively, joined by the URI
+        # fragment of rdf_json_ld['action_id'] ('case-<id>#<Fragment>'), the
+        # index key the 2026-07-10 regeneration populated. entity_label is NOT
+        # a join key (the column truncates long labels). Queried without
+        # _published_filter, like the temporal rows above: a fresh Step-4
+        # re-run stores rows unpublished until the next commit. A link keyed
+        # to a fragment absent from the timeline (precedent-context exclusion,
+        # non-timeline happening) is skipped.
+        cnl_rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            extraction_type='causal_normative_link'
+        ).order_by(TemporaryRDFStorage.id).all()
+        for row in cnl_rows:
+            data = row.rdf_json_ld or {}
+            idx = fragment_to_idx.get(_uri_fragment(data.get('action_id') or ''))
+            if idx is None:
+                continue
+            reasoning = (data.get('reasoning') or '').strip()
+            if reasoning:
+                entries[idx]['causal_reasoning'] = reasoning
+                entries[idx]['causal_confidence'] = data.get('confidence')
 
         # Formal-layer enrichment from the committed case graph (2026-07-09
         # Timeline analysis; the user criterion is human readability, so the

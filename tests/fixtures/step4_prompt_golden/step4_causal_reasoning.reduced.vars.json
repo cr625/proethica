@@ -1,0 +1,6 @@
+{
+  "actions_text": "A1. Submit Sealed Drawings Without Full Review\n   fulfills: none\n   violates: none\n   guided by: none",
+  "causal_text": "",
+  "action_count": 1,
+  "style_formatting_line": "FORMATTING (ProEthica style): Do not use em dashes or en dashes in output text. Do not dodge that by substituting stacked parentheticals or excessive colons or semicolons. Write plain sentences: use commas, or split into two sentences."
+}

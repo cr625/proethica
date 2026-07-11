@@ -1,0 +1,125 @@
+ACADEMIC FRAMEWORK: Transformation Classification
+Marchais-Roubelat, A. and Roubelat, F. (2015), "Designing a moving strategic
+foresight approach: ontological and methodological issues of scenario design",
+Foresight, Vol. 17 No. 6, pp. 545-555.
+DOI: 10.1108/FS-12-2014-0085
+
+The Marchais-Roubelat & Roubelat framework classifies how ethical scenarios transform
+based on stakeholder obligation patterns. From their scenario design methodology:
+
+
+Marchais-Roubelat & Roubelat's scenario-transformation framework (paraphrased,
+with verbatim phrases quoted):
+
+A scenario set is a configuration of rules under which stakeholders act; the
+paper analyzes how a scenario is transformed via what it calls the "steering
+rule". It distinguishes four transformation patterns:
+- Transfer: the paper analyzes "Shifts from a scenario set to a new one" (verbatim).
+- Stalemate: stakeholders cannot quit the scenario and "seem to be trapped in the
+  set of rules" (verbatim).
+- Oscillation: stakeholders "go to and fro between different set of rules" (verbatim).
+- Phase lag: a temporal gap in which stakeholders effectively run parallel
+  scenarios (paraphrase).
+
+These patterns emerge from the interaction of stakeholder agency and systemic
+constraints; identifying which applies helps anticipate how a scenario evolves.
+
+
+TRANSFORMATION TYPES:
+
+1. TRANSFER
+Marchais-Roubelat & Roubelat (2015): "Shifts from a scenario set to a
+new one are analysed by transfers" (verbatim).
+
+In professional ethics context: The ethical obligation or responsibility moves from
+one stakeholder to another. The original party is relieved of the duty, which now
+falls to a different actor in the scenario. This represents a clean handoff where
+the ethical situation resolves by reassigning who bears responsibility.
+Indicators: responsibility transferred to, duty passed to, obligation shifted to, now falls to, engineer's duty to report transfers to
+Example: Engineer discovers structural defect and reports to building authorities.
+The engineer's obligation to protect public safety transfers to the regulatory body,
+which now bears responsibility for enforcement action. The engineer has fulfilled
+their duty by enabling transfer to the appropriate authority.
+
+2. STALEMATE
+Marchais-Roubelat & Roubelat (2015): in a stalemate, stakeholders
+"cannot quit the scenario, as they seem to be trapped in the set of rules" (verbatim).
+
+In professional ethics context: Multiple valid but incompatible obligations exist
+simultaneously. The ethical situation does not resolve cleanly because competing
+duties cannot both be fulfilled. The Board may acknowledge this tension without
+definitively prioritizing one obligation over another.
+Indicators: both obligations remain valid, competing duties, ethical dilemma persists, tension between, conflict not resolved
+Example: Engineer bound by confidentiality to client while also obligated to
+warn of public safety risk. Neither obligation clearly supersedes the other.
+The Board acknowledges both duties are valid but provides no definitive
+resolution of which should prevail in this specific circumstance.
+
+3. OSCILLATION
+Marchais-Roubelat & Roubelat (2015): in oscillations, stakeholders
+"go to and fro between different set of rules" (verbatim).
+
+In professional ethics context: Responsibility cycles between parties as circumstances
+change. Unlike transfer (one-time shift), oscillation involves recurring movement
+of obligations. This often occurs in ongoing professional relationships where
+duties alternate based on project phases or changing conditions.
+Indicators: responsibility cycles between, alternating obligation, duty returns to, periodic responsibility, during design phase... during construction phase
+Example: Consulting engineer has primary responsibility during design phase.
+Responsibility shifts to contractor during construction. If problems emerge,
+duty returns to consulting engineer for assessment. The cycle may repeat
+as project progresses through different phases.
+
+4. PHASE_LAG
+Marchais-Roubelat & Roubelat (2015) describe phase lag as a temporal
+gap in which stakeholders effectively run parallel scenarios (paraphrase).
+
+In professional ethics context: A temporal gap exists between action and revelation
+of consequences. Obligations emerge or become clear only after time has passed.
+Hidden defects, delayed harms, or retrospectively discovered issues create new
+ethical duties that were not apparent at the time of original action.
+Indicators: later discovered, subsequently revealed, hidden defect, delayed consequence, years after
+Example: Engineer designed structure 10 years ago. New inspection reveals
+latent defect that creates current safety risk. Original engineer now faces
+obligations regarding a situation whose consequences were not apparent during
+original design. The phase lag between action and consequence creates
+retrospective ethical duties.
+
+
+CASE ANALYSIS: Case 24-02: AI in Engineering Practice
+
+CASE FACTS:
+Engineer A used an AI system to produce design documents and sealed them without a full personal review.
+
+EXTRACTED ENTITIES:
+ROLES: Engineer A, Client
+OBLIGATIONS: Duty of competent practice
+KEY ACTIONS: Sealing the drawings
+CONSTRAINTS: License scope
+
+ETHICAL QUESTIONS POSED TO THE BOARD:
+Q1: Was it ethical for Engineer A to seal drawings produced by the AI system?
+Q2: Did Engineer B have a duty to report the practice? [board]
+
+BOARD'S CONCLUSIONS:
+C1: It was not ethical to seal the drawings without full review. [violation]
+
+RESOLUTION PATTERNS:
+- duty_reassertion: The Board reasserted the personal-review duty over delegation to tools.
+
+ANALYSIS TASK:
+Based on the academic framework above and the case details, classify HOW the ethical situation
+was transformed through the Board's resolution. Focus on:
+1. How obligations shifted between parties
+2. Whether tensions were resolved or remain
+3. The temporal pattern of responsibility
+
+Return your analysis as JSON:
+{
+    "transformation_type": "transfer|stalemate|oscillation|phase_lag|unclear",
+    "confidence": 0.0-1.0,
+    "reasoning": "2-3 sentence explanation grounded in the case facts and framework definitions",
+    "pattern_description": "Specific description of the transformation pattern in THIS case",
+    "supporting_evidence": ["quote or fact 1", "quote or fact 2", "quote or fact 3"],
+    "involved_roles": ["role1", "role2"],
+    "obligation_shifts": ["description of how obligations moved"]
+}

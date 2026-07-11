@@ -30,6 +30,8 @@ Actions are extracted as case individuals only. This pass mints NO action classe
 **TEXT TO ANALYZE:**
 {{ case_text }}
 
+{{ action_schema }}
+
 ITEM FIELDS (the live Step-3 field contract; single source with action_extractor.py):
 Each extracted item is a JSON object:
 

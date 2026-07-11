@@ -144,6 +144,24 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: precedent-citation applier failed for case %s", case_id)
         results["precedent_citation_edges"] = {"error": str(e)}
 
+    # 2c3. Analysis-record edges (deterministic, proethica-cases v3.6.0):
+    # emergence rationales, resolution patterns, provision references, and
+    # decision points are grounded to the individuals they analyze
+    # (explainsQuestion / describesResolutionOf / referencesProvision / the
+    # DecisionPoint family). Targets resolve positionally from the Step-4
+    # synthesis store, text-verified where the store carries the target text,
+    # endpoint existence- and type-checked always. Without this family the
+    # analysis records were committed as edge-less islands (2026-07-10
+    # alignment audit).
+    try:
+        from app.services.extraction.analysis_edges import apply_analysis_record_edges
+        results["analysis_record_edges"] = apply_analysis_record_edges(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: analysis-record applier failed for case %s", case_id)
+        results["analysis_record_edges"] = {"error": str(e)}
+
 
     # 2d. Participant edges (DB-driven, embedding-resolved): the Pass-2 component
     # 'who' fields (obligation obligatedParty / constraint constrainedEntity /
@@ -189,6 +207,23 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     except Exception as e:
         logger.exception("materialize: time-anchor applier failed for case %s", case_id)
         results["time_anchors"] = {"error": str(e)}
+
+    # 2f-ter. Timeline membership edges (deterministic): the single Step-3 timeline
+    # individual (rdf:type time:TemporalEntity) gains a dcterms:hasPart edge to every
+    # committed Action/Event individual, and its actionCount / eventCount /
+    # totalElements literals are refreshed from the committed member counts (honest
+    # counts: the extraction-time literals go stale when members are removed).
+    # Unordered membership; ordering stays with proeth:temporalSequence, the Allen
+    # relations, and the time:hasTime anchors. Guard-neutral (dcterms:hasPart is not
+    # in ALL_EDGE_RANGE).
+    try:
+        from app.services.extraction.timeline_edges import apply_timeline_haspart
+        results["timeline_haspart"] = apply_timeline_haspart(
+            case_id=case_id, ttl_path=ttl_path, write_back=True,
+        )
+    except Exception as e:
+        logger.exception("materialize: timeline-haspart applier failed for case %s", case_id)
+        results["timeline_haspart"] = {"error": str(e)}
 
     # 2f-bis. Temporal (Allen) relation endpoints (DB-driven, embedding-resolved): each
     # reified TemporalRelation's fromEntity/toEntity free-text timeline phrasings are
