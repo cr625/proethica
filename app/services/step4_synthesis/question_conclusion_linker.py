@@ -103,6 +103,17 @@ class QuestionConclusionLinker:
         conclusions: List
     ) -> str:
         """Create LLM prompt for Q→C linking."""
+        from app.services.step4_synthesis.template_loader import get_step4_template
+        return get_step4_template('step4_qc_link').render(
+            **self._linking_prompt_variables(questions, conclusions)
+        )
+
+    def _linking_prompt_variables(
+        self,
+        questions: List,
+        conclusions: List
+    ) -> Dict[str, str]:
+        """Variables for the step4_qc_link template."""
 
         # Format questions (handle both dicts and dataclass objects)
         questions_text = ""
@@ -122,48 +133,10 @@ class QuestionConclusionLinker:
             conclusions_text += f"\"{c_text}\"\n"
             conclusions_text += f"Type: {c_type}\n"
 
-        prompt = f"""You are analyzing NSPE Board of Ethical Review questions and conclusions to determine which conclusion answers which question.
-
-**QUESTIONS:**
-{questions_text}
-
-**CONCLUSIONS:**
-{conclusions_text}
-
-**TASK:**
-For each conclusion, determine which question(s) it answers.
-
-Consider:
-- Direct answers: Conclusion explicitly addresses the question
-- Partial answers: Conclusion addresses part of a multi-part question
-- Implicit answers: Conclusion answers question without restating it
-
-**OUTPUT FORMAT (JSON):**
-```json
-[
-  {{
-    "conclusion_number": 1,
-    "answers_questions": [1],
-    "confidence": 0.95,
-    "reasoning": "Conclusion 1 directly addresses Question 1 by stating whether Engineer A violated II.4.e, which is exactly what Question 1 asked."
-  }},
-  {{
-    "conclusion_number": 2,
-    "answers_questions": [1, 2],
-    "confidence": 0.90,
-    "reasoning": "Conclusion 2 addresses both Question 1 (violation determination) and Question 2 (disclosure requirement) as related issues."
-  }}
-]
-```
-
-**IMPORTANT:**
-- A conclusion can answer multiple questions
-- Multiple conclusions can answer the same question
-- Provide confidence (0.0-1.0) and reasoning for each link
-- If a conclusion doesn't answer any question, use answers_questions: []
-"""
-
-        return prompt
+        return {
+            'questions_text': questions_text,
+            'conclusions_text': conclusions_text,
+        }
 
     def _parse_response(self, response_text: str) -> List[QuestionConclusionLink]:
         """Parse LLM response into QuestionConclusionLink objects."""

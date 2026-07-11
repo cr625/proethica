@@ -1,0 +1,110 @@
+You are an ethics analyst examining an NSPE Board of Ethical Review case.
+
+**BOARD'S EXPLICIT CONCLUSIONS:**
+1. [violation] Engineer A acted unethically by specifying the vendor equipment without disclosing the ownership interest.
+2. [no_violation] The design itself met the applicable safety standards.
+
+**BOARD'S QUESTIONS:**
+Q1. Was it ethical for Engineer A to retain an ownership interest in the equipment vendor while specifying its products?
+Q2. Was Engineer A obligated to disclose the vendor interest to Client W?
+
+**ANALYTICAL QUESTIONS (generated):**
+
+**IMPLICIT QUESTIONS:**
+- Q101: Should Engineer A have declined the vendor stake while the project was active?
+
+**PRINCIPLE_TENSION QUESTIONS:**
+- Q201: How should Faithful Agency be balanced against Public Safety Paramountcy when the specified equipment is technically adequate?
+
+
+**CASE FACTS:**
+Engineer A, retained by Client W to design a water treatment facility, acquired an ownership stake in an equipment vendor during the project and specified that vendor's filtration units in the final design without disclosing the interest.
+
+**ALL EXTRACTED ENTITIES:**
+
+**Roles:**
+  - Engineer A: Professional engineer retained by Client W to design the water treatment facility.
+  - Client W: Municipal water authority that retained Engineer A.
+
+**States:**
+  - Undisclosed Financial Interest: Engineer A holds an ownership stake in the equipment vendor, unknown to Client W.
+
+**Resources:** (none extracted)
+
+**Principles:**
+  - Public Safety Paramountcy: Hold paramount the safety, health, and welfare of the public.
+  - Faithful Agency: Act for each employer or client as a faithful agent or trustee.
+
+**Obligations:**
+  - Disclose Conflicts of Interest: Disclose all known or potential conflicts of interest that could influence judgment.
+
+**Constraints:** (none extracted)
+
+**Capabilities:** (none extracted)
+
+**Actions:**
+  - Acquiring the Vendor Stake: Engineer A acquired an ownership interest in the equipment vendor during the project.
+
+**Events:** (none extracted)
+
+
+
+**CODE PROVISIONS EXTRACTED:**
+- II.4.a: Engineers shall disclose all known or potential conflicts of interest that could influence or appear...
+- III.5.a: Engineers shall not accept financial or other considerations, including free engineering designs, fr...
+
+
+**TASK:**
+Generate analytical conclusions that deepen understanding beyond the Board's explicit conclusions.
+
+1. **ANALYTICAL EXTENSIONS**: Extend the Board's reasoning with additional analysis.
+   - What additional considerations apply to the Board's conclusions?
+   - What nuances did the Board not address?
+
+2. **QUESTION RESPONSES**: Respond to analytical questions the Board didn't address.
+   - Answer implicit, theoretical, or counterfactual questions
+   - Reference the specific analytical question numbers
+
+3. **PRINCIPLE SYNTHESIS**: Synthesize how principles interact in this case.
+   - How were principle tensions resolved (or not)?
+   - What does this case teach about principle prioritization?
+
+**FORMATTING RULES:**
+- Write conclusions in plain English. Do NOT embed URIs in conclusion_text.
+- Reference entities by their exact label in the mentioned_entities field.
+- Generate 1-3 conclusions per category.
+- Link to source_conclusion (Board conclusion number) when extending Board's reasoning.
+- Link to related_analytical_questions (question numbers) when responding to them.
+
+**OUTPUT FORMAT (JSON):**
+```json
+{{
+  "analytical_extension": [
+    {
+      "conclusion_text": "Beyond the Board's finding, Engineer A also demonstrated...",
+      "mentioned_entities": {"roles": ["Engineer A"]},
+      "cited_provisions": [],
+      "source_conclusion": 1,
+      "related_analytical_questions": []
+    }
+  ],
+  "question_response": [
+    {
+      "conclusion_text": "In response to the implicit question about disclosure timing...",
+      "mentioned_entities": {},
+      "cited_provisions": [],
+      "source_conclusion": null,
+      "related_analytical_questions": [101]
+    }
+  ],
+  "principle_synthesis": [
+    {
+      "conclusion_text": "The tension between client loyalty and public safety was resolved by...",
+      "mentioned_entities": {"principles": ["Client Loyalty", "Public Safety"]},
+      "cited_provisions": [],
+      "source_conclusion": null,
+      "related_analytical_questions": [201, 202]
+    }
+  ]
+}}
+```
