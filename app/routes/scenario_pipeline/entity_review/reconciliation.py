@@ -436,7 +436,7 @@ def register_reconciliation_routes(bp):
                     ended_at=commit_end,
                     duration_ms=int((commit_end - commit_start).total_seconds() * 1000),
                     agent_id=agent.id,
-                    status='completed',
+                    status='completed' if result.get('success') else 'failed',
                     activity_metadata={
                         'manifest': {
                             'entity_ids': entity_ids,
@@ -463,6 +463,13 @@ def register_reconciliation_routes(bp):
 
             # Keep the reconciliation run record -- it preserves
             # unresolved pairs and decision history for future analysis.
+
+            # A failed TTL write leaves the rows honestly unpublished; the UI
+            # must not render it as a green commit banner.
+            if not result.get('success'):
+                return jsonify({'success': False,
+                                'error': result.get('error', 'commit failed'),
+                                'result': result}), 500
 
             return jsonify({
                 'success': True,

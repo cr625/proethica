@@ -86,9 +86,18 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
         gverdicts = verify_and_reground(case_text, live, model=model)
         for e, v in zip(live, gverdicts):
             if v.unsupported and not v.regrounded and not v.kept_verbatim:
-                reason = ('fabrication: no quote has a supporting span' if e.get('quotes')
-                          else 'quoteless: no case span supports the label/definition')
-                res.dropped.append((e.get('id'), e.get('label'), reason))
+                if (e.get('component') or '').lower() in _GROUNDED_COMPONENTS:
+                    reason = ('fabrication: no quote has a supporting span' if e.get('quotes')
+                              else 'quoteless: no case span supports the label/definition')
+                    res.dropped.append((e.get('id'), e.get('label'), reason))
+                else:
+                    # Temporal/synthesis rows are referenced by sibling rows
+                    # (Allen relations, timeline entries, causal chains), so an
+                    # ungrounded one is flagged for review, never auto-dropped:
+                    # dropping it would commit dangling case-ns references from
+                    # the siblings that survive.
+                    res.flagged.append((e.get('id'), e.get('label'),
+                                        'ungrounded quotes (kept: sibling rows reference it)', ''))
             elif v.regrounded or v.unsupported:
                 # the quote set changed (some re-grounded, some unsupported dropped,
                 # or a quoteless entity gained its grounding span)

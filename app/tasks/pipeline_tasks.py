@@ -1229,7 +1229,12 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         entity_ids = [e.id for e in entities]
 
         if not entity_ids:
-            results = {'total_entities': 0, 'skipped': True}
+            # Nothing unpublished. Heal the one divergence this state can hide:
+            # a prior commit that published its rows but failed the OntServe
+            # sync -- the retry would otherwise no-op forever while the disk
+            # TTL and the OntServe DB stay silently divergent.
+            sync_check = OntServeCommitService().ensure_case_synced(run.case_id)
+            results = {'total_entities': 0, 'skipped': True, 'sync_check': sync_check}
             run.mark_step_complete(step_name, results)
             mode = (run.config or {}).get('mode')
             if mode == 'single':
@@ -1237,7 +1242,12 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
             elif mode == 'interactive':
                 run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
             db.session.commit()
-            logger.info(f"[Task {self.request.id}] No entities to commit")
+            if not sync_check.get('success'):
+                logger.error(f"[Task {self.request.id}] no entities to commit but the case "
+                             f"sync is divergent and unhealed: {sync_check}")
+                return {'success': False, 'step': step_name, 'results': results,
+                        'error': sync_check.get('error', 'case sync divergent')}
+            logger.info(f"[Task {self.request.id}] No entities to commit (sync verified)")
             return {'success': True, 'step': step_name, 'results': results}
 
         # Commit-time verification gate: the chokepoint just before commit_selected_entities
@@ -1293,6 +1303,25 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
             if _regrounded:
                 db.session.commit()
                 logger.info(f"[verification-gate] case {run.case_id} re-grounded {_regrounded} entities to verbatim")
+
+        if not entity_ids:
+            # The gate dropped every candidate. A case in this state deserves
+            # review (and the generic 'No entities found' failure the service
+            # would return misattributes the cause).
+            results = {'total_entities': 0, 'all_dropped_by_gate': True,
+                       'errors': [f"verification gate dropped all "
+                                  f"{len(_gate.dropped_ids)} candidate entities"]}
+            run.mark_step_complete(step_name, results)
+            mode = (run.config or {}).get('mode')
+            if mode == 'single':
+                run.set_status(PIPELINE_STATUS['COMPLETED'])
+            elif mode == 'interactive':
+                run.set_status(PIPELINE_STATUS['WAITING_REVIEW'])
+            db.session.commit()
+            logger.error(f"[Task {self.request.id}] verification gate dropped ALL "
+                         f"entities for case {run.case_id}")
+            return {'success': False, 'step': step_name, 'results': results,
+                    'error': results['errors'][0]}
 
         commit_service = OntServeCommitService()
         result = commit_service.commit_selected_entities(run.case_id, entity_ids)

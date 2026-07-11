@@ -537,6 +537,36 @@ class OntServeCommitService:
                 'error': str(e)
             }
 
+    def ensure_case_synced(self, case_id: int) -> Dict[str, Any]:
+        """Verify the case's disk TTL matches the current OntServe DB version and
+        re-run the sync when they diverge.
+
+        The healing path for a commit whose post-publish sync failed: on retry
+        there are no unpublished rows left, so the commit sub-task no-ops --
+        without this check the disk TTL and the OntServe DB diverge silently
+        for that case and nothing ever re-drives the sync."""
+        case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+        if not case_file.exists():
+            return {'success': True, 'skipped': 'no case TTL on disk'}
+        try:
+            conn = psycopg2.connect(**get_ontserve_db_config())
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT v.content FROM ontology_versions v
+                    JOIN ontologies o ON v.ontology_id = o.id
+                    WHERE o.name = %s AND v.is_current = TRUE LIMIT 1
+                """, (f"proethica-case-{case_id}",))
+                row = cur.fetchone()
+            finally:
+                conn.close()
+        except Exception as e:  # noqa: BLE001
+            return {'success': False, 'error': f'sync check failed: {e}'}
+        if row and row[0] == case_file.read_text():
+            return {'success': True, 'in_sync': True}
+        logger.warning(f"case {case_id}: disk TTL and OntServe DB current version diverge; re-running sync")
+        return self._sync_ontology_to_db(f"proethica-case-{case_id}")
+
     def _record_ontology_commit(self, db, case_id: int, entities: list):
         """Record which OntServe ontology versions were current at commit time.
 
@@ -2154,6 +2184,18 @@ class OntServeCommitService:
                 class_ttl_result = self._commit_classes_to_intermediate(classes_to_commit)
                 if class_ttl_result.get('error'):
                     results['errors'].append(class_ttl_result['error'])
+
+            # A failed TTL write must abort BEFORE publishing (the same guard
+            # commit_selected_entities carries): a row marked published while
+            # absent from the committed TTL is silent data loss. Rows stay
+            # unpublished for retry; the OntServe-side version rows created
+            # above are superseded by the retry's new version.
+            if results['errors']:
+                from app import db
+                db.session.rollback()
+                results['success'] = False
+                results['error'] = '; '.join(str(e) for e in results['errors'])
+                return results
 
             # Mark entities as published in ProEthica
             for entity in entities:

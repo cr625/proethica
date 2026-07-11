@@ -78,6 +78,68 @@ def test_gate_does_not_mutate_caller_dicts():
     assert 'require_quote' not in entities[0]
 
 
+def test_empty_reground_results_raises():
+    """A schema-valid but EMPTY results array is a whole-call model failure:
+    it must surface (stage retry), not crash with AttributeError and not
+    silently verdict every pending entity."""
+    import pytest
+    entities = [{'id': 5, 'label': 'Invented Duty', 'definition': 'x',
+                 'component': 'obligations', 'storage_type': 'individual',
+                 'quotes': [], 'class_ref': ''}]
+    with pytest.raises(RuntimeError, match='no results'):
+        _gate(entities, {'results': []})
+
+
+def test_missing_result_id_treated_unsupported_not_crash():
+    """A partial results array (some ids answered, one missing) treats the
+    missing item as unsupported instead of raising AttributeError."""
+    entities = [
+        {'id': 6, 'label': 'Grounded Role', 'definition': 'x', 'component': 'roles',
+         'storage_type': 'individual', 'quotes': ['a paraphrase not in the case'],
+         'class_ref': ''},
+        {'id': 7, 'label': 'Also Pending', 'definition': 'y', 'component': 'roles',
+         'storage_type': 'individual', 'quotes': ['another paraphrase'], 'class_ref': ''},
+    ]
+    span = 'Engineer A prepared the structural design'
+    res = _gate(entities, {'results': [{'id': 0, 'supported': True, 'spans': [span]}]})
+    assert res.corrected_quotes[6] == [span]
+    assert len(res.dropped) == 1 and res.dropped[0][0] == 7
+    assert 'fabrication' in res.dropped[0][2]
+
+
+def test_short_span_rejected_by_token_floor():
+    """A stopword-level span must not become an entity's sole grounding."""
+    entities = [{'id': 8, 'label': 'Invented Duty', 'definition': 'x',
+                 'component': 'obligations', 'storage_type': 'individual',
+                 'quotes': [], 'class_ref': ''}]
+    res = _gate(entities, {'results': [{'id': 0, 'supported': True, 'spans': ['the']}]})
+    assert len(res.dropped) == 1
+    assert res.corrected_quotes == {}
+
+
+def test_verbatim_is_token_boundary_anchored():
+    """A mid-word fragment ('pared the structural' inside 'prepared the
+    structural') must not pass the verbatim confirmation."""
+    from app.services.extraction.extraction_verifier import _verbatim
+    from app.services.extraction.quote_grounding import _tokens
+    ts = ' '.join(_tokens(CASE_TEXT))
+    assert _verbatim('prepared the structural design', ts)
+    assert not _verbatim('pared the structural design', ts)
+
+
+def test_temporal_ungrounded_flagged_not_dropped():
+    """Temporal rows are referenced by sibling rows (Allen relations,
+    timeline, chains); an ungrounded one is flagged for review, never
+    auto-dropped -- a drop would commit dangling case-ns references."""
+    entities = [{'id': 9, 'label': 'Some Action', 'definition': 'x',
+                 'component': 'temporal_dynamics_enhanced', 'storage_type': 'individual',
+                 'quotes': ['a paraphrase with no supporting span'], 'class_ref': ''}]
+    res = _gate(entities, {'results': [{'id': 0, 'supported': False, 'spans': []}]})
+    assert res.dropped == []
+    assert len(res.flagged) == 1 and res.flagged[0][0] == 9
+    assert 'ungrounded' in res.flagged[0][2]
+
+
 def test_quotes_of_reads_temporal_jsonld_shape():
     jl = {'@id': 'x', '@type': 'proeth:Action',
           'proeth:textReferences': ['Engineer A prepared the structural design']}

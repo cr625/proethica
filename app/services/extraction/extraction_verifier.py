@@ -54,11 +54,20 @@ _REGROUND_SCHEMA = {
 
 
 def _verbatim(quote: str | None, token_string: str) -> bool:
-    """True if the quote's normalized token string is a contiguous substring of the case token
-    string (the layer-1 verbatim test from quote_grounding: exact content, whitespace-insensitive).
-    This is both the local pre-filter AND the confirmation applied to an LLM-returned span."""
+    """True if the quote's normalized token string is a contiguous TOKEN-ALIGNED substring of
+    the case token string (the layer-1 verbatim test from quote_grounding: exact content,
+    whitespace-insensitive). Both sides are space-padded so the match anchors on token
+    boundaries -- the raw substring test accepted mid-word fragments ('pared the structural'
+    inside 'prepared the structural'). This is both the local pre-filter AND the confirmation
+    applied to an LLM-returned span."""
     q = " ".join(_tokens(quote))
-    return bool(q) and q in token_string
+    return bool(q) and f" {q} " in f" {token_string} "
+
+
+# Minimum token length for an ACCEPTED repair span: without a floor, a stopword
+# or word-fragment span ('the') would pass the substring confirmation and become
+# an entity's sole committed grounding.
+_MIN_REPAIR_SPAN_TOKENS = 3
 
 
 def _structured_stream_json(client, model: str, prompt: str, schema: Dict,
@@ -166,10 +175,22 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     data = _structured_stream_json(client, model, prompt, _REGROUND_SCHEMA, max_tokens=8000)
 
     # 3. Confirm each returned span is a real substring before accepting; build per-entity verdicts.
-    by_id = {r['id']: r for r in data.get('results', [])}
+    by_id = {r['id']: r for r in data.get('results', []) if isinstance(r, dict) and 'id' in r}
+    if pending and not by_id:
+        # The schema guarantees per-result shape, not one result per pending
+        # item: an empty results array is a whole-call model failure, not a
+        # verdict on any entity. Surface it; the commit stage re-runs the gate.
+        raise RuntimeError(f"verify_and_reground: re-ground response carried no results "
+                           f"for {len(pending)} pending quotes")
+    missing = sum(1 for pid in range(len(pending)) if pid not in by_id)
+    if missing:
+        logger.warning(f"verify_and_reground: {missing}/{len(pending)} pending quotes got "
+                       f"no result id; treating each as unsupported")
     for pid, (i, q) in enumerate(pending):
         r = by_id.get(pid)
-        accepted = [s for s in (r.get('spans') or []) if r and r.get('supported') and _verbatim(s, ts)]
+        spans = (r.get('spans') or []) if (r and r.get('supported')) else []
+        accepted = [s for s in spans
+                    if _verbatim(s, ts) and len(_tokens(s)) >= _MIN_REPAIR_SPAN_TOKENS]
         if accepted:
             verdicts[i].regrounded.extend(accepted)
         else:
