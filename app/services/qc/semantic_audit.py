@@ -279,6 +279,8 @@ def s6_defeasibility(case_id, g, sections) -> dict:
         return [(str(g.value(s, RDFS.label) or ""), str(g.value(o, RDFS.label) or ""))
                 for s, o in g.subject_objects(CORE[pred])]
     trio = {p: edge_list(p) for p in ("competesWith", "prevailsOver", "defeasibleUnder")}
+    obligations = sorted(str(g.value(s, RDFS.label) or "")
+                         for s in set(g.subjects(RDF.type, CORE.Obligation)))
     csec = sections.get("conclusion") or sections.get("conclusions") or ""
     verdict = _judge(f"""BOARD HOLDING (conclusion section):
 {csec[:4000]}
@@ -286,24 +288,33 @@ def s6_defeasibility(case_id, g, sections) -> dict:
 DISCUSSION (tail):
 {(sections.get('discussion') or '')[-4000:]}
 
+COMMITTED OBLIGATION INDIVIDUALS (the only legal edge endpoints):
+{json.dumps(obligations)[:1500]}
+
 COMMITTED OBLIGATION-COMPETITION STRUCTURE:
 {json.dumps(trio, indent=1)[:2500]}
 
+VOCABULARY: the structure connects OBLIGATION individuals only (competesWith /
+prevailsOver between duties; defeasibleUnder duty-to-state). When the text's
+conflict has a side that is NOT among the committed obligation individuals
+(e.g. a principle-level philosophy vs a duty -- the case-97 pattern), an empty
+structure is VOCABULARY-CORRECT: report vocabulary_boundary, not a mismatch.
 Rubric: scope-specification and dissolution resolutions (duty met / no error /
-enumerated non-competing duties) warrant NO edges; a genuine conflict the board
-RESOLVES warrants prevailsOver with the winner matching the holding; a conflict
-the board leaves unresolved warrants competesWith without prevailsOver. Judge
-whether the committed structure (including emptiness) matches this case's
-holding. Output JSON: {{"structure_matches_holding": true/false, "why": "one
-sentence with a verbatim holding quote", "wrong_winner": null or {{"stored": "...",
-"holding_favors": "..."}}}}""")
+enumerated non-competing duties) warrant NO edges; a genuine conflict BETWEEN
+COMMITTED OBLIGATIONS that the board RESOLVES warrants prevailsOver with the
+winner matching the holding; one left unresolved warrants competesWith without
+prevailsOver. Output JSON: {{"structure_matches_holding": true/false,
+"vocabulary_boundary": null or "one sentence naming the non-obligation side",
+"why": "one sentence with a verbatim holding quote", "wrong_winner": null or
+{{"stored": "...", "holding_favors": "..."}}}}""")
     if verdict is None:
         return _check("S6_defeasibility_sanity", "warning", "judge_unavailable",
                       {"trio": {k: len(v) for k, v in trio.items()}})
-    bad = (not verdict.get("structure_matches_holding", True)) or verdict.get("wrong_winner")
+    bad = ((not verdict.get("structure_matches_holding", True))
+           and not verdict.get("vocabulary_boundary")) or verdict.get("wrong_winner")
     verdict["trio_counts"] = {k: len(v) for k, v in trio.items()}
-    return _check("S6_defeasibility_sanity", "warning",
-                  "warning" if bad else "pass", verdict)
+    status = "warning" if bad else ("info" if verdict.get("vocabulary_boundary") else "pass")
+    return _check("S6_defeasibility_sanity", "warning", status, verdict)
 
 
 def s7_decision_points(case_id, sections) -> dict:
@@ -338,25 +349,27 @@ match the actual holding? Output JSON: {{"invented": ["focus ..."], "resolution_
 
 # --- driver -------------------------------------------------------------------
 
-def audit_case(case_id: int) -> dict:
+def audit_case(case_id: int, only: Optional[frozenset] = None) -> dict:
     sections = _sections(case_id)
     g = _graph(case_id)
     if g is None:
         return {"case_id": case_id, "overall_status": "critical",
                 "checks": [_check("S0_graph_exists", "critical", "critical",
                                   {"note": "no committed TTL"})]}
-    checks = [
-        s1_precedent_designators(case_id, g, sections),
-        s2_agent_grounding(case_id, g, sections),
-        s3_board_questions(case_id, sections),
-        s4_conclusions(case_id, sections),
-        s5_obligations(case_id, g, sections),
-        s6_defeasibility(case_id, g, sections),
-        s7_decision_points(case_id, sections),
-    ]
+    registry = {
+        "s1": lambda: s1_precedent_designators(case_id, g, sections),
+        "s2": lambda: s2_agent_grounding(case_id, g, sections),
+        "s3": lambda: s3_board_questions(case_id, sections),
+        "s4": lambda: s4_conclusions(case_id, sections),
+        "s5": lambda: s5_obligations(case_id, g, sections),
+        "s6": lambda: s6_defeasibility(case_id, g, sections),
+        "s7": lambda: s7_decision_points(case_id, sections),
+    }
+    checks = [fn() for key, fn in registry.items() if only is None or key in only]
     crit = sum(1 for c in checks if c["status"] == "critical")
     warn = sum(1 for c in checks
                if c["status"] in ("warning", "judge_unavailable"))
+    # 'info' statuses (e.g. a vocabulary-boundary note) count toward neither.
     overall = "critical" if crit else ("warning" if warn else "pass")
     return {"case_id": case_id, "overall_status": overall,
             "critical_count": crit, "warning_count": warn, "checks": checks}
@@ -411,6 +424,7 @@ def main() -> int:
     ap.add_argument("--batch-file")
     ap.add_argument("--sample", type=int, default=5)
     ap.add_argument("--pin", nargs="+", type=int, default=[])
+    ap.add_argument("--checks", help="comma list, e.g. s1,s2,s3 (default: all)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
@@ -426,10 +440,12 @@ def main() -> int:
             ids = [args.case_id]
         else:
             ap.error("give a case id, --batch, or --batch-file")
-        print(f"semantic audit ({PROTOCOL_VERSION}) over cases: {ids}")
+        only = frozenset(args.checks.lower().split(",")) if args.checks else None
+        print(f"semantic audit ({PROTOCOL_VERSION}) over cases: {ids}"
+              + (f" checks={sorted(only)}" if only else ""))
         worst = "pass"
         for cid in ids:
-            result = audit_case(cid)
+            result = audit_case(cid, only=only)
             if not args.dry_run:
                 store_result(result)
             print(f"case {cid}: {result['overall_status'].upper()} "
