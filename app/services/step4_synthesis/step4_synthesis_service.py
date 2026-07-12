@@ -1171,12 +1171,12 @@ def _run_phase4(case_id: int, llm_client) -> dict:
 
         logger.info(f"[Step4Synthesis] Phase 4: {len(result.narrative_elements.characters)} characters, {len(result.timeline.events)} events")
 
-        # Save extraction prompt for provenance: the REAL rendered prompts and
-        # raw responses from the narrative sub-extractors (result.llm_traces),
-        # not the stage-count placeholder this row stored until 2026-07-11.
+        # Save extraction prompt for provenance: the REAL rendered prompts
+        # from the narrative sub-extractors (result.llm_traces), not the
+        # stage-count placeholder this row stored until 2026-07-11.
         from app.services.narrative.trace_capture import join_llm_traces
         session_id = str(uuid.uuid4())
-        trace_prompts, trace_responses = join_llm_traces(getattr(result, 'llm_traces', None))
+        trace_prompts, _trace_responses = join_llm_traces(getattr(result, 'llm_traces', None))
         extraction_prompt = ExtractionPrompt(
             case_id=case_id,
             concept_type='phase4_narrative',
@@ -1186,7 +1186,12 @@ def _run_phase4(case_id: int, llm_client) -> dict:
             or f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages (no llm_traces)",
             llm_model=ModelConfig.get_claude_model("default"),
             extraction_session_id=session_id,
-            raw_response=trace_responses or json.dumps(result.to_dict()),
+            # raw_response is a DATA CONTRACT, not a capture surface:
+            # moral_intensity_apply (and Step 5) parse it as the result JSON.
+            # Storing joined trace text here broke the intensity pass for all
+            # of rebuild batch 1 (2026-07-11). The real rendered prompts live
+            # in prompt_text; per-stage raw responses stay in llm_traces.
+            raw_response=json.dumps(result.to_dict()),
             results_summary=json.dumps(result.summary())
         )
         db.session.add(extraction_prompt)
