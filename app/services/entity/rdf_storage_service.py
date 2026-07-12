@@ -215,6 +215,24 @@ def _entity_text(label, definition) -> str:
     return f"{label}: {definition}" if definition else label
 
 
+# Designators are textual identities: two labels carrying DIFFERENT case
+# numbers ("BER Case 62-21" vs "BER Case 62-7") or provision codes ("II.3.a"
+# vs "III.9.a") denote different documents no matter how close their
+# embeddings sit -- citation strings differ by a couple of characters, so
+# cosine runs ~0.99 between distinct citations (batch-2 review: the dedup
+# collapsed two of case 143's four cited precedents into a third). The guard
+# also refuses to merge a designator-bearing label with a designator-free one:
+# citation identity is textual, and over-splitting stays reviewable where
+# silent fusion does not.
+import re as _re_desig
+
+_DESIGNATOR_RE = _re_desig.compile(r"\b\d{2}-\d{1,2}\b|\b[IVX]+\.\d+(?:\.[a-z])?\b")
+
+
+def _label_designators(label) -> frozenset:
+    return frozenset(m.group(0).upper() for m in _DESIGNATOR_RE.finditer(label or ""))
+
+
 def _find_semantic_match(
     case_id: int, label: str, definition, entity_type: str,
     threshold: float = _DEDUP_THRESHOLD,
@@ -223,11 +241,13 @@ def _find_semantic_match(
     cosine to the new entity is >= threshold, else None. Catches the same concept paraphrased across
     the facts and discussion passes that the exact-label merge misses (the over-split problem). The
     high threshold plus same-type scoping favors leaving a duplicate over fusing two genuinely
-    distinct concepts; survivors stay deletable in review. Best-effort: any embedding failure returns
+    distinct concepts; survivors stay deletable in review. Labels whose citation designators
+    differ are NEVER merged (_DESIGNATOR_RE). Best-effort: any embedding failure returns
     None (no merge) and never blocks storage."""
     try:
         from app.services.embedding.similarity_utils import cosine_similarity_list
         new_emb = list(_embed_text(_entity_text(label, definition)))
+        new_designators = _label_designators(label)
         candidates = TemporaryRDFStorage.query.filter(
             TemporaryRDFStorage.case_id == case_id,
             TemporaryRDFStorage.entity_type == entity_type,
@@ -237,6 +257,9 @@ def _find_semantic_match(
         for cand in candidates:
             if (cand.entity_label or '') == (label or ''):
                 continue  # exact-label is handled before this fallback
+            cand_designators = _label_designators(cand.entity_label)
+            if (new_designators or cand_designators) and new_designators != cand_designators:
+                continue  # different citation identities; never fuse
             sim = cosine_similarity_list(
                 new_emb, list(_embed_text(_entity_text(cand.entity_label, cand.entity_definition))))
             if sim >= best_sim:
