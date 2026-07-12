@@ -21,14 +21,22 @@ import re
 
 # === precedent_filter patterns (drop phantom precedent entities) =========================
 
-# Precedent-citation marker anywhere in a label/quote (BER [Case] [No.] NN-N | Case [No.] NN-N |
-# Doe). Used by precedent_filter.is_precedent_reference.
+# Precedent-citation marker anywhere in a label/quote (BER [Case] [No.] NN-N | Case [No.] NN-N).
+# Used by precedent_filter.is_precedent_reference. The former "|\bDoe\b" alternative moved to
+# PLACEHOLDER_ACTOR_RE (2026-07-11, rebuild batch 1): in modern opinions Doe appears only inside
+# cited precedents, but pre-1980s cases use Doe/Roe as the PRESENT case's party names (NSPE
+# 76-4's protagonist IS "Engineer Doe"), so unconditional matching dropped 16 present-case
+# individuals across six components. Placeholder names are now judged per case against the
+# present-case sections (precedent_filter placeholder_actor rule), like the engineer-letter rule.
 PRECEDENT_REF_RE = re.compile(
     r"\bBER\s+(?:Case\s+)?(?:No\.?\s+)?\d{2}-\d{1,2}\b"
-    r"|\bCase\s+(?:No\.?\s+)?\d{2}-\d{1,2}\b"
-    r"|\bDoe\b",
+    r"|\bCase\s+(?:No\.?\s+)?\d{2}-\d{1,2}\b",
     re.IGNORECASE,
 )
+
+# NSPE placeholder party surnames (Doe and its companion Roe). Contamination markers ONLY when
+# the name is foreign to the present case; see precedent_filter.is_foreign_placeholder_entity.
+PLACEHOLDER_ACTOR_RE = re.compile(r"\b(Doe|Roe)\b", re.IGNORECASE)
 
 # Concept-type head nouns appended to labels by the D4 generality reinforcement; embedded into
 # GENERIC_PRECEDENT_RE so a bare placeholder plus its head noun still matches.

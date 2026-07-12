@@ -467,6 +467,40 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
 
         # Store provisions
         session_id = str(uuid.uuid4())
+
+        # Capture provenance for the two LLM stages (this batch path stored
+        # provisions with NO extraction_prompts row until 2026-07-11; the
+        # PROVISIONS stage was invisible to the prompt viewer). The validator
+        # retains only its LAST group's call; the linker retains the
+        # batch-joined prompts for every call.
+        _parts_p, _parts_r = [], []
+        if getattr(validator, 'last_validation_prompt', None):
+            _parts_p.append("=== GROUP_VALIDATION (last group only) ===\n"
+                            f"{validator.last_validation_prompt}")
+            _parts_r.append("=== GROUP_VALIDATION (last group only) ===\n"
+                            f"{validator.last_validation_response or ''}")
+        if getattr(linker, 'last_linking_prompt', None):
+            _parts_p.append(f"=== PROVISION_LINKING ===\n{linker.last_linking_prompt}")
+            _parts_r.append(f"=== PROVISION_LINKING ===\n{linker.last_linking_response or ''}")
+        db.session.add(ExtractionPrompt(
+            case_id=case_id,
+            concept_type='code_provision_reference',
+            step_number=4,
+            section_type='references',
+            prompt_text="\n\n".join(_parts_p) or 'Code provision extraction (no LLM prompt retained)',
+            llm_model=ModelConfig.get_claude_model("default"),
+            extraction_session_id=session_id,
+            raw_response="\n\n".join(_parts_r),
+            results_summary={
+                'total_provisions': len(provisions),
+                'total_links': total_links,
+            },
+            is_active=True,
+            times_used=1,
+            created_at=datetime.utcnow(),
+            last_used_at=datetime.utcnow()
+        ))
+
         for provision in provisions:
             rdf_entity = TemporaryRDFStorage(
                 case_id=case_id,
@@ -476,6 +510,7 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
                 entity_type='provisions',
                 entity_label=provision.get('code_provision', 'Unknown'),
                 entity_definition=provision.get('provision_text', ''),
+                extraction_model=ModelConfig.get_claude_model("default"),
                 rdf_json_ld={
                     '@type': 'proeth-case:CodeProvisionReference',
                     'codeProvision': provision.get('code_provision', ''),
@@ -567,7 +602,11 @@ def _run_precedents(case_id: int, llm_client) -> dict:
             if case_number:
                 try:
                     resolved = Document.query.filter(
-                        Document.doc_metadata['case_number'].astext == case_number
+                        Document.doc_metadata['case_number'].astext == case_number,
+                        # Shadow-gate clones share the gold's case_number; a
+                        # precedent must never bind to a shadow document
+                        # (deleted at shadow-cleanup -> dangling internalCaseId).
+                        Document.doc_metadata['shadow_of'].astext.is_(None)
                     ).first()
                     p['internalCaseId'] = resolved.id if resolved else None
                     p['resolved'] = resolved is not None
@@ -586,6 +625,7 @@ def _run_precedents(case_id: int, llm_client) -> dict:
                 entity_type='precedent_references',
                 entity_label=p.get('caseCitation', 'Unknown Case'),
                 entity_definition=p.get('citationContext', ''),
+                extraction_model=ModelConfig.get_claude_model("default"),
                 rdf_json_ld={
                     '@type': 'proeth-case:PrecedentCaseReference',
                     'caseCitation': p.get('caseCitation', ''),
@@ -757,10 +797,10 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 concept_type='ethical_question',
                 step_number=4,
                 section_type='synthesis',
-                prompt_text=q_prompt_text[:10000] if q_prompt_text else 'Question extraction',
+                prompt_text=q_prompt_text if q_prompt_text else 'Question extraction',
                 llm_model=ModelConfig.get_claude_model("default"),
                 extraction_session_id=session_id,
-                raw_response=q_response_text[:10000] if q_response_text else '',
+                raw_response=q_response_text if q_response_text else '',
                 results_summary=json.dumps({
                     'total': len(questions),
                     'board_explicit': board_q_count,
@@ -777,10 +817,10 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
                 concept_type='ethical_conclusion',
                 step_number=4,
                 section_type='synthesis',
-                prompt_text=c_prompt_text[:10000] if c_prompt_text else 'Conclusion extraction',
+                prompt_text=c_prompt_text if c_prompt_text else 'Conclusion extraction',
                 llm_model=ModelConfig.get_claude_model("default"),
                 extraction_session_id=session_id,
-                raw_response=c_response_text[:10000] if c_response_text else '',
+                raw_response=c_response_text if c_response_text else '',
                 results_summary=json.dumps({
                     'total': len(conclusions),
                     'board_explicit': board_c_count,
@@ -1036,8 +1076,8 @@ def _run_phase3(case_id: int, llm_client) -> dict:
         # Save prompt
         session_id = result.extraction_session_id or str(uuid.uuid4())
         if result.llm_prompt:
-            prompt_text = result.llm_prompt[:10000]
-            raw_response = result.llm_response[:10000] if result.llm_response else ''
+            prompt_text = result.llm_prompt
+            raw_response = result.llm_response if result.llm_response else ''
         else:
             prompt_text = 'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic)'
             raw_response = f'Candidates: {result.candidates_count}, Canonical: {result.canonical_count}'
@@ -1131,22 +1171,34 @@ def _run_phase4(case_id: int, llm_client) -> dict:
 
         logger.info(f"[Step4Synthesis] Phase 4: {len(result.narrative_elements.characters)} characters, {len(result.timeline.events)} events")
 
-        # Save extraction prompt for provenance
+        # Save extraction prompt for provenance: the REAL rendered prompts
+        # from the narrative sub-extractors (result.llm_traces), not the
+        # stage-count placeholder this row stored until 2026-07-11.
+        from app.services.narrative.trace_capture import join_llm_traces
         session_id = str(uuid.uuid4())
+        trace_prompts, _trace_responses = join_llm_traces(getattr(result, 'llm_traces', None))
         extraction_prompt = ExtractionPrompt(
             case_id=case_id,
             concept_type='phase4_narrative',
             step_number=4,
             section_type='synthesis',
-            prompt_text=f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages",
+            prompt_text=trace_prompts
+            or f"Phase 4 Narrative Construction - {len(result.stages_completed)} stages (no llm_traces)",
             llm_model=ModelConfig.get_claude_model("default"),
             extraction_session_id=session_id,
+            # raw_response is a DATA CONTRACT, not a capture surface:
+            # moral_intensity_apply (and Step 5) parse it as the result JSON.
+            # Storing joined trace text here broke the intensity pass for all
+            # of rebuild batch 1 (2026-07-11). The real rendered prompts live
+            # in prompt_text; per-stage raw responses stay in llm_traces.
             raw_response=json.dumps(result.to_dict()),
             results_summary=json.dumps(result.summary())
         )
         db.session.add(extraction_prompt)
 
-        # Save whole_case_synthesis to mark as complete
+        # Save whole_case_synthesis to mark as complete. This row is a status
+        # marker (cases.py reads its existence for pipeline_status), not an
+        # LLM call; the text says so instead of masquerading as a prompt.
         synthesis_summary = {
             'characters_count': len(result.narrative_elements.characters),
             'timeline_events_count': len(result.timeline.events),
@@ -1157,7 +1209,8 @@ def _run_phase4(case_id: int, llm_client) -> dict:
             concept_type='whole_case_synthesis',
             step_number=4,
             section_type='synthesis',
-            prompt_text='Complete Four-Phase Synthesis',
+            prompt_text='[synthesis completion marker; no direct LLM call -- '
+                        'per-phase prompts are on the phase2/phase3/phase4 rows]',
             llm_model=ModelConfig.get_claude_model("default"),
             extraction_session_id=session_id,
             raw_response=json.dumps(synthesis_summary),

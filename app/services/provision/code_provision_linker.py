@@ -95,11 +95,16 @@ class CodeProvisionLinker:
         all_prompts = []
         all_responses = []
 
-        def _link_one_type(entity_type, type_label, entities):
-            """Call LLM for one entity type and return parsed links."""
-            prompt = self._create_batch_linking_prompt(
-                provisions, entity_type, type_label, entities, case_text_summary
-            )
+        def _link_one_type(entity_type, type_label, prompt):
+            """Call LLM for one entity type and return parsed links.
+
+            Receives the ALREADY-RENDERED prompt: prompt building runs on the
+            main thread because get_step4_template reads the DB templates and
+            needs the Flask app context, which executor worker threads do not
+            have. Since the 2026-07-11 Step-4 template migration every worker
+            raised 'Working outside of application context' and the swallow
+            below reduced the whole stage to zero links (caught by the
+            shadow gate: case-121 shadow lost all 68 appliesTo edges)."""
             from app.utils.llm_utils import streaming_completion
             response_text = streaming_completion(
                 self.llm_client,
@@ -113,12 +118,18 @@ class CodeProvisionLinker:
             logger.info(f"Linked {type_label}: {link_count} links")
             return entity_type, type_label, prompt, response_text, batch_links
 
-        active_groups = [(et, tl, ents) for et, tl, ents in entity_groups if ents]
+        # Render all prompts on the main thread (app context available here).
+        active_groups = [
+            (et, tl, self._create_batch_linking_prompt(
+                provisions, et, tl, ents, case_text_summary))
+            for et, tl, ents in entity_groups if ents
+        ]
 
+        failed_groups = 0
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
-                executor.submit(_link_one_type, et, tl, ents): (et, tl)
-                for et, tl, ents in active_groups
+                executor.submit(_link_one_type, et, tl, prompt): (et, tl)
+                for et, tl, prompt in active_groups
             }
             for future in as_completed(futures):
                 et, tl = futures[future]
@@ -131,7 +142,14 @@ class CodeProvisionLinker:
                         if code in batch_links:
                             provision['applies_to'].extend(batch_links[code])
                 except Exception as e:
+                    failed_groups += 1
                     logger.error(f"Error linking {tl}: {e}")
+        if active_groups and failed_groups == len(active_groups):
+            # Every group failing is an infrastructure fault, not a judgment;
+            # swallowing it stored empty applies_to arrays that read as data.
+            raise RuntimeError(
+                f"provision linking failed for ALL {failed_groups} entity groups; "
+                f"see 'Error linking' log lines")
 
         self.last_linking_prompt = "\n\n---BATCH---\n\n".join(all_prompts)
         self.last_linking_response = "\n\n---BATCH---\n\n".join(all_responses)

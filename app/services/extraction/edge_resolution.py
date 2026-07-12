@@ -261,21 +261,38 @@ def _map_selection_data(data: Dict[str, Any], items: List[Dict[str, Any]]) -> Di
     return out
 
 
-def _select_attempt(client, model, prompt: str, items: List[Dict[str, Any]]):
+def _select_attempt(client, model, prompt: str, items: List[Dict[str, Any]],
+                    cache_prompt: bool = False, diag: Optional[Dict[str, Any]] = None):
     """One streamed select call. Returns the mapped selection dict, or None
-    when the response is not a JSON object (the caller falls back)."""
+    when the response is not a JSON object (the caller falls back).
+
+    ``cache_prompt`` marks the prompt as a cached prefix -- set by the
+    multi-vote path, whose votes re-send this identical prompt within seconds
+    (vote 1 writes, later votes read at ~0.1x). ``diag`` collects the raw
+    responses for the zero-outcome diagnosability record."""
     from app.utils.llm_utils import direct_call_params, extract_json_from_response
+    content = ([{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
+               if cache_prompt else prompt)
     chunks: List[str] = []
     with client.messages.stream(
         **direct_call_params(model, max_tokens=4096, temperature=0.0),
         system=("You select the single matching entity for each request, "
                 "respecting the relation's direction and polarity. Output strict JSON only."),
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": content}],
     ) as stream:
         for t in stream.text_stream:
             chunks.append(t)
     raw = "".join(chunks)
     logger.debug("edge_resolution: select raw response (%d chars): %r", len(raw), raw[:2000])
+    if diag is not None:
+        diag.setdefault("raws", []).append(raw)
+    if not raw.strip():
+        # A thinking-default model can spend the whole budget before emitting
+        # text, or the API can return an empty stream; either way this is a
+        # failed ATTEMPT (ballot dropped / caller falls back), not an
+        # exception to propagate.
+        logger.warning("edge_resolution: select stream produced no text")
+        return None
     data = extract_json_from_response(raw)
     if not isinstance(data, dict):
         logger.warning("edge_resolution: select response parsed to %s, not a JSON object",
@@ -285,19 +302,32 @@ def _select_attempt(client, model, prompt: str, items: List[Dict[str, Any]]):
 
 
 def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=None,
-                model_tier: str = "fast"):
-    """Map each item id -> ONE chosen candidate IRI (or None) via one LLM call.
+                model_tier: str = "fast", votes: int = 1,
+                diag: Optional[Dict[str, Any]] = None):
+    """Map each item id -> ONE chosen candidate IRI (or None) via LLM call(s).
 
     Returns the selection dict, or None if the LLM is unavailable / the call fails
     (the caller then falls back to the embedding threshold). ``prompt_builder``
     receives the items list and returns the user prompt; ``model_tier`` picks the
-    default model when ``model`` is not supplied (the constrained pick-from-shortlist
-    task fits the fast tier).
+    default model when ``model`` is not supplied.
 
-    Run-21 hardening (F2b): the raw response is logged at DEBUG, unrecognized
-    value shapes / unknown keys are logged at WARNING instead of silently
-    coerced to None, a single-key wrapper object is unwrapped, and an all-none
-    selection over >= ALLNONE_RETRY_MIN_ITEMS items is retried once and then
+    ``votes`` > 1 runs that many independent attempts on the IDENTICAL prompt
+    (cached prefix: vote 1 writes, later votes read) and takes the per-item
+    strict majority -- a candidate is chosen only when more than half of the
+    successful votes pick it, else the item resolves to none. This is the
+    activatesObligation-instability calibration (2026-07-11): a controlled
+    5x-repeatability experiment showed BOTH single-call tiers flip run to run
+    (2-4 distinct selection sets of 5), so a lone call cannot be stable
+    regardless of tier; majority voting pins the modal judgment. Under voting,
+    an all-none MAJORITY is accepted as the answer (three independent
+    judgments already guard the one-flaky-call case the single-vote all-none
+    retry exists for; overriding them with embedding thresholds would undo
+    the precision layer). ``diag`` collects {prompt, model, raws} for the
+    zero-outcome diagnosability record.
+
+    Run-21 hardening (F2b) on the single-vote path is unchanged: raw logged at
+    DEBUG, unknown shapes WARN instead of silent None, wrapper unwrap, and an
+    all-none selection over >= ALLNONE_RETRY_MIN_ITEMS items retried once then
     handed to the caller's calibrated embedding fallback (return None)."""
     if not items:
         return {}
@@ -312,14 +342,57 @@ def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=
             logger.warning("edge_resolution: no Anthropic streaming client; embedding fallback")
             return None
         prompt = prompt_builder(items)
-        out = _select_attempt(client, model, prompt, items)
+        if diag is not None:
+            diag["prompt"] = prompt
+            diag["model"] = model
+
+        if votes > 1:
+            ballots = []
+            for vote_i in range(votes):
+                # Per-ballot isolation: a single failed vote (empty stream,
+                # parse error, transient API fault) is DROPPED, not allowed to
+                # abort the panel -- absorbing one bad generation is the whole
+                # point of voting. The case-9 shadow run lost its entire
+                # state-edge select to one empty first vote escaping to the
+                # outer except (2026-07-11).
+                try:
+                    out = _select_attempt(client, model, prompt, items,
+                                          cache_prompt=True, diag=diag)
+                except Exception as ballot_err:  # noqa: BLE001
+                    logger.warning("edge_resolution: vote %d/%d failed (%s); "
+                                   "ballot dropped", vote_i + 1, votes, ballot_err)
+                    out = None
+                if out is not None:
+                    ballots.append(out)
+            if not ballots:
+                logger.warning("edge_resolution: all %d votes failed; embedding fallback",
+                               votes)
+                return None
+            merged: Dict[str, Any] = {}
+            need = len(ballots) // 2 + 1
+            for it in items:
+                key = str(it["id"])
+                tally: Dict[Any, int] = {}
+                for b in ballots:
+                    v = b.get(key)
+                    tally[v] = tally.get(v, 0) + 1
+                winner, count = max(tally.items(), key=lambda kv: kv[1])
+                merged[key] = winner if count >= need else None
+            if _resolved_count(merged, items) == 0:
+                logger.warning(
+                    "edge_resolution: %d-vote majority resolved 0 of %d items "
+                    "(accepted as the answer; unanimous-none across votes)",
+                    len(ballots), len(items))
+            return merged
+
+        out = _select_attempt(client, model, prompt, items, diag=diag)
         if out is None:
             return None
         if len(items) >= ALLNONE_RETRY_MIN_ITEMS and _resolved_count(out, items) == 0:
             logger.warning(
                 "edge_resolution: select resolved 0 of %d items (all-none); retrying once",
                 len(items))
-            out = _select_attempt(client, model, prompt, items)
+            out = _select_attempt(client, model, prompt, items, diag=diag)
             if out is None:
                 return None
             if _resolved_count(out, items) == 0:
@@ -439,7 +512,8 @@ def _safe_frag(iri) -> str:
 
 
 def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
-                   desc: str, label: str, comment: str):
+                   desc: str, label: str, comment: str,
+                   generated_at: Optional[str] = None):
     """Shared PROV-O Derivation emitter for a materialized (subj, prop, obj) edge --
     the single home for the provenance-node shape the edge-applier family used to
     copy-paste eight times (rule of three). ``prefix`` is the LITERAL provenance-IRI
@@ -447,7 +521,9 @@ def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
     ``case#<prefix><safe_frag(subj)>_<prop>_<safe_frag(obj)>`` -- byte-identical to the
     pre-consolidation scheme, and idempotent. The per-family ``label``/``comment`` stay
     local config and are passed through; only the node-shape logic is centralized.
-    Returns the node IRI."""
+    ``generated_at`` (ISO-8601 string) is opt-in: families that record the
+    derivation time emit a typed prov:generatedAtTime; existing callers that
+    omit it stay byte-identical. Returns the node IRI."""
     case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
     prov_iri = case_ns[prefix + _safe_frag(subj) + "_" + prop + "_" + _safe_frag(obj)]
     if (prov_iri, RDF.type, PROV.Derivation) in g:
@@ -459,6 +535,10 @@ def emit_edge_prov(g: Graph, case_id: int, prefix: str, prop: str, subj, obj,
     if desc:
         g.add((prov_iri, PROV.value, Literal(str(desc))))
     g.add((prov_iri, RDFS.comment, Literal(comment)))
+    if generated_at:
+        from rdflib import XSD as _XSD
+        g.add((prov_iri, PROV.generatedAtTime,
+               Literal(str(generated_at), datatype=_XSD.dateTime)))
     return prov_iri
 
 

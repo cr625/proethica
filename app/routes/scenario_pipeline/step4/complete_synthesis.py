@@ -207,8 +207,8 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
                 # Save Phase 3 ExtractionPrompt for UI display (always save, even with 0 candidates)
                 try:
                     if phase3_result.llm_prompt:
-                        prompt_text = phase3_result.llm_prompt[:10000]
-                        raw_response = phase3_result.llm_response[:10000] if phase3_result.llm_response else ''
+                        prompt_text = phase3_result.llm_prompt
+                        raw_response = phase3_result.llm_response if phase3_result.llm_response else ''
                     else:
                         # No LLM output (E1-E3 found 0 AND LLM fallback didn't produce results)
                         prompt_text = f'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic Composition)\n\nE1-E3 Algorithm found 0 matching candidates.\nLLM fallback using causal_normative_links was attempted but produced no results.'
@@ -305,17 +305,10 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
                 # Save Phase 4 extraction prompt for provenance
                 session_id = str(uuid.uuid4())
 
-                # Extract actual LLM prompts from llm_traces
-                actual_prompts = []
-                if hasattr(phase4_result, 'llm_traces') and phase4_result.llm_traces:
-                    for trace in phase4_result.llm_traces:
-                        if isinstance(trace, dict) and trace.get('prompt'):
-                            stage = trace.get('stage', 'UNKNOWN')
-                            actual_prompts.append(f"=== {stage} ===\n{trace['prompt']}")
-
-                prompt_text = "\n\n".join(actual_prompts) if actual_prompts else "Complete Synthesis - Phase 4 Narrative Construction"
-                if len(prompt_text) > 10000:
-                    prompt_text = prompt_text[:9950] + "\n... [truncated]"
+                # Real rendered prompts via the shared joiner (no truncation).
+                from app.services.narrative.trace_capture import join_llm_traces
+                prompt_text, _ = join_llm_traces(getattr(phase4_result, 'llm_traces', None))
+                prompt_text = prompt_text or "Complete Synthesis - Phase 4 Narrative Construction (no llm_traces)"
 
                 extraction_prompt = ExtractionPrompt(
                     case_id=case_id,
@@ -347,7 +340,8 @@ def register_complete_synthesis_routes(bp, build_entity_foundation, load_canonic
                     concept_type='whole_case_synthesis',
                     step_number=4,
                     section_type=STEP4_SECTION_TYPE,
-                    prompt_text='Complete Four-Phase Synthesis',
+                    prompt_text='[synthesis completion marker; no direct LLM call -- '
+                                'per-phase prompts are on the phase2/phase3/phase4 rows]',
                     llm_model=STEP4_DEFAULT_MODEL,
                     extraction_session_id=session_id,
                     raw_response=json.dumps(synthesis_summary),

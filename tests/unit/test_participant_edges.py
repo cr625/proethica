@@ -97,3 +97,30 @@ def test_prompt_wording_is_spec_specific_and_excludes_generics():
     pi = es._participant_prompt_factory(inv, es._PARTICIPANT_SPEC)(_items())
     assert "principle" in pi.lower()
     assert "INVOKES" in pi
+
+
+def test_board_agent_typed_deliberative_body_on_mint_and_reuse():
+    """The Board agent is the deliberative body, not a case participant
+    (cases v3.8.0, case-5 popover review): minted nodes carry the
+    DeliberativeBody subclass + definition, and a REUSED extraction-minted
+    Board agent (the case-5 pattern) gains both at materialization time."""
+    from rdflib import Graph, Literal, RDF, RDFS, URIRef
+    CASES = Namespace("http://proethica.org/ontology/cases#")
+    CORE = Namespace("http://proethica.org/ontology/core#")
+    SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
+
+    g = Graph()
+    minted = es._ensure_board_agent(g, 999)
+    assert (minted, RDF.type, CASES.DeliberativeBody) in g
+    assert g.value(minted, SKOS.definition) is not None
+    # idempotent
+    assert es._ensure_board_agent(g, 999) == minted
+
+    g2 = Graph()
+    extracted = URIRef("http://proethica.org/ontology/case/5#Agent_Board_of_Ethical_Review")
+    g2.add((extracted, RDF.type, CORE.Agent))
+    g2.add((extracted, RDFS.label, Literal("Board of Ethical Review")))
+    reused = es._ensure_board_agent(g2, 5)
+    assert reused == extracted  # no same-label duplicate minted
+    assert (extracted, RDF.type, CASES.DeliberativeBody) in g2
+    assert g2.value(extracted, SKOS.definition) is not None

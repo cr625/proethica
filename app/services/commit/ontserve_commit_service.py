@@ -21,6 +21,7 @@ The current approach allows easy clearing of test classes via clear_extracted_cl
 import os
 import json
 import logging
+import re
 from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timezone
 import subprocess
@@ -202,6 +203,43 @@ class OntServeCommitService:
             self._base_cat_cache = cache
         return cache.get(class_local_name)
 
+    _NINE_CORE = {'Role', 'Principle', 'Obligation', 'State', 'Resource',
+                  'Action', 'Event', 'Capability', 'Constraint'}
+
+    def _core_category_of_iri(self, iri: str) -> Optional[str]:
+        """Core category an IRI resolves to: the IRI itself when it IS one of
+        the nine core classes, else the base map (core + intermediate)."""
+        local = str(iri).split('#')[-1].split('/')[-1]
+        if str(iri).startswith(str(PROETHICA_CORE)) and local in self._NINE_CORE:
+            return local
+        return self._base_core_category(local)
+
+    def _graph_core_category(self, g, class_uri) -> Optional[str]:
+        """Core category a class's EXISTING subClassOf chain reaches, walking
+        the given graph (the extended store being written) with the base map
+        resolving parents declared outside it. None when the chain reaches no
+        core class (the caller then has no ground to veto on)."""
+        seen = set()
+
+        def walk(cls):
+            if cls in seen:
+                return None
+            seen.add(cls)
+            cat = self._core_category_of_iri(str(cls))
+            if cat:
+                return cat
+            for sup in g.objects(cls, RDFS.subClassOf):
+                r = walk(sup)
+                if r:
+                    return r
+            return None
+
+        for sup in g.objects(class_uri, RDFS.subClassOf):
+            r = walk(sup)
+            if r:
+                return r
+        return None
+
     def _category_safe_class_local(self, class_local_name: str, concept_category: Optional[str]) -> str:
         """Disambiguate a class local name when it collides, in the immutable base,
         with a DIFFERENT (disjoint) core category than the entity's own.
@@ -361,8 +399,10 @@ class OntServeCommitService:
                 case_id=case_id, agent_type='shacl_engine', agent_name='pyshacl+owl-rl',
                 execution_plan={'shapes': 'validation/shapes/core-shapes.ttl',
                                 'engine': 'SHACL + OWL-RL', 'via': 'OntServe repair_conformance_ttl MCP'},
-                result={'conforms': conf.get('conforms'), 'remaining': conf.get('remaining'),
-                        'reason': conf.get('reason'), 'status': conf.get('status')},
+                # gate_case_ttl's contract: status always; conforms/repairs_applied/
+                # residual when status == ok; error on gate_unavailable/gate_error.
+                result={'conforms': conf.get('conforms'), 'residual': conf.get('residual'),
+                        'error': conf.get('error'), 'status': conf.get('status')},
             )
             repairs = conf.get('repairs_applied')
             if repairs:
@@ -450,6 +490,11 @@ class OntServeCommitService:
                 # recommit the conclusions after the questions to restore.
                 if individual_result.get('qc_edges_dropped'):
                     results['qc_edges_dropped'] = individual_result['qc_edges_dropped']
+                # Canonicalization counters (roles_decomposed, states/obligations
+                # materialized, compound_classes_removed): always present so the
+                # persisted run record shows the step ran, even when all-zero.
+                if 'canonicalization' in individual_result:
+                    results['canonicalization'] = individual_result['canonicalization']
 
                 # C3 pre-commit conformance gate: SHACL + OWL-RL check + deterministic Tier-0
                 # repair (via the OntServe repair_conformance_ttl MCP tool) over the just-
@@ -464,6 +509,20 @@ class OntServeCommitService:
                     logger.warning("conformance gate skipped for case %s: %s", case_id, e)
                     results['conformance'] = {"status": "gate_error", "error": str(e)}
                 self._record_conformance_provenance(case_id, results.get('conformance'))
+
+            # A class- or individuals-commit error means a TTL write failed.
+            # Abort BEFORE publishing: a row marked published while absent from
+            # the committed TTL is silent data loss that every later
+            # recommit-from-temp_rdf sweep inherits. Temp rows stay unpublished
+            # for retry. The sync warnings appended after this point remain
+            # non-fatal here because the TTL is already durable on disk then
+            # (the orchestrating task decides whether they fail the run).
+            if results['errors']:
+                from app import db
+                db.session.rollback()
+                results['success'] = False
+                results['error'] = '; '.join(str(e) for e in results['errors'])
+                return results
 
             # Mark entities as published and record content hashes
             now = datetime.now(timezone.utc)
@@ -510,10 +569,48 @@ class OntServeCommitService:
 
         except Exception as e:
             logger.error(f"Error committing entities: {e}")
+            # A DB-origin exception leaves the shared session poisoned; without
+            # the rollback every later query in this request/task raises
+            # InFailedSqlTransaction and masks this original error.
+            try:
+                from app import db
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
             return {
                 'success': False,
                 'error': str(e)
             }
+
+    def ensure_case_synced(self, case_id: int) -> Dict[str, Any]:
+        """Verify the case's disk TTL matches the current OntServe DB version and
+        re-run the sync when they diverge.
+
+        The healing path for a commit whose post-publish sync failed: on retry
+        there are no unpublished rows left, so the commit sub-task no-ops --
+        without this check the disk TTL and the OntServe DB diverge silently
+        for that case and nothing ever re-drives the sync."""
+        case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+        if not case_file.exists():
+            return {'success': True, 'skipped': 'no case TTL on disk'}
+        try:
+            conn = psycopg2.connect(**get_ontserve_db_config())
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT v.content FROM ontology_versions v
+                    JOIN ontologies o ON v.ontology_id = o.id
+                    WHERE o.name = %s AND v.is_current = TRUE LIMIT 1
+                """, (f"proethica-case-{case_id}",))
+                row = cur.fetchone()
+            finally:
+                conn.close()
+        except Exception as e:  # noqa: BLE001
+            return {'success': False, 'error': f'sync check failed: {e}'}
+        if row and row[0] == case_file.read_text():
+            return {'success': True, 'in_sync': True}
+        logger.warning(f"case {case_id}: disk TTL and OntServe DB current version diverge; re-running sync")
+        return self._sync_ontology_to_db(f"proethica-case-{case_id}")
 
     def _record_ontology_commit(self, db, case_id: int, entities: list):
         """Record which OntServe ontology versions were current at commit time.
@@ -625,9 +722,25 @@ class OntServeCommitService:
                     self._accumulate_class_context(g, class_uri, entity, rdf_data, PROETHICA_PROV)
                     # Reconcile subClassOf parents a prior commit may be missing --
                     # notably the occupational archetype on role classes minted
-                    # before the resolver was wired. Additive only (archetype parents
-                    # all chain to the same core class, so no disjointness risk).
+                    # before the resolver was wired. GATED on core-category
+                    # agreement (2026-07-11 shadow-gate review): the parents
+                    # come from THIS extraction's category fields, so a
+                    # re-discovery of the same label under a different concept
+                    # category would otherwise add a second subClassOf into a
+                    # disjoint core branch, making every case that loads the
+                    # extended store Pellet-inconsistent. Same lesson as the
+                    # KI2026 endpoint-chain repair: trust the chain, not the
+                    # incoming category claim.
+                    existing_cat = self._graph_core_category(g, class_uri)
                     for sc_uri in self._resolve_subclass_uris(entity, rdf_data):
+                        parent_cat = self._core_category_of_iri(sc_uri)
+                        if existing_cat and parent_cat and parent_cat != existing_cat:
+                            logger.warning(
+                                "cross-category subClassOf VETOED on %s: existing "
+                                "chain -> %s, incoming parent %s -> %s "
+                                "(re-discovery under a different category)",
+                                class_uri, existing_cat, sc_uri, parent_cat)
+                            continue
                         if (class_uri, RDFS.subClassOf, URIRef(sc_uri)) not in g:
                             g.add((class_uri, RDFS.subClassOf, URIRef(sc_uri)))
                     continue
@@ -639,8 +752,13 @@ class OntServeCommitService:
                 g.add((class_uri, RDF.type, OWL.Class))
                 disp = label
                 if disp and ' ' not in disp and any(c.isupper() for c in disp[1:]):
-                    disp = _re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', disp)
-                    disp = _re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', disp)
+                    # NameError '_re' until 2026-07-11: this branch shipped in the
+                    # 2026-07-07 sweep referencing an import that never existed and
+                    # only executes for a genuinely NEW CamelCase class label --
+                    # gold recommits take the accumulate path, so the shadow gate
+                    # was the first run to reach it.
+                    disp = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', disp)
+                    disp = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', disp)
                 g.add((class_uri, RDFS.label, Literal(disp, lang='en')))
 
                 # Definitions: rdfs:comment + skos:definition (primary) and
@@ -1200,7 +1318,12 @@ class OntServeCommitService:
                     'role_axis_vetoes': role_axis_vetoes,
                     'qc_edges_dropped': qc_edges_dropped,
                     'role_axis_vetoes_post_canonicalization':
-                        canon_stats['role_axis_vetoes_post_canonicalization']}
+                        canon_stats['role_axis_vetoes_post_canonicalization'],
+                    # The full canonicalization counters (roles_decomposed etc.)
+                    # were previously only logged; the run record persists them.
+                    'canonicalization': {
+                        k: v for k, v in canon_stats.items()
+                        if k != 'role_axis_vetoes_post_canonicalization'}}
 
         except Exception as e:
             logger.error(f"Error committing individuals: {e}")
@@ -1801,7 +1924,7 @@ class OntServeCommitService:
     _PROV_PROP_KEYS = frozenset({
         'generatedAtTime', 'wasAttributedTo', 'wasGeneratedBy',
         'firstDiscoveredInCase', 'firstDiscoveredAt', 'discoveredInCase',
-        'discoveredInSection', 'discoveredInPass', 'sourceText',
+        'discoveredInSection', 'discoveredInStep', 'sourceText',
     })
 
     # Routing inputs and commit-resolved carrier fields the CLASS path must not
@@ -1864,8 +1987,8 @@ class OntServeCommitService:
             g.add((subject_uri, PP.discoveredInCase, Literal(int(case_id_val), datatype=XSD.integer)))
         if props.get('discoveredInSection'):
             g.add((subject_uri, PP.discoveredInSection, Literal(props['discoveredInSection'][0])))
-        if props.get('discoveredInPass'):
-            g.add((subject_uri, PP.discoveredInPass, Literal(int(props['discoveredInPass'][0]), datatype=XSD.integer)))
+        if props.get('discoveredInStep'):
+            g.add((subject_uri, PP.discoveredInStep, Literal(int(props['discoveredInStep'][0]), datatype=XSD.integer)))
 
         # sourceText: the props value plus every distinct per-section snippet from
         # the top-level source_texts dict (section attribution is on discoveredInSection).
@@ -2125,6 +2248,9 @@ class OntServeCommitService:
                     if canon_stats['role_axis_vetoes_post_canonicalization']:
                         results['role_axis_vetoes_post_canonicalization'] = \
                             canon_stats['role_axis_vetoes_post_canonicalization']
+                    results['canonicalization'] = {
+                        k: v for k, v in canon_stats.items()
+                        if k != 'role_axis_vetoes_post_canonicalization'}
 
             if classes_to_commit:
                 # For classes, we still append to intermediate-extended.ttl
@@ -2132,6 +2258,18 @@ class OntServeCommitService:
                 class_ttl_result = self._commit_classes_to_intermediate(classes_to_commit)
                 if class_ttl_result.get('error'):
                     results['errors'].append(class_ttl_result['error'])
+
+            # A failed TTL write must abort BEFORE publishing (the same guard
+            # commit_selected_entities carries): a row marked published while
+            # absent from the committed TTL is silent data loss. Rows stay
+            # unpublished for retry; the OntServe-side version rows created
+            # above are superseded by the retry's new version.
+            if results['errors']:
+                from app import db
+                db.session.rollback()
+                results['success'] = False
+                results['error'] = '; '.join(str(e) for e in results['errors'])
+                return results
 
             # Mark entities as published in ProEthica
             for entity in entities:
@@ -2864,6 +3002,13 @@ class OntServeCommitService:
             g.add((uri, PROETHICA_CASES['citationType'],
                    Literal(rdf_data['citationType'])))
 
+        # Provision-application excerpts (intermediate relevantExcerpt,
+        # 2026-07-11): the '[section] text' spans that apply the cited
+        # provision, previously dropped by the nested-structure skip. The
+        # appliesTo dicts become object edges via the analysis-edge applier.
+        if extraction_type == 'code_provision_reference' and rdf_data:
+            emit_cpr_enrichment(g, uri, rdf_data)
+
         if extraction_type == 'canonical_decision_point' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.DecisionPoint))
             if rdf_data.get('focus_id'):
@@ -2876,9 +3021,10 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['decisionQuestion'], Literal(rdf_data['decision_question'])))
             if rdf_data.get('role_label'):
                 g.add((uri, PROETHICA['roleLabel'], Literal(rdf_data['role_label'])))
-            for i, opt in enumerate(rdf_data.get('options', []) or []):
-                if isinstance(opt, dict) and opt.get('description'):
-                    g.add((uri, PROETHICA['option'], Literal(f"{i+1}. {opt['description']}")))
+            # The analytic literals (Toulmin slots, board resolution, scores,
+            # provisions, options incl. the board choice) come from the shared
+            # enrichment helper so the backfill path cannot drift from this one.
+            emit_decision_point_enrichment(g, uri, rdf_data)
 
         elif extraction_type == 'ethical_conclusion' and rdf_data:
             g.add((uri, RDF.type, PROETHICA_CASES.EthicalConclusion))
@@ -2886,6 +3032,12 @@ class OntServeCommitService:
                 g.add((uri, PROETHICA['conclusionText'], Literal(rdf_data['conclusionText'])))
             if rdf_data.get('conclusionType'):
                 g.add((uri, PROETHICA['conclusionType'], Literal(rdf_data['conclusionType'])))
+            # Board disposition (violation/no_violation/compliance/recommendation/
+            # interpretation, detected deterministically by ConclusionAnalyzer).
+            # 'unknown' is a detector non-answer, not a disposition; skip it.
+            if rdf_data.get('boardConclusionType') and rdf_data['boardConclusionType'] != 'unknown':
+                g.add((uri, PROETHICA['boardConclusionType'],
+                       Literal(rdf_data['boardConclusionType'])))
             if rdf_data.get('conclusionNumber'):
                 g.add((uri, PROETHICA['conclusionNumber'], Literal(int(rdf_data['conclusionNumber']), datatype=XSD.integer)))
             # Readable rdfs:label, mirroring the question treatment
@@ -3202,6 +3354,19 @@ class OntServeCommitService:
         elif jtype == 'time:TemporalEntity':
             g.add((uri, RDF.type, TIME['TemporalEntity']))
 
+        # Extraction-time generation timestamp, stamped by the temporal
+        # converter (the only extraction-time point in the temporal path).
+        # Distinct from the commit-time markers elsewhere in this file; the
+        # generic proeth: literal loop below never sees the plain key.
+        _gen = rdf_data.get('generatedAtTime')
+        if _gen:
+            try:
+                g.add((uri, PROV.generatedAtTime,
+                       Literal(datetime.fromisoformat(str(_gen)), datatype=XSD.dateTime)))
+            except (ValueError, TypeError):
+                logger.warning("unparseable generatedAtTime %r on temporal individual %s",
+                               _gen, uri)
+
         # The Allen converter emits OWL-Time triples whose object IRI uses the
         # legacy http://proethica.org/cases/{id}#Action_X scheme, but committed
         # individuals live at http://proethica.org/ontology/case/{id}#<safe_label>.
@@ -3256,16 +3421,16 @@ class OntServeCommitService:
                         step_no += 1
                         g.add((uri, PROETHICA['causalStep'], Literal(f"{step_no}. {text}")))
                 continue
-            if local in ('discoveredInSection', 'sourceText', 'discoveredInPass'):
+            if local in ('discoveredInSection', 'sourceText', 'discoveredInStep'):
                 # Temporal individuals carry provenance inline (no 'properties' wrapper for
                 # _emit_provenance to read), so route these to the typed PROV-O predicates
                 # here, giving the causal / temporal claims auditable source provenance.
                 for v in (value if isinstance(value, list) else [value]):
                     if v in (None, ''):
                         continue
-                    if local == 'discoveredInPass':
+                    if local == 'discoveredInStep':
                         try:
-                            g.add((uri, PROETHICA_PROV.discoveredInPass, Literal(int(v), datatype=XSD.integer)))
+                            g.add((uri, PROETHICA_PROV.discoveredInStep, Literal(int(v), datatype=XSD.integer)))
                         except (TypeError, ValueError):
                             pass
                     else:
@@ -3423,6 +3588,69 @@ class OntServeCommitService:
         result['success'] = len(result['errors']) == 0
         return result
 
+
+
+def emit_decision_point_enrichment(g: Graph, uri: URIRef, rdf_data: dict) -> None:
+    """DecisionPoint analytic literals (the Chapter-3 spec fields the Phase-3
+    synthesis persists): the Toulmin summary slots, the board-resolution
+    narrative, the two ranking scores (xsd:decimal), the provision
+    designations, the numbered options, and the board-chosen option.
+
+    Module-level with REPLACE semantics -- every owned predicate is cleared
+    before re-emission -- so the live commit serializer and the gold-15
+    backfill share one idempotent implementation and cannot drift."""
+    d = rdf_data or {}
+    toulmin = d.get('toulmin') or {}
+    for pred in ('boardResolution', 'intensityScore', 'qcAlignmentScore',
+                 'toulminClaim', 'toulminData', 'toulminWarrant',
+                 'toulminRebuttal', 'toulminQualifier', 'boardChosenOption',
+                 'citedProvision', 'option'):
+        g.remove((uri, PROETHICA[pred], None))
+    if d.get('board_resolution'):
+        g.add((uri, PROETHICA['boardResolution'], Literal(d['board_resolution'])))
+    for key, pred in (('intensity_score', 'intensityScore'),
+                      ('qc_alignment_score', 'qcAlignmentScore')):
+        v = d.get(key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            g.add((uri, PROETHICA[pred], Literal(str(v), datatype=XSD.decimal)))
+    for key, pred in (('claim', 'toulminClaim'),
+                      ('data_summary', 'toulminData'),
+                      ('warrants_summary', 'toulminWarrant'),
+                      ('rebuttals_summary', 'toulminRebuttal'),
+                      ('qualifier', 'toulminQualifier')):
+        if toulmin.get(key):
+            g.add((uri, PROETHICA[pred], Literal(toulmin[key])))
+    # One designation set: the Toulmin backing when carried, else the row's
+    # provision_labels (the two are the same list in practice; emitting both
+    # would double every code). Same citedProvision predicate the conclusion
+    # emission uses.
+    for code in (toulmin.get('backing_provisions')
+                 or d.get('provision_labels') or []):
+        if code:
+            g.add((uri, PROETHICA['citedProvision'], Literal(str(code))))
+    for i, opt in enumerate(d.get('options') or []):
+        if not (isinstance(opt, dict) and opt.get('description')):
+            continue
+        label = (opt.get('label') or '').strip()
+        text = (f"{i + 1}. {label}: {opt['description']}" if label
+                else f"{i + 1}. {opt['description']}")
+        g.add((uri, PROETHICA['option'], Literal(text)))
+        if opt.get('is_board_choice') and label:
+            g.add((uri, PROETHICA['boardChosenOption'], Literal(label)))
+
+
+def emit_cpr_enrichment(g: Graph, uri: URIRef, rdf_data: dict) -> None:
+    """CodeProvisionReference relevantExcerpt literals ('[section] text', one
+    per excerpt). REPLACE semantics; shared by the serializer and the gold-15
+    backfill. The appliesTo dicts are deliberately NOT flattened here -- they
+    become object edges via the analysis-record edge applier, which carries
+    each application's reasoning on the provenance derivation."""
+    g.remove((uri, PROETHICA['relevantExcerpt'], None))
+    for ex in ((rdf_data or {}).get('relevantExcerpts') or []):
+        if isinstance(ex, dict) and ex.get('text'):
+            sec = (ex.get('section') or '').strip()
+            text = f"[{sec}] {ex['text']}" if sec else str(ex['text'])
+            g.add((uri, PROETHICA['relevantExcerpt'], Literal(text)))
 
 
 _Q_TYPE_NAMES = {'board_explicit': 'Board question', 'implicit': 'Implicit question',

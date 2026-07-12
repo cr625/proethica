@@ -19,6 +19,7 @@ temp_rdf, so it is unit-testable on plain dicts.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -27,6 +28,17 @@ from app.services.extraction.extraction_verifier import verify_and_reground, det
 logger = logging.getLogger(__name__)
 
 _DUTY_COMPONENTS = {'obligations', 'constraints'}
+
+# The seven pass-1/2 components whose extraction contract ALWAYS carries verbatim
+# textReferences (gold-corpus census 2026-07-11: 100 percent of rows). A quoteless
+# row here is a contract breach, so the gate requires a confirmed grounding span
+# for it (repair-first: a found span is attached as the entity's quotes; no span
+# is a fabrication drop). Step-4 synthesis families and the Step-3 temporal
+# records are excluded -- they are derived analysis records whose grounding
+# contracts differ (causalLanguage, evidence) and are legitimately quoteless.
+_GROUNDED_COMPONENTS = {'roles', 'states', 'resources', 'principles',
+                        'obligations', 'constraints', 'capabilities'}
+
 _OVERREACH_VOTES = 5
 _OVERREACH_DROP_AT = 4   # supermajority of a 5-vote panel: cuts the run-to-run variance a 3/3-unanimous
                          # threshold suffered (a single dissenter no longer blocks a clear over-reach),
@@ -38,6 +50,7 @@ class GateResult:
     corrected_quotes: Dict[object, List[str]] = field(default_factory=dict)   # {entity_id: [verbatim spans]}
     dropped: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason)]
     flagged: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason, limiting_quote)]
+    repaired_quoteless: set = field(default_factory=set)                      # entity_ids whose quotes are GATE-ATTACHED (model emitted none)
     report: Dict = field(default_factory=dict)
 
     @property
@@ -54,6 +67,9 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     from model_config import ModelConfig
     model = model or ModelConfig.get_claude_model("gate")
     res = GateResult()
+    # Copies keep the gate pure: the require_quote annotation below must not
+    # leak into the caller's dicts.
+    entities = [dict(e) for e in entities]
 
     # 0. Null/empty labels -> drop (deterministic).
     live: List[Dict] = []
@@ -64,14 +80,35 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
             live.append(e)
 
     # 1. Verbatim grounding over every live entity: re-ground paraphrases, drop full fabrications.
+    #    Quoteless rows in the grounded components take the same pass (require_quote): a confirmed
+    #    span repairs them, no span drops them -- closing the text_references=[] bypass.
     if live:
+        for e in live:
+            e['require_quote'] = (e.get('component') or '').lower() in _GROUNDED_COMPONENTS
         gverdicts = verify_and_reground(case_text, live, model=model)
         for e, v in zip(live, gverdicts):
             if v.unsupported and not v.regrounded and not v.kept_verbatim:
-                res.dropped.append((e.get('id'), e.get('label'), 'fabrication: no quote has a supporting span'))
+                if (e.get('component') or '').lower() in _GROUNDED_COMPONENTS:
+                    reason = ('fabrication: no quote has a supporting span' if e.get('quotes')
+                              else 'quoteless: no case span supports the label/definition')
+                    res.dropped.append((e.get('id'), e.get('label'), reason))
+                else:
+                    # Temporal/synthesis rows are referenced by sibling rows
+                    # (Allen relations, timeline entries, causal chains), so an
+                    # ungrounded one is flagged for review, never auto-dropped:
+                    # dropping it would commit dangling case-ns references from
+                    # the siblings that survive.
+                    res.flagged.append((e.get('id'), e.get('label'),
+                                        'ungrounded quotes (kept: sibling rows reference it)', ''))
             elif v.regrounded or v.unsupported:
-                # the quote set changed (some re-grounded and/or some unsupported dropped)
+                # the quote set changed (some re-grounded, some unsupported dropped,
+                # or a quoteless entity gained its grounding span)
                 res.corrected_quotes[e.get('id')] = v.kept_verbatim + v.regrounded
+                if not e.get('quotes'):
+                    # Gate-attached, not model-extracted: the distinction must
+                    # survive into the audit trail (the committed TTL will
+                    # attribute the quote to the model otherwise).
+                    res.repaired_quoteless.add(e.get('id'))
 
     # 2. Over-reach over the surviving duty CLASSES (obligations + constraints), multi-vote. Detection runs
     #    on classes because that is where the canonicalization/injection loop lives. The DROP then cascades
@@ -84,27 +121,41 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
               and e.get('id') not in res.dropped_ids]
     overreach_dropped_labels = set()
     if duties:
-        overs = detect_overreach(case_text, duties, model=model, votes=_OVERREACH_VOTES)
-        for e, v in zip(duties, overs):
+        # Judge once per NORMALIZED label and apply the verdict to the whole
+        # variant group: label variants ('Professional Accountability
+        # Obligation' vs 'ProfessionalAccountabilityObligation') collapse to
+        # the SAME committed URI, so a 5/5 drop on one variant is silently
+        # negated if a twin survives its own panel (case-9 lesson: the dropped
+        # duty was committed anyway through its spaced-label twin).
+        groups: Dict[str, List[Dict]] = {}
+        for e in duties:
+            groups.setdefault(_norm_label(e.get('label')), []).append(e)
+        reps = [members[0] for members in groups.values()]
+        overs = detect_overreach(case_text, reps, model=model, votes=_OVERREACH_VOTES)
+        for rep, v in zip(reps, overs):
             if not v.overreach:
                 continue
+            members = groups[_norm_label(rep.get('label'))]
             if v.votes_for >= _OVERREACH_DROP_AT:
-                res.dropped.append((e.get('id'), e.get('label'),
-                                    f'over-reach ({v.votes_for}/{v.votes_total}): {v.reason}'))
-                overreach_dropped_labels.add(str(e.get('label') or '').strip())
+                for e in members:
+                    res.dropped.append((e.get('id'), e.get('label'),
+                                        f'over-reach ({v.votes_for}/{v.votes_total}): {v.reason}'))
+                    overreach_dropped_labels.add(_norm_label(e.get('label')))
             else:
-                res.flagged.append((e.get('id'), e.get('label'), v.reason, v.limiting_quote))
+                for e in members:
+                    res.flagged.append((e.get('id'), e.get('label'), v.reason, v.limiting_quote))
 
     # 2b. Cascade the over-reach drop to the duty INDIVIDUALS that instantiate a dropped class (matched by
-    #     their class_ref label). The class drop alone breaks the loop, but a matched over-reaching individual
-    #     would still commit and assert the duty; dropping it keeps the over-reach out of the committed case.
+    #     their NORMALIZED class_ref label, so a label-variant reference cannot dodge the cascade). The class
+    #     drop alone breaks the loop, but a matched over-reaching individual would still commit and assert
+    #     the duty; dropping it keeps the over-reach out of the committed case.
     if overreach_dropped_labels:
         for e in live:
             if e.get('id') in res.dropped_ids:
                 continue
             if (e.get('component') or '').lower() in _DUTY_COMPONENTS \
                and (e.get('storage_type') or '') == 'individual' \
-               and str(e.get('class_ref') or '').strip() in overreach_dropped_labels:
+               and _norm_label(e.get('class_ref')) in overreach_dropped_labels:
                 res.dropped.append((e.get('id'), e.get('label'),
                                     f"over-reach cascade: instance of dropped class '{e.get('class_ref')}'"))
 
@@ -112,6 +163,8 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
         'case_id': case_id,
         'entities': len(entities),
         'requoted': len(res.corrected_quotes),
+        'requoted_ids': sorted(res.corrected_quotes, key=str),
+        'quoteless_repaired_ids': sorted(res.repaired_quoteless, key=str),
         'dropped': len(res.dropped),
         'flagged': len(res.flagged),
         'dropped_detail': [{'label': l, 'reason': r} for _, l, r in res.dropped],
@@ -122,13 +175,27 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     return res
 
 
+def _norm_label(label) -> str:
+    """Collapse a label to the form the committed-URI mapping collapses it to
+    (alphanumeric, lowercased): 'Professional Accountability Obligation' and
+    'ProfessionalAccountabilityObligation' are the SAME committed class, so
+    every gate decision keyed by label must key by this form."""
+    return re.sub(r'[^a-z0-9]', '', str(label or '').lower())
+
+
 def quotes_of(rdf_json_ld: Dict) -> List[str]:
     """Extract an entity's quote list from temp_rdf rdf_json_ld for the gate input. Prefers the full
-    properties.textReferences list, falling back to the primary source_text."""
+    properties.textReferences list; the Step-3 temporal JSON-LD shape carries its quotes under the
+    top-level proeth:textReferences key instead (previously unread, so every temporal action/event
+    entered the gate quoteless and its quotes were never verified); falls back to source_text."""
     jl = rdf_json_ld or {}
     q = (jl.get('properties') or {}).get('textReferences') or []
+    if not q:
+        q = jl.get('proeth:textReferences') or []
     if not q and jl.get('source_text'):
         q = [jl['source_text']]
+    if isinstance(q, str):
+        q = [q]
     return [s for s in q if s and str(s).strip()]
 
 
@@ -155,6 +222,13 @@ def apply_corrected_quotes(rdf_json_ld: Dict, spans: List[str]) -> Dict:
     if not spans:
         return rdf_json_ld
     jl = dict(rdf_json_ld or {})
+    if '@type' in jl:
+        # Step-3 temporal JSON-LD shape: quotes ride the top-level
+        # proeth:textReferences key only. The pass-1/2 wrapper fields must not
+        # be introduced here -- the temporal commit path iterates prefixed keys
+        # and an unprefixed 'properties'/'source_text' key would not survive it.
+        jl['proeth:textReferences'] = list(spans)
+        return jl
     props = dict(jl.get('properties') or {})
     props['textReferences'] = list(spans)
     props['sourceText'] = list(spans)

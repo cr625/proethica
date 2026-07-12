@@ -224,18 +224,22 @@ class UnifiedDualExtractor(
         # Step-4 narrative passes via the shared drop_contaminated_entities entry point.
         from app.services.extraction.precedent_filter import drop_contaminated_entities
         present_letters = self._present_case_actor_letters(case_id)
+        present_placeholders = self._present_case_placeholders(case_id)
         classes, dropped_c = drop_contaminated_entities(
             classes, lambda c: getattr(c, 'label', None),
             get_quotes=lambda c: getattr(c, 'text_references', None),
-            concept_type=self.concept_type, present_letters=present_letters)
+            concept_type=self.concept_type, present_letters=present_letters,
+            present_placeholders=present_placeholders)
         individuals, dropped_i = drop_contaminated_entities(
             individuals, lambda i: getattr(i, 'identifier', None) or getattr(i, 'label', None),
             get_quotes=lambda i: getattr(i, 'text_references', None),
-            concept_type=self.concept_type, present_letters=present_letters)
+            concept_type=self.concept_type, present_letters=present_letters,
+            present_placeholders=present_placeholders)
         if dropped_c or dropped_i:
             logger.info(
                 f"Contamination filter ({self.concept_type}): present-case engineers "
-                f"{sorted(present_letters)}, dropped {len(dropped_c)} class(es) + "
+                f"{sorted(present_letters)}, placeholders {sorted(present_placeholders)}, "
+                f"dropped {len(dropped_c)} class(es) + "
                 f"{len(dropped_i)} individual(s): {dropped_c + dropped_i}")
             try:  # provenance: record the filter PASS (what was rejected + why). Best-effort.
                 from app.services.provenance_service import get_provenance_service

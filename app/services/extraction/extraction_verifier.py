@@ -54,27 +54,44 @@ _REGROUND_SCHEMA = {
 
 
 def _verbatim(quote: str | None, token_string: str) -> bool:
-    """True if the quote's normalized token string is a contiguous substring of the case token
-    string (the layer-1 verbatim test from quote_grounding: exact content, whitespace-insensitive).
-    This is both the local pre-filter AND the confirmation applied to an LLM-returned span."""
+    """True if the quote's normalized token string is a contiguous TOKEN-ALIGNED substring of
+    the case token string (the layer-1 verbatim test from quote_grounding: exact content,
+    whitespace-insensitive). Both sides are space-padded so the match anchors on token
+    boundaries -- the raw substring test accepted mid-word fragments ('pared the structural'
+    inside 'prepared the structural'). This is both the local pre-filter AND the confirmation
+    applied to an LLM-returned span."""
     q = " ".join(_tokens(quote))
-    return bool(q) and q in token_string
+    return bool(q) and f" {q} " in f" {token_string} "
+
+
+# Minimum token length for an ACCEPTED repair span: without a floor, a stopword
+# or word-fragment span ('the') would pass the substring confirmation and become
+# an entity's sole committed grounding.
+_MIN_REPAIR_SPAN_TOKENS = 3
 
 
 def _structured_stream_json(client, model: str, prompt: str, schema: Dict,
-                            max_tokens: int) -> Dict:
+                            max_tokens: int, cache_prompt: bool = False) -> Dict:
     """Stream one structured-output call and parse its JSON, retrying once on a partial response.
 
     Structured outputs guarantee FORMAT only for a COMPLETE response: a stream cut by max_tokens
     or a dropped connection delivers unparseable partial JSON (case-6 run 30 lost a whole commit
     sub-task to one ~450-char partial over-reach vote response). The retry doubles the token cap
     in case the cut was max_tokens; a second failure propagates -- the callers' contract is
-    surface-the-error, and the commit path re-runs the gate on its next sub-task."""
+    surface-the-error, and the commit path re-runs the gate on its next sub-task.
+
+    ``cache_prompt`` marks the prompt as a cached prefix (5-minute TTL). Set it ONLY where the
+    identical prompt is re-sent within the TTL (the over-reach vote panel sends it five times);
+    a breakpoint on a never-re-read prompt just pays the 1.25x cache-write premium. Below the
+    model's minimum cacheable length (4096 tokens on the Opus gate tier) the marker is a silent
+    no-op -- no write premium, no reads -- so short-case prompts neither pay nor save."""
+    content = ([{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
+               if cache_prompt else prompt)
     for attempt in range(2):
         chunks: List[str] = []
         with client.messages.stream(
             model=model, max_tokens=max_tokens * (attempt + 1),
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content}],
             output_config={"format": {"type": "json_schema", "schema": schema}},
         ) as stream:
             for t in stream.text_stream:
@@ -120,13 +137,20 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     verdicts = [QuoteVerdict(label=str(e.get('label') or '?')) for e in entities]
     pending: List[tuple] = []   # (entity_index, quote) pairs needing a span from the model
     for i, e in enumerate(entities):
-        for q in (e.get('quotes') or []):
-            if not (q and q.strip()):
-                continue
+        quotes = [q for q in (e.get('quotes') or []) if q and str(q).strip()]
+        for q in quotes:
             if _verbatim(q, ts):
                 verdicts[i].kept_verbatim.append(q)
             else:
                 pending.append((i, q))
+        if not quotes and e.get('require_quote'):
+            # Quoteless entity in a component whose contract is verbatim
+            # grounding: previously it skipped this pass entirely (the one
+            # bypass of the fabrication check -- text_references=[] meant no
+            # grounding ever ran). Ask for a span supporting the entity
+            # itself; a confirmed span repairs it (the entity gains its
+            # grounding), no span marks it a fabrication candidate.
+            pending.append((i, None))
 
     if not pending:
         return verdicts
@@ -135,11 +159,15 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     lines = []
     for pid, (i, q) in enumerate(pending):
         e = entities[i]
-        lines.append(f'[{pid}] {e.get("label")} -- {e.get("definition") or ""}\n     current (paraphrase): "{q}"')
+        if q is None:
+            lines.append(f'[{pid}] {e.get("label")} -- {e.get("definition") or ""}\n'
+                         f'     current: NONE (extracted without any quote; find the supporting span)')
+        else:
+            lines.append(f'[{pid}] {e.get("label")} -- {e.get("definition") or ""}\n     current (paraphrase): "{q}"')
     prompt = (
         "Verify quote grounding for extracted ethics concepts. Below is a case text, then entities "
         "each with a label, a definition, and a CURRENT quote that is a paraphrase rather than an "
-        "exact quote from the case.\n\n"
+        "exact quote from the case (or NONE when the entity was extracted without any quote).\n\n"
         "For each entity id, return the EXACT verbatim span(s) from the case text that support its "
         "label and definition -- copied character-for-character as a real contiguous substring of "
         "the case (1-2 best spans, prefer the single most on-point sentence or clause). If NO span "
@@ -155,14 +183,26 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     data = _structured_stream_json(client, model, prompt, _REGROUND_SCHEMA, max_tokens=8000)
 
     # 3. Confirm each returned span is a real substring before accepting; build per-entity verdicts.
-    by_id = {r['id']: r for r in data.get('results', [])}
+    by_id = {r['id']: r for r in data.get('results', []) if isinstance(r, dict) and 'id' in r}
+    if pending and not by_id:
+        # The schema guarantees per-result shape, not one result per pending
+        # item: an empty results array is a whole-call model failure, not a
+        # verdict on any entity. Surface it; the commit stage re-runs the gate.
+        raise RuntimeError(f"verify_and_reground: re-ground response carried no results "
+                           f"for {len(pending)} pending quotes")
+    missing = sum(1 for pid in range(len(pending)) if pid not in by_id)
+    if missing:
+        logger.warning(f"verify_and_reground: {missing}/{len(pending)} pending quotes got "
+                       f"no result id; treating each as unsupported")
     for pid, (i, q) in enumerate(pending):
         r = by_id.get(pid)
-        accepted = [s for s in (r.get('spans') or []) if r and r.get('supported') and _verbatim(s, ts)]
+        spans = (r.get('spans') or []) if (r and r.get('supported')) else []
+        accepted = [s for s in spans
+                    if _verbatim(s, ts) and len(_tokens(s)) >= _MIN_REPAIR_SPAN_TOKENS]
         if accepted:
             verdicts[i].regrounded.extend(accepted)
         else:
-            verdicts[i].unsupported.append(q)
+            verdicts[i].unsupported.append(q if q is not None else '(no quote extracted)')
     return verdicts
 
 
@@ -238,7 +278,10 @@ def _overreach_once(case_text: str, duty_entities: List[Dict], model: str) -> Di
     client = get_llm_client()
     if not client:
         raise RuntimeError("detect_overreach: no LLM client available")
-    data = _structured_stream_json(client, model, prompt, _OVERREACH_SCHEMA, max_tokens=4000)
+    # cache_prompt: the vote panel sends this identical prompt N times within
+    # seconds -- vote 1 writes the prefix, votes 2..N read it at ~0.1x.
+    data = _structured_stream_json(client, model, prompt, _OVERREACH_SCHEMA, max_tokens=4000,
+                                   cache_prompt=True)
     return {r["id"]: (bool(r["overreach"]), r.get("reason", ""), r.get("limiting_quote", ""))
             for r in data.get("results", [])}
 

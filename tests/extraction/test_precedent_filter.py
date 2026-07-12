@@ -30,11 +30,41 @@ def test_flags_bare_ber_number_form():
     assert is_precedent_reference("Engineer A BER 84-5 Cost-Driven Safety Rejection")
 
 
-def test_flags_doe_placeholder_party():
-    # "Engineer Doe" is exclusively a cited-precedent placeholder in NSPE opinions.
-    assert is_precedent_reference("Engineer Doe Pollution Discharge Consultant")
-    assert is_precedent_reference("Public Welfare Paramount Engineer Doe Pollution")
-    assert is_precedent_reference("Engineer Doe Faithful Agent Limit Pollution Authority")
+def test_flags_doe_placeholder_party_without_case_context():
+    # In MODERN opinions "Engineer Doe" appears only inside cited precedents, so with no
+    # present-case context the placeholder rule drops it (the pre-2026-07-11 default).
+    # The rule moved off is_precedent_reference: pre-1980s cases use Doe/Roe as the PRESENT
+    # case's party names (NSPE 76-4), judged per case via present_placeholders.
+    from app.services.extraction.precedent_filter import is_contaminated_entity
+    for label in ("Engineer Doe Pollution Discharge Consultant",
+                  "Public Welfare Paramount Engineer Doe Pollution",
+                  "Engineer Doe Faithful Agent Limit Pollution Authority"):
+        assert not is_precedent_reference(label)  # no longer the label-marker rule's job
+        assert is_contaminated_entity(label)      # dropped without case context
+
+
+def test_present_case_doe_is_kept_foreign_roe_dropped():
+    """NSPE 76-4 regression: the protagonist IS 'Engineer Doe', named in the facts; the
+    contamination filter dropped 16 present-case individuals across six components on both
+    rebuild rolls. With Doe in the present-case set the entity is KEPT; a placeholder name
+    absent from the set still drops."""
+    from app.services.extraction.precedent_filter import (
+        is_contaminated_entity, present_case_placeholder_names)
+    present = present_case_placeholder_names(
+        "Engineer Doe, a consulting engineer, was retained by XYZ Corporation...")
+    assert present == frozenset({"doe"})
+    assert not is_contaminated_entity("Doe Public Safety Duty",
+                                      present_placeholders=present)
+    assert not is_contaminated_entity("Engineer Doe Faithful Agent Duty",
+                                      present_placeholders=present)
+    # Roe is not a present-case party here -> foreign placeholder, dropped.
+    assert is_contaminated_entity("Engineer Roe Prior Approval Duty",
+                                  present_placeholders=present)
+    # Whole-word matching: derived words never trip the rule.
+    assert not is_contaminated_entity("Engineer does review",
+                                      present_placeholders=frozenset())
+    assert not is_contaminated_entity("The doer of the action",
+                                      present_placeholders=frozenset())
 
 
 def test_keeps_present_case_actors():

@@ -166,6 +166,11 @@ def test_analysis_record_edge_properties_declared(cases_graph):
         'explainsQuestion': (CASES.QuestionEmergence, CASES.EthicalQuestion),
         'describesResolutionOf': (CASES.ResolutionPattern, CASES.EthicalConclusion),
         'referencesProvision': (CASES.CodeProvisionReference, CORE.CodeProvision),
+        # appliesTo is deliberately open-range (v3.7.0): the extraction
+        # attributes provisions across all nine core categories, so any
+        # committed case individual is a valid target -- the ontology
+        # declares a domain but NO range.
+        'appliesTo': (CASES.CodeProvisionReference, None),
         'decidesQuestion': (CASES.DecisionPoint, CASES.EthicalQuestion),
         'addressesQuestion': (CASES.DecisionPoint, CASES.EthicalQuestion),
         'alignsWithConclusion': (CASES.DecisionPoint, CASES.EthicalConclusion),
@@ -179,7 +184,10 @@ def test_analysis_record_edge_properties_declared(cases_graph):
         prop = CASES[name]
         assert (prop, rdflib.RDF.type, rdflib.OWL.ObjectProperty) in cases_graph, name
         assert (prop, rdflib.RDFS.domain, domain) in cases_graph, name
-        assert (prop, rdflib.RDFS.range, range_) in cases_graph, name
+        if range_ is None:
+            assert (prop, rdflib.RDFS.range, None) not in cases_graph, name
+        else:
+            assert (prop, rdflib.RDFS.range, range_) in cases_graph, name
 
 
 def test_outcome_alignment_semantics():

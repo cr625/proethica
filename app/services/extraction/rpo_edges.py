@@ -389,21 +389,30 @@ class RPOEdgeExtractor(StreamingEdgeExtractor):
 
 
 def add_edges_to_graph(g: Graph, edges: List[Dict[str, Any]], case_id: int) -> int:
-    case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
+    # Provenance IRIs are content-addressed via the shared emitter (endpoints +
+    # predicate), never positional: the former enumerate-index scheme reused an
+    # index across re-runs whose edge order differed, grafting two unrelated
+    # edges' wasDerivedFrom/value onto one Derivation node (the case-59 merged
+    # node). The emitter is idempotent and carries confidence (comment) plus
+    # the derivation timestamp.
+    from datetime import datetime, timezone
+    from app.services.extraction.edge_resolution import emit_edge_prov
+    now = datetime.now(timezone.utc).isoformat()
     added = 0
-    for i, e in enumerate(edges):
+    for e in edges:
         s = URIRef(e["subject_iri"]); o = URIRef(e["object_iri"]); pred = _PRED_URI[e["predicate"]]
         if (s, pred, o) in g:
             continue
         g.add((s, pred, o))
         added += 1
-        prov = case_ns[f"rpo_edge_provenance_{e['predicate']}_{i}"]
-        g.add((prov, RDF.type, PROV.Derivation))
-        g.add((prov, PROV.wasDerivedFrom, s))
-        g.add((prov, PROV.wasDerivedFrom, o))
-        if e.get("source_text"):
-            g.add((prov, PROV.value, Literal(e["source_text"])))
-        g.add((prov, RDFS.label, Literal(f"R->P->O edge: {e['predicate']}")))
+        emit_edge_prov(
+            g, case_id, "rpo_edge_provenance_", e["predicate"], s, o,
+            desc=e.get("source_text") or "",
+            label=f"R->P->O edge: {e['predicate']}",
+            comment=(f"confidence {float(e.get('confidence', 0.7)):.2f}; "
+                     "derived by the R->P->O edge extractor from the case narrative"),
+            generated_at=now,
+        )
     return added
 
 

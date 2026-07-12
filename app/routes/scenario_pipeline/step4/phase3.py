@@ -81,8 +81,8 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
             session_id = result.extraction_session_id or str(uuid.uuid4())
             try:
                 if result.llm_prompt:
-                    prompt_text = result.llm_prompt[:10000]
-                    raw_response = result.llm_response[:10000] if result.llm_response else ''
+                    prompt_text = result.llm_prompt
+                    raw_response = result.llm_response if result.llm_response else ''
                 else:
                     # No LLM output (E1-E3 found 0 AND LLM fallback didn't produce results)
                     prompt_text = f'Phase 3 Decision Point Synthesis (E1-E3 Algorithmic Composition)\n\nE1-E3 Algorithm found 0 matching candidates.\nLLM fallback using causal_normative_links was attempted.'
@@ -320,10 +320,10 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                                 concept_type='phase3_decision_synthesis',
                                 step_number=4,
                                 section_type=STEP4_SECTION_TYPE,
-                                prompt_text=llm_prompt[:10000] if llm_prompt else 'LLM fallback with causal links',
+                                prompt_text=llm_prompt if llm_prompt else 'LLM fallback with causal links',
                                 llm_model=STEP4_DEFAULT_MODEL,
                                 extraction_session_id=session_id,
-                                raw_response=llm_response[:10000] if llm_response else '',
+                                raw_response=llm_response if llm_response else '',
                                 results_summary=json.dumps({
                                     'canonical_count': len(canonical_points),
                                     'candidates_count': 0,
@@ -568,10 +568,10 @@ def register_phase3_routes(bp, get_all_case_entities, load_phase2_data):
                         concept_type='phase3_decision_synthesis',
                         step_number=4,
                         section_type=STEP4_SECTION_TYPE,
-                        prompt_text=llm_prompt[:10000],
+                        prompt_text=llm_prompt,
                         llm_model=STEP4_DEFAULT_MODEL,
                         extraction_session_id=session_id,
-                        raw_response=llm_response[:10000] if llm_response else '',
+                        raw_response=llm_response if llm_response else '',
                         results_summary=json.dumps({
                             'canonical_count': len(canonical_points),
                             'candidates_count': candidates_count,

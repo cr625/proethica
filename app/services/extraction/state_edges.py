@@ -127,17 +127,28 @@ def _build_select_prompt(items: List[Dict[str, Any]]) -> str:
     )
 
 
-def _llm_select(items: List[Dict[str, Any]], client=None, model=None):
-    """Map each item id -> chosen candidate IRI (or None) via one batched LLM call.
-    Returns the selection dict, or None if the LLM is unavailable / the call fails
-    (the caller then falls back to the embedding threshold).
+def _llm_select(items: List[Dict[str, Any]], client=None, model=None, diag=None):
+    """Map each item id -> chosen candidate IRI (or None) via a 3-vote majority
+    on the default tier. Returns the selection dict, or None if the LLM is
+    unavailable / every vote fails (the caller then falls back to the
+    embedding threshold).
 
-    Thin wrapper over the shared single-select driver, supplying the state-specific
-    direction/polarity prompt builder and the fast model tier (the constrained
-    pick-from-shortlist task fits the fast tier). Identical behavior to the previous
-    inline implementation."""
+    Calibration (2026-07-11, the activatesObligation-instability fix; measured
+    in a controlled 5x-repeatability experiment on cases 58 and 9):
+
+    - Tier: default (Sonnet), NOT fast. The tiers sit at different operating
+      points, not just different noise levels -- on case 9 the fast tier chose
+      ZERO activatesObligation targets in all five runs while the default tier
+      chose the same two in all five (matching the committed gold graph). Same
+      direction-reading failure family that moved resource_edges' multi-select
+      off the fast tier.
+    - Votes: 3, per-item strict majority. Both tiers flip run to run as single
+      calls (2-4 distinct selection sets of 5 at temperature 0.0), so voting,
+      not tier choice, is what pins the modal judgment. The three identical
+      prompts share a cached prefix, so the marginal cost is ~2 cache reads.
+    """
     return _llm_select_generic(items, _build_select_prompt, client=client, model=model,
-                               model_tier="fast")
+                               model_tier="default", votes=3, diag=diag)
 
 
 # --- temp_rdf (DB) linkage read --------------------------------------------
@@ -308,8 +319,10 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
             res["principleTransformation"] += 1
 
     # Pass B: batched LLM confirm/select over the shortlists (hybrid precision
-    # layer); embedding-threshold fallback when the LLM is unavailable.
-    selections = _llm_select(items, client=llm_client, model=model) if use_llm else None
+    # layer; 3-vote majority on the default tier since the 2026-07-11
+    # calibration); embedding-threshold fallback when the LLM is unavailable.
+    diag: Dict[str, Any] = {}
+    selections = _llm_select(items, client=llm_client, model=model, diag=diag) if use_llm else None
     res["resolver"] = "llm" if selections is not None else "embedding"
 
     # Pass C: emit the resolved edges + provenance.
@@ -329,6 +342,46 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
         g.add((subj, CORE[prop], tgt))
         _emit_prov(g, case_id, subj, prop, tgt, desc)
         res[prop] += 1
+
+    # Zero-outcome diagnosability (provenance-audit rider, 2026-07-11): a
+    # property family that HAD items but resolved zero edges was previously
+    # undiagnosable after the fact -- the select prompt and raw votes existed
+    # only as a DEBUG log line. Persist them as an extraction_prompts history
+    # row so the once-only rebuild keeps the evidence. Best-effort: never
+    # fails the applier.
+    zero_props = [p for p in ("activatesObligation", "activatesConstraint",
+                              "activatedByEvent", "terminatedByEvent")
+                  if res[p] == 0 and any(it["prop"] == p for it in items)]
+    if zero_props and res["resolver"] == "llm" and diag.get("prompt"):
+        try:
+            from app.models.extraction_prompt import ExtractionPrompt
+            ExtractionPrompt.save_prompt(
+                case_id=case_id, concept_type="state_edges_select",
+                # 'temporal' is the section bucket the valid_section_type
+                # check constraint provides for the edge/temporal layer.
+                prompt_text=diag["prompt"], step_number=0, section_type="temporal",
+                llm_model=str(diag.get("model") or ""),
+                results_summary={
+                    "zero_resolved_props": zero_props,
+                    "counts": {p: res[p] for p in (
+                        "activatesObligation", "activatesConstraint",
+                        "activatedByEvent", "terminatedByEvent")},
+                    "items": len(items), "unresolved": res["unresolved"],
+                },
+                raw_response="\n\n=== VOTE ===\n\n".join(
+                    diag.get("raws") or [])[:200000],
+            )
+        except Exception:  # noqa: BLE001
+            # Roll back or the failed INSERT poisons the shared session for
+            # every later query in this commit (the similarity_service
+            # archetype).
+            try:
+                from app.models import db
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            logger.warning("state_edges: zero-outcome diagnostics persistence "
+                           "failed (best-effort)", exc_info=True)
 
     added = sum(res[k] for k in ("activatesObligation", "activatesConstraint",
                                  "activatedByEvent", "terminatedByEvent", "principleTransformation"))

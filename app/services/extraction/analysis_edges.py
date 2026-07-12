@@ -5,6 +5,9 @@ Grounds the Step-4 analysis records that previously committed as islands:
 - QuestionEmergence  --explainsQuestion-->      EthicalQuestion
 - ResolutionPattern  --describesResolutionOf--> EthicalConclusion
 - CodeProvisionReference --referencesProvision--> nspe: CodeProvision
+- CodeProvisionReference --appliesTo--> any committed case individual
+                       (v3.7.0: category-scoped label resolution; the
+                       per-application reasoning rides the derivation)
 - DecisionPoint      --decidesQuestion / addressesQuestion /
                        alignsWithConclusion / involvesObligation /
                        involvesAction / involvesConstraint / decidedByAgent
@@ -44,10 +47,21 @@ RDFS_NS = Namespace("http://www.w3.org/2000/01/rdf-schema#")
 
 ANALYSIS_PREDICATES = (
     "explainsQuestion", "describesResolutionOf", "referencesProvision",
+    "appliesTo",
     "decidesQuestion", "addressesQuestion", "alignsWithConclusion",
     "involvesObligation", "involvesAction", "involvesConstraint",
     "decidedByAgent",
 )
+
+# appliesTo target categories: the extraction's entity_type vocabulary mapped
+# to the committed rdf:type proeth-core:<Category>. Unknown types are misses,
+# never guessed.
+_APPLIES_CATEGORIES = {
+    "role": "Role", "obligation": "Obligation", "principle": "Principle",
+    "state": "State", "resource": "Resource", "capability": "Capability",
+    "constraint": "Constraint", "action": "Action", "event": "Event",
+    "agent": "Agent",
+}
 
 _POS = re.compile(r"#([QC])(\d+)$")
 _DIRECT = re.compile(r"#(Question|Conclusion)_(\d+)$")
@@ -100,6 +114,19 @@ def build_expectations(case_id: int, g: Graph) -> Tuple[List[Tuple], List[str]]:
     committed_c = set(g.subjects(RDF.type, CASES.EthicalConclusion))
     core_sets = {cat: set(_individuals_in_category(g, cat))
                  for cat in ("Obligation", "Action", "Agent", "Constraint")}
+
+    _cat_label_cache: Dict[str, Dict[str, URIRef]] = {}
+
+    def cat_labels(cat: str) -> Dict[str, URIRef]:
+        """Whitespace-normalized rdfs:label -> URI for one core category
+        (lazy, cached; the appliesTo resolution's lookup table)."""
+        if cat not in _cat_label_cache:
+            out: Dict[str, URIRef] = {}
+            for s in _individuals_in_category(g, cat):
+                for o in g.objects(s, RDFS_NS.label):
+                    out.setdefault(_norm_text(str(o)), s)
+            _cat_label_cache[cat] = out
+        return _cat_label_cache[cat]
 
     q_by_num = {int((r.rdf_json_ld or {}).get("questionNumber")): (r.rdf_json_ld or {})
                 for r in q_rows if (r.rdf_json_ld or {}).get("questionNumber")}
@@ -210,8 +237,27 @@ def build_expectations(case_id: int, g: Graph) -> Tuple[List[Tuple], List[str]]:
             iri = resolver.resolve(code)
             if not iri:
                 misses.append(f"CPR {row.entity_label!r}: {code!r} resolves to no nspe provision")
-                continue
-            edges.append((subj, "referencesProvision", URIRef(iri), code))
+            else:
+                edges.append((subj, "referencesProvision", URIRef(iri), code))
+
+            # --- appliesTo (v3.7.0): the provision's applications ------------
+            for item in (d.get("appliesTo") or []):
+                if not isinstance(item, dict):
+                    continue
+                lbl = _norm_text(item.get("entity_label"))
+                cat = _APPLIES_CATEGORIES.get(
+                    _norm_text(item.get("entity_type")).lower())
+                if not lbl or not cat:
+                    misses.append(f"CPR {row.entity_label!r}: appliesTo item "
+                                  f"without a label/known category")
+                    continue
+                tgt = cat_labels(cat).get(lbl)
+                if tgt is None:
+                    misses.append(f"CPR {row.entity_label!r}: appliesTo "
+                                  f"{lbl!r} is not a committed {cat}")
+                    continue
+                reason = _norm_text(item.get("reasoning")) or lbl
+                edges.append((subj, "appliesTo", tgt, reason))
 
     # --- DecisionPoint family ----------------------------------------------
     dp_by_id: Dict[str, URIRef] = {}

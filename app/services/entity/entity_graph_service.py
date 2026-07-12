@@ -602,8 +602,12 @@ def extract_questions_conclusions(
     Returns:
         Tuple of (questions, conclusions)
     """
+    # The Q/C analyzers resolve the DEFAULT tier internally (QuestionAnalyzer/
+    # ConclusionAnalyzer hardcode ModelConfig.get_claude_model("default")); the
+    # prompt rows below record what actually ran, not the step-4 powerful tier
+    # this function mis-stamped until 2026-07-11.
     from app.routes.scenario_pipeline.step4.config import (
-        STEP4_POWERFUL_MODEL,
+        STEP4_DEFAULT_MODEL,
     )
     from app.services.step4_synthesis.step4_data_helpers import (
         get_all_case_entities, _count_conclusion_types_from_list,
@@ -680,7 +684,7 @@ def extract_questions_conclusions(
             step_number=4,
             section_type='questions',
             prompt_text=question_prompt_response.get('prompt', ''),
-            llm_model=STEP4_POWERFUL_MODEL,
+            llm_model=STEP4_DEFAULT_MODEL,
             extraction_session_id=session_id,
             raw_response=question_prompt_response.get('response', ''),
             results_summary={
@@ -708,7 +712,7 @@ def extract_questions_conclusions(
             step_number=4,
             section_type='conclusions',
             prompt_text=conclusion_prompt_response.get('prompt', ''),
-            llm_model=STEP4_POWERFUL_MODEL,
+            llm_model=STEP4_DEFAULT_MODEL,
             extraction_session_id=session_id,
             raw_response=conclusion_prompt_response.get('response', ''),
             results_summary={

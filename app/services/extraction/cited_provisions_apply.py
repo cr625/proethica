@@ -113,7 +113,11 @@ def _build_row(case_id: int, code_norm: str, canonical: Tuple[str, str],
         is_reviewed=False,
         is_published=True,
         created_by=session_id,
-        extraction_model="",
+        # No LLM runs here: rows come from the canonical provision table via
+        # deterministic citation lookup. The sentinel keeps that fact in the
+        # committed prov:wasAttributedTo (empty string used to suppress the
+        # attribution triple entirely).
+        extraction_model="deterministic:cited_provisions_apply",
         triple_count=0,
         property_count=0,
         relationship_count=0,

@@ -65,7 +65,9 @@ class TestPublicPageAccess:
         '/auth/register',                       # Register page
         '/cases/',                              # Cases list
         '/worlds/',                             # Worlds list
-        '/guidelines/',                         # Guidelines page
+        # '/guidelines/' removed: the Guidelines UI was retired 2026-07-09
+        # (provision harmonization C, 07201133); provision data is served
+        # through the case views and OntServe.
         '/tools/references',                    # References page
     ]
 
