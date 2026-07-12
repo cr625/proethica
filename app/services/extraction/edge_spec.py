@@ -57,6 +57,16 @@ logger = logging.getLogger(__name__)
 CORE = Namespace("http://proethica.org/ontology/core#")
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
+CASES = Namespace("http://proethica.org/ontology/cases#")
+SKOS_NS = Namespace("http://www.w3.org/2004/02/skos/core#")
+
+# Definition stamped onto Board agent nodes (minted OR reused): the popover and
+# entity pages read skos:definition, and without it the deliberative body is
+# indistinguishable from a case participant (the case-5 popover review).
+_BOARD_AGENT_DEFINITION = (
+    "The deliberative body whose analysis this case record captures. Its agency "
+    "is authorship of the deliberation (citing precedents, invoking principles), "
+    "not participation in the case events.")
 
 # Shared resolution regime for the multi-select Agent/category appliers (the value
 # already used identically by all six families).
@@ -223,23 +233,39 @@ def _is_board_literal(text: str) -> bool:
     return re.fullmatch(r"(?:the )?(?:nspe )?board", s) is not None
 
 
+def _mark_deliberative_body(g: Graph, node: URIRef) -> None:
+    """Type a Board agent node as proeth-cases:DeliberativeBody (subclass of
+    proeth-core:Agent, cases v3.8.0) and give it the clarifying definition when
+    it has none. Applied to minted nodes AND to reused extraction-minted Board
+    agents (the case-5 pattern: discussion language frames the Board as an
+    actor, extraction mints a plain Agent, and the popover then presents the
+    adjudicative body as a case participant). Idempotent."""
+    g.add((node, RDF.type, CASES.DeliberativeBody))
+    if g.value(node, SKOS_NS.definition) is None:
+        g.add((node, SKOS_NS.definition, Literal(_BOARD_AGENT_DEFINITION)))
+
+
 def _ensure_board_agent(g: Graph, case_id: int) -> URIRef:
     """Get-or-create the single case-scoped NSPE Board Agent individual. Typed
-    proeth-core:Agent (the range the participant-family edges expect); idempotent
+    proeth-core:Agent (the range the participant-family edges expect) plus
+    proeth-cases:DeliberativeBody (the meta-level distinction); idempotent
     across predicates and re-materialization runs; carries provenance like the other
     materialized nodes."""
     case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
     board = case_ns[BOARD_AGENT_LOCALNAME]
     if (board, RDF.type, CORE.Agent) in g:
+        _mark_deliberative_body(g, board)
         return board
     # Extraction can yield a case Agent that IS the Board (case 10); reuse it
     # instead of minting a same-label duplicate that splits the edge targets.
     for existing in sorted(g.subjects(RDF.type, CORE.Agent)):
         lbl = g.value(existing, RDFS.label)
         if lbl is not None and _is_board_literal(str(lbl)):
+            _mark_deliberative_body(g, existing)
             return existing
     g.add((board, RDF.type, OWL.NamedIndividual))
     g.add((board, RDF.type, CORE.Agent))
+    _mark_deliberative_body(g, board)
     g.add((board, RDFS.label, Literal(BOARD_AGENT_LABEL)))
     g.add((board, RDFS.comment, Literal(
         "Case-scoped Agent individual materialized at commit for Board-pattern "
