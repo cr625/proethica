@@ -285,6 +285,88 @@ def _strip_role_parenthetical(s: str) -> str:
     return re.sub(r"\s*\([^)]*\)\s*$", "", (s or "")).strip()
 
 
+# --- Participant-agent case-relative definitions ----------------------------
+# Agent scaffolds are minted at commit from resolved actor literals and carried
+# no definition, so entity pages and popovers had nothing case-relative to
+# show. (A 2026-07-12 backfill briefly put the PROCESS description into
+# skos:definition -- pipeline metadata in a reader-facing slot; that text is
+# recognized and replaced here.) The definition is DERIVED from the agent's own
+# committed edges, so it is deterministic, case-relative, and refreshable: a
+# definition ending with the derivation marker is regenerated on every
+# materialization; extracted or hand-written definitions are never touched.
+
+_AGENT_FACETS = (
+    # (predicate namespace+local, clause verb) -- subject-side labels collected.
+    (CORE, "isPerformedBy", "performs"),
+    (CORE, "obligatedParty", "bears"),
+    (CORE, "possessedBy", "possesses"),
+    (CORE, "constrainedEntity", "is constrained by"),
+    (CORE, "affects", "is affected by"),
+    (CORE, "availableTo", "has access to"),
+    (PROETH, "responsibleAgent", "is the responsible agent in"),
+)
+_DERIVED_MARKER = "Derived from the committed case graph."
+_LEGACY_SCAFFOLD_DEFINITION = (
+    "Case party materialized at commit from resolved actor literals "
+    "(obligatedParty, isPerformedBy, possessedBy and kin); not an extracted "
+    "concept individual.")
+
+
+def _facet_clause(verb: str, labels: list) -> str:
+    shown = labels[:3]
+    more = len(labels) - len(shown)
+    joined = (shown[0] if len(shown) == 1
+              else ", ".join(shown[:-1]) + " and " + shown[-1])
+    return f"{verb} {joined}" + (f" and {more} more" if more > 0 else "")
+
+
+def annotate_participant_agents(g: Graph, case_id: int) -> dict:
+    """Give every participant Agent a deterministic case-relative
+    skos:definition built from its committed edges, plus the scaffold
+    attribution when missing. Skips DeliberativeBody nodes (they carry the
+    handcrafted deliberation definition) and never overwrites a definition
+    that is not marker-generated. Returns counters."""
+    from rdflib.namespace import SKOS as _SKOS
+    stats = {"defined": 0, "refreshed": 0, "attributed": 0, "skipped_no_edges": 0}
+    for agent in sorted(set(g.subjects(RDF.type, CORE.Agent))):
+        if (agent, RDF.type, CASES.DeliberativeBody) in g:
+            continue
+        clauses = []
+        for ns, local, verb in _AGENT_FACETS:
+            labels = sorted({str(g.value(s, RDFS.label) or "").strip()
+                             for s in g.subjects(ns[local], agent)} - {""})
+            if labels:
+                clauses.append(_facet_clause(verb, labels))
+        if g.value(agent, PROV.wasAttributedTo) is None:
+            g.add((agent, PROV.wasAttributedTo, Literal(
+                f"Case {case_id} Edge Materialization (participant scaffold)")))
+            stats["attributed"] += 1
+        existing = g.value(agent, _SKOS.definition)
+        replaceable = (existing is None
+                       or str(existing).endswith(_DERIVED_MARKER)
+                       or str(existing) == _LEGACY_SCAFFOLD_DEFINITION)
+        if not replaceable:
+            continue
+        if not clauses:
+            # Nothing case-relative to say; remove a stale generated/legacy
+            # definition rather than asserting emptiness.
+            if existing is not None:
+                g.remove((agent, _SKOS.definition, existing))
+            stats["skipped_no_edges"] += 1
+            continue
+        definition = ("Participant in this case: " + "; ".join(clauses) + ". "
+                      + _DERIVED_MARKER)
+        if existing is not None:
+            if str(existing) == definition:
+                continue
+            g.remove((agent, _SKOS.definition, existing))
+            stats["refreshed"] += 1
+        else:
+            stats["defined"] += 1
+        g.add((agent, _SKOS.definition, Literal(definition)))
+    return stats
+
+
 # --- the template ----------------------------------------------------------
 
 def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: bool = True,

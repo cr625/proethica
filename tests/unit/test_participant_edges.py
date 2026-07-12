@@ -124,3 +124,56 @@ def test_board_agent_typed_deliberative_body_on_mint_and_reuse():
     assert reused == extracted  # no same-label duplicate minted
     assert (extracted, RDF.type, CASES.DeliberativeBody) in g2
     assert g2.value(extracted, SKOS.definition) is not None
+
+
+def test_annotate_participant_agents_case_relative_definitions():
+    """Participant agents get a deterministic case-relative definition from
+    their own committed edges; the legacy process-description text (the
+    2026-07-12 backfill putting pipeline metadata into skos:definition) is
+    replaced; DeliberativeBody and hand-written definitions are untouched."""
+    from rdflib import Graph, Literal, RDF, RDFS, URIRef
+    from rdflib.namespace import SKOS
+    CASES = Namespace("http://proethica.org/ontology/cases#")
+    CORE = Namespace("http://proethica.org/ontology/core#")
+    PROV = Namespace("http://www.w3.org/ns/prov#")
+    NS = Namespace("http://proethica.org/ontology/case/58#")
+
+    g = Graph()
+    consultant = NS.Agent_Consultant
+    g.add((consultant, RDF.type, CORE.Agent))
+    g.add((consultant, RDFS.label, Literal("Consultant")))
+    g.add((consultant, SKOS.definition, Literal(es._LEGACY_SCAFFOLD_DEFINITION)))
+    action = NS.Site_Review
+    g.add((action, RDFS.label, Literal("Site Review")))
+    g.add((action, CORE.isPerformedBy, consultant))
+    cap = NS.Structural_Analysis
+    g.add((cap, RDFS.label, Literal("Structural Analysis")))
+    g.add((cap, CORE.possessedBy, consultant))
+
+    board = NS.Agent_Board
+    g.add((board, RDF.type, CORE.Agent))
+    g.add((board, RDF.type, CASES.DeliberativeBody))
+    g.add((board, SKOS.definition, Literal("handcrafted board definition")))
+
+    handmade = NS.Agent_Client
+    g.add((handmade, RDF.type, CORE.Agent))
+    g.add((handmade, SKOS.definition, Literal("An extracted, curated definition.")))
+    g.add((NS.Duty, CORE.obligatedParty, handmade))
+
+    edgeless = NS.Agent_Bystander
+    g.add((edgeless, RDF.type, CORE.Agent))
+
+    stats = es.annotate_participant_agents(g, 58)
+
+    d = str(g.value(consultant, SKOS.definition))
+    assert d.startswith("Participant in this case: ")
+    assert "performs Site Review" in d and "possesses Structural Analysis" in d
+    assert d.endswith(es._DERIVED_MARKER)
+    assert str(g.value(board, SKOS.definition)) == "handcrafted board definition"
+    assert str(g.value(handmade, SKOS.definition)) == "An extracted, curated definition."
+    assert g.value(edgeless, SKOS.definition) is None
+    assert g.value(consultant, PROV.wasAttributedTo) is not None
+    # idempotent: a second run changes nothing
+    before = len(g)
+    stats2 = es.annotate_participant_agents(g, 58)
+    assert len(g) == before and stats2["refreshed"] == 0 and stats2["defined"] == 0

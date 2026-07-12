@@ -344,6 +344,23 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         logger.exception("materialize: unified domain/range guard failed for case %s", case_id)
         results["unified_guard"] = {"error": str(e)}
 
+    # 5. Case-relative participant-agent definitions, derived from the edges
+    # the appliers above just materialized (deterministic; marker-refreshed on
+    # every run). Runs AFTER the guard so a dropped edge never feeds a clause.
+    try:
+        from rdflib import Graph as _AG
+        from app.services.extraction.edge_spec import annotate_participant_agents
+        _ag = _AG()
+        _ag.parse(str(ttl_path), format="turtle")
+        _stats = annotate_participant_agents(_ag, case_id)
+        if any(_stats[k] for k in ("defined", "refreshed", "attributed")):
+            _ag.serialize(destination=str(ttl_path), format="turtle")
+        results["agent_annotations"] = _stats
+    except Exception as e:
+        logger.warning("materialize: agent annotation failed for case %s: %s",
+                       case_id, e, exc_info=True)
+        results["agent_annotations"] = {"error": str(e)}
+
     logger.info("Edge materialization for case %s: %s", case_id, results)
 
     # Refresh the cross-case defeasibility band index from the just-materialized TTL.
