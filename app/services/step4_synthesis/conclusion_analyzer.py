@@ -361,23 +361,36 @@ class ConclusionAnalyzer:
         )
 
     def _detect_board_conclusion_type(self, conclusion_text: str) -> str:
-        """Detect the type of board conclusion from text."""
+        """Detect the type of board conclusion from text.
+
+        Ordering is load-bearing: negated forms match FIRST. Until 2026-07-12
+        the bare 'violation' check ran first, so 'no violation' / 'not a
+        violation' holdings returned VIOLATION and the NO_VIOLATION branch was
+        dead code (polarity inversion). The semantic audit (S4) also found the
+        era phrasings 'acted ethically' and 'has an ethical obligation to'
+        falling through to 'unknown'; both are covered below. Deterministic by
+        design -- the corpus backfill recomputes stored values with the same
+        rules, so committed literals never drift from this function."""
         text_lower = conclusion_text.lower()
 
-        if 'violation' in text_lower or 'violated' in text_lower:
-            return BoardConclusionType.VIOLATION.value
-        elif 'not unethical' in text_lower or 'was ethical' in text_lower or 'were ethical' in text_lower:
-            return BoardConclusionType.COMPLIANCE.value
-        elif 'no violation' in text_lower or 'not a violation' in text_lower:
+        # Negated / exonerating forms before anything containing 'violation'
+        # or 'unethical' as a substring.
+        if ('no violation' in text_lower or 'not a violation' in text_lower
+                or 'did not violate' in text_lower or 'does not violate' in text_lower):
             return BoardConclusionType.NO_VIOLATION.value
-        elif 'recommend' in text_lower or 'should' in text_lower:
-            return BoardConclusionType.RECOMMENDATION.value
-        elif 'interpret' in text_lower or 'means' in text_lower or 'clarif' in text_lower:
-            return BoardConclusionType.INTERPRETATION.value
-        elif 'unethical' in text_lower:
+        if ('not unethical' in text_lower or 'was ethical' in text_lower
+                or 'were ethical' in text_lower or 'acted ethically' in text_lower
+                or 'was not unethical' in text_lower or 'acted properly' in text_lower
+                or 'it was ethical' in text_lower):
+            return BoardConclusionType.COMPLIANCE.value
+        if 'violation' in text_lower or 'violated' in text_lower or 'unethical' in text_lower:
             return BoardConclusionType.VIOLATION.value
-        else:
-            return "unknown"
+        if ('recommend' in text_lower or 'should' in text_lower
+                or 'obligation to' in text_lower or 'duty to' in text_lower):
+            return BoardConclusionType.RECOMMENDATION.value
+        if 'interpret' in text_lower or 'means' in text_lower or 'clarif' in text_lower:
+            return BoardConclusionType.INTERPRETATION.value
+        return "unknown"
 
     def _extract_board_conclusions_llm(
         self,
