@@ -167,6 +167,17 @@ class PromptBuildingMixin:
             cache[case_id] = present_case_engineer_letters(case_id)
         return cache[case_id]
 
+    def _present_case_placeholders(self, case_id: int) -> frozenset:
+        """Present-case Doe/Roe placeholder surnames, cached per case on the instance
+        (non-empty only for pre-1980s opinions whose own parties are Doe/Roe)."""
+        cache = getattr(self, '_pc_placeholder_cache', None)
+        if cache is None:
+            cache = self._pc_placeholder_cache = {}
+        if case_id not in cache:
+            from app.services.extraction.case_actors import present_case_placeholders
+            cache[case_id] = present_case_placeholders(case_id)
+        return cache[case_id]
+
     def _format_prior_section_classes(
         self, case_id: int, current_section: str,
     ) -> str:

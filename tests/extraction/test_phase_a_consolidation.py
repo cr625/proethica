@@ -95,12 +95,14 @@ def test_consuming_modules_import_the_shared_patterns():
 
 
 def test_pattern_strings_are_byte_for_byte_unchanged():
-    # the patterns are NOT merged or altered by the move
+    # the patterns are NOT merged or altered by the move. (The former |\bDoe\b
+    # alternative moved to PLACEHOLDER_ACTOR_RE 2026-07-11: Doe/Roe are judged
+    # per case against the present-case sections, not unconditionally.)
     assert tp.PRECEDENT_REF_RE.pattern == (
         r"\bBER\s+(?:Case\s+)?(?:No\.?\s+)?\d{2}-\d{1,2}\b"
         r"|\bCase\s+(?:No\.?\s+)?\d{2}-\d{1,2}\b"
-        r"|\bDoe\b"
     )
+    assert tp.PLACEHOLDER_ACTOR_RE.pattern == r"\b(Doe|Roe)\b"
     assert tp.PRECEDENT_REF_RE.flags & re.IGNORECASE
     assert tp.GENERIC_PRECEDENT_RE.pattern == (
         r"^\s*(?:BER\s+)?(?:Case\s+)?Precedent"

@@ -79,11 +79,14 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
             # precedents are excluded everywhere.
             from app.services.extraction.precedent_filter import (
                 is_contaminated_entity, is_precedent_narrative_temporal)
-            from app.services.extraction.case_actors import present_case_engineer_letters
+            from app.services.extraction.case_actors import (
+                present_case_engineer_letters, present_case_placeholders)
             present_letters = present_case_engineer_letters(case_id)
+            present_placeholders = present_case_placeholders(case_id)
 
             def _is_precedent(label):
-                return is_contaminated_entity(label, present_letters=present_letters)
+                return is_contaminated_entity(label, present_letters=present_letters,
+                                              present_placeholders=present_placeholders)
 
             # Happenings narrating a CITED case (precedent-ness in the
             # description/agent, not the label: "In precedent BER Case
@@ -93,7 +96,8 @@ def store_rdf_entities(state: TemporalDynamicsState) -> Dict:
             def _is_precedent_happening(h):
                 return is_precedent_narrative_temporal(
                     label=h.get('label'), description=h.get('description'),
-                    agent=h.get('agent'), present_letters=present_letters)
+                    agent=h.get('agent'), present_letters=present_letters,
+                    present_placeholders=present_placeholders)
 
             _pre = len(state['actions']) + len(state['events']) + len(state['causal_chains'])
             state['actions'] = [a for a in state['actions'] if not _is_precedent_happening(a)]

@@ -46,6 +46,7 @@ from typing import Callable, List, Tuple, TypeVar
 from app.services.extraction.text_patterns import (
     PRECEDENT_REF_RE,
     GENERIC_PRECEDENT_RE,
+    PLACEHOLDER_ACTOR_RE,
     _ENGINEER_LETTER_RE,
 )
 
@@ -107,6 +108,31 @@ def is_foreign_actor_entity(label: str | None, present_letters) -> bool:
     return letters.isdisjoint(present_letters)
 
 
+def present_case_placeholder_names(text: str | None) -> frozenset:
+    """The NSPE placeholder party surnames (doe/roe, lowercased) named in present-case text
+    (pass facts+question+conclusion, NOT discussion). Pre-1980s opinions use Doe/Roe as the
+    PRESENT case's party names; modern opinions use them only inside cited precedents."""
+    if not text:
+        return frozenset()
+    return frozenset(m.group(1).lower() for m in PLACEHOLDER_ACTOR_RE.finditer(text))
+
+
+def is_foreign_placeholder_entity(label: str | None, present_placeholders) -> bool:
+    """True iff the label carries a placeholder surname (Doe/Roe) that is FOREIGN to the
+    present case. Unlike the engineer-letter rule, an EMPTY present set drops the label: for
+    modern cases (and callers without case context) Doe/Roe genuinely appear only inside cited
+    precedents -- that unconditional drop was the validated pre-2026-07-11 behavior. The gate
+    exists for the pre-1980s cases whose OWN party is Doe/Roe (NSPE 76-4 'Engineer Doe'):
+    there the name appears in the present-case sections and the entity is kept. A label
+    mentioning both a present and a foreign placeholder is kept."""
+    if not label:
+        return False
+    names = {m.group(1).lower() for m in PLACEHOLDER_ACTOR_RE.finditer(label)}
+    if not names:
+        return False
+    return names.isdisjoint(present_placeholders or frozenset())
+
+
 # --- Contamination rule set --------------------------------------------------------------------
 # The three precedent-contamination checks above, declared as one coherent, inspectable RuleSet
 # (see app.services.extraction.rules). Each entity-producing site (Step 1-2 extraction, Step-3
@@ -124,6 +150,7 @@ class EntityContext:
     quotes: List[str] | None = None
     concept_type: str | None = None
     present_letters: frozenset = frozenset()
+    present_placeholders: frozenset = frozenset()
 
 
 PRECEDENT_RULES: RuleSet[EntityContext] = RuleSet(
@@ -146,6 +173,11 @@ PRECEDENT_RULES: RuleSet[EntityContext] = RuleSet(
         Rule("foreign_actor",
              "an engineer letter absent from the present case (a precedent actor)",
              lambda c: is_foreign_actor_entity(c.label, c.present_letters)),
+        Rule("placeholder_actor",
+             "a Doe/Roe placeholder surname foreign to the present case (present-case Doe/Roe "
+             "parties in pre-1980s opinions are kept; see is_foreign_placeholder_entity)",
+             lambda c: c.concept_type not in PRECEDENT_AS_CONTENT_TYPES
+             and is_foreign_placeholder_entity(c.label, c.present_placeholders)),
     ],
 )
 
@@ -155,15 +187,19 @@ def is_contaminated_entity(
     quotes: List[str] | None = None,
     concept_type: str | None = None,
     present_letters=None,
+    present_placeholders=None,
 ) -> bool:
-    """True if the entity matches any PRECEDENT_RULES rule (a citation marker in the label, or
-    a foreign present-case actor). Pass present_letters (from present_case_actor_letters over
-    the facts/question/conclusion sections) to enable the actor rule; omit it where the case
-    context is unavailable -- the label rule still applies. quotes is accepted (EntityContext
-    carries it for future rules) but no live rule currently inspects it."""
+    """True if the entity matches any PRECEDENT_RULES rule (a citation marker in the label, a
+    foreign present-case actor, or a foreign Doe/Roe placeholder). Pass present_letters and
+    present_placeholders (from the case_actors loaders over the facts/question/conclusion
+    sections) to enable the actor rules; omit them where the case context is unavailable -- the
+    label rule still applies and Doe/Roe then drop unconditionally (the modern-case default).
+    quotes is accepted (EntityContext carries it for future rules) but no live rule currently
+    inspects it."""
     return PRECEDENT_RULES.matches(EntityContext(
         label=label, quotes=quotes, concept_type=concept_type,
-        present_letters=present_letters or frozenset()))
+        present_letters=present_letters or frozenset(),
+        present_placeholders=present_placeholders or frozenset()))
 
 
 def drop_contaminated_entities(
@@ -172,6 +208,7 @@ def drop_contaminated_entities(
     get_quotes: Callable[[T], List[str] | None] | None = None,
     concept_type: str | None = None,
     present_letters=None,
+    present_placeholders=None,
 ) -> Tuple[List[T], List[str]]:
     """Partition items into (kept, dropped_labels) by the PRECEDENT_RULES set. The single
     list-level entry point for precedent-case contamination; use it at every extraction, temporal,
@@ -181,7 +218,8 @@ def drop_contaminated_entities(
             label=get_label(it),
             quotes=get_quotes(it) if get_quotes else None,
             concept_type=concept_type,
-            present_letters=present_letters or frozenset())
+            present_letters=present_letters or frozenset(),
+            present_placeholders=present_placeholders or frozenset())
 
     kept, hits = PRECEDENT_RULES.partition(items, to_ctx, get_label)
     return kept, [h.label for h in hits]
@@ -196,6 +234,7 @@ def is_precedent_narrative_temporal(
     description: str | None = None,
     agent: str | None = None,
     present_letters=None,
+    present_placeholders=None,
 ) -> bool:
     """True when a temporal happening (Action/Event) narrates a CITED
     precedent case rather than this case: its label is contaminated per
@@ -210,7 +249,8 @@ def is_precedent_narrative_temporal(
     source for stage-7 dropping, the timeline view's legacy-row fallback,
     and the gold backfill.
     """
-    if is_contaminated_entity(label, present_letters=present_letters):
+    if is_contaminated_entity(label, present_letters=present_letters,
+                              present_placeholders=present_placeholders):
         return True
     d = (description or '').lstrip().lower()
     if d.startswith('in precedent') or 'precedent ber case' in d:
