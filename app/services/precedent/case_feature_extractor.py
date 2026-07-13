@@ -246,16 +246,36 @@ class CaseFeatureExtractor:
         ethical_indicators = []
         unethical_indicators = []
 
-        # Pattern: "was/is/would be ethical" (positive) vs negated forms
-        # Must check "not ethical" before "ethical" to avoid false positives
-        if re.search(r'\b(was|is|would be|were)\s+not\s+ethical\b', conclusion_lower):
+        # Pattern: "was/is/would be ethical" (positive) vs negated forms.
+        # Must check "not ethical" before "ethical" to avoid false positives.
+        # Negation can sit after the copula ("was not ethical") or between the
+        # modal and "be" ("would not be ethical" -- the prospective form BER
+        # uses for conduct not yet taken; batch-5 case 109).
+        if re.search(r'\b(?:(?:was|is|were)\s+not|(?:would|will)\s+not\s+be)\s+ethical\b',
+                     conclusion_lower):
             unethical_indicators.append('was not ethical statement')
         elif re.search(r'\b(was|is|would be|were)\s+ethical\b', conclusion_lower):
             ethical_indicators.append('explicit ethical statement')
 
+        # Pattern: "(not) consistent with the ... Code" -- the verdict form
+        # 2000s-era opinions use for per-situation holdings (batch-5 case 128).
+        # Separate ifs so a mixed multi-situation conclusion scores both ways.
+        if re.search(r'\b(?:was|is|were|are)\s+not\s+consistent\s+with\b[^.]*\bcode\b',
+                     conclusion_lower):
+            unethical_indicators.append('not consistent with code')
+        if re.search(r'\b(?:was|is|were|are)\s+consistent\s+with\b[^.]*\bcode\b',
+                     conclusion_lower):
+            ethical_indicators.append('consistent with code')
+
         # Pattern: "unethical" explicitly
         if re.search(r'\bunethical\b', conclusion_lower):
             unethical_indicators.append('explicit unethical statement')
+
+        # Pattern: "partly ethical" / "ethical in part" -- a split verdict's
+        # positive half ("partly ethical, and partly unethical", gold case 7);
+        # scores the ethical side so the pair resolves to mixed, not unethical.
+        if re.search(r'\bpartly\s+ethical\b|\bethical\s+in\s+part\b', conclusion_lower):
+            ethical_indicators.append('partly ethical statement')
 
         # Pattern: "did not violate" / "does not violate" vs "violates"
         if re.search(r'\b(did|does|do)\s+not\s+violate\b', conclusion_lower):
