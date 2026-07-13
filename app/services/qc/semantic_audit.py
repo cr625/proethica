@@ -263,9 +263,14 @@ def s5_obligations(case_id, g, sections) -> dict:
     if not obligations:
         return _check("S5_obligation_attribution", "warning", "pass",
                       {"note": "no obligation individuals"})
-    text = " ".join(sections.get(k, "") for k in ("facts", "discussion", "conclusion"))
-    verdict = _judge(f"""CASE TEXT (facts + discussion + conclusion):
-{text[:9000]}
+    # Per-section budgets, NOT a joined-then-truncated blob: the conclusion sits
+    # last in a joined string, so long 2000s-era cases lost exactly the section
+    # that grounds duty attributions (batch-5 cases 86/128/137 false flags).
+    text = " ".join(f"[{k.upper()}] " + (sections.get(k, "") or "")[:cap]
+                    for k, cap in (("facts", 5000), ("discussion", 8000),
+                                   ("conclusion", 3000)))
+    verdict = _judge(f"""CASE TEXT (facts + discussion + conclusion, each section truncated separately):
+{text[:17000]}
 
 COMMITTED OBLIGATION INDIVIDUALS (label, obligated party, type kinds, statement):
 {json.dumps(obligations, indent=1)[:5000]}
