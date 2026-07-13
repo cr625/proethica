@@ -66,6 +66,11 @@ CORE = Namespace("http://proethica.org/ontology/core#")
 CASES = Namespace("http://proethica.org/ontology/cases#")
 PROETH = Namespace("http://proethica.org/ontology/intermediate#")
 
+def local_name(uri) -> str:
+    s = str(uri)
+    return s.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+
+
 _CASE_NUM_RE = re.compile(r"\b\d{2}-\d{1,2}\b")
 _STOPWORDS = frozenset(
     "the a an of in to and or for by with on at as is was were be been this that".split())
@@ -247,9 +252,14 @@ def s5_obligations(case_id, g, sections) -> dict:
     obligations = []
     for s in set(g.subjects(RDF.type, CORE.Obligation)):
         party_node = g.value(s, CORE.obligatedParty)
+        kinds = sorted({local_name(t) for t in g.objects(s, RDF.type)}
+                       - {"Obligation", "NamedIndividual"})
+        stmt = str(g.value(s, PROETH.obligationStatement) or "")
         obligations.append({
             "label": str(g.value(s, RDFS.label) or ""),
-            "party": str(g.value(party_node, RDFS.label) or "") if party_node else None})
+            "party": str(g.value(party_node, RDFS.label) or "") if party_node else None,
+            "kinds": kinds,
+            "statement": stmt[:240]})
     if not obligations:
         return _check("S5_obligation_attribution", "warning", "pass",
                       {"note": "no obligation individuals"})
@@ -257,15 +267,20 @@ def s5_obligations(case_id, g, sections) -> dict:
     verdict = _judge(f"""CASE TEXT (facts + discussion + conclusion):
 {text[:9000]}
 
-COMMITTED OBLIGATION INDIVIDUALS (label + obligated party):
-{json.dumps(obligations, indent=1)[:3000]}
+COMMITTED OBLIGATION INDIVIDUALS (label, obligated party, type kinds, statement):
+{json.dumps(obligations, indent=1)[:5000]}
 
 MODELING CONVENTION: duties are minted PER ACTOR -- a duty the case places on
 'Engineers A and B' jointly is correctly stored as separate per-actor
 individuals ('Engineer A X Duty', 'Engineer B X Duty'); a per-actor slice of a
 joint duty is NOT a misattribution. Flag only a duty attributed to an actor
-the case does NOT place it on. Judge each: (a) does the case assert or
-clearly imply this duty? (b) is it attributed to a WRONG party? Output JSON:
+the case does NOT place it on. An individual whose kinds include
+LegalObligation records a CONTRACTUAL or legal requirement asserted in the
+case text (often one the board scrutinizes or rejects); judge it by whether
+the case asserts that contractual requirement on that party, NOT by whether
+the case frames it as an ethical duty. Judge each against its statement, not
+its label alone: (a) does the case assert or clearly imply this obligation as
+stated? (b) is it attributed to a WRONG party? Output JSON:
 {{"unsupported": [{{"label": "...", "why": "...", }}], "misattributed": [{{"label": "...", "stored_party": "...", "should_be": "...", "evidence": "quote"}}], "notes": "one sentence"}}""")
     if verdict is None:
         return _check("S5_obligation_attribution", "warning", "judge_unavailable", {})
@@ -325,6 +340,9 @@ def s7_decision_points(case_id, sections) -> dict:
     verdict = _judge(f"""CASE FACTS:
 {(sections.get('facts') or '')[:4000]}
 
+DISCUSSION (board reasoning; decision-point premises often anchor HERE):
+{(sections.get('discussion') or '')[:6000]}
+
 BOARD HOLDING (conclusion section):
 {(sections.get('conclusion') or sections.get('conclusions') or '')[:3000]}
 
@@ -333,11 +351,14 @@ COMMITTED DECISION POINTS:
 
 MODELING CONVENTION: decision points are ANALYTICAL CONSTRUCTIONS -- the
 synthesis frames the case's real tensions as explicit choices, so a decision
-point need not be quoted from the text; that is by design, not invention.
-Flag as invented ONLY a point whose choice belongs to a cited precedent's
-actors or contradicts the facts of this case. Judge each decision point:
-(a) is its underlying tension real in THIS case? (b) does boardResolution
-match the actual holding? Output JSON: {{"invented": ["focus ..."], "resolution_mismatches":
+point need not be quoted from the text; that is by design, not invention. An
+alternative anchored in a premise the case text states (in facts OR
+discussion) is legitimate even when the board never weighs that alternative
+itself. Flag as invented ONLY a point whose choice belongs to a cited
+precedent's actors, or whose premise contradicts the case text or has no
+anchor anywhere in it. Judge each decision point: (a) is its underlying
+tension real in THIS case? (b) does boardResolution match the actual holding?
+Output JSON: {{"invented": ["focus ..."], "resolution_mismatches":
 [{{"focus": "...", "stored": "...", "holding_says": "...", "evidence": "quote"}}],
 "notes": "one sentence"}}""")
     if verdict is None:
