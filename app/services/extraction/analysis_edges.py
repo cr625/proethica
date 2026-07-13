@@ -343,8 +343,14 @@ def _resolve_agent_ref(case_ns, raw: str, agents) -> object:
     tok = frag.lower().removeprefix('the_').strip('_')
     if len(tok) < 3:
         return None
-    cands = [a for a in agents
-             if str(a).rsplit('#', 1)[-1].lower().removeprefix('agent_').startswith(tok)]
+    # Token-boundary prefix: 'engineer' must match 'engineer_a' but NOT
+    # 'engineering_firm' (case 163: the char-prefix version read the firm as
+    # a second engineer and skipped a resolvable reference as ambiguous).
+    cands = []
+    for a in agents:
+        local = str(a).rsplit('#', 1)[-1].lower().removeprefix('agent_')
+        if local == tok or local.startswith(tok + '_'):
+            cands.append(a)
     return cands[0] if len(cands) == 1 else None
 
 

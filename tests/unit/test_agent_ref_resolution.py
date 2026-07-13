@@ -37,3 +37,11 @@ def test_unknown_and_short_tokens_stay_miss():
     assert _resolve_agent_ref(NS, "case-92#Attorney", agents) is None
     assert _resolve_agent_ref(NS, "case-92#Zz", agents) is None
     assert _resolve_agent_ref(NS, "", agents) is None
+
+
+def test_token_boundary_excludes_engineering_firm():
+    """'engineer' must not read 'Engineering_Firm' as a second engineer
+    (case 163: the char-prefix match skipped a resolvable ref as ambiguous)."""
+    agents = _agents("Agent_Engineer_A", "Agent_Engineering_Firm",
+                     "Agent_Graduate_Engineers")
+    assert _resolve_agent_ref(NS, "case-163#Engineer", agents) == NS.Agent_Engineer_A
