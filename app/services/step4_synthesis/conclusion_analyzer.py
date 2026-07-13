@@ -374,16 +374,25 @@ class ConclusionAnalyzer:
         text_lower = conclusion_text.lower()
 
         # Negated / exonerating forms before anything containing 'violation'
-        # or 'unethical' as a substring.
+        # or 'unethical' as a substring. Convention (batch-3 semantic audit):
+        # negated-violation wordings ('not unethical', 'no violation') ->
+        # NO_VIOLATION; affirmative-ethical wordings ('acted ethically') ->
+        # COMPLIANCE.
         if ('no violation' in text_lower or 'not a violation' in text_lower
-                or 'did not violate' in text_lower or 'does not violate' in text_lower):
+                or 'did not violate' in text_lower or 'does not violate' in text_lower
+                or 'not unethical' in text_lower):
             return BoardConclusionType.NO_VIOLATION.value
-        if ('not unethical' in text_lower or 'was ethical' in text_lower
-                or 'were ethical' in text_lower or 'acted ethically' in text_lower
-                or 'was not unethical' in text_lower or 'acted properly' in text_lower
+        if ('was ethical' in text_lower or 'were ethical' in text_lower
+                or 'acted ethically' in text_lower or 'acted properly' in text_lower
                 or 'it was ethical' in text_lower):
             return BoardConclusionType.COMPLIANCE.value
-        if 'violation' in text_lower or 'violated' in text_lower or 'unethical' in text_lower:
+        # Violation-by-omission and negated-ethical wordings (batch-3 audit:
+        # 'did not fulfill her ethical obligations', 'would not be ethical').
+        # 'not unethical' is already routed above and cannot reach these.
+        if ('violation' in text_lower or 'violated' in text_lower
+                or 'unethical' in text_lower or 'did not fulfill' in text_lower
+                or 'failed to fulfill' in text_lower or 'not be ethical' in text_lower
+                or 'not ethical' in text_lower):
             return BoardConclusionType.VIOLATION.value
         if ('recommend' in text_lower or 'should' in text_lower
                 or 'obligation to' in text_lower or 'duty to' in text_lower):

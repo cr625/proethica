@@ -13,7 +13,8 @@ def test_negated_forms_win_over_bare_substrings():
     assert _detect("The Board finds no violation of the Code.") == "no_violation"
     assert _detect("This was not a violation of Section 8.") == "no_violation"
     assert _detect("Engineer A did not violate the Code.") == "no_violation"
-    assert _detect("Engineer A's conduct was not unethical.") == "compliance"
+    # 'not unethical' re-routed to no_violation 2026-07-13 (negated-violation convention)
+    assert _detect("Engineer A's conduct was not unethical.") == "no_violation"
 
 
 def test_era_phrasings_classified():
@@ -28,3 +29,14 @@ def test_positive_forms_unchanged():
     assert _detect("The Board recommends full disclosure.") == "recommendation"
     assert _detect("Section 8 means that prior consent is required.") == "interpretation"
     assert _detect("The weather was pleasant.") == "unknown"
+
+
+def test_batch3_era_phrasings():
+    """Batch-3 semantic audit round: violation-by-omission and negated-ethical
+    wordings fell through to unknown; 'not unethical' routes to no_violation
+    (negated-violation convention), affirmative-ethical stays compliance."""
+    assert _detect("Engineer A did not fulfill her ethical obligations by informing only the administrator.") == "violation"
+    assert _detect("It would not be ethical for Engineer A to be retained by the contractor.") == "violation"
+    assert _detect("Engineer Z's conduct was not unethical.") == "no_violation"
+    assert _detect("It was not unethical for Engineer Z to continue the representation.") == "no_violation"
+    assert _detect("Engineers A and B acted ethically.") == "compliance"
