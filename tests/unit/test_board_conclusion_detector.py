@@ -40,3 +40,38 @@ def test_batch3_era_phrasings():
     assert _detect("Engineer Z's conduct was not unethical.") == "no_violation"
     assert _detect("It was not unethical for Engineer Z to continue the representation.") == "no_violation"
     assert _detect("Engineers A and B acted ethically.") == "compliance"
+
+
+def test_batch5_round3_forms():
+    """Batch-5 semantic audit round: multi-situation bundles segment and
+    aggregate (uniform -> that type, differing -> mixed); '(not) consistent
+    with the Code' maps per polarity; a past-tense duty affirmation is a
+    breach finding; a prescriptive-opening conclusion whose only 'violation'
+    tokens describe a third party's legal violation stays a recommendation."""
+    assert _detect(
+        "Situation 1. Engineer A's actions were not consistent with the NSPE Code of Ethics."
+        "Situation 2. Engineer A's actions were consistent with the NSPE Code of Ethics."
+        "Situation 3. Engineer A's actions were consistent with the NSPE Code of Ethics."
+    ) == "mixed"
+    assert _detect(
+        "Situation 1. Engineer A's actions were consistent with the NSPE Code. "
+        "Situation 2. Engineer B's actions were consistent with the NSPE Code."
+    ) == "no_violation"
+    assert _detect(
+        "Engineer F had an ethical obligation to report on the employment "
+        "application the revocation of his contractor's license.") == "violation"
+    assert _detect(
+        "Engineer A should contact the client and point out the action is a "
+        "violation of the law and that steps need to be taken to remedy the "
+        "violation. If appropriate steps are not taken, Engineer A has an "
+        "obligation to bring this matter to the attention of the authorities."
+    ) == "recommendation"
+    assert _detect(
+        "Engineer A should have disclosed the defect; his failure to do so "
+        "violated the Code.") == "violation"
+    assert _detect(
+        "It would be ethical for Engineer X or his firm to accept the "
+        "contract under the stated circumstances.") == "compliance"
+    assert _detect(
+        "It would not be ethical for Engineer X to accept the contract."
+    ) == "violation"
