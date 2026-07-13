@@ -299,8 +299,13 @@ def build_expectations(case_id: int, g: Graph) -> Tuple[List[Tuple], List[str]]:
             raw = d.get(key) or ""
             if not raw:
                 continue
-            tgt = _frag_uri(case_ns, raw)
-            if tgt is None or tgt not in core_sets[cat]:
+            if cat == "Agent":
+                tgt = _resolve_agent_ref(case_ns, raw, core_sets[cat])
+            else:
+                tgt = _frag_uri(case_ns, raw)
+                if tgt is not None and tgt not in core_sets[cat]:
+                    tgt = None
+            if tgt is None:
                 misses.append(f"DP {fid}: {pred}: {raw!r} not a committed {cat}")
                 continue
             edges.append((subj, pred, tgt, raw))
@@ -312,6 +317,35 @@ def build_expectations(case_id: int, g: Graph) -> Tuple[List[Tuple], List[str]]:
             edges.append((subj, "involvesAction", tgt, aref))
 
     return edges, misses
+
+
+def _resolve_agent_ref(case_ns, raw: str, agents) -> object:
+    """Resolve a Phase-3 decidedByAgent reference to a committed Agent.
+
+    Phase-3 refs frequently miss the minted node two ways (batch-1/2/3
+    reviews: 27 decision points across 6 cases lost agent linkage in batch 3
+    alone): the ref omits the ``Agent_`` prefix the participant minter uses
+    ('case-166#Engineer_D' vs 'Agent_Engineer_D'), or names a generic role
+    token ('case-92#Engineer') where the committed agent is
+    'Agent_Engineer_A'. Resolution order: exact fragment, ``Agent_``-prefixed
+    fragment, then a UNIQUE-prefix match on the committed agents' local names
+    (minus the Agent_ prefix); an ambiguous generic token (two engineers)
+    stays unresolved -- a dangling guess is worse than a recorded miss."""
+    tgt = _frag_uri(case_ns, raw)
+    if tgt is not None and tgt in agents:
+        return tgt
+    frag = (raw.split('#')[-1] if '#' in raw else raw).strip()
+    if not frag:
+        return None
+    prefixed = case_ns[f"Agent_{frag}"]
+    if prefixed in agents:
+        return prefixed
+    tok = frag.lower().removeprefix('the_').strip('_')
+    if len(tok) < 3:
+        return None
+    cands = [a for a in agents
+             if str(a).rsplit('#', 1)[-1].lower().removeprefix('agent_').startswith(tok)]
+    return cands[0] if len(cands) == 1 else None
 
 
 def apply_analysis_record_edges(case_id: int, ttl_path,
