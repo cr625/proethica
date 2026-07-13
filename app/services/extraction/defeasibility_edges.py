@@ -59,7 +59,12 @@ class DefeasibilityEdgeExtractor(StreamingEdgeExtractor):
     """
 
     log_label = "Defeasibility"
-    default_max_tokens = 16384
+    # 32000 = the edge-extractor family convention (rpo uses the same). The
+    # former 16384 shared the budget with the default tier's thinking spend,
+    # so a narrative-heavy case could exhaust the cap before or mid-output --
+    # batch-3 case 84 hit max_tokens with an unsalvageable stream and
+    # committed ZERO defeasibility edges on a resolved-conflict holding.
+    default_max_tokens = 32000
 
     def _default_model(self) -> str:
         """The ratified model split (2026-07-01) places the defeasibility
