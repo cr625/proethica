@@ -237,8 +237,10 @@ COMMITTED CONCLUSIONS (extracted knowledge under audit):
 For the committed board_explicit conclusions, judge: (a) is each conclusionText
 faithful to the section (not invented, not materially altered)? (b) does each
 boardConclusionType (violation/no_violation/compliance/recommendation/
-interpretation) match the actual holding? (c) any section holding MISSING from
-the committed set? Output JSON:
+interpretation/mixed) match the actual holding? 'mixed' is the CORRECT value
+for a single conclusion bundling multi-situation verdicts of differing
+polarities (e.g. Situation 1 a violation, Situations 2-4 not). (c) any section
+holding MISSING from the committed set? Output JSON:
 {{"faithful": true/false, "type_errors": [{{"conclusion": n, "stored": "...", "should_be": "...", "evidence": "verbatim quote"}}], "missing_holdings": ["..."], "notes": "one sentence"}}""")
     if verdict is None:
         return _check("S4_conclusion_fidelity", "critical", "judge_unavailable", {})

@@ -55,6 +55,7 @@ class BoardConclusionType(Enum):
     NO_VIOLATION = "no_violation"   # Found no violation
     INTERPRETATION = "interpretation"  # Clarifies interpretation
     RECOMMENDATION = "recommendation"  # Recommends action
+    MIXED = "mixed"                 # Multi-situation verdict, differing polarities
 
 
 @dataclass
@@ -368,11 +369,33 @@ class ConclusionAnalyzer:
         violation' holdings returned VIOLATION and the NO_VIOLATION branch was
         dead code (polarity inversion). The semantic audit (S4) also found the
         era phrasings 'acted ethically' and 'has an ethical obligation to'
-        falling through to 'unknown'; both are covered below. Deterministic by
+        falling through to 'unknown'; both are covered below. Round 3 (batch-5
+        audit): 'Situation N.' multi-verdict bundles segment before detection
+        and aggregate (uniform -> that type, differing polarities -> MIXED);
+        '(not) consistent with the ... Code' maps per polarity; a past-tense
+        duty affirmation ('had an (ethical) obligation to') is a breach
+        finding, not a recommendation; and a prescriptive-opening conclusion
+        whose only 'violation' tokens describe a third party's LEGAL violation
+        inside advisory speech stays a recommendation. Deterministic by
         design -- the corpus backfill recomputes stored values with the same
         rules, so committed literals never drift from this function."""
         text_lower = conclusion_text.lower()
 
+        # Multi-situation bundles ('Situation 1. ... Situation 2. ...') carry
+        # one verdict per situation; detect per segment and aggregate.
+        segments = re.split(r'(?i)(?=situation\s+\d+\s*[.:)])', conclusion_text)
+        segments = [s for s in segments if re.match(r'(?i)situation\s+\d+', s.strip())]
+        if len(segments) >= 2:
+            seg_types = {self._detect_single_verdict(s.lower()) for s in segments}
+            seg_types.discard("unknown")
+            if len(seg_types) == 1:
+                return seg_types.pop()
+            if len(seg_types) > 1:
+                return BoardConclusionType.MIXED.value
+        return self._detect_single_verdict(text_lower)
+
+    def _detect_single_verdict(self, text_lower: str) -> str:
+        """The single-verdict pattern chain (see _detect_board_conclusion_type)."""
         # Negated / exonerating forms before anything containing 'violation'
         # or 'unethical' as a substring. Convention (batch-3 semantic audit):
         # negated-violation wordings ('not unethical', 'no violation') ->
@@ -384,8 +407,35 @@ class ConclusionAnalyzer:
             return BoardConclusionType.NO_VIOLATION.value
         if ('was ethical' in text_lower or 'were ethical' in text_lower
                 or 'acted ethically' in text_lower or 'acted properly' in text_lower
-                or 'it was ethical' in text_lower):
+                or 'it was ethical' in text_lower or 'would be ethical' in text_lower):
             return BoardConclusionType.COMPLIANCE.value
+        # 2000s-era per-situation verdict form (batch-5 case 128): negated
+        # polarity first ('not consistent' contains 'consistent').
+        if 'not consistent with' in text_lower and 'code' in text_lower:
+            return BoardConclusionType.VIOLATION.value
+        if 'consistent with' in text_lower and 'code' in text_lower:
+            return BoardConclusionType.NO_VIOLATION.value
+        # Past-tense duty affirmation is a breach finding (batch-5 case 148:
+        # 'had an ethical obligation to report' where the facts show the duty
+        # unmet); must precede the 'obligation to' -> recommendation rule.
+        if ('had an ethical obligation to' in text_lower
+                or 'had an obligation to' in text_lower
+                or 'was obligated to' in text_lower):
+            return BoardConclusionType.VIOLATION.value
+        # Prescriptive-opening advisory conclusions (batch-5 case 86:
+        # 'Engineer A should contact the client ... point out the action is a
+        # violation of the law'): the 'violation' tokens describe a third
+        # party's LEGAL violation inside recommended speech, not a Code
+        # verdict. Suppress the bare-violation rule when the first sentence
+        # prescribes ('should') and no Code-verdict wording appears anywhere.
+        first_sentence = text_lower.split('.', 1)[0]
+        code_verdict = ('unethical' in text_lower or 'violated' in text_lower
+                        or 'violation of the code' in text_lower
+                        or 'violation of the nspe code' in text_lower
+                        or 'not ethical' in text_lower
+                        or 'not be ethical' in text_lower)
+        if 'should' in first_sentence and not code_verdict:
+            return BoardConclusionType.RECOMMENDATION.value
         # Violation-by-omission and negated-ethical wordings (batch-3 audit:
         # 'did not fulfill her ethical obligations', 'would not be ethical').
         # 'not unethical' is already routed above and cannot reach these.
