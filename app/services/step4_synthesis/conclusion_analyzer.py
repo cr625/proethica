@@ -454,7 +454,8 @@ class ConclusionAnalyzer:
                 or 'not ethical' in text_lower):
             return BoardConclusionType.VIOLATION.value
         if ('recommend' in text_lower or 'should' in text_lower
-                or 'obligation to' in text_lower or 'duty to' in text_lower):
+                or 'obligation to' in text_lower or 'duty to' in text_lower
+                or 'is free to' in text_lower):
             return BoardConclusionType.RECOMMENDATION.value
         if 'interpret' in text_lower or 'means' in text_lower or 'clarif' in text_lower:
             return BoardConclusionType.INTERPRETATION.value

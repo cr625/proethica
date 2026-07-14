@@ -87,3 +87,7 @@ def test_batch6_fulfilled_duty_forms():
     assert _detect(
         "Engineer A had not fulfilled his ethical obligation to notify the "
         "owner.") == "violation"
+    assert _detect(
+        "Engineer A is free to pursue employment with Company Y provided "
+        "Engineer A does not disclose any confidential design information."
+    ) == "recommendation"
