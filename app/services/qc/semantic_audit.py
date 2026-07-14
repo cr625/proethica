@@ -269,10 +269,10 @@ def s5_obligations(case_id, g, sections) -> dict:
     # last in a joined string, so long 2000s-era cases lost exactly the section
     # that grounds duty attributions (batch-5 cases 86/128/137 false flags).
     text = " ".join(f"[{k.upper()}] " + (sections.get(k, "") or "")[:cap]
-                    for k, cap in (("facts", 5000), ("discussion", 8000),
+                    for k, cap in (("facts", 5000), ("discussion", 12000),
                                    ("conclusion", 3000)))
     verdict = _judge(f"""CASE TEXT (facts + discussion + conclusion, each section truncated separately):
-{text[:17000]}
+{text[:21000]}
 
 COMMITTED OBLIGATION INDIVIDUALS (label, obligated party, type kinds, statement):
 {json.dumps(obligations, indent=1)[:5000]}

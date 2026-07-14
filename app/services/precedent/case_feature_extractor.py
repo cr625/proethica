@@ -277,6 +277,21 @@ class CaseFeatureExtractor:
         if re.search(r'\bpartly\s+ethical\b|\bethical\s+in\s+part\b', conclusion_lower):
             ethical_indicators.append('partly ethical statement')
 
+        # Pattern: fulfilled/discharged duty (batch-6 case 133: "has fulfilled
+        # his ethical obligation by taking prudent action"); negated first.
+        if re.search(r'\b(?:did\s+not|failed\s+to)\s+fulfill\b|\bnot\s+fulfilled\b',
+                     conclusion_lower):
+            unethical_indicators.append('did not fulfill obligation')
+        elif re.search(r'\bfulfilled\s+(?:his|her|their|its)\s+(?:ethical\s+)?obligation',
+                       conclusion_lower):
+            ethical_indicators.append('fulfilled obligation')
+
+        # Pattern: conditional permission (batch-6 case 106: "Engineer A is
+        # free to pursue employment ... provided"); negation guarded.
+        if (re.search(r'\bis\s+free\s+to\b', conclusion_lower)
+                and not re.search(r'\bnot\s+free\s+to\b', conclusion_lower)):
+            ethical_indicators.append('permission granted')
+
         # Pattern: "did not violate" / "does not violate" vs "violates"
         if re.search(r'\b(did|does|do)\s+not\s+violate\b', conclusion_lower):
             ethical_indicators.append('does not violate')
