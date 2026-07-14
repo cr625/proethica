@@ -405,6 +405,17 @@ class ConclusionAnalyzer:
                 or 'did not violate' in text_lower or 'does not violate' in text_lower
                 or 'not unethical' in text_lower):
             return BoardConclusionType.NO_VIOLATION.value
+        # Modern exoneration forms (batch-7 audit): a negated-deception or
+        # no-conflict clearance is a no-violation finding, not a
+        # recommendation, even when 'should' appears in the sentence
+        # (case 129: 'should not present any clear or apparent conflict of
+        # interest'; case 146: 'does not compel disclosure nor does a failure
+        # to disclose somehow constitute a deception').
+        if (re.search(r'\b(?:does not|nor does|do not|did not)\b[^.]*\bconstitutes? a\b',
+                      text_lower)
+                or re.search(r'should not present any\b[^.]*\bconflict of interest',
+                             text_lower)):
+            return BoardConclusionType.NO_VIOLATION.value
         if ('was ethical' in text_lower or 'were ethical' in text_lower
                 or 'acted ethically' in text_lower or 'acted properly' in text_lower
                 or 'it was ethical' in text_lower or 'would be ethical' in text_lower):
