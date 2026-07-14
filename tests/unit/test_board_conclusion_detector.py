@@ -75,3 +75,15 @@ def test_batch5_round3_forms():
     assert _detect(
         "It would not be ethical for Engineer X to accept the contract."
     ) == "violation"
+
+
+def test_batch6_fulfilled_duty_forms():
+    """Batch-6 audit round: a fulfilled/discharged duty is a compliance
+    verdict; negated fulfillment stays a violation."""
+    assert _detect(
+        "Engineer A has fulfilled his ethical obligation by taking prudent "
+        "action in notifying the town supervisor. However, Engineer A should "
+        "also notify the new owner in writing.") == "compliance"
+    assert _detect(
+        "Engineer A had not fulfilled his ethical obligation to notify the "
+        "owner.") == "violation"

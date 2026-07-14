@@ -409,6 +409,14 @@ class ConclusionAnalyzer:
                 or 'acted ethically' in text_lower or 'acted properly' in text_lower
                 or 'it was ethical' in text_lower or 'would be ethical' in text_lower):
             return BoardConclusionType.COMPLIANCE.value
+        # Fulfilled/discharged duty is a compliance verdict (batch-6 case 133:
+        # 'has fulfilled his ethical obligation by taking prudent action');
+        # negated fulfillment ('did not fulfill', 'had not fulfilled') stays
+        # with the violation block below.
+        if (re.search(r'\bfulfilled\s+(?:his|her|their|its)\s+(?:ethical\s+)?obligation',
+                      text_lower)
+                and 'not fulfill' not in text_lower):
+            return BoardConclusionType.COMPLIANCE.value
         # 2000s-era per-situation verdict form (batch-5 case 128): negated
         # polarity first ('not consistent' contains 'consistent').
         if 'not consistent with' in text_lower and 'code' in text_lower:
@@ -441,7 +449,8 @@ class ConclusionAnalyzer:
         # 'not unethical' is already routed above and cannot reach these.
         if ('violation' in text_lower or 'violated' in text_lower
                 or 'unethical' in text_lower or 'did not fulfill' in text_lower
-                or 'failed to fulfill' in text_lower or 'not be ethical' in text_lower
+                or 'failed to fulfill' in text_lower or 'not fulfilled' in text_lower
+                or 'not be ethical' in text_lower
                 or 'not ethical' in text_lower):
             return BoardConclusionType.VIOLATION.value
         if ('recommend' in text_lower or 'should' in text_lower
