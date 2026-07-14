@@ -91,3 +91,18 @@ def test_batch6_fulfilled_duty_forms():
         "Engineer A is free to pursue employment with Company Y provided "
         "Engineer A does not disclose any confidential design information."
     ) == "recommendation"
+
+
+def test_batch7_exoneration_forms():
+    """Batch-7 audit round: negated-deception and no-conflict clearances are
+    no-violation findings even when 'should' appears in the sentence."""
+    assert _detect(
+        "Engineer A is certainly free to disclose his autism if he so "
+        "chooses. However, the NSPE Code of Ethics does not compel "
+        "disclosure nor does a failure to disclose somehow constitutes a "
+        "“deception.”") == "no_violation"
+    assert _detect(
+        "Engineer A’s role as a private forensic engineering expert "
+        "should not present any clear or apparent conflict of interest. "
+        "Engineer A has an obligation to (1) fully disclose to Attorney X "
+        "his role on the committee.") == "no_violation"

@@ -287,10 +287,20 @@ class CaseFeatureExtractor:
             ethical_indicators.append('fulfilled obligation')
 
         # Pattern: conditional permission (batch-6 case 106: "Engineer A is
-        # free to pursue employment ... provided"); negation guarded.
-        if (re.search(r'\bis\s+free\s+to\b', conclusion_lower)
-                and not re.search(r'\bnot\s+free\s+to\b', conclusion_lower)):
+        # free to pursue employment ... provided"); adverb-tolerant (batch-7
+        # case 146: "is certainly free to"); negation guarded.
+        if (re.search(r'\bis\s+(?:\w+\s+)?free\s+to\b', conclusion_lower)
+                and not re.search(r'\bnot\s+(?:\w+\s+)?free\s+to\b', conclusion_lower)):
             ethical_indicators.append('permission granted')
+
+        # Modern exoneration forms (batch-7 cases 146/129): negated-deception
+        # and no-conflict clearances.
+        if re.search(r'\b(?:does not|nor does|do not|did not)\b[^.]*\bconstitutes? a\b',
+                     conclusion_lower):
+            ethical_indicators.append('negated-offense clearance')
+        if re.search(r'should not present any\b[^.]*\bconflict of interest',
+                     conclusion_lower):
+            ethical_indicators.append('no-conflict clearance')
 
         # Pattern: "did not violate" / "does not violate" vs "violates"
         if re.search(r'\b(did|does|do)\s+not\s+violate\b', conclusion_lower):
