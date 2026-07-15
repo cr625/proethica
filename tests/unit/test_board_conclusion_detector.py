@@ -106,3 +106,80 @@ def test_batch7_exoneration_forms():
         "should not present any clear or apparent conflict of interest. "
         "Engineer A has an obligation to (1) fully disclose to Attorney X "
         "his role on the committee.") == "no_violation"
+
+
+def test_batch8_round5_forms():
+    """Batch-8 audit round: duty-scope holdings are interpretations; the
+    adverb form 'not ethically <verb>' never reads as a verdict; fulfilled
+    duty without a possessive; 'did not act ethically'; misconduct bundled
+    with a report duty -> mixed."""
+    assert _detect(
+        "Clear reporting of unresolved public health and safety risks to "
+        "appropriate authorities satisfies Engineer B's obligation to "
+        "protect public health, safety and welfare.") == "interpretation"
+    assert _detect(
+        "Any additional steps taken beyond the notification of appropriate "
+        "authorities are not an obligation of Engineer B but rather a "
+        "personal choice as a citizen, and should be taken with due "
+        "consideration.") == "interpretation"
+    assert _detect(
+        "Owner and Engineer B are not required to obtain Engineer A's "
+        "consent to the peer review. Engineer A may not ethically object "
+        "to the peer review.") == "recommendation"
+    assert _detect(
+        "Engineer B is ethically required to make certain that Engineer A "
+        "is advised of the planned peer review.") == "recommendation"
+    assert _detect(
+        "Engineer R fulfilled ethical obligations regarding environmental "
+        "concerns at the site of the truck stop through public testimony."
+    ) == "compliance"
+    assert _detect(
+        "Engineer H did not act ethically by failing to address the "
+        "potential for leaking fuel.") == "violation"
+    assert _detect(
+        "Engineer B's proposal and marketing practices would constitute "
+        "professional misconduct per licensure law in State Z, and "
+        "Engineer A has a clear obligation to report to the engineering "
+        "licensing board in State Z.") == "mixed"
+    assert _detect(
+        "Engineer A's use of AI in report writing was partly ethical, and "
+        "partly unethical.") == "mixed"
+    assert _detect(
+        "Since the City D Engineer indicated they have no plans to change "
+        "the contract arrangement with Firm Z, Engineer A is obligated to "
+        "take appropriate action.") == "recommendation"
+    assert _detect(
+        "The use of AI-assisted drafting tools by Engineer A was not "
+        "unethical per se. However, Engineer A's misuse of the tool, by "
+        "failing to maintain Responsible Charge, was unethical.") == "mixed"
+    assert _detect(
+        "Engineer A does not have an obligation to report Engineer B's "
+        "practices to the engineering licensing board in State Q."
+    ) == "no_violation"
+    assert _detect(
+        "Engineer A has no professional or ethical obligation to disclose "
+        "AI use to Client W. However, engineers integrating AI should "
+        "adopt rigorous verification processes.") == "mixed"
+
+
+def test_gold_audit_round5b_forms():
+    """Gold-audit round: the board's own 'the answer is mixed'; past-duty
+    breach bundled with a permissibility clearance; conditional duty-trigger
+    holdings are interpretations."""
+    assert _detect(
+        "As to whether it would be ethical for Engineer D to be immediately, "
+        "directly involved with AE&R's projects with the City, the answer is "
+        "mixed as multiple considerations and details will affect the "
+        "outcome.") == "mixed"
+    assert _detect(
+        "Engineer A was obligated to report Engineer B to the proper "
+        "authority, in this case the State Board. As Engineer B's friend and "
+        "with Engineer B's approval, once the matter was reported to the "
+        "Board, it would have been permissible for Engineer A to help "
+        "cooperatively identify a temporary practice management alternative."
+    ) == "mixed"
+    assert _detect(
+        "If Engineer A reasonably believes that the probability of property "
+        "damage is high and that the probable amount of property damage is "
+        "significant, Engineer A has a duty to advise the Owner/Client of "
+        "the risk.") == "interpretation"
