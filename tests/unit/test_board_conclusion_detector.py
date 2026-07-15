@@ -160,3 +160,26 @@ def test_batch8_round5_forms():
         "Engineer A has no professional or ethical obligation to disclose "
         "AI use to Client W. However, engineers integrating AI should "
         "adopt rigorous verification processes.") == "mixed"
+
+
+def test_gold_audit_round5b_forms():
+    """Gold-audit round: the board's own 'the answer is mixed'; past-duty
+    breach bundled with a permissibility clearance; conditional duty-trigger
+    holdings are interpretations."""
+    assert _detect(
+        "As to whether it would be ethical for Engineer D to be immediately, "
+        "directly involved with AE&R's projects with the City, the answer is "
+        "mixed as multiple considerations and details will affect the "
+        "outcome.") == "mixed"
+    assert _detect(
+        "Engineer A was obligated to report Engineer B to the proper "
+        "authority, in this case the State Board. As Engineer B's friend and "
+        "with Engineer B's approval, once the matter was reported to the "
+        "Board, it would have been permissible for Engineer A to help "
+        "cooperatively identify a temporary practice management alternative."
+    ) == "mixed"
+    assert _detect(
+        "If Engineer A reasonably believes that the probability of property "
+        "damage is high and that the probable amount of property damage is "
+        "significant, Engineer A has a duty to advise the Owner/Client of "
+        "the risk.") == "interpretation"

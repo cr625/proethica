@@ -396,6 +396,25 @@ class ConclusionAnalyzer:
 
     def _detect_single_verdict(self, text_lower: str) -> str:
         """The single-verdict pattern chain (see _detect_board_conclusion_type)."""
+        # The board's own explicit mixed declaration (gold case 10 c2: 'the
+        # answer is mixed as multiple considerations...').
+        if 'the answer is mixed' in text_lower:
+            return BoardConclusionType.MIXED.value
+        # Past-duty breach clause bundled with a permissibility clearance in
+        # one holding (gold case 16 c4: 'was obligated to report ... it would
+        # have been permissible to help') -> MIXED; must precede the
+        # past-duty violation rule.
+        if (re.search(r'\b(?:was|were)\s+obligated\s+to\b', text_lower)
+                and 'permissible' in text_lower):
+            return BoardConclusionType.MIXED.value
+        # Conditional duty-trigger holdings (gold case 59 c1: 'If Engineer A
+        # reasonably believes ..., Engineer A has a duty to advise') state
+        # the conditions under which duties arise -- interpretation, not a
+        # recommendation; must precede the 'duty to' recommendation token.
+        if (text_lower.strip().startswith('if ')
+                and re.search(r'\b(?:duty|obligation) to\b', text_lower)
+                and not re.search(r'\bviolat|unethical\b', text_lower)):
+            return BoardConclusionType.INTERPRETATION.value
         # Split verdict in one holding (gold case 7 c2: 'was not unethical
         # per se. However, ... was unethical') -> MIXED; must precede the
         # 'not unethical' NO_VIOLATION token below.
