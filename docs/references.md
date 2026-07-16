@@ -43,7 +43,7 @@ practice, with obligation generation attributed to professional roles.
   [DOI](https://doi.org/10.1017/CBO9780511487118)
   Regulative ideals, role-generated obligations, and the founding-value limit:
   a professional role cannot license violating the good the profession serves.
-- **Kong, D. et al. (2020)**. Corpus-based empirical approach to
+- **Kong, K., Lam, P., and Cheng, W. (2020)**. Corpus-based empirical approach to
   professionalism: Identifying interactional roles and dispositions in
   professional codes of ethics. *Journal of Applied Linguistics and
   Professional Practice*, 14(1), 3-28.
@@ -53,7 +53,7 @@ practice, with obligation generation attributed to professional roles.
   role axis, complementary to the occupational axis.
 - **Doernberg, S. and Truog, R. (2023)**. Spheres of morality: The ethical
   codes of the medical profession. *The American Journal of Bioethics*,
-  23(12), 8-22. The spheres-of-morality reading: the same person may bear a
+  23(12), 8-22. [DOI](https://doi.org/10.1080/15265161.2022.2160514) The spheres-of-morality reading: the same person may bear a
   professional role in one engagement and a participant role in another.
 - **Davis, M. (1991)**. Thinking like an engineer: The place of a code of
   ethics in the practice of a profession. *Philosophy & Public Affairs*,
@@ -320,7 +320,6 @@ constraint, after the hierarchical constraint management of Dennis et al.
 
 **Harris, C. E., Pritchard, M. S., and Rabins, M. J. (2018)**. *Engineering
 Ethics: Concepts and Cases* (6th ed.). Cengage Learning.
-[Publisher](https://www.cengage.com/c/engineering-ethics-concepts-and-cases-6e-harris/)
 
 Decision point composition applies the line-drawing approach: identify
 paradigm cases at the extremes, identify the features that make them
