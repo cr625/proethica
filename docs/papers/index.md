@@ -39,23 +39,13 @@ Rauch, C. B. (2025). *Proceedings of the AAAI/ACM Conference on AI, Ethics, and 
 
 Rauch, C. B., Molineaux, M., Mainali, M., Sen, S., Floyd, M. W., & Weber, R. O. (2025). *Proceedings of the IEEE Conference on Artificial Intelligence*.
 
-## Under Review
-
-The following manuscripts are submitted for peer review. Conference outcomes are pending.
-
-### ACM Hypertext 2026
-
-**Eight Linked Views from Nine-Component Extraction: Decomposing Professional Ethics Narratives**
-
-Submitted April 17, 2026. Double-blind review; author attribution withheld pending notification. ACM Hypertext 2026, London, September 14-18.
-
-Reframes the nine-component extraction as a narrative decomposition that produces eight linked synthesis views. PDF: [Hypertext_2026.pdf](Hypertext_2026.pdf).
+## Accepted (To Appear)
 
 ### ICCBR 2026
 
 **Component-Aware Case Retrieval for Professional Ethics with Ontology-Constrained LLM Extraction**
 
-Rauch, C. B., & Weber, R. O. Submitted March 20, 2026. ICCBR 2026, Springer LNAI.
+Rauch, C. B., & Weber, R. O. (2026). Accepted at ICCBR 2026 (Bremen); to appear, Springer LNAI.
 
 Establishes the nine-component decomposition as a case representation that survives embedding for structured retrieval. Reports a six-experiment validation study with Spearman rho 0.836 against section-based retrieval and 24.7 percent mean similarity improvement under component aggregation. PDF: [ICCBR_2026_ProEthica.pdf](ICCBR_2026_ProEthica.pdf).
 
@@ -63,9 +53,15 @@ Establishes the nine-component decomposition as a case representation that survi
 
 **An Ontology-Grounded Representation for Defeasible Professional Ethics Analysis**
 
-Rauch, C. B. KI 2026 (German AI Conference).
+Rauch, C. B. (2026). Accepted at KI 2026 (German Conference on Artificial Intelligence); camera-ready submitted.
 
-Treats the proethica-core v2.5.0 vocabulary, including the `competesWith`, `prevailsOver`, and `defeasibleUnder` object properties, as a representation suitable for defeasible normative reasoning over professional ethics cases. PDF: [KI2026.pdf](KI2026.pdf).
+Treats the proethica-core vocabulary, including the `competesWith`, `prevailsOver`, and `defeasibleUnder` object properties, as a representation suitable for defeasible normative reasoning over professional ethics cases. PDF: [KI2026.pdf](KI2026.pdf).
+
+## Dissertation
+
+The nine-component framework, its ontology, and the validation methodology are
+developed in full in the doctoral dissertation of the author (Drexel
+University, defended June 2026).
 
 ## Differentiation
 
@@ -76,6 +72,5 @@ Each paper makes a distinct claim about the nine-component framework:
 | AAAI 2026 | Working system demonstration |
 | AIES 2025 | Precedent-based retrieval as a basis for AI decision analysis |
 | IEEE CAI 2025 | Role-based ethics framework for human-machine decision alignment |
-| HT 2026 | Decomposition schema that turns linear narratives into navigable hypertexts |
 | ICCBR 2026 | Case representation that survives embedding for structured retrieval |
 | KI 2026 | Ontology-grounded representation for defeasible reasoning |

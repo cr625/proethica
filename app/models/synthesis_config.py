@@ -165,11 +165,12 @@ SYNTHESIS_PARAMETERS = {
         'description': 'Model to use for synthesis LLM calls',
         'type': 'select',
         'options': [
-            {'value': 'claude-sonnet-4-6', 'label': 'Sonnet 4.6 (Default)'},
+            {'value': 'claude-sonnet-5', 'label': 'Sonnet 5 (Default)'},
             {'value': 'claude-haiku-4-5-20251001', 'label': 'Haiku 4.5 (Fast)'},
-            {'value': 'claude-opus-4-6', 'label': 'Opus 4.6 (Powerful)'}
+            {'value': 'claude-fable-5', 'label': 'Fable 5 (Powerful)'},
+            {'value': 'claude-opus-4-8', 'label': 'Opus 4.8 (Gate)'}
         ],
-        'default': 'claude-sonnet-4-6'
+        'default': 'claude-sonnet-5'
     },
     'llm_temperature': {
         'label': 'LLM Temperature',

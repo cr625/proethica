@@ -154,8 +154,8 @@ Direct URL: `/pipeline/queue`
 
 To process a single case:
 
-1. Go to case detail page
-2. Click **Queue for Processing**
+1. Go to the case detail page and click **Pipeline** to open the per-case dashboard, then use **Run All**; or
+2. Add the case to the batch queue at **Tools** > **Batch Queue**
 3. Monitor in the batch processing dashboard
 
 ### Batch Processing
@@ -180,7 +180,7 @@ Cases processed in queue order. For priority:
 
 Active runs show:
 
-- Current step (1 Facts, 1 Discussion, 2 Facts, 2 Discussion, 3, Reconcile, Commit, 4, Commit, QC)
+- Current substep (1 Facts, 1 Discussion, 2 Facts, 2 Discussion, 3, Reconcile, Commit, the seven Step 4 substeps, Commit Synthesis)
 - Entity count extracted
 - Progress percentage
 - Estimated time remaining
@@ -248,14 +248,16 @@ Reconcile: Entity deduplication
     ↓
 OntServe Commit #1 (Steps 1-3 entities)
     ↓
-Step 4: Whole-case synthesis (Phases 2A-2E, 3, 4)
+Step 4: Whole-case synthesis (seven substeps; Phases 2A-2E, 3, 4)
     ↓
 OntServe Commit #2 (Step 4 entities)
     ↓
-QC Audit (V0-V9 checks across 17 entity types)
-    ↓
 Complete
 ```
+
+The Questions and Conclusions substep (the QC of the substep list) runs inside
+Step 4; corpus-level verification criteria are applied offline, not as a
+pipeline stage.
 
 ### Entity Storage
 

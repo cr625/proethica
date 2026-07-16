@@ -4,11 +4,11 @@ Guidelines are the codes of ethics that govern professional conduct within each 
 
 ## Accessing Guidelines
 
-Navigate to **Guidelines** in the navigation bar.
+Guidelines are displayed on the domain detail page. Open the domain selector
+in the navigation bar, choose **View All Domains** (`/worlds`), then open a
+domain to see its guidelines alongside its cases.
 
-Direct URL: `/guidelines/`
-
-![Guidelines List](../assets/images/screenshots/guidelines-list-content.png)
+Direct URL: `/worlds/<domain_id>`
 
 ## Guidelines by Domain
 
@@ -32,17 +32,11 @@ For engineering ethics, the primary guideline is the **NSPE Code of Ethics for E
 
 ## Viewing Guideline Details
 
-Click **View Details** on any guideline card to see:
+A guideline entry on the domain page links to:
 
 - Full guideline text
-- Section breakdown
-- Cases citing this guideline
-
-Click **View Sections** to browse individual provisions:
-
-- Section number and title
-- Full provision text
-- Related cases
+- Section breakdown with provision numbers
+- Cases citing specific provisions
 
 ## Guidelines in Case Analysis
 

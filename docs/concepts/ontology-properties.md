@@ -1,9 +1,11 @@
 # ProEthica Ontology ObjectProperties Reference
 
-**Generated**: 2026-04-30
-**Source**: OntServe/ontologies/proethica-intermediate.ttl, proethica-core v2.5.0
+**Source**: OntServe/ontologies/proethica-core.ttl (v2.10.23), proethica-intermediate.ttl, proethica-cases.ttl (v3.8.0)
 
-This document lists all ObjectProperties defined in the ProEthica ontology. These should be used for extracted relations instead of ad-hoc property names.
+This document lists the ObjectProperties defined in the ProEthica ontologies.
+Extracted relations use these properties rather than ad-hoc names; the
+authoritative definition of each property, with its full annotation record, is
+its entity page on [OntServe](https://ontserve.ontorealm.net?origin=proethica&filter=proethica).
 
 ---
 
@@ -13,150 +15,126 @@ These connect the core extracted concept types:
 
 | Property | Domain | Range | Description |
 |----------|--------|-------|-------------|
-| `:guidedByPrinciple` | Action | Principle | Action guided by ethical principle |
-| `:fulfillsObligation` | Action | Obligation | Action fulfills professional obligation |
-| `:violatesObligation` | Action | Obligation | Action violates professional obligation |
-| `:constrainedBy` | Action | Constraint | Action limited by constraint |
-| `:hasAgentRole` | Action | Role | Role of agent performing action |
-| `:hasObligation` | Role | Obligation | Role carries professional obligation |
-| `:adheresToPrinciple` | Role | Principle | Role governed by ethical principle |
-| `:hasRole` | IndependentContinuant | Role | Entity bears a role |
-| `:hasState` | Process | State | Process affected by state |
-| `:performsAction` | MaterialEntity | Action | Agent performs action |
-| `:hasCapability` | MaterialEntity | Capability | Entity has capability |
+| `proeth-core:guidedByPrinciple` | Action | Principle | Action guided by ethical principle |
+| `proeth-core:fulfillsObligation` | Action | Obligation | Action fulfills professional obligation |
+| `proeth-core:violatesObligation` | Action | Obligation | Action violates professional obligation |
+| `proeth-core:raisesObligation` | Action | Obligation | Action puts an obligation in force, to be resolved by a later action |
+| `proeth-core:derivedFromPrinciple` | Obligation | Principle | Obligation specifies a principle (the R-to-P-to-O chain) |
+| `proeth-core:hasObligation` | Role | Obligation | Role carries an obligation in the case |
+| `proeth-core:adheresToPrinciple` | Role | Principle | Role governed by ethical principle |
+| `proeth-core:requiresCapability` | Obligation | Capability | Obligation presupposes the capacity to discharge it |
+| `proeth-core:hasRole` / `isRoleOf` | Agent / Role | Role / Agent | Entity bears a role (inverse pair) |
+| `proeth-core:performsAction` / `isPerformedBy` | Agent / Action | Action / Agent | Agent performs action (inverse pair) |
+| `proeth-core:hasCapability` | Agent | Capability | Agent possesses a competence |
 
-## Role-to-Role Instance Relations
+The three pairwise `owl:propertyDisjointWith` axioms on `fulfillsObligation`,
+`violatesObligation`, and `raisesObligation` make the per-action engagement
+partition reasoner-visible: one action engages one obligation in exactly one
+of the three ways.
 
-Model professional relationships between role instances in cases:
+## Actor Relations (Role to Role)
 
-| Property | Domain | Range | Inverse | Description |
-|----------|--------|-------|---------|-------------|
-| `:retainedBy` | Role | Role | `:retains` | Professional retained by client |
-| `:retains` | Role | Role | `:retainedBy` | Client retains professional |
-| `:employedBy` | Role | Role | `:employs` | Professional employed by organization |
-| `:employs` | Role | Role | `:employedBy` | Organization employs professional |
-| `:supervises` | Role | Role | `:supervisedBy` | Role supervises another |
-| `:supervisedBy` | Role | Role | `:supervises` | Role supervised by another |
-| `:mentors` | Role | Role | `:mentoredBy` | Role mentors another |
-| `:mentoredBy` | Role | Role | `:mentors` | Role mentored by another |
-| `:reportsTo` | Role | Role | `:receivesReportFrom` | Role reports to another |
-| `:receivesReportFrom` | Role | Role | `:reportsTo` | Role receives reports from another |
-| `:collaboratesWith` | Role | Role | (symmetric) | Roles collaborate as peers |
+Professional relationships between role facets. The bearer Agent on each side
+is reached via `hasRole`. Asserted edges drive the reasoner-inferred
+relational archetypes (a `hasClient` edge classifies the provider side into
+`ProviderClientRole`, and so on).
+
+| Property | Characteristic | Description |
+|----------|----------------|-------------|
+| `proeth-core:hasClient` | | Provider-side role to client-side role |
+| `proeth-core:professionalPeerOf` | Symmetric | Collegial relation between practitioners |
+| `proeth-core:employedBy` | | Employment relation from the employee side |
+| `proeth-core:reviewsWorkOf` / `workReviewedBy` | Inverse pair | Peer-review relation |
+| `proeth:owesDutyToward` | Domain ProfessionalRole | The Canon 1 duty relation toward the public |
+| `proeth-core:relatedTo` | | Deliberately domain-less fallback for unvetted relationships |
+
+Participant-side facts attach through the actor-edge family
+(`affects`, `obligatedParty`, `constrainedEntity`, `possessedBy`, `invokedBy`,
+`citedByAgent`, `availableTo`), which resolve extracted who-fields to Agent
+endpoints at commit; see the property pages on OntServe for domains and
+ranges.
+
+## Fluent and Temporal Relations
+
+The Event Calculus layer connecting happenings (Actions and Events) to States:
+
+| Property | Domain | Range | Description |
+|----------|--------|-------|-------------|
+| `proeth-core:initiates` | Action or Event | State | Happening brings a fluent into force |
+| `proeth-core:terminates` | Action or Event | State | Happening ends a fluent |
+| `proeth-core:activatedByEvent` | State | Event | Evidence channel for the event that activated the state |
+| `proeth-core:terminatedByEvent` | State | Event | Evidence channel for the event that ended the state |
+| `proeth-core:activatesObligation` | State | Obligation | State puts an obligation in force |
+| `proeth-core:activatesConstraint` | State | Constraint | State puts a constraint in force |
+| `proeth:causedByAction` | Event | Action | Cause-in-fact per the NESS test |
+| `proeth:cause` / `effect` / `responsibleAgent` | CausalChain | | The NESS responsibility analysis of a causal linkage |
+| `proeth:analyzesAction` | CausalNormativeLink | Action | Grounds a reasoning node in the case graph |
+| `proeth:fromEntity` / `toEntity` | TemporalRelation | Action or Event | Endpoints of a reified Allen interval relation |
 
 ## Provision Relations
 
-Connect guidelines to ethical concepts:
+Connect codes and their provisions to ethical concepts:
 
 | Property | Domain | Range | Description |
 |----------|--------|-------|-------------|
-| `proeth-core:establishes` | CodeProvision | Principle/Obligation/Constraint | Provision establishes ethical concept |
-| `proeth-core:establishedBy` | Principle/Obligation/Constraint | CodeProvision | Inverse of establishes |
-| `:governedByCode` | ProfessionalRole | EthicalCode | Professional role governed by code of ethics |
+| `proeth-core:establishes` / `establishedBy` | CodeProvision | Principle/Obligation/Constraint | Provision establishes the concept (inverse pair) |
+| `proeth-core:containsProvision` | Resource | CodeProvision | Code document contains provision |
+| `proeth-core:partOfGuideline` | CodeProvision | Guideline | Provision belongs to a guideline document |
+| `proeth-core:citesProvision` | analysis record | CodeProvision | Analysis record cites a provision as authority |
+| `proeth:governedByCode` | ProfessionalRole | EthicalCode | Professional role governed by a code of ethics |
 
-## Case Analysis Relations (Step 4)
+## Analysis-Record Relations (Step 4, proethica-cases)
 
-| Property | Domain | Range | Description |
-|----------|--------|-------|-------------|
-| `:hasQuestion` | Case | EthicalQuestion | Case poses ethical question |
-| `:hasConclusion` | Case | BoardConclusion | Case has board conclusion |
-| `:hasDecisionPoint` | Case | DecisionPoint | Case contains decision point |
-| `:answersQuestion` | BoardConclusion | EthicalQuestion | Conclusion answers question |
+The Step 4 analysis layer is SPARQL-traversable through object properties
+introduced in proethica-cases v3.5.0 through v3.8.0:
 
-## Decision Point Relations
+| Property | Domain | Range |
+|----------|--------|-------|
+| `proeth-cases:answersQuestion` | EthicalConclusion | EthicalQuestion |
+| `proeth-cases:extendsQuestion` | EthicalQuestion | EthicalQuestion (asymmetric, irreflexive) |
+| `proeth-cases:explainsQuestion` | QuestionEmergence | EthicalQuestion |
+| `proeth-cases:describesResolutionOf` | ResolutionPattern | case individual |
+| `proeth-cases:referencesProvision` | CodeProvisionReference | CodeProvision |
+| `proeth-cases:appliesTo` | CodeProvisionReference | case individual (open range) |
+| `proeth-cases:decidesQuestion`, `addressesQuestion`, `alignsWithConclusion`, `involvesObligation`, `involvesAction`, `involvesConstraint`, `decidedByAgent` | DecisionPoint | respective targets |
 
-| Property | Domain | Range | Description |
-|----------|--------|-------|-------------|
-| `:hasOption` | DecisionPoint | DecisionOption | Decision point has option |
-| `:involvesRole` | DecisionPoint | Role | Decision point involves role |
-| `:appliesProvision` | DecisionPoint | EthicalCode | Decision point applies provision |
+## Defeasibility Relations
 
-## Argument Relations
-
-| Property | Domain | Range | Description |
-|----------|--------|-------|-------------|
-| `:hasArgument` | DecisionOption | EthicalArgument | Option has argument |
-| `:argumentFor` | EthicalArgument | DecisionOption | PRO argument for option |
-| `:argumentAgainst` | EthicalArgument | DecisionOption | CON argument against option |
-| `:citesProvision` | EthicalArgument | EthicalCode | Argument cites code provision |
-
-## Defeasibility Relations (proethica-core v2.5.0)
-
-These properties expose obligation competition as first-class graph structure. They are SPARQL-queryable and reasoner-visible, replacing earlier narrative datatype encodings of competing-duties resolution.
+These properties expose obligation competition as first-class graph structure
+(introduced in proethica-core v2.5.0). They are SPARQL-queryable and
+reasoner-visible, replacing earlier narrative datatype encodings of
+competing-duties resolution.
 
 | Property | Domain | Range | Characteristic | Description |
 |----------|--------|-------|----------------|-------------|
 | `proeth-core:competesWith` | Obligation | Obligation | Symmetric | Two obligations stand in mutual competition |
-| `proeth-core:prevailsOver` | Obligation | Obligation | Directed | Winning obligation prevails over losing obligation |
-| `proeth-core:defeasibleUnder` | Obligation | State | Directed | Obligation is defeated under the named state |
+| `proeth-core:prevailsOver` | Obligation | Obligation | Asymmetric, irreflexive | Winning obligation prevails over losing obligation |
+| `proeth-core:defeasibleUnder` | Obligation | State | Directed | Obligation yields under the named state |
 
-The three properties model obligation defeat as a triple: when an obligation `O1` `competesWith` `O2`, and a state `S` obtains, then `O1` `prevailsOver` `O2` `defeasibleUnder` `S`. Cases that report tension resolution between competing duties carry these edges so non-monotonic reasoners can compute defeat without parsing narrative text.
+The three properties model obligation defeat as a triple: when an obligation
+`O1` `competesWith` `O2`, and a state `S` obtains, then `O1` `prevailsOver`
+`O2` `defeasibleUnder` `S`. Cases that report tension resolution between
+competing duties carry these edges so non-monotonic reasoners can compute
+defeat without parsing narrative text.
 
 ## Deprecated
 
-| Property | Replacement | Reason |
-|----------|-------------|--------|
-| `:hasCondition` | `:hasState` | Terminology alignment |
+Deprecated properties are retained for identifier stability and marked
+`owl:deprecated`:
+
+| Property | Live equivalent |
+|----------|-----------------|
+| `proeth-core:hasState` | `initiates` / `terminates` carry the linkage |
+| `proeth-core:triggersEvent` | `proeth:causedByAction` and the causal family |
+| `proeth-core:refersToDocument` | `containsProvision` and `documentTitle` |
+| `proeth:hasTemporalRelation` | `fromEntity` / `toEntity` anchor the relation |
 
 ---
 
-## JSON Key to ObjectProperty Mapping
+## Usage in Extraction
 
-For migrating embedded JSON relations to proper triples:
-
-### CausalNormativeLink Relations
-
-| JSON Key | ObjectProperty |
-|----------|----------------|
-| `fulfills_obligations` | `:fulfillsObligation` |
-| `violates_obligations` | `:violatesObligation` |
-| `guided_by_principles` | `:guidedByPrinciple` |
-| `constrained_by` | `:constrainedBy` |
-| `agent_role` | `:hasAgentRole` |
-
-### Role Instance Relations
-
-| JSON type value | ObjectProperty |
-|-----------------|----------------|
-| `retained_by` | `:retainedBy` |
-| `retains` | `:retains` |
-| `employed_by` | `:employedBy` |
-| `employs` | `:employs` |
-| `supervises` | `:supervises` |
-| `supervised_by` | `:supervisedBy` |
-| `mentors` | `:mentors` |
-| `mentored_by` | `:mentoredBy` |
-| `reports_to` | `:reportsTo` |
-| `collaborates_with` | `:collaboratesWith` |
-
----
-
-## Usage in Extraction Prompts
-
-When updating extraction prompts, require the LLM to use ONLY these property names for relationships:
-
-```
-## Allowed Relationship Properties
-
-For Action relationships:
-- guidedByPrinciple: action guided by ethical principle
-- fulfillsObligation: action fulfills professional obligation
-- violatesObligation: action violates professional obligation
-- constrainedBy: action limited by constraint
-- hasAgentRole: role performing the action
-
-For Role relationships:
-- hasObligation: role carries professional obligation
-- adheresToPrinciple: role governed by ethical principle
-- retainedBy: professional retained by client
-- employedBy: professional employed by organization
-- supervises: role supervises another role
-- supervisedBy: role supervised by another
-- mentors: role mentors another
-- mentoredBy: role mentored by another
-- reportsTo: role reports to another
-- collaboratesWith: roles work together as peers
-```
-
----
-
-**Last Updated**: 2026-04-30
+Extraction prompts derive their allowed relationship vocabulary from these
+declarations; relations outside the declared inventory are carried as literal
+overflow fields rather than minted as new properties. Reserved edges
+(`usesResource`, `constrainedBy`, `realizesCapability`) are declared for the
+Step 4 enrichment vocabulary and are not yet written by the pipeline.

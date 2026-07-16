@@ -14,7 +14,7 @@ The user list displays all accounts with:
 |--------|-------------|
 | **Username** | Account identifier |
 | **Email** | Contact email |
-| **Role** | Admin or standard user |
+| **Role** | Admin, standard user, or demo (a shared read-only account whose write operations are disabled in every environment) |
 | **Created** | Account creation date |
 | **Last Login** | Most recent authentication |
 | **Content Count** | User-created worlds, documents, guidelines |
@@ -78,7 +78,6 @@ User management actions are logged:
 |-------|-------------|
 | **User Reset** | Admin, target user, timestamp, items deleted |
 | **Bulk Reset** | Admin, user count, timestamp |
-| **Role Change** | Admin, target user, old/new role |
 
 Audit log entries are recorded in the database and surfaced through the admin dashboard.
 

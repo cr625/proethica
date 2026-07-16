@@ -134,7 +134,7 @@ The pipeline extracts nine component types across three steps, then synthesizes 
 
 ### LLM Request Flow
 
-All extraction calls use `claude-sonnet-4-6` via streaming. Prompts are stored as database templates editable through the Prompt Editor (`/tools/prompts`).
+All extraction calls use the configured default model (`claude-sonnet-5`) via streaming, with the powerful tier (`claude-fable-5`) and the gate tier (`claude-opus-4-8`) reserved for complex analysis and verification judging. Prompts are stored as database templates editable through the Prompt Editor (`/tools/prompts`).
 
 ```text
    +----------+    +----------+    +----------+
@@ -236,7 +236,7 @@ These edges replace earlier narrative encodings of competing-duty resolution, so
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| Routes | `app/routes/` | Flask blueprints (33 registered) |
+| Routes | `app/routes/` | Flask blueprints (31 registered) |
 | Templates | `app/templates/` | Jinja2 HTML templates |
 | Services | `app/services/` | Business logic and extraction |
 | Models | `app/models/` | SQLAlchemy database models |
@@ -261,7 +261,7 @@ Single-file routes handle focused concerns: `admin.py`, `annotations.py`, `dashb
 |-------|----------|---------|
 | Extraction | `services/extraction/` | Unified dual extractor, prompt templates |
 | LLM | `services/llm/` | Model management, streaming, response parsing |
-| MCP Clients | `services/mcp_transport.py`, `external_mcp_client.py` | OntServe communication (FastMCP Streamable HTTP) |
+| MCP Clients | `services/ontserve/mcp_transport.py`, `services/ontserve/external_mcp_client.py` | OntServe communication (FastMCP Streamable HTTP) |
 | Annotation | 14 service files | Document concept annotation pipeline |
 | Synthesis | `services/case_synthesizer.py`, `decision_point_synthesizer.py` | Step 4 analysis |
 | OntServe | `services/ontserve_commit_service.py`, `auto_commit_service.py` | Entity commit workflow |

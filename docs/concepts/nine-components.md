@@ -34,21 +34,21 @@ These elements determine which ethical considerations apply based on professiona
 
 ### Roles (R)
 
-**Definition**: Professional positions with associated duties, responsibilities, and decision-making authority.
+**Definition**: A role borne by an agent in virtue of a position or standing in professional practice.
 
-Roles filter which principles and obligations apply based on professional identity. Each profession serves distinctive human goods and maintains unique normative commitments, requiring domain-specific customization. An engineer's obligation to protect public safety differs fundamentally from a lawyer's duty of zealous advocacy or a physician's commitment to patient welfare.
+Roles filter which principles and obligations apply. A professional role additionally generates obligations from the recognized ends of the profession and is governed by its ethical code; a participant role (a client, owner, or affected member of the public) carries standing in the case without profession-generated duties. An engineer's obligation to protect public safety differs fundamentally from a lawyer's duty of zealous advocacy or a physician's commitment to patient welfare.
 
 **Examples**:
 
-- Engineer
-- Client
-- Employer
-- Public Official
-- Consulting Engineer
+- Engineer (professional)
+- Client (participant)
+- Employer (participant)
+- Contractor (participant)
+- Consulting Engineer (professional)
 
-**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Role`, subclass of BFO:role. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) include `ProfessionalRole`, `InstitutionalRole`, `StakeholderRole`.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Role`, subclass of BFO:role. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) form two axes: the occupational axis headed by `ProfessionalRole` and `ParticipantRole` (disjoint), and the relational archetype axis headed by `RelationalRole` with the four Kong-derived archetypes (`ProviderClientRole`, `ProfessionalPeerRole`, `EmployerRelationshipRole`, `PublicResponsibilityRole`), inferred from committed relationship edges.
 
-**Key Literature**: Oakley & Cocking (2001) on role-generated obligations; Kong et al. (2020) on identity virtues; Doernberg & Truog (2023) on sphere-based roles. [Full references](/tools/references#nine-component)
+**Key Literature**: Oakley and Cocking (2001) on role-generated obligations; Kong et al. (2020) on the relational archetypes; Doernberg and Truog (2023) on spheres of morality. [Full references](../references.md#nine-component)
 
 ---
 
@@ -65,9 +65,9 @@ States capture the specific circumstances that affect ethical evaluation. Identi
 - Project deadline is imminent
 - Public safety is at risk
 
-**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:State`, subclass of BFO:quality. Represents time-varying properties (fluents) that affect ethical assessment.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:State`, subclass of BFO:specifically dependent continuant (states span the quality-disposition boundary). Represents time-varying properties (fluents) that affect ethical assessment.
 
-**Key Literature**: Jones (1991) on moral intensity; Almpani et al. (2023) on Event Calculus; Berreby et al. (2017) on fluents; Sarmiento et al. (2023) on causal chains. [Full references](/tools/references#nine-component)
+**Key Literature**: Jones (1991) on moral intensity; Berreby et al. (2017) on fluents; Anderson and Anderson (2018) on ethically relevant features; Almpani and Stefaneas (2022) on priority ordering. [Full references](../references.md#nine-component)
 
 ---
 
@@ -86,7 +86,7 @@ Resources supply the established wisdom and standards of the profession. McLaren
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Resource`, an IAO information content entity. A code resource links to its provisions via `containsProvision`; the document identity is the `documentTitle` literal.
 
-**Key Literature**: McLaren (2003) on precedents; Davis (1991) and Frankel (1989) on codes; Harris et al. (2018) on decision procedures; Anderson & Anderson (2018) on GenEth learning. [Full references](/tools/references#nine-component)
+**Key Literature**: McLaren (2003) on precedents; Davis (1991) and Frankel (1989) on codes; Bench-Capon and Sartor (2003) on legal resources. [Full references](../references.md#nine-component)
 
 ---
 
@@ -107,9 +107,9 @@ Principles provide abstract guidance that must be interpreted through precedents
 - Act as faithful agents or trustees
 - Avoid deceptive acts
 
-**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Principle`, subclass of IAO:information content entity. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) include `FundamentalEthicalPrinciple`, `ProfessionalVirtuePrinciple`, `RelationalPrinciple`, `DomainSpecificPrinciple`.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Principle`, subclass of IAO:directive information entity. Subclasses in [proethica-intermediate.ttl](https://ontserve.ontorealm.net/ontology/proethica-intermediate) include `FundamentalEthicalPrinciple`, `ProfessionalVirtuePrinciple`, `RelationalPrinciple`, `DomainSpecificPrinciple`.
 
-**Key Literature**: McLaren (2003) on extensional definition; Prem (2023) on abstract nature; Taddeo et al. (2024) on constitutional interpretation. [Full references](/tools/references#nine-component)
+**Key Literature**: McLaren (2003) on extensional definition and open texture; Frankel (1989) on aspirational codes; Morley et al. (2021) on constitutional principles; Taddeo et al. (2024) on teleological balancing; Prem (2023) on operationalization. [Full references](../references.md#nine-component)
 
 ---
 
@@ -126,17 +126,17 @@ Obligations transform principles into concrete, evaluable professional requireme
 - Maintain confidentiality of client information
 - Report safety violations to appropriate authorities
 
-**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Obligation`, subclass of IAO:information content entity. Extracted from NSPE Code provisions and case narratives.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Obligation`, subclass of IAO:directive information entity. Extracted from NSPE Code provisions and case narratives.
 
-**Key Literature**: Dennis et al. (2016) on specification requirements; Anderson & Anderson (2006, 2007, 2011) on duty quantification; Almpani et al. (2023) on dynamic priorities. [Full references](/tools/references#nine-component)
+**Key Literature**: Donohue (2017) on deontic typing; Dennis et al. (2016) on specification requirements; Ross and Stratton-Lake (2007) and Anderson and Anderson (2011) on prima facie duties and defeasibility. [Full references](../references.md#nine-component)
 
 ---
 
 ### Constraints (Cs)
 
-**Definition**: Inviolable boundaries that cannot be crossed regardless of benefits.
+**Definition**: Boundaries on permissible conduct, ranging from inviolable prohibitions to defeasible defaults that tolerate justified exceptions.
 
-Constraints establish hard limits on professional behavior, defining what must never be done. Systems must verify constraints before evaluating trade-offs among competing obligations. Professional ethical evaluation cannot occur without first establishing which actions fall outside acceptable boundaries.
+Constraints establish limits on professional behavior by foreclosing regions of the action space. Systems verify constraints before evaluating trade-offs among competing obligations. Professional ethical evaluation cannot occur without first establishing which actions fall outside acceptable boundaries.
 
 **Examples**:
 
@@ -145,9 +145,9 @@ Constraints establish hard limits on professional behavior, defining what must n
 - Cannot prioritize profit over safety
 - Cannot disclose confidential information improperly
 
-**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Constraint`, subclass of IAO:information content entity. Distinguished from Obligations by expressing prohibitions rather than requirements.
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Constraint`, subclass of IAO:directive information entity. Distinguished from Obligations by expressing prohibitions rather than requirements.
 
-**Key Literature**: Ganascia (2007) on defeasible logic; Dennis et al. (2016) on hierarchical management; Arkin (2008) on ethical governors. [Full references](/tools/references#nine-component)
+**Key Literature**: Arkin (2008) on negative behavioral limits; Ganascia (2007) on default rules with exceptions; Dennis et al. (2016) on specification; Benzmüller et al. (2020) on formal verification. [Full references](../references.md#nine-component)
 
 ---
 
@@ -164,9 +164,9 @@ Capabilities ensure sufficient expertise for professional practice. Tolmeijer et
 - Can consult with ethics board
 - Can decline work outside expertise
 
-**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Capability`, subclass of BFO:realizable entity. Represents what professionals *may* do (permissions).
+**Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Capability`, subclass of BFO:disposition. Represents competencies the agent possesses, realized through professional activities.
 
-**Key Literature**: Narvaez & Rest (1995) on Four Component Model; Tolmeijer et al. (2021) on four requirements; Berreby et al. (2017) on Action Model; Epstein & Hundert (2002) on domain-specific judgment. [Full references](/tools/references#nine-component)
+**Key Literature**: Tolmeijer et al. (2021) on the four ethical-competence requirements; Epstein and Hundert (2002) on professional competence. [Full references](../references.md#nine-component)
 
 ---
 
@@ -189,7 +189,7 @@ Actions represent deliberate choices with professional responsibility. Systems m
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Action`, subclass of BFO:process. Distinguished from Events by volitional nature.
 
-**Key Literature**: Sarmiento et al. (2023) on volitional nature; Bonnemains et al. (2018) on multi-framework evaluation; Govindarajulu & Bringsjord (2017) on intentional status. [Full references](/tools/references#nine-component)
+**Key Literature**: Sarmiento et al. (2022) on volitional causality; Wright (1985) on the NESS test; Kroll (2020) on the bases of accountability; Floridi and Sanders (2004) on accountability without intentionality; Govindarajulu and Bringsjord (2017) on intention. [Full references](../references.md#nine-component)
 
 ---
 
@@ -208,7 +208,7 @@ Events capture temporal dynamics and external triggers. The Event Calculus frame
 
 **Ontology Source**: Defined in [proethica-core.ttl](https://ontserve.ontorealm.net/ontology/proethica-core) as `proeth-core:Event`, subclass of BFO:process. Represents external occurrences distinct from volitional Actions.
 
-**Key Literature**: Berreby et al. (2017) on exogenous occurrences; Event Calculus formalism; Arkin (2008) on emergency overrides. [Full references](/tools/references#nine-component)
+**Key Literature**: Kowalski and Sergot (1986) on the Event Calculus; Berreby et al. (2017) on event origins; Sarmiento et al. (2022) on causal chains; Almpani et al. (2023) on emergency contingency protocols. [Full references](../references.md#nine-component)
 
 ---
 
@@ -266,9 +266,9 @@ The framework synthesizes three foundational works:
 |------|--------------|----------|
 | **McLaren (2003)** | Extensional definition of principles through precedents | R, Rs, P |
 | **Berreby et al. (2017)** | Modular architecture for temporal ethical reasoning | S, A, E, O |
-| **Tolmeijer et al. (2021)** | Essential capabilities for ethical agents | Ca, Cs |
+| **Tolmeijer et al. (2021)** | Essential capabilities for ethical agents | Ca |
 
-For complete academic references with DOIs and citations, see [References](/tools/references#nine-component).
+For complete academic references with DOIs and citations, see [References](../references.md#nine-component).
 
 ---
 
@@ -277,4 +277,4 @@ For complete academic references with DOIs and citations, see [References](/tool
 - [Running Extractions](../analysis/running-extractions.md) - Extracting concepts
 - [Entity Review](../analysis/entity-review.md) - Validating extracted concepts
 - [Ontology Integration](../admin-guide/ontology-integration.md) - Concept definitions
-- [Academic References](/tools/references) - Full citations and sources
+- [Academic References](../references.md) - Full citations and sources
