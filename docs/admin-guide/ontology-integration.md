@@ -114,13 +114,13 @@ Two layers handle MCP communication:
 
 | File | Purpose |
 |------|---------|
-| `app/services/mcp_transport.py` | Low-level MCP Streamable HTTP transport (session management, SSE parsing) |
-| `app/services/external_mcp_client.py` | High-level tool wrappers used by extraction pipeline |
+| `app/services/ontserve/mcp_transport.py` | Low-level MCP Streamable HTTP transport (session management, SSE parsing) |
+| `app/services/ontserve/external_mcp_client.py` | High-level tool wrappers used by extraction pipeline |
 
 ### Connection Management
 
 ```python
-from app.services.external_mcp_client import get_external_mcp_client
+from app.services.ontserve.external_mcp_client import get_external_mcp_client
 
 client = get_external_mcp_client()
 result = client.get_entities_by_category("Role")
@@ -128,7 +128,7 @@ result = client.get_entities_by_category("Role")
 
 ## Available Methods
 
-OntServe MCP provides 12 tools. The three most commonly used in ProEthica's extraction pipeline are documented below. See [Architecture](architecture.md) for the full tool list.
+OntServe MCP provides 20 tools (12 integration, 5 reasoning/BFO, 3 conformance). The three most commonly used in ProEthica's extraction pipeline are documented below. See [Architecture](architecture.md) for the full tool list.
 
 ### get_entities_by_category
 
@@ -280,7 +280,7 @@ During entity review, ProEthica fetches available classes:
 
 ```python
 # In entity_review.py
-from app.services.external_mcp_client import get_external_mcp_client
+from app.services.ontserve.external_mcp_client import get_external_mcp_client
 
 def get_available_classes(category):
     client = get_external_mcp_client()
@@ -363,7 +363,7 @@ except MCPConnectionError:
 Configurable timeout with retry:
 
 ```python
-from app.services.mcp_transport import MCPTransport
+from app.services.ontserve.mcp_transport import MCPTransport
 
 transport = MCPTransport(timeout=30)
 ```

@@ -71,8 +71,8 @@ Below the case title, a context bar displays key metadata and navigation:
 
 | Element | Description |
 |---------|-------------|
-| **OntServe Link** | Links to the case ontology on OntServe (when entities are committed) |
-| **Entity Count** | Badge showing total extracted entities |
+| **OntServe Link** | The "{count} Individuals" link opens the case ontology on OntServe (when entities are committed) |
+| **Entity Count** | Badge showing the committed individual count |
 | **Transformation** | Case transformation type (Transfer, Stalemate, Oscillation, Phase Lag) |
 | **Structure** | View document sections and embeddings |
 | **Provenance** | View extraction history and session data |
@@ -102,7 +102,7 @@ The pipeline status bar and associated step buttons are hidden for unauthenticat
 |--------|----------|
 | **Back to Cases** | Return to case list |
 | **Pipeline** | Open the case pipeline dashboard (authenticated users only) |
-| **Source** | Link to original source (if available) |
+| **Source** | Link to original source (authenticated users only) |
 
 ### Case Sections
 

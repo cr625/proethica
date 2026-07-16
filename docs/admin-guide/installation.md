@@ -255,7 +255,7 @@ celery -A celery_config inspect active
 proethica/
 ├── app/                    # Main application
 │   ├── models/            # SQLAlchemy models
-│   ├── routes/            # Flask blueprints (37 registered)
+│   ├── routes/            # Flask blueprints (31 registered)
 │   ├── services/          # Business logic and extraction
 │   │   ├── llm/          # LLM manager
 │   │   ├── extraction/   # Entity extraction

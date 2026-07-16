@@ -65,7 +65,7 @@ The right panel displays the ontology connection and access points:
 
 - **ProEthica Intermediate Ontology** -- Nine-Component Framework for professional ethics analysis. Entities extracted from cases are linked to this ontology.
 - **Ontology Graph** link opens the visual ontology browser on OntServe
-- **Browse Entities** link opens the entity browser filtered to ProEthica concepts
+- **Browse Entities** link opens the OntServe entity browser for the proethica-intermediate ontology
 
 Ontologies are managed via the [OntServe](https://ontserve.ontorealm.net) web interface.
 

@@ -16,7 +16,7 @@ The pipeline sidebar on a completed case shows Step 5 alongside Steps 1-4. If St
 
 ## The Three Views
 
-Step 5 presents a single tabbed interface with three views over the same underlying case data.
+Step 5 presents three views over the same underlying case data, each served under the Step 5 route family.
 
 ### Narrative Overview
 

@@ -1,13 +1,13 @@
 # Prompt Editor
 
-The Prompt Editor provides a web interface for editing extraction prompt templates used in Steps 1-3 of the pipeline. Each of the nine components has an editable template stored in the database.
+The Prompt Editor provides a web interface for editing the prompt templates used across the pipeline: the nine component extraction templates of Steps 1-3, the Step 4 phase family, and the guideline templates. Templates are stored in the database; the Step 4 templates carry sidecar Markdown files under `app/utils/prompts/step4/`.
 
 ## Accessing the Prompt Editor
 
 Navigate to **Tools** > **Prompt Editor** or direct URL: `/tools/prompts`
 
-!!! note "Admin Access Required"
-    The Prompt Editor is visible only to authenticated admin users.
+!!! note "Access Levels"
+    The pages are public as a read-only Prompt Viewer (linked from the Tools menu for non-admin users); editing, version reverts, and test runs require an admin account.
 
 ## Pipeline Structure
 
@@ -18,6 +18,7 @@ Templates are organized by pipeline step and concept type:
 | Step 1 | Contextual Framework | Roles (R), States (S), Resources (Rs) |
 | Step 2 | Normative Requirements | Principles (P), Obligations (O), Constraints (Cs), Capabilities (Ca) |
 | Step 3 | Temporal Dynamics | Actions (A), Events (E) |
+| Step 4 | Whole-Case Synthesis | Phase templates (provisions, precedents, questions and conclusions, transformation, rich analysis, decision points, narrative) |
 
 ![Prompt Editor Navigation](../assets/images/screenshots/prompt-editor-nav.png)
 *Sidebar navigation showing the three pipeline steps and their concepts*
@@ -26,7 +27,7 @@ Templates are organized by pipeline step and concept type:
 
 A template is one input to a multi-stage process. When an extraction runs, the template is assembled into a full prompt, sent to the model, validated and filtered, and written as draft entities to a staging table. The ontology served by OntServe is produced later by a separate commit step, not by extraction itself. These stages determine what the **Preview**, **Test Extraction**, and **Variable Inspector** functions display, and where extracted entities go before they reach OntServe.
 
-Roles extraction is the reference implementation: it is the only concept whose prompt currently injects ontology-derived schema slots. The other concepts follow the same overall flow without those slots.
+Every concept prompt injects its ontology-derived schema slot; Roles extraction was the reference implementation for the pattern.
 
 ### Stage Summary
 
@@ -49,7 +50,7 @@ Rendering uses Jinja2. The template body and the system prompt are rendered sepa
 
 ### Model Call
 
-The assembled prompt is sent to the model as a single user message, with the rendered system prompt as a separate system message. The default model is Claude Sonnet 4.6, configurable per concept and overridable by environment variable. The request streams the response and asks for JSON output through the in-prompt instruction rather than through tool calls or a response schema. If the response is cut off at the token limit, a repair step closes the truncated JSON before parsing.
+The assembled prompt is sent to the model as a single user message, with the rendered system prompt as a separate system message. The default model is Claude Sonnet 5, configurable per concept and overridable by environment variable. The request streams the response and asks for JSON output through the in-prompt instruction rather than through tool calls or a response schema. If the response is cut off at the token limit, a repair step closes the truncated JSON before parsing.
 
 ### Parsing and Validation
 
@@ -282,7 +283,7 @@ Templates are stored in PostgreSQL:
 
 | Field | Description |
 |-------|-------------|
-| `step_number` | Pipeline step (1, 2, or 3) |
+| `step_number` | Pipeline step (1-4) |
 | `concept_type` | Concept name (roles, principles, etc.) |
 | `domain` | Domain (engineering, medical, etc.) |
 | `template_text` | Jinja2 template content |

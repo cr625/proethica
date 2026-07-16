@@ -1,6 +1,6 @@
 # Running Extractions
 
-Steps 1-3 perform concept extraction using ontology-validated definitions via MCP queries to OntServe. All extractions use SSE streaming for real-time progress display. This guide covers running the extraction pipeline on cases.
+Steps 1-3 perform concept extraction using ontology-validated definitions via MCP queries to OntServe. Extractions are dispatched as background tasks from the per-case pipeline dashboard, which polls their status and updates each substep card as work completes. This guide covers running the extraction pipeline on cases.
 
 !!! note "Login Required"
     Running extractions requires authentication. Unauthenticated users can view completed extractions but cannot run new ones.
@@ -15,27 +15,19 @@ Steps 1-3 extract the nine base concepts. Steps 1-2 extract separately from the 
 | Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities | Pass 1 (Facts), Pass 2 (Discussion) |
 | Step 3 | Temporal Dynamics | Actions, Events, causal chains, temporal relations | Unified (full case text) |
 
-After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), OntServe commit, Step 4 (whole-case synthesis), a second OntServe commit, and QC audit. Step 5 presents the fully analyzed case as an interactive scenario; it is read-only and does not require authentication. See [Pipeline Terminology](../concepts/terminology.md) for definitions and [Interactive Scenario](../viewing/interactive-scenario.md) for Step 5.
+After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), OntServe commit, Step 4 (whole-case synthesis, seven substeps), and a second OntServe commit. Step 5 presents the fully analyzed case as an interactive scenario; it is read-only and does not require authentication. See [Pipeline Terminology](../concepts/terminology.md) for definitions and [Interactive Scenario](../viewing/interactive-scenario.md) for Step 5.
 
 ## Starting Extraction
 
 ### Access the Pipeline
 
-Navigate to any case detail page and click the **Pipeline** button in the top action bar, or access the per-case pipeline dashboard directly at `/cases/<id>/pipeline`. The pipeline status bar with numbered step buttons is visible to authenticated users.
+Navigate to any case detail page and click the **Pipeline** button in the top action bar, or access the per-case pipeline dashboard directly at `/cases/<id>/pipeline`.
 
-Steps must be processed in sequence. Completed steps display as green; incomplete steps show the step number. Click any available step to begin extraction.
+The dashboard presents the pipeline as a sequence of substep cards. Each available substep offers a **Run** button; **Run All** dispatches the remaining substeps in order. Substeps have prerequisites and unlock in sequence; completed substeps display as green. Extraction prompts come from the shared prompt template system: the templates behind each substep are viewable by anyone through the Prompt Viewer and editable by administrators through the [Prompt Editor](../admin-guide/prompt-editor.md).
 
 ## Step 1: Contextual Framework
 
-### Pass 1 (Facts)
-
-1. Click the **Step 1** button on the case page
-2. The extraction page displays the Facts section text
-3. Click **Full Contextual Framework Pass** to extract all three concept types. Roles extract first, then States and Resources run in parallel.
-
-The full pass extracts all three concept types in sequence.
-
-![Step 1 Extraction](../assets/images/screenshots/step1-extraction-content.png)
+Step 1 runs as two substeps, one per case section: Pass 1 extracts from the Facts section and Pass 2 from the Discussion section. Each pass extracts all three concept types together (Roles first, then States and Resources).
 
 Expected entity counts:
 
@@ -45,18 +37,9 @@ Expected entity counts:
 | **States** | Situational conditions | 10-20 entities |
 | **Resources** | Referenced standards | 15-30 entities |
 
-### Pass 2 (Discussion)
-
-After completing Pass 1 (Facts), click **Discussion Section** to run the same extraction against the Discussion section text.
-
 ## Step 2: Normative Requirements
 
-### Pass 1 (Facts)
-
-1. Click the **Step 2** button on the case page
-2. Click **Full Normative Requirements Pass** to extract all four concept types. Principles extract first, then Obligations, then Constraints and Capabilities run in parallel.
-
-Unlike Step 1, Step 2 does not have individual per-concept buttons.
+Step 2 likewise runs as a Facts pass and a Discussion pass. Each pass extracts the four normative concept types (Principles first, then Obligations, then Constraints and Capabilities).
 
 Expected entity counts:
 
@@ -73,12 +56,9 @@ Click **Discussion Section** after completing Pass 1 (Facts) to extract from the
 
 ## Step 3: Temporal Dynamics
 
-Step 3 uses LangGraph orchestration to extract from the full case text (Facts and Discussion combined) in a single unified pass, unlike Steps 1-2 which use separate passes per section.
+Step 3 uses LangGraph orchestration to extract from the full case text (Facts and Discussion combined) in a single unified pass, unlike Steps 1-2 which use separate passes per section. It runs as one substep on the dashboard.
 
-1. Click the **Step 3** button on the case page
-2. Click **Extract Temporal Dynamics** to run the unified extraction
-
-The extraction produces five output types displayed as separate progress cards:
+The extraction produces five output types:
 
 | Output | Description | Typical Count |
 |--------|-------------|---------------|
@@ -90,23 +70,21 @@ The extraction produces five output types displayed as separate progress cards:
 
 ## Reconcile
 
-After Steps 1-3, entity deduplication merges overlapping entities across sections and passes. In manual mode, reconcile is triggered from the pipeline sidebar. In pipeline mode, reconcile runs automatically.
+After Steps 1-3, entity deduplication merges overlapping entities across sections and passes. Reconcile is its own substep card on the pipeline dashboard and runs automatically in batch mode.
 
 ## Step 4: Whole-Case Synthesis
 
-Step 4 analyzes the full case text together with entities from Steps 1-3. It produces 8 additional entity types across multiple phases. See [Pipeline Terminology](../concepts/terminology.md) for phase details.
-
-Step 4 is accessed from the pipeline sidebar after reconcile completes.
+Step 4 analyzes the full case text together with entities from Steps 1-3 and appears on the dashboard as seven individually dispatchable substeps (Code Provisions, Precedent Cases, Questions and Conclusions, Transformation, Rich Analysis, Decision Points, Narrative). See [Pipeline Terminology](../concepts/terminology.md) for phase details.
 
 ## Extraction Options
 
 ### Re-run Extraction
 
-Each step page includes a **Re-run Extraction** button to clear existing entities and run again if results need improvement.
+The entity review pages include a **Re-run Extraction** button to clear existing entities and run again if results need improvement.
 
 ### Progress Tracking
 
-During extraction, SSE streaming displays real-time progress with per-concept cards showing spinners, entity counts, and completion status.
+The dashboard polls substep status while tasks run, updating each card with progress, entity counts, and completion status.
 
 ## Extraction Metrics
 

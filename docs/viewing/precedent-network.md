@@ -28,7 +28,7 @@ Each case card includes a **Find Similar** link (blue badge) that opens preceden
 On any case Structure page, click **Find More Precedents** in the Similar Cases sidebar.
 
 ![Precedent Discovery](../assets/images/screenshots/precedent-discovery-content.png)
-*Precedent discovery page showing similar cases ranked by combined similarity score*
+*Precedent discovery page showing similar cases ranked by component-aware similarity*
 
 ## Using Precedent Discovery
 
@@ -40,35 +40,18 @@ On any case Structure page, click **Find More Precedents** in the Similar Cases 
 
 ### View Matches
 
-The results table displays:
+Results are presented as ranked cards, one per similar case. Each card shows:
 
-| Column | Description |
-|--------|-------------|
-| **Case** | Case title with link |
-| **Facts Score** | Facts embedding similarity |
-| **Discussion Score** | Discussion embedding similarity |
-| **Combined** | Average similarity score |
+| Element | Description |
+|---------|-------------|
+| **% Similar** | Overall component-aware similarity |
+| **Retrieval Scores** | Component similarity (the weighted nine-component embedding), provision overlap, and tag overlap |
+| **Component Breakdown** | Expandable per-component similarity across the nine D-tuple components |
+| **Section Comparison** | Collapsible facts/discussion similarity, shown for reference and not used in scoring |
 
 ### Explore Matches
 
 Click any match to view case details and compare analysis.
-
-## Similarity Filters
-
-### Minimum Threshold
-
-| Threshold | Typical Results |
-|-----------|-----------------|
-| **0.9** | Nearly identical cases |
-| **0.7** | Similar situations |
-| **0.5** | Related topics |
-| **0.3** | Broadly relevant |
-
-### Section Focus
-
-- **Both** - Requires similarity in both sections
-- **Facts Only** - Match situational similarity
-- **Discussion Only** - Match reasoning similarity
 
 ## Interpreting Results
 
@@ -135,13 +118,10 @@ Use the **Min** dropdown to filter edges:
 
 | Filter | Description |
 |--------|-------------|
-| **All** | Default weighted combination |
 | **Provisions** | Cases sharing NSPE Code sections |
-| **Discussion** | Semantic similarity in ethical analysis |
-| **Facts** | Semantic similarity in case situations |
-| **Outcome** | Same ethical/unethical verdict |
-| **Tag Similarity** | Shared subject tags |
-| **Principle Tensions** | Similar ethical principle conflicts |
+| **Tags** | Shared subject tags |
+
+Entity-overlap filters restrict edges to cases sharing extracted entities.
 
 #### Entity Overlap Filters
 
@@ -187,14 +167,16 @@ Default: `all-MiniLM-L6-v2` (sentence-transformers)
 
 ### Similarity Calculation
 
-Cosine distance between embeddings:
+Cosine similarity between embeddings:
 
 - **1.0** = Identical
 - **0.8+** = Very similar
 - **0.5-0.8** = Moderately similar
 - **< 0.5** = Dissimilar
 
-Combined score: `(Facts Score + Discussion Score) / 2`
+The overall score is a component-aware weighted metric over the nine-component
+embeddings, combined with provision and tag overlap. Facts/discussion section
+similarity is displayed for reference and does not contribute to the score.
 
 ## Related Pages
 

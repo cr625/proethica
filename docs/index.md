@@ -1,6 +1,6 @@
 # ProEthica Documentation
 
-ProEthica is a research prototype demonstrating how case-based reasoning, ontology-supported validation, and large language models might be combined to support professional ethics review. The system provides a reference implementation for analyzing ethical scenarios against established standards and precedents.
+ProEthica is a research prototype demonstrating how case-based reasoning, ontology-supported validation, and large language models might be combined to support professional ethics review. The system provides a reference implementation for analyzing ethical scenarios against established standards and precedents, applied to a corpus of 119 NSPE Board of Ethical Review cases.
 
 ## Documentation by Access Level
 
@@ -21,7 +21,7 @@ Browse and explore ethics cases without authentication.
 | [Browsing Cases](viewing/browsing-cases.md) | Navigate the case repository with filtering |
 | [Viewing Extractions](viewing/viewing-extractions.md) | View extracted entities from completed cases |
 | [Precedent Network](viewing/precedent-network.md) | Explore case similarity relationships |
-| [Guidelines](viewing/guidelines.md) | Browse professional codes of ethics |
+| [Guidelines](viewing/guidelines.md) | Professional codes of ethics on the domain pages |
 
 ## Running Analysis
 
