@@ -75,8 +75,9 @@ class TestPublicPageAccess:
     def test_public_page_accessible(self, simple_client, url):
         """Test that public pages are accessible (200 OK or redirect to another public page)."""
         response = simple_client.get(url)
-        # Accept 200 OK or 302 redirect (some pages redirect to canonical URLs)
-        assert response.status_code in [200, 302], f"Expected 200/302 for {url}, got {response.status_code}"
+        # Accept 200 OK or a redirect (some pages redirect to canonical URLs;
+        # /tools/references permanently redirects to /docs/references/)
+        assert response.status_code in [200, 301, 302], f"Expected 200/301/302 for {url}, got {response.status_code}"
 
 
 class TestDataModifyingRoutesRequireAuth:
