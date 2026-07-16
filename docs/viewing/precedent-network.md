@@ -28,7 +28,7 @@ Each case card includes a **Find Similar** link (blue badge) that opens preceden
 On any case Structure page, click **Find More Precedents** in the Similar Cases sidebar.
 
 ![Precedent Discovery](../assets/images/screenshots/precedent-discovery-content.png)
-*Precedent discovery page showing similar cases ranked by combined similarity score*
+*Precedent discovery page showing similar cases ranked by component-aware similarity*
 
 ## Using Precedent Discovery
 
