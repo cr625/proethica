@@ -118,7 +118,7 @@ Direct URL: `/pipeline/queue`
 
 | Section | Description |
 |---------|-------------|
-| **Available Cases** | Cases not yet processed, ready to add to queue |
+| **Available Cases** | Unprocessed cases, ready to add to the queue |
 | **Current Queue** | Cases waiting to be processed |
 | **Queue Controls** | Add selected cases, clear queue, process next |
 
@@ -154,8 +154,8 @@ Direct URL: `/pipeline/queue`
 
 To process a single case:
 
-1. Go to the case detail page and click **Pipeline** to open the per-case dashboard, then use **Run All**; or
-2. Add the case to the batch queue at **Tools** > **Batch Queue**
+1. Go to the case detail page and click **Pipeline** to open the per-case dashboard, then use **Run All**
+2. Alternatively, add the case to the batch queue at **Tools** > **Batch Queue**
 3. Monitor in the batch processing dashboard
 
 ### Batch Processing
@@ -256,7 +256,7 @@ Complete
 ```
 
 The Questions and Conclusions substep (the QC of the substep list) runs inside
-Step 4; corpus-level verification criteria are applied offline, not as a
+Step 4. Corpus-level verification criteria are applied offline, not as a
 pipeline stage.
 
 ### Entity Storage

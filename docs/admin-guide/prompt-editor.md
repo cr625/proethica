@@ -1,13 +1,13 @@
 # Prompt Editor
 
-The Prompt Editor provides a web interface for editing the prompt templates used across the pipeline: the nine component extraction templates of Steps 1-3, the Step 4 phase family, and the guideline templates. Templates are stored in the database; the Step 4 templates carry sidecar Markdown files under `app/utils/prompts/step4/`.
+The Prompt Editor provides a web interface for editing the prompt templates used across the pipeline: the nine component extraction templates of Steps 1-3, the Step 4 phase family, and the guideline templates. Templates are stored in the database. The Step 4 templates have sidecar Markdown files under `app/utils/prompts/step4/`.
 
 ## Accessing the Prompt Editor
 
 Navigate to **Tools** > **Prompt Editor** or direct URL: `/tools/prompts`
 
 !!! note "Access Levels"
-    The pages are public as a read-only Prompt Viewer (linked from the Tools menu for non-admin users); editing, version reverts, and test runs require an admin account.
+    The pages are public as a read-only Prompt Viewer, linked from the Tools menu for non-admin users. Editing, version reverts, and test runs require an admin account.
 
 ## Pipeline Structure
 
@@ -27,7 +27,7 @@ Templates are organized by pipeline step and concept type:
 
 A template is one input to a multi-stage process. When an extraction runs, the template is assembled into a full prompt, sent to the model, validated and filtered, and written as draft entities to a staging table. The ontology served by OntServe is produced later by a separate commit step, not by extraction itself. These stages determine what the **Preview**, **Test Extraction**, and **Variable Inspector** functions display, and where extracted entities go before they reach OntServe.
 
-Every concept prompt injects its ontology-derived schema slot; Roles extraction was the reference implementation for the pattern.
+Every concept prompt injects its ontology-derived schema slot. Roles extraction was the reference implementation for the pattern.
 
 ### Stage Summary
 

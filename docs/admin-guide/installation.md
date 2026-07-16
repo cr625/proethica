@@ -44,7 +44,7 @@ Tables are created automatically by SQLAlchemy on first run.
 
 ## 3. Redis Setup
 
-Redis serves as the message broker for Celery background tasks (pipeline automation).
+Redis is the message broker for Celery background tasks (pipeline automation).
 
 ```bash
 sudo apt-get install -y redis-server
@@ -183,7 +183,7 @@ Or configure as a systemd service for automatic restart.
 
 ### Nginx Configuration
 
-Nginx serves as a reverse proxy with bot protection. Configure:
+Nginx is a reverse proxy with bot protection. Configure:
 
 - **Reverse proxy** to the gunicorn socket/port
 - **Rate limiting** with `limit_req_zone` to prevent abuse

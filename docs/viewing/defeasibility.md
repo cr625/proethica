@@ -30,7 +30,7 @@ The matching key is the extracted formalism, not the case subject tags: two case
 
 ## Entity Definitions
 
-Labels in both bands carry hover popovers sourced from the committed case ontologies: the entity label, its definition or comment, and its concept category. Because the lookup is built from the committed TTL of each case in the view, the definitions match what OntServe stores and cover every case shown, not only the anchor case.
+Labels in both bands have hover popovers sourced from the committed case ontologies: the entity label, its definition or comment, and its concept category. Because the lookup is built from the committed TTL of each case in the view, the definitions match what OntServe stores and cover every case shown, not only the anchor case.
 
 ## Related Documentation
 

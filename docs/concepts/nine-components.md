@@ -36,7 +36,7 @@ These elements determine which ethical considerations apply based on professiona
 
 **Definition**: A role borne by an agent in virtue of a position or standing in professional practice.
 
-Roles filter which principles and obligations apply. A professional role additionally generates obligations from the recognized ends of the profession and is governed by its ethical code; a participant role (a client, owner, or affected member of the public) carries standing in the case without profession-generated duties. An engineer's obligation to protect public safety differs fundamentally from a lawyer's duty of zealous advocacy or a physician's commitment to patient welfare.
+Roles filter which principles and obligations apply. A professional role additionally generates obligations from the recognized ends of the profession and is governed by its ethical code. A participant role, such as a client, owner, or affected member of the public, has standing in the case without profession-generated duties. An engineer's obligation to protect public safety differs fundamentally from a lawyer's duty of zealous advocacy or a physician's commitment to patient welfare.
 
 **Examples**:
 
@@ -56,7 +56,7 @@ Roles filter which principles and obligations apply. A professional role additio
 
 **Definition**: Situational context including facts, environmental conditions, and system status.
 
-States capture the specific circumstances that affect ethical evaluation. Identical professional actions carry different ethical weight depending on the state. Context extends beyond technical parameters to include social and cultural factors that shape ethical acceptability.
+States capture the specific circumstances that affect ethical evaluation. The ethical weight of identical professional actions differs with the state. Context extends beyond technical parameters to include social and cultural factors that shape ethical acceptability.
 
 **Examples**:
 

@@ -15,7 +15,7 @@ Steps 1-3 extract the nine base concepts. Steps 1-2 extract separately from the 
 | Step 2 | Normative Requirements | Principles, Obligations, Constraints, Capabilities | Pass 1 (Facts), Pass 2 (Discussion) |
 | Step 3 | Temporal Dynamics | Actions, Events, causal chains, temporal relations | Unified (full case text) |
 
-After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), OntServe commit, Step 4 (whole-case synthesis, seven substeps), and a second OntServe commit. Step 5 presents the fully analyzed case as an interactive scenario; it is read-only and does not require authentication. See [Pipeline Terminology](../concepts/terminology.md) for definitions and [Interactive Scenario](../viewing/interactive-scenario.md) for Step 5.
+After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), OntServe commit, Step 4 (whole-case synthesis, seven substeps), and a second OntServe commit. Step 5 presents the fully analyzed case as an interactive scenario. It is read-only and does not require authentication. See [Pipeline Terminology](../concepts/terminology.md) for definitions and [Interactive Scenario](../viewing/interactive-scenario.md) for Step 5.
 
 ## Starting Extraction
 
@@ -23,7 +23,7 @@ After Steps 1-3, the pipeline continues with Reconcile (entity deduplication), O
 
 Navigate to any case detail page and click the **Pipeline** button in the top action bar, or access the per-case pipeline dashboard directly at `/cases/<id>/pipeline`.
 
-The dashboard presents the pipeline as a sequence of substep cards. Each available substep offers a **Run** button; **Run All** dispatches the remaining substeps in order. Substeps have prerequisites and unlock in sequence; completed substeps display as green. Extraction prompts come from the shared prompt template system: the templates behind each substep are viewable by anyone through the Prompt Viewer and editable by administrators through the [Prompt Editor](../admin-guide/prompt-editor.md).
+The dashboard presents the pipeline as a sequence of substep cards. Each available substep offers a **Run** button, and **Run All** dispatches the remaining substeps in order. Substeps have prerequisites and unlock in sequence. Completed substeps display as green. Extraction prompts come from the shared prompt template system: the templates behind each substep are viewable by anyone through the Prompt Viewer and editable by administrators through the [Prompt Editor](../admin-guide/prompt-editor.md).
 
 ## Step 1: Contextual Framework
 
@@ -49,10 +49,6 @@ Expected entity counts:
 | **Obligations** | Concrete duties | 15-25 entities |
 | **Constraints** | Prohibitions and limits | 15-20 entities |
 | **Capabilities** | Permissions and options | 15-25 entities |
-
-### Pass 2 (Discussion)
-
-Click **Discussion Section** after completing Pass 1 (Facts) to extract from the Discussion section.
 
 ## Step 3: Temporal Dynamics
 
