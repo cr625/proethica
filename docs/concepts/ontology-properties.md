@@ -3,7 +3,7 @@
 **Source**: OntServe/ontologies/proethica-core.ttl (v2.10.23), proethica-intermediate.ttl, proethica-cases.ttl (v3.8.0)
 
 This document lists the ObjectProperties defined in the ProEthica ontologies.
-Extracted relations use these properties rather than ad-hoc names; the
+Extracted relations use these declared properties, not ad-hoc names. The
 authoritative definition of each property, with its full annotation record, is
 its entity page on [OntServe](https://ontserve.ontorealm.net?origin=proethica&filter=proethica).
 
@@ -51,7 +51,7 @@ relational archetypes (a `hasClient` edge classifies the provider side into
 Participant-side facts attach through the actor-edge family
 (`affects`, `obligatedParty`, `constrainedEntity`, `possessedBy`, `invokedBy`,
 `citedByAgent`, `availableTo`), which resolve extracted who-fields to Agent
-endpoints at commit; see the property pages on OntServe for domains and
+endpoints at commit. See the property pages on OntServe for domains and
 ranges.
 
 ## Fluent and Temporal Relations
@@ -114,7 +114,7 @@ competing-duties resolution.
 The three properties model obligation defeat as a triple: when an obligation
 `O1` `competesWith` `O2`, and a state `S` obtains, then `O1` `prevailsOver`
 `O2` `defeasibleUnder` `S`. Cases that report tension resolution between
-competing duties carry these edges so non-monotonic reasoners can compute
+competing duties include these edges, so non-monotonic reasoners can compute
 defeat without parsing narrative text.
 
 ## Deprecated
@@ -124,7 +124,7 @@ Deprecated properties are retained for identifier stability and marked
 
 | Property | Live equivalent |
 |----------|-----------------|
-| `proeth-core:hasState` | `initiates` / `terminates` carry the linkage |
+| `proeth-core:hasState` | the linkage is asserted through `initiates` / `terminates` |
 | `proeth-core:triggersEvent` | `proeth:causedByAction` and the causal family |
 | `proeth-core:refersToDocument` | `containsProvision` and `documentTitle` |
 | `proeth:hasTemporalRelation` | `fromEntity` / `toEntity` anchor the relation |
@@ -134,7 +134,7 @@ Deprecated properties are retained for identifier stability and marked
 ## Usage in Extraction
 
 Extraction prompts derive their allowed relationship vocabulary from these
-declarations; relations outside the declared inventory are carried as literal
-overflow fields rather than minted as new properties. Reserved edges
-(`usesResource`, `constrainedBy`, `realizesCapability`) are declared for the
-Step 4 enrichment vocabulary and are not yet written by the pipeline.
+declarations. Relations outside the declared inventory are stored as literal
+overflow fields, not minted as new properties. The reserved edges
+`usesResource`, `constrainedBy`, and `realizesCapability` are declared for the
+Step 4 enrichment vocabulary and are not written by the pipeline.

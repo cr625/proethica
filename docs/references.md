@@ -2,8 +2,8 @@
 
 Academic sources and theoretical foundations for ProEthica. The component
 literature below mirrors the definition-source records (`iao:0000119` and
-`dcterms:source`) carried by the corresponding ontology classes, which were
-verified against the cited texts. The authoritative copy of each record is
+`dcterms:source`) recorded on the corresponding ontology classes and verified
+against the cited texts. The authoritative copy of each record is
 browsable on [OntServe](https://ontserve.ontorealm.net?origin=proethica&filter=proethica)
 alongside the class it grounds.
 
@@ -67,7 +67,7 @@ practice, with obligation generation attributed to professional roles.
 ### P. Principles
 
 - **McLaren, B. M. (2003)** (above). Extensional definition of abstract,
-  open-textured principles through decided cases; the extensional backbone of
+  open-textured principles through decided cases, the extensional grounding of
   the principle subtree.
 - **Frankel, M. S. (1989)**. Professional codes: Why, how, and with what
   impact? *Journal of Business Ethics*, 8(2-3), 109-115.
@@ -124,9 +124,9 @@ practice, with obligation generation attributed to professional roles.
   Computational analogue of the ought-implies-can principle: an obligation
   presupposes the capacity to discharge it.
 
-The domain obligation classes (safety, competence, disclosure, faithful
-agency, reporting, confidentiality, attribution) anchor to specific NSPE Code
-provisions; see [Professional Code Grounding](#professional-code-grounding).
+The domain obligation classes for safety, competence, disclosure, faithful
+agency, reporting, confidentiality, and attribution anchor to specific NSPE
+Code provisions. See [Professional Code Grounding](#professional-code-grounding).
 
 ### S. States
 
@@ -150,7 +150,7 @@ provisions; see [Professional Code Grounding](#professional-code-grounding).
 ### Rs. Resources
 
 - **McLaren, B. M. (2003)** (above). Professional ethical knowledge exists
-  primarily in accumulated cases; grounding of the case-precedent kind.
+  primarily in accumulated cases, the grounding of the case-precedent kind.
 - **Davis, M. (1991)** (above). Codes of ethics as conventions that
   coordinate professional practice.
 - **Frankel, M. S. (1989)** (above). The profession as a normative reference
@@ -184,7 +184,7 @@ provisions; see [Professional Code Grounding](#professional-code-grounding).
 - **Govindarajulu, N. S. and Bringsjord, S. (2017)**. On automating the
   doctrine of double effect. *IJCAI 2017*, 4722-4730.
   [DOI](https://doi.org/10.24963/ijcai.2017/658)
-  Intention: the same action carries different ethical weight based on the
+  Intention: the ethical evaluation of the same action differs with the
   knowledge and intention of the agent.
 - **Berreby, F., Bourgne, G., and Ganascia, J.-G. (2017)** (above). The
   volitional/non-volitional boundary between actions and events.
@@ -224,7 +224,7 @@ provisions; see [Professional Code Grounding](#professional-code-grounding).
   hybrid deliberative/reactive robot architecture. *HRI 2008*, 121-128.
   [DOI](https://doi.org/10.1145/1349822.1349839)
   Constraints as negative behavioral limits that determine the permissible
-  action space; prohibition constraints are evaluated first.
+  action space, with prohibition constraints evaluated first.
 - **Ganascia, J.-G. (2007)**. Modelling ethical rules of lying with Answer
   Set Programming. *Ethics and Information Technology*, 9(1), 39-47.
   [DOI](https://doi.org/10.1007/s10676-006-9134-y)
@@ -249,9 +249,9 @@ doctrine rather than provision text:
 
 - **National Society of Professional Engineers (2019)**. *Code of Ethics for
   Engineers*. Publication 1102. Fundamental Canons, Rules of Practice, and
-  Professional Obligations; each anchored class carries its provision
-  designation (for example, Rule of Practice II.2 on the competence
-  obligation, Fundamental Canon I.1 on the safety obligation).
+  Professional Obligations. Each anchored class records its provision
+  designation, such as Rule of Practice II.2 on the competence obligation and
+  Fundamental Canon I.1 on the safety obligation.
 - **NSPE Board of Ethical Review (2004)**. Case 04-8, *Public Welfare: Client
   Action Following Engineer's Services*. The monitor-to-completion reading
   behind the corrective-action-monitoring principle.
@@ -260,7 +260,8 @@ doctrine rather than provision text:
   behind the whistleblower principle.
 - **National Society of Professional Engineers v. United States, 435 U.S. 679
   (1978)**. Held the ban on competitive bidding an unreasonable restraint of
-  trade; the rescinded grounding of the free-services prohibition principle.
+  trade. The rescinded provision is the documented grounding of the
+  free-services prohibition principle.
 
 ## Analysis Methods
 
@@ -296,7 +297,7 @@ ethics of Oakley and Cocking (2001): entity grounding (argument components
 must reference extracted entities), founding value (no argument may endorse
 violating the good the profession serves), and professional virtue (virtues
 invoked by an argument require capability support). All computations use
-entities extracted during the pipeline steps rather than free text.
+entities extracted during the pipeline steps, not free text.
 
 ### Ethical Tensions
 
@@ -337,7 +338,7 @@ the Event Calculus treatment of an obligation as a fluent (Berreby et al.
 2017; Dennis et al. 2016; Dennis and del Olmo 2021, *A Defeasible Logic
 Implementation of Ethical Reasoning*). Each link is materialized as an
 object-property edge from the action to the extracted obligation individual,
-so the whole chain is queryable rather than restated as prose.
+so the full chain is queryable, not restated as prose.
 
 ### Fluents and Temporal Ordering
 
@@ -352,7 +353,7 @@ says when:
   relations ordering case happenings.
 - **Cox, S. and Little, C. (2017)**. *Time Ontology in OWL*. W3C
   Recommendation. [W3C](https://www.w3.org/TR/owl-time/)
-  The OWL-Time properties that carry the Allen relations in committed case
+  The OWL-Time properties that express the Allen relations in committed case
   graphs.
 
 ### Transformation Classification
@@ -391,6 +392,6 @@ The framework categories used in theoretical question generation
 (deontological, virtue ethics, utilitarian, and similar labels) are
 exploratory research features and are not formally defined in the ProEthica
 ontology. Questions labeled Theoretical are generated by prompting the
-language model to consider the case from different ethical perspectives; the
-labels indicate the intended analytical lens rather than a formally modeled
+language model to consider the case from different ethical perspectives. The
+labels indicate the intended analytical lens, not a formally modeled
 framework.
