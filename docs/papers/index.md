@@ -31,13 +31,13 @@ System demonstration of LLM-orchestrated, ontology-supported case-based reasonin
 
 **Precedent-Based Professional Role Ethics for AI Decision Analysis**
 
-Rauch, C. B. (2025). *Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society*. [OJS link](https://ojs.aaai.org/index.php/AIES/article/view/36794).
+Rauch, C. B. (2025). *Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society*, 2921-2923. [OJS link](https://ojs.aaai.org/index.php/AIES/article/view/36794).
 
 ### IEEE CAI 2025
 
 **Role-Based Ethics for Decision-Maker Alignment**
 
-Rauch, C. B., Molineaux, M., Mainali, M., Sen, A., Floyd, M. W., & Weber, R. O. (2025). *Proceedings of the IEEE Conference on Artificial Intelligence*. DOI: [10.1109/CAI64502.2025.00209](https://doi.org/10.1109/CAI64502.2025.00209).
+Rauch, C. B., Molineaux, M., Mainali, M., Sen, A., Floyd, M. W., & Weber, R. O. (2025). *Proceedings of the IEEE Conference on Artificial Intelligence*, 1209-1212. DOI: [10.1109/CAI64502.2025.00209](https://doi.org/10.1109/CAI64502.2025.00209).
 
 ## Accepted (To Appear)
 
@@ -69,10 +69,11 @@ Publications by the author from the decision-maker alignment research program
 and companion systems that inform the ProEthica design:
 
 - Weber, R. O., Rauch, C. B., & Amin, S. (2025). Decision Making in LLMs: A
-  First Step. *CEUR Workshop Proceedings*, 3993, 15-26.
-- Sen, A., Weber, R. O., Rauch, C. B., Mainali, M., Turner, J., Meyer, D.,
+  First Step. *CEUR Workshop Proceedings*, 3993 (ICCBR 2025 Workshops), 15-26.
+  [CEUR-WS](https://ceur-ws.org/Vol-3993/).
+- Sen, A., Weber, R. O., Rauch, C. B., Mainali, M., Turner, J. T., Meyer, J.,
   Floyd, M. W., & Molineaux, M. (2025). Decision-Maker Alignment: Benchmark
-  Datasets. *2025 IEEE Conference on Artificial Intelligence (CAI)*.
+  Datasets. *2025 IEEE Conference on Artificial Intelligence (CAI)*, 1221-1229.
   DOI: [10.1109/CAI64502.2025.00212](https://doi.org/10.1109/CAI64502.2025.00212).
 - Mainali, M., Sureshbabu, H., Sen, A., Rauch, C. B., Reifsnyder, N. D., et
   al. (2025). Classical AI vs. LLMs for Decision-Maker Alignment in Health
@@ -80,7 +81,7 @@ and companion systems that inform the ProEthica design:
   DOI: [10.48550/arXiv.2510.06093](https://doi.org/10.48550/arXiv.2510.06093).
 - Rauch, C. B., Choi, H. W., & Kelly, M. (2025). OntExtract: PROV-O
   Provenance Tracking for Document Analysis Workflows. *2025 ACM/IEEE Joint
-  Conference on Digital Libraries (JCDL)*.
+  Conference on Digital Libraries (JCDL)*, 249-252.
   DOI: [10.1109/JCDL67857.2025.00038](https://doi.org/10.1109/JCDL67857.2025.00038).
 - Molineaux, M., Weber, R. O., Floyd, M. W., et al., including Rauch, C. B.
   (2024). Aligning to Human Decision-Makers in Military Medical Triage.
@@ -92,7 +93,7 @@ and companion systems that inform the ProEthica design:
   DOI: [10.1007/978-3-031-63646-2_25](https://doi.org/10.1007/978-3-031-63646-2_25).
 - Rauch, C. B., Addison, U., Floyd, M. W., et al. (2024). Algorithmic
   Decision-Making in Difficult Scenarios. *Proceedings of the AAAI Symposium
-  Series*.
+  Series*, 583-585.
   [AAAI OJS](https://ojs.aaai.org/index.php/AAAI-SS/article/view/31285).
 
 ## Differentiation
