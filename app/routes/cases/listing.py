@@ -6,8 +6,9 @@ from flask import render_template, request, redirect, url_for
 from app.utils.environment_auth import auth_optional
 from app.models import Document
 from app.models.world import World
-from app.services.embedding.embedding_service import EmbeddingService
+from app.services.embedding.section_embedding_service import SectionEmbeddingService
 from app.services.pipeline_state_manager import get_bulk_progress
+from app.services.search.unified_search_service import UnifiedSearchService
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -206,26 +207,36 @@ def register_listing_routes(bp):
         if not query:
             return redirect(url_for('cases.list_cases', world_id=world_id))
 
+        # Entity lane: matching OntServe ontology entities (unified search
+        # increment 1). A failure here must stay visible, not empty the panel.
+        entity_results = []
+        entity_error = None
         try:
-            embedding_service = EmbeddingService()
+            entity_results = UnifiedSearchService().search_entities(query)
+        except Exception as e:
+            logger.error(f"OntServe entity search failed for query '{query}': {e}")
+            entity_error = str(e)
 
-            similar_chunks = embedding_service.search_similar_chunks(
-                query=query,
-                k=10,
-                world_id=world_id,
-                document_type=['case_study', 'case']
-            )
+        try:
+            # Case lane: section-level pgvector similarity. The corpus carries
+            # embeddings on document_sections (not document_chunks), so search
+            # sections and keep each document's best-scoring section.
+            section_service = SectionEmbeddingService()
+            similar_sections = section_service.find_similar_sections(query, limit=40)
 
             seen_doc_ids = set()
 
-            for chunk in similar_chunks:
+            for chunk in similar_sections:
                 document_id = chunk.get('document_id')
 
                 if document_id in seen_doc_ids:
                     continue
+                seen_doc_ids.add(document_id)
+                if len(cases) >= 10:
+                    break
 
                 document = Document.query.get(document_id)
-                if document:
+                if document and document.document_type in ('case', 'case_study'):
                     metadata = {}
                     if document.doc_metadata:
                         if isinstance(document.doc_metadata, dict):
@@ -261,8 +272,9 @@ def register_listing_routes(bp):
                         'source': document.source,
                         'document_id': document.id,
                         'is_document': True,
-                        'similarity_score': 1.0 - chunk.get('distance', 0.0),
-                        'matching_chunk': chunk.get('chunk_text', ''),
+                        'similarity_score': chunk.get('similarity', 0.0),
+                        'matching_chunk': chunk.get('content', ''),
+                        'matching_section': chunk.get('section_type', ''),
                         'year': year,
                         'questions_list': questions_list,
                         'conclusion_items': conclusion_items,
@@ -272,9 +284,12 @@ def register_listing_routes(bp):
                     }
 
                     cases.append(case)
-                    seen_doc_ids.add(document_id)
 
         except Exception as e:
+            # Roll back so a failed search query cannot leave the session
+            # aborted for the queries that render the rest of the page.
+            db.session.rollback()
+            logger.error(f"Case chunk search failed for query '{query}': {e}")
             error = str(e)
 
         # Group cases by year
@@ -304,5 +319,7 @@ def register_listing_routes(bp):
             selected_world_id=world_id,
             query=query,
             error=error,
-            search_results=True
+            search_results=True,
+            entity_results=entity_results,
+            entity_error=entity_error
         )

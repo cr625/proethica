@@ -13,21 +13,35 @@
     {% endif %}
 
     <div class="row mb-3">
-        <div class="col-md-6">
-            <form id="caseFilterForm" class="d-flex align-items-center flex-wrap gap-2" action="/cases/" method="get">
-                <div class="input-group" style="max-width: 200px;">
-                    <select class="form-select form-select-sm" name="world_id" id="worldFilter" aria-label="Filter by World">
-                        <option value="">All Worlds</option>
-                        {% for world in worlds %}
-                        <option value="{{ world.id }}" {% if selected_world_id == world.id %}selected{% endif %}>
-                            {{ world.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </form>
+        <div class="col-md-8">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <form class="d-flex flex-grow-1" action="{{ url_for('cases.search_cases') }}" method="get" style="max-width: 460px;">
+                    {% if selected_world_id %}
+                    <input type="hidden" name="world_id" value="{{ selected_world_id }}">
+                    {% endif %}
+                    <div class="input-group input-group-sm">
+                        <input type="search" class="form-control" name="query" value="{{ query or '' }}"
+                               placeholder="Search cases and ontology concepts..." aria-label="Search cases">
+                        <button class="btn btn-primary" type="submit" title="Search">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </form>
+                <form id="caseFilterForm" class="d-flex align-items-center" action="/cases/" method="get">
+                    <div class="input-group" style="max-width: 200px;">
+                        <select class="form-select form-select-sm" name="world_id" id="worldFilter" aria-label="Filter by World">
+                            <option value="">All Worlds</option>
+                            {% for world in worlds %}
+                            <option value="{{ world.id }}" {% if selected_world_id == world.id %}selected{% endif %}>
+                                {{ world.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
         </div>
-        <div class="col-md-6 text-end d-flex justify-content-end align-items-center gap-2">
+        <div class="col-md-4 text-end d-flex justify-content-end align-items-center gap-2">
             <div class="btn-group btn-group-sm" role="group" aria-label="View mode">
                 <button type="button" class="btn btn-outline-secondary active" id="expandedViewBtn" title="Expanded view">
                     <i class="bi bi-card-text"></i>
@@ -94,6 +108,58 @@
     </div>
     {% endif %}
 
+    {% if search_results %}
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <h5 class="mb-0">Results for &ldquo;{{ query }}&rdquo;</h5>
+        <a href="{{ url_for('cases.list_cases', world_id=selected_world_id) }}" class="small">
+            <i class="bi bi-x-circle"></i> Clear search
+        </a>
+    </div>
+
+    {% if entity_error %}
+    <div class="alert alert-warning" role="alert">
+        Ontology concept search unavailable: {{ entity_error }}
+    </div>
+    {% elif entity_results %}
+    <div class="card mb-4 entity-lane">
+        <div class="card-header py-2">
+            <span class="fw-semibold"><i class="bi bi-diagram-3 me-1"></i>Matching ontology concepts</span>
+            <span class="text-muted small ms-2">from OntServe</span>
+        </div>
+        <div class="card-body py-3">
+            <div class="row g-3">
+                {% for e in entity_results %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="entity-result h-100" {% if e.color %}style="border-left: 3px solid {{ e.color }};"{% endif %}>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            {% if e.category %}
+                            <span class="badge entity-category-badge" style="background-color: {{ e.color }}1a; color: {{ e.color }};">{{ e.category }}</span>
+                            {% endif %}
+                            <span class="badge bg-light text-muted border">{{ e.entity_type }}</span>
+                        </div>
+                        <a href="{{ e.ontserve_url }}" target="_blank" rel="noopener"
+                           class="fw-semibold text-decoration-none entity-result-label" title="View in OntServe">
+                            {{ e.label }} <i class="bi bi-box-arrow-up-right small text-muted"></i>
+                        </a>
+                        {% if e.definition %}
+                        <p class="small text-muted mb-1 entity-result-def">{{ e.definition|striptags|truncate(140) }}</p>
+                        {% endif %}
+                        <div class="small text-muted">
+                            {% if e.case_id %}
+                            from <a href="/cases/{{ e.case_id }}">Case {{ e.case_id }}</a>
+                            {% else %}
+                            {{ e.ontology_name }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
     {% if grouped_cases %}
     {% for year, year_cases in grouped_cases.items() %}
     <div class="card mb-4">
@@ -113,6 +179,11 @@
                                 <a href="/cases/{{ case.id }}" class="text-decoration-none text-dark case-title-link">{{ case.title }} <i class="bi bi-chevron-right small text-muted"></i></a>
                             </h5>
                             <div class="d-flex align-items-center gap-2">
+                                {% if case.similarity_score is defined and case.similarity_score %}
+                                <span class="badge similarity-badge" title="Semantic similarity to your search{% if case.matching_section %} (best section: {{ case.matching_section }}){% endif %}">
+                                    {{ '%.0f'|format(case.similarity_score * 100) }}% match
+                                </span>
+                                {% endif %}
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary">Case #{{ case.case_number }}</span>
                                 {% endif %}

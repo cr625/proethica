@@ -521,16 +521,16 @@ class EmbeddingService:
         
         return len(triples)
     
-    def search_similar_chunks(self, query: str, k: int = 5, world_id: Optional[int] = None, document_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    def search_similar_chunks(self, query: str, k: int = 5, world_id: Optional[int] = None, document_type: Optional[Union[str, List[str]]] = None) -> List[Dict[str, Any]]:
         """
         Find document chunks similar to the query text.
-        
+
         Args:
             query: The query text to find similar chunks for
             k: Maximum number of results to return
             world_id: Optional world ID to filter chunks by
-            document_type: Optional document type to filter by
-            
+            document_type: Optional document type (or list of types) to filter by
+
         Returns:
             List of similar document chunks with metadata
         """
@@ -553,7 +553,7 @@ class EmbeddingService:
             try:
                 embedding_str = f"[{','.join(str(x) for x in qvec_384)}]"
                 parts = [
-                    "SELECT dc.id, dc.content AS chunk_text, dc.chunk_index, d.title, d.document_type,",
+                    "SELECT dc.id, dc.document_id, dc.content AS chunk_text, dc.chunk_index, d.title, d.document_type,",
                     "dc.embedding_384 <-> (:embedding)::vector AS distance",
                     "FROM document_chunks dc",
                     "JOIN documents d ON dc.document_id = d.id",
@@ -564,8 +564,9 @@ class EmbeddingService:
                     parts.append("AND d.world_id = :world_id")
                     params["world_id"] = world_id
                 if document_type is not None:
-                    parts.append("AND d.document_type = :document_type")
-                    params["document_type"] = document_type
+                    # psycopg2 adapts a Python list to a Postgres array for ANY().
+                    parts.append("AND d.document_type = ANY(:document_type)")
+                    params["document_type"] = list(document_type) if isinstance(document_type, (list, tuple)) else [document_type]
                 parts.append("ORDER BY distance")
                 parts.append("LIMIT :k")
                 sql = text(" ".join(parts))
@@ -574,6 +575,7 @@ class EmbeddingService:
                 for row in res:
                     out.append({
                         "id": row.id,
+                        "document_id": row.document_id,
                         "chunk_text": row.chunk_text,
                         "chunk_index": row.chunk_index,
                         "title": row.title,
@@ -597,7 +599,10 @@ class EmbeddingService:
         if world_id is not None:
             q = q.filter(Document.world_id == world_id)
         if document_type is not None:
-            q = q.filter(Document.document_type == document_type)
+            if isinstance(document_type, (list, tuple)):
+                q = q.filter(Document.document_type.in_(document_type))
+            else:
+                q = q.filter(Document.document_type == document_type)
 
         rows = q.all()
         scored: List[Dict[str, Any]] = []
@@ -616,6 +621,7 @@ class EmbeddingService:
                 sim = cosine(qvec_legacy or [], emb)
             scored.append({
                 "id": dc.id,
+                "document_id": dc.document_id,
                 "chunk_text": dc.content,
                 "chunk_index": dc.chunk_index,
                 "title": d.title,
