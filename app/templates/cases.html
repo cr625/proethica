@@ -136,6 +136,9 @@
                             <span class="badge entity-category-badge" style="background-color: {{ e.color }}1a; color: {{ e.color }};">{{ e.category }}</span>
                             {% endif %}
                             <span class="badge bg-light text-muted border">{{ e.entity_type }}</span>
+                            {% if e.score is not none %}
+                            <span class="badge similarity-badge ms-auto" title="Semantic similarity to your search">{{ '%.0f'|format(e.score * 100) }}%</span>
+                            {% endif %}
                         </div>
                         <a href="{{ e.ontserve_url }}" target="_blank" rel="noopener"
                            class="fw-semibold text-decoration-none entity-result-label" title="View in OntServe">

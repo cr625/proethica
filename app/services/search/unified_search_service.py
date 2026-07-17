@@ -1,9 +1,15 @@
 """Unified search: OntServe ontology entity lane for the case search page.
 
-Increment 1 of the unified-semantic-search plan: lexical entity search against
-the OntServe database over the sanctioned direct cross-DB channel (see
-docs-internal/architecture/ontserve-boundary.md). Semantic (pgvector) ranking
-is added in increment 2; this module is its seam.
+Increments 1-2 of the unified-semantic-search plan: hybrid lexical + semantic
+entity search against the OntServe database over the sanctioned direct cross-DB
+channel (see docs-internal/architecture/ontserve-boundary.md).
+
+Both ProEthica and OntServe embed with all-MiniLM-L6-v2 (384 dims), so the
+query vector computed here is directly comparable to OntServe's
+ontology_entities.embedding column. The lexical arm also computes each hit's
+cosine distance, so every result with an embedding carries an honest score;
+semantic-only hits below MIN_SEMANTIC_SCORE are dropped so that nonsense
+queries return an empty lane instead of confident-looking noise.
 
 Results carry the nine-component category (derived from parent_uri, the same
 suffix convention OntServe's case_display.py uses) and the canonical component
@@ -37,22 +43,68 @@ CATEGORY_COLORS = {
     'Event': CONCEPT_COLORS['events'],
 }
 
+# Floor for hits found ONLY by the semantic arm (no substring match). MiniLM
+# cosine similarity of an unrelated short query against entity label+comment
+# text typically stays below this; topical matches land well above.
+MIN_SEMANTIC_SCORE = 0.35
+
 _CASE_ONTOLOGY_RE = re.compile(r'^proethica-case-(\d+)$')
 
-_ENTITY_SEARCH_SQL = text("""
-    SELECT oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
-           o.name AS ontology_name, o.ontology_type
+_COMMON_FILTER = """
     FROM ontology_entities oe
     JOIN ontologies o ON o.id = oe.ontology_id
     WHERE oe.label IS NOT NULL
+      AND (oe.properties->>'deprecated') IS DISTINCT FROM 'true'
+"""
+
+_LEXICAL_SQL = text(f"""
+    SELECT oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
+           o.name AS ontology_name, o.ontology_type,
+           NULL AS distance
+    {_COMMON_FILTER}
       AND (LOWER(oe.label) LIKE LOWER(:pattern)
            OR LOWER(oe.comment) LIKE LOWER(:pattern))
-      AND (oe.properties->>'deprecated') IS DISTINCT FROM 'true'
     ORDER BY
         CASE WHEN LOWER(oe.label) = LOWER(:exact) THEN 0 ELSE 1 END,
         CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
         CASE oe.entity_type WHEN 'class' THEN 0 WHEN 'property' THEN 1 ELSE 2 END,
         LENGTH(oe.label)
+    LIMIT :limit
+""")
+
+# Same shape as the lexical arm, but with a real per-row distance.
+_LEXICAL_SCORED_SQL = text(f"""
+    SELECT oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
+           o.name AS ontology_name, o.ontology_type,
+           (oe.embedding <=> CAST(:qvec AS vector)) AS distance
+    {_COMMON_FILTER}
+      AND (LOWER(oe.label) LIKE LOWER(:pattern)
+           OR LOWER(oe.comment) LIKE LOWER(:pattern))
+    ORDER BY
+        CASE WHEN LOWER(oe.label) = LOWER(:exact) THEN 0 ELSE 1 END,
+        CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
+        CASE oe.entity_type WHEN 'class' THEN 0 WHEN 'property' THEN 1 ELSE 2 END,
+        LENGTH(oe.label)
+    LIMIT :limit
+""")
+
+# DISTINCT ON collapses the many per-case copies of one URI to a single row
+# (preferring the base-ontology row) BEFORE the top-k cut; without it the
+# nearest-neighbor list is a handful of entities repeated across the 119 case
+# ontologies. The corpus is ~50k embedded rows, so the exact scan is cheap.
+_SEMANTIC_SQL = text(f"""
+    SELECT * FROM (
+        SELECT DISTINCT ON (oe.uri)
+               oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
+               o.name AS ontology_name, o.ontology_type,
+               (oe.embedding <=> CAST(:qvec AS vector)) AS distance
+        {_COMMON_FILTER}
+          AND oe.embedding IS NOT NULL
+        ORDER BY oe.uri,
+                 CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
+                 (oe.embedding <=> CAST(:qvec AS vector))
+    ) deduped
+    ORDER BY distance
     LIMIT :limit
 """)
 
@@ -87,11 +139,12 @@ def case_id_for(ontology_name):
 
 
 class UnifiedSearchService:
-    """Entity lane of the unified search. The engine is created lazily and is
+    """Entity lane of the unified search. The engine and embedder are
     injectable for tests."""
 
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, embed_fn=None):
         self._engine = engine
+        self._embed_fn = embed_fn
 
     @property
     def engine(self):
@@ -99,36 +152,79 @@ class UnifiedSearchService:
             self._engine = create_engine(get_ontserve_db_url())
         return self._engine
 
+    def _query_vector(self, query):
+        """Return the 384-dim query embedding as a pgvector literal, or None
+        (lexical-only degrade, logged loudly per plan decision D5)."""
+        try:
+            if self._embed_fn is not None:
+                vec = self._embed_fn(query)
+            else:
+                from app.services.embedding.embedding_service import EmbeddingService
+                vec = EmbeddingService.get_instance()._get_local_embedding(query)
+        except Exception as e:
+            logger.warning(f"Query embedding failed; entity lane degrades to lexical-only: {e}")
+            return None
+        if not vec or len(vec) != 384:
+            logger.warning(
+                f"Query embedding has dimension {len(vec) if vec else 0}, expected 384; "
+                "entity lane degrades to lexical-only")
+            return None
+        return '[' + ','.join(str(x) for x in vec) + ']'
+
     def search_entities(self, query, limit=12):
-        """Lexical entity search over all OntServe ontologies.
+        """Hybrid lexical + semantic entity search over all OntServe ontologies.
 
         Returns a list of dicts (deduplicated by URI, base ontologies winning
-        over case copies) ready for template rendering. Raises on DB failure;
-        the route decides how to surface the error.
+        over case copies) ranked exact-label first, then by semantic score.
+        Raises on DB failure; the route decides how to surface the error.
         """
         query = (query or '').strip()
         if not query:
             return []
 
-        web_url = get_ontserve_web_url().rstrip('/')
-        with self.engine.connect() as conn:
-            rows = conn.execute(_ENTITY_SEARCH_SQL, {
-                'pattern': f'%{query}%',
-                'exact': query,
-                # Overfetch so URI-level dedup still fills the page.
-                'limit': limit * 3,
-            }).fetchall()
+        qvec = self._query_vector(query)
+        overfetch = limit * 3  # URI-level dedup shrinks the raw rows
 
-        results = []
-        seen_uris = set()
-        for row in rows:
-            uri, label, comment, entity_type, parent_uri, onto_name, onto_type = row
-            if uri in seen_uris:
+        with self.engine.connect() as conn:
+            if qvec is None:
+                lexical = conn.execute(_LEXICAL_SQL, {
+                    'pattern': f'%{query}%', 'exact': query, 'limit': overfetch,
+                }).fetchall()
+                semantic = []
+            else:
+                lexical = conn.execute(_LEXICAL_SCORED_SQL, {
+                    'pattern': f'%{query}%', 'exact': query, 'limit': overfetch,
+                    'qvec': qvec,
+                }).fetchall()
+                semantic = conn.execute(_SEMANTIC_SQL, {
+                    'qvec': qvec, 'limit': overfetch,
+                }).fetchall()
+
+        return self._merge(query, lexical, semantic, limit)
+
+    def _merge(self, query, lexical, semantic, limit):
+        """Dedup by URI (lexical arm first, so its base-over-case ordering
+        wins), attach scores, floor semantic-only hits, rank, truncate."""
+        web_url = get_ontserve_web_url().rstrip('/')
+        query_lower = query.lower()
+
+        merged = {}
+        for row, from_lexical in (
+                [(r, True) for r in lexical] + [(r, False) for r in semantic]):
+            uri = row[0]
+            if uri in merged:
+                # Keep the first occurrence but adopt a score or the lexical
+                # flag the later duplicate contributes.
+                entry = merged[uri]
+                if entry['score'] is None and row[7] is not None:
+                    entry['score'] = max(0.0, 1.0 - float(row[7]))
+                entry['lexical'] = entry['lexical'] or from_lexical
                 continue
-            seen_uris.add(uri)
+            (_, label, comment, entity_type, parent_uri,
+             onto_name, onto_type, distance) = row
             category = derive_category(parent_uri, label)
             fragment = uri.rsplit('#', 1)[1] if '#' in uri else uri.rsplit('/', 1)[1]
-            results.append({
+            merged[uri] = {
                 'uri': uri,
                 'label': label,
                 'definition': comment,
@@ -139,7 +235,18 @@ class UnifiedSearchService:
                 'ontology_type': onto_type,
                 'case_id': case_id_for(onto_name),
                 'ontserve_url': f'{web_url}/entity/{onto_name}/{fragment}',
-            })
-            if len(results) >= limit:
-                break
-        return results
+                'score': max(0.0, 1.0 - float(distance)) if distance is not None else None,
+                'lexical': from_lexical,
+                'exact': (label or '').lower() == query_lower,
+            }
+
+        results = [
+            e for e in merged.values()
+            if e['lexical'] or (e['score'] is not None and e['score'] >= MIN_SEMANTIC_SCORE)
+        ]
+        # Exact label first, then score descending (unscored lexical hits last).
+        results.sort(key=lambda e: (
+            0 if e['exact'] else 1,
+            -(e['score'] if e['score'] is not None else -1.0),
+        ))
+        return results[:limit]

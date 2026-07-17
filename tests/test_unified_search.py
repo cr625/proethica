@@ -1,10 +1,11 @@
-"""Unit tests for the unified search entity lane (increment 1)."""
+"""Unit tests for the unified search entity lane (increments 1-2)."""
 
 from unittest.mock import MagicMock
 
 import pytest
 
 from app.services.search.unified_search_service import (
+    MIN_SEMANTIC_SCORE,
     UnifiedSearchService,
     case_id_for,
     derive_category,
@@ -41,80 +42,142 @@ class TestCaseIdFor:
         assert case_id_for(None) is None
 
 
-def _make_engine(rows):
+FAKE_VEC = [0.1] * 384
+
+
+def _make_engine(lexical_rows, semantic_rows=None):
+    """Engine mock: first execute() returns the lexical rows, second the
+    semantic rows (matching the service's call order)."""
     engine = MagicMock()
     conn = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
-    conn.execute.return_value.fetchall.return_value = rows
+    result_sets = [lexical_rows]
+    if semantic_rows is not None:
+        result_sets.append(semantic_rows)
+    executes = []
+    for rows in result_sets:
+        r = MagicMock()
+        r.fetchall.return_value = rows
+        executes.append(r)
+    conn.execute.side_effect = executes
     return engine, conn
 
 
-ROW_BASE = ('http://proethica.org/ontology/intermediate#PublicWelfarePrinciple',
-            'Public Welfare Principle', 'Definition text.', 'class',
-            'http://proethica.org/ontology/core#Principle',
-            'proethica-intermediate', 'base')
-ROW_CASE_COPY = ('http://proethica.org/ontology/intermediate#PublicWelfarePrinciple',
-                 'Public Welfare Principle', 'Definition text.', 'class',
-                 'http://proethica.org/ontology/core#Principle',
-                 'proethica-case-7', 'case')
-ROW_CASE_MINTED = ('http://proethica.org/ontology/case/7#Discussion_Public_Welfare',
-                   'Public Welfare in Testimony', None, 'individual',
-                   'http://proethica.org/ontology/intermediate#PublicWelfarePrinciple',
-                   'proethica-case-7', 'case')
+def _row(uri, label, onto_name='proethica-intermediate', onto_type='base',
+         entity_type='class', parent='http://proethica.org/ontology/core#Principle',
+         comment='Definition text.', distance=None):
+    return (uri, label, comment, entity_type, parent, onto_name, onto_type, distance)
+
+
+I = 'http://proethica.org/ontology/intermediate#'
 
 
 class TestSearchEntities:
 
+    def _svc(self, engine, embed=True):
+        return UnifiedSearchService(
+            engine=engine,
+            embed_fn=(lambda q: FAKE_VEC) if embed else (lambda q: (_ for _ in ()).throw(RuntimeError('no model'))),
+        )
+
     def test_empty_query_returns_empty_without_db(self):
-        engine, conn = _make_engine([])
-        svc = UnifiedSearchService(engine=engine)
+        engine, _ = _make_engine([], [])
+        svc = self._svc(engine)
         assert svc.search_entities('') == []
         assert svc.search_entities('   ') == []
         engine.connect.assert_not_called()
 
-    def test_dedup_by_uri_keeps_first(self):
-        engine, _ = _make_engine([ROW_BASE, ROW_CASE_COPY, ROW_CASE_MINTED])
-        results = UnifiedSearchService(engine=engine).search_entities('public welfare')
-        uris = [r['uri'] for r in results]
-        assert len(uris) == len(set(uris)) == 2
-        # The base-ontology copy (ordered first by the SQL) wins the dedup.
+    def test_dedup_by_uri_lexical_arm_wins(self):
+        base = _row(I + 'PublicWelfarePrinciple', 'Public Welfare Principle', distance=0.3)
+        case_copy = _row(I + 'PublicWelfarePrinciple', 'Public Welfare Principle',
+                         onto_name='proethica-case-7', onto_type='case', distance=0.3)
+        engine, _ = _make_engine([base], [case_copy])
+        results = self._svc(engine).search_entities('public welfare')
+        assert len(results) == 1
         assert results[0]['ontology_name'] == 'proethica-intermediate'
+        assert results[0]['score'] == pytest.approx(0.7)
+
+    def test_semantic_only_hit_included_above_floor(self):
+        sem = _row(I + 'DutyToReport', 'Duty To Report Obligation',
+                   parent='http://proethica.org/ontology/core#Obligation', distance=0.4)
+        engine, _ = _make_engine([], [sem])
+        results = self._svc(engine).search_entities('engineer discovers defect')
+        assert len(results) == 1
+        assert results[0]['score'] == pytest.approx(0.6)
+
+    def test_semantic_only_hit_below_floor_dropped(self):
+        sem = _row(I + 'Unrelated', 'Unrelated Thing', distance=1.0 - (MIN_SEMANTIC_SCORE - 0.05))
+        engine, _ = _make_engine([], [sem])
+        assert self._svc(engine).search_entities('zxqv blorp') == []
+
+    def test_lexical_hit_below_floor_kept(self):
+        lex = _row(I + 'ObscureWelfareNote', 'Obscure Welfare Note', distance=0.9)
+        engine, _ = _make_engine([lex], [])
+        results = self._svc(engine).search_entities('welfare')
+        assert len(results) == 1
+        assert results[0]['score'] == pytest.approx(0.1)
+
+    def test_ranking_exact_label_first_then_score(self):
+        exact = _row(I + 'Welfare', 'Welfare', distance=0.5)
+        better_score = _row(I + 'PublicWelfarePrinciple', 'Public Welfare Principle', distance=0.1)
+        engine, _ = _make_engine([exact, better_score], [])
+        results = self._svc(engine).search_entities('Welfare')
+        assert [r['label'] for r in results] == ['Welfare', 'Public Welfare Principle']
+
+    def test_embedding_failure_degrades_to_lexical(self):
+        lex = _row(I + 'PublicWelfarePrinciple', 'Public Welfare Principle')
+        engine, conn = _make_engine([lex])
+        results = self._svc(engine, embed=False).search_entities('public welfare')
+        assert len(results) == 1
+        assert results[0]['score'] is None
+        assert conn.execute.call_count == 1  # no semantic arm
 
     def test_result_mapping(self):
-        engine, _ = _make_engine([ROW_CASE_MINTED])
-        (r,) = UnifiedSearchService(engine=engine).search_entities('public welfare')
+        minted = ('http://proethica.org/ontology/case/7#Discussion_Public_Welfare',
+                  'Public Welfare in Testimony', None, 'individual',
+                  I + 'PublicWelfarePrinciple', 'proethica-case-7', 'case', 0.2)
+        engine, _ = _make_engine([minted], [])
+        (r,) = self._svc(engine).search_entities('public welfare')
         assert r['category'] == 'Principle'
         assert r['color']  # canonical component color attached
         assert r['case_id'] == 7
         assert r['ontserve_url'].endswith('/entity/proethica-case-7/Discussion_Public_Welfare')
 
     def test_limit_applied_after_dedup(self):
-        rows = []
-        for i in range(30):
-            rows.append((f'http://proethica.org/ontology/intermediate#Thing{i}',
-                         f'Thing {i}', None, 'class',
-                         'http://proethica.org/ontology/core#Resource',
-                         'proethica-intermediate', 'base'))
-        engine, _ = _make_engine(rows)
-        results = UnifiedSearchService(engine=engine).search_entities('thing', limit=5)
-        assert len(results) == 5
+        rows = [_row(I + f'Thing{i}', f'Thing {i}', distance=0.2) for i in range(30)]
+        engine, _ = _make_engine(rows, [])
+        assert len(self._svc(engine).search_entities('thing', limit=5)) == 5
 
     def test_db_error_propagates(self):
         engine = MagicMock()
         engine.connect.side_effect = RuntimeError('db down')
         with pytest.raises(RuntimeError):
-            UnifiedSearchService(engine=engine).search_entities('public welfare')
+            self._svc(engine).search_entities('public welfare')
 
 
 @pytest.mark.integration
 class TestSearchEntitiesIntegration:
     """Hits the real local OntServe DB; skipped when it is unreachable."""
 
-    def test_public_welfare_surfaces_principle(self):
-        svc = UnifiedSearchService()
+    def _results(self, query):
         try:
-            results = svc.search_entities('public welfare')
+            return UnifiedSearchService().search_entities(query)
         except Exception as e:
             pytest.skip(f'OntServe DB unavailable: {e}')
+
+    def test_public_welfare_surfaces_principle(self):
+        results = self._results('public welfare')
         assert results, 'expected at least one entity for a corpus-central concept'
         assert any(r['category'] == 'Principle' for r in results)
+
+    def test_conceptual_query_matches_without_shared_wording(self):
+        # No entity label contains this phrasing; semantic ranking must carry it.
+        results = self._results('engineer discovers a defect after project handoff')
+        assert results, 'expected semantic matches for a topical scenario query'
+        assert all(r['score'] is not None and r['score'] >= MIN_SEMANTIC_SCORE
+                   for r in results if not r['lexical'])
+
+    def test_nonsense_query_returns_little_or_nothing(self):
+        results = self._results('zxqv blorp wibble frobnicate')
+        semantic_only = [r for r in results if not r['lexical']]
+        assert all(r['score'] < 0.6 for r in semantic_only)
