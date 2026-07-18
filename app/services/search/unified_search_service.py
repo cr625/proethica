@@ -6,10 +6,12 @@ channel (see docs-internal/architecture/ontserve-boundary.md).
 
 Both ProEthica and OntServe embed with all-MiniLM-L6-v2 (384 dims), so the
 query vector computed here is directly comparable to OntServe's
-ontology_entities.embedding column. The lexical arm also computes each hit's
-cosine distance, so every result with an embedding carries an honest score;
-semantic-only hits below MIN_SEMANTIC_SCORE are dropped so that nonsense
-queries return an empty lane instead of confident-looking noise.
+ontology_entities.embedding column. The lexical arm matches every query token
+(plural-insensitive) and also computes each hit's cosine distance, so every
+result with an embedding carries an honest score; semantic-only hits below
+MIN_SEMANTIC_SCORE are dropped so that nonsense queries return an empty lane
+instead of confident-looking noise. Ranking discounts foreign vocabularies
+(FOREIGN_ONTOLOGY_WEIGHT) so near-ties resolve toward the proethica family.
 
 Results carry the nine-component category (derived from parent_uri, the same
 suffix convention OntServe's case_display.py uses) and the canonical component
@@ -48,7 +50,26 @@ CATEGORY_COLORS = {
 # text typically stays below this; topical matches land well above.
 MIN_SEMANTIC_SCORE = 0.35
 
+# Ranking discount for foreign vocabularies (BFO, PROV-O, IAO, RO, ...): their
+# terms are supporting infrastructure, not domain content, so a near-tie should
+# resolve toward the proethica family (calibrated on 'Faithful Agents', where
+# prov:Agent at 0.72 must rank below FaithfulAgentObligation at 0.60). Applies
+# to the rank key only -- the displayed score stays the honest cosine -- and
+# exact-label matches are pinned above the weighting entirely.
+FOREIGN_ONTOLOGY_WEIGHT = 0.8
+
 _CASE_ONTOLOGY_RE = re.compile(r'^proethica-case-(\d+)$')
+
+_PROETHICA_NAMESPACE = 'http://proethica.org/'
+
+
+def is_domain_ontology(ontology_name):
+    """True for the proethica family (core, intermediate, extended, cases,
+    engineering-ethics, the NSPE code); False for foreign vocabularies."""
+    if not ontology_name:
+        return False
+    name = ontology_name.lower()
+    return name.startswith('proethica') or name.startswith('engineering-ethics') or 'nspe' in name
 
 _COMMON_FILTER = """
     FROM ontology_entities oe
@@ -57,36 +78,42 @@ _COMMON_FILTER = """
       AND (oe.properties->>'deprecated') IS DISTINCT FROM 'true'
 """
 
-_LEXICAL_SQL = text(f"""
-    SELECT oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
-           o.name AS ontology_name, o.ontology_type,
-           NULL AS distance
-    {_COMMON_FILTER}
-      AND (LOWER(oe.label) LIKE LOWER(:pattern)
-           OR LOWER(oe.comment) LIKE LOWER(:pattern))
-    ORDER BY
-        CASE WHEN LOWER(oe.label) = LOWER(:exact) THEN 0 ELSE 1 END,
-        CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
-        CASE oe.entity_type WHEN 'class' THEN 0 WHEN 'property' THEN 1 ELSE 2 END,
-        LENGTH(oe.label)
-    LIMIT :limit
-""")
+def query_tokens(query):
+    """Lowercased word tokens with naive plural stripping (trailing single
+    's' on tokens longer than 3 chars, 'ss' endings left alone), capped at 6.
+    'Faithful Agents' -> ['faithful', 'agent'], so the lexical arm matches
+    'Faithful Agent Obligation' despite the plural."""
+    tokens = re.findall(r'[a-z0-9]+', (query or '').lower())[:6]
+    out = []
+    for t in tokens:
+        if len(t) > 3 and t.endswith('s') and not t.endswith('ss'):
+            t = t[:-1]
+        out.append(t)
+    return out
 
-# Same shape as the lexical arm, but with a real per-row distance.
-_LEXICAL_SCORED_SQL = text(f"""
-    SELECT oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
-           o.name AS ontology_name, o.ontology_type,
-           (oe.embedding <=> CAST(:qvec AS vector)) AS distance
-    {_COMMON_FILTER}
-      AND (LOWER(oe.label) LIKE LOWER(:pattern)
-           OR LOWER(oe.comment) LIKE LOWER(:pattern))
-    ORDER BY
-        CASE WHEN LOWER(oe.label) = LOWER(:exact) THEN 0 ELSE 1 END,
-        CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
-        CASE oe.entity_type WHEN 'class' THEN 0 WHEN 'property' THEN 1 ELSE 2 END,
-        LENGTH(oe.label)
-    LIMIT :limit
-""")
+
+def _lexical_sql(n_tokens, scored):
+    """Lexical arm: every token must appear in the label or comment (AND of
+    per-token substring patterns). With scored=True each row also carries its
+    cosine distance so lexical hits share the semantic scoring scale."""
+    distance = ("(oe.embedding <=> CAST(:qvec AS vector)) AS distance"
+                if scored else "NULL AS distance")
+    token_clauses = "\n      ".join(
+        f"AND (LOWER(oe.label) LIKE :tok{i} OR LOWER(oe.comment) LIKE :tok{i})"
+        for i in range(n_tokens))
+    return text(f"""
+        SELECT oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
+               o.name AS ontology_name, o.ontology_type,
+               {distance}
+        {_COMMON_FILTER}
+          {token_clauses}
+        ORDER BY
+            CASE WHEN LOWER(oe.label) = LOWER(:exact) THEN 0 ELSE 1 END,
+            CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
+            CASE oe.entity_type WHEN 'class' THEN 0 WHEN 'property' THEN 1 ELSE 2 END,
+            LENGTH(oe.label)
+        LIMIT :limit
+    """)
 
 # DISTINCT ON collapses the many per-case copies of one URI to a single row
 # (preferring the base-ontology row) BEFORE the top-k cut; without it the
@@ -109,22 +136,25 @@ _SEMANTIC_SQL = text(f"""
 """)
 
 
-def derive_category(parent_uri, label):
+def derive_category(parent_uri, label, uri=None):
     """Map an entity to one of the nine component categories, or None.
 
     Prefers the parent_uri fragment (exact core name, then suffix match, the
     convention case individuals follow, e.g. intermediate#PublicWelfarePrinciple
-    -> Principle); falls back to a label suffix match for base classes whose
-    parent is outside the nine (e.g. a BFO ancestor).
+    -> Principle); falls back to a label suffix match for proethica-namespace
+    entities whose parent is outside the nine (e.g. a BFO ancestor).
+
+    The heuristics are gated to the proethica namespace: a foreign term like
+    prov:Role is NOT a nine-component Role, even though its label ends in one.
     """
-    if parent_uri and '#' in parent_uri:
+    if parent_uri and parent_uri.startswith(_PROETHICA_NAMESPACE) and '#' in parent_uri:
         frag = parent_uri.rsplit('#', 1)[1]
         if frag in CATEGORY_COLORS:
             return frag
         for cat in CATEGORY_COLORS:
             if frag.endswith(cat):
                 return cat
-    if label:
+    if label and uri and uri.startswith(_PROETHICA_NAMESPACE):
         compact = label.replace(' ', '')
         for cat in CATEGORY_COLORS:
             if compact.endswith(cat):
@@ -184,18 +214,20 @@ class UnifiedSearchService:
 
         qvec = self._query_vector(query)
         overfetch = limit * 3  # URI-level dedup shrinks the raw rows
+        tokens = query_tokens(query)
 
+        lexical = []
         with self.engine.connect() as conn:
-            if qvec is None:
-                lexical = conn.execute(_LEXICAL_SQL, {
-                    'pattern': f'%{query}%', 'exact': query, 'limit': overfetch,
-                }).fetchall()
-                semantic = []
-            else:
-                lexical = conn.execute(_LEXICAL_SCORED_SQL, {
-                    'pattern': f'%{query}%', 'exact': query, 'limit': overfetch,
-                    'qvec': qvec,
-                }).fetchall()
+            if tokens:
+                params = {f'tok{i}': f'%{t}%' for i, t in enumerate(tokens)}
+                params.update({'exact': query, 'limit': overfetch})
+                if qvec is not None:
+                    params['qvec'] = qvec
+                lexical = conn.execute(
+                    _lexical_sql(len(tokens), scored=qvec is not None), params,
+                ).fetchall()
+            semantic = []
+            if qvec is not None:
                 semantic = conn.execute(_SEMANTIC_SQL, {
                     'qvec': qvec, 'limit': overfetch,
                 }).fetchall()
@@ -222,7 +254,7 @@ class UnifiedSearchService:
                 continue
             (_, label, comment, entity_type, parent_uri,
              onto_name, onto_type, distance) = row
-            category = derive_category(parent_uri, label)
+            category = derive_category(parent_uri, label, uri)
             fragment = uri.rsplit('#', 1)[1] if '#' in uri else uri.rsplit('/', 1)[1]
             merged[uri] = {
                 'uri': uri,
@@ -233,6 +265,7 @@ class UnifiedSearchService:
                 'color': CATEGORY_COLORS.get(category),
                 'ontology_name': onto_name,
                 'ontology_type': onto_type,
+                'is_domain': is_domain_ontology(onto_name),
                 'case_id': case_id_for(onto_name),
                 'ontserve_url': f'{web_url}/entity/{onto_name}/{fragment}',
                 'score': max(0.0, 1.0 - float(distance)) if distance is not None else None,
@@ -244,9 +277,14 @@ class UnifiedSearchService:
             e for e in merged.values()
             if e['lexical'] or (e['score'] is not None and e['score'] >= MIN_SEMANTIC_SCORE)
         ]
-        # Exact label first, then score descending (unscored lexical hits last).
-        results.sort(key=lambda e: (
-            0 if e['exact'] else 1,
-            -(e['score'] if e['score'] is not None else -1.0),
-        ))
+        # Exact label first, then the weighted rank score descending: the
+        # honest cosine (displayed as-is) discounted for foreign vocabularies,
+        # so near-ties resolve toward the proethica family. Unscored lexical
+        # hits sort last.
+        def rank_score(e):
+            if e['score'] is None:
+                return -1.0
+            return e['score'] * (1.0 if e['is_domain'] else FOREIGN_ONTOLOGY_WEIGHT)
+
+        results.sort(key=lambda e: (0 if e['exact'] else 1, -rank_score(e)))
         return results[:limit]

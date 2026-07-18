@@ -9,6 +9,8 @@ from app.services.search.unified_search_service import (
     UnifiedSearchService,
     case_id_for,
     derive_category,
+    is_domain_ontology,
+    query_tokens,
 )
 
 
@@ -20,14 +22,49 @@ class TestDeriveCategory:
     def test_intermediate_parent_suffix(self):
         assert derive_category('http://proethica.org/ontology/intermediate#PublicWelfarePrinciple', 'Public Welfare in Testimony') == 'Principle'
 
-    def test_label_suffix_fallback(self):
-        assert derive_category('http://purl.obolibrary.org/obo/BFO_0000023', 'Structural Engineer Role') == 'Role'
+    def test_label_suffix_fallback_proethica_uri(self):
+        assert derive_category('http://purl.obolibrary.org/obo/BFO_0000023', 'Structural Engineer Role',
+                               uri='http://proethica.org/ontology/intermediate#StructuralEngineerRole') == 'Role'
+
+    def test_foreign_term_not_categorized_by_label(self):
+        # prov:Role is not a nine-component Role despite the label suffix.
+        assert derive_category('http://www.w3.org/2002/07/owl#Thing', 'Role',
+                               uri='http://www.w3.org/ns/prov#Role') is None
 
     def test_no_match(self):
         assert derive_category('http://example.org/thing#Widget', 'Widget') is None
 
     def test_none_inputs(self):
         assert derive_category(None, None) is None
+
+
+class TestQueryTokens:
+
+    def test_plural_stripping(self):
+        assert query_tokens('Faithful Agents') == ['faithful', 'agent']
+
+    def test_double_s_kept(self):
+        assert query_tokens('process') == ['process']
+
+    def test_short_token_kept(self):
+        assert query_tokens('gas bus') == ['gas', 'bus']
+
+    def test_cap_at_six(self):
+        assert len(query_tokens('a b c d e f g h')) == 6
+
+
+class TestIsDomainOntology:
+
+    def test_proethica_family(self):
+        assert is_domain_ontology('proethica-intermediate')
+        assert is_domain_ontology('proethica-case-7')
+        assert is_domain_ontology('engineering-ethics')
+        assert is_domain_ontology('NSPE Code of Ethics')
+
+    def test_foreign(self):
+        assert not is_domain_ontology('w3c-prov-o')
+        assert not is_domain_ontology('bfo')
+        assert not is_domain_ontology(None)
 
 
 class TestCaseIdFor:
@@ -143,6 +180,27 @@ class TestSearchEntities:
         assert r['case_id'] == 7
         assert r['ontserve_url'].endswith('/entity/proethica-case-7/Discussion_Public_Welfare')
 
+    def test_foreign_ontology_discounted_in_rank_not_display(self):
+        # prov:Agent scores higher raw, but the proethica obligation must
+        # outrank it; the displayed score stays the honest cosine.
+        prov = ('http://www.w3.org/ns/prov#Agent', 'Agent', 'An agent...', 'class',
+                'http://www.w3.org/2002/07/owl#Thing', 'w3c-prov-o', 'base', 0.281)
+        faithful = _row(I + 'FaithfulAgentObligation', 'Faithful Agent Obligation',
+                        parent='http://proethica.org/ontology/core#Obligation', distance=0.398)
+        engine, _ = _make_engine([], [prov, faithful])
+        results = self._svc(engine).search_entities('faithful agents')
+        assert [r['label'] for r in results] == ['Faithful Agent Obligation', 'Agent']
+        assert results[1]['score'] == pytest.approx(0.719)  # display undiscounted
+        assert results[1]['category'] is None  # foreign term: no component badge
+
+    def test_exact_label_beats_foreign_discount(self):
+        prov = ('http://www.w3.org/ns/prov#Agent', 'Agent', 'An agent...', 'class',
+                'http://www.w3.org/2002/07/owl#Thing', 'w3c-prov-o', 'base', 0.1)
+        other = _row(I + 'ParticipantAgent', 'Participant Agent', distance=0.05)
+        engine, _ = _make_engine([prov, other], [])
+        results = self._svc(engine).search_entities('Agent')
+        assert results[0]['label'] == 'Agent'  # exact pin survives the discount
+
     def test_limit_applied_after_dedup(self):
         rows = [_row(I + f'Thing{i}', f'Thing {i}', distance=0.2) for i in range(30)]
         engine, _ = _make_engine(rows, [])
@@ -181,3 +239,12 @@ class TestSearchEntitiesIntegration:
         results = self._results('zxqv blorp wibble frobnicate')
         semantic_only = [r for r in results if not r['lexical']]
         assert all(r['score'] < 0.6 for r in semantic_only)
+
+    def test_faithful_agents_prefers_domain_over_prov(self):
+        # The calibration case for FOREIGN_ONTOLOGY_WEIGHT and the plural-
+        # insensitive lexical arm: prov:Agent scores highest raw but must not
+        # outrank the on-point proethica obligation.
+        results = self._results('Faithful Agents')
+        assert results
+        assert results[0]['label'] == 'Faithful Agent Obligation'
+        assert results[0]['lexical'], 'plural query should still be a lexical hit'
