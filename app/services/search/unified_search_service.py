@@ -78,6 +78,13 @@ _COMMON_FILTER = """
       AND (oe.properties->>'deprecated') IS DISTINCT FROM 'true'
 """
 
+# SQL twin of is_domain_ontology(); appended when domain_only is set.
+_DOMAIN_FILTER = """
+      AND (o.name ILIKE 'proethica%'
+           OR o.name ILIKE 'engineering-ethics%'
+           OR o.name ILIKE '%nspe%')
+"""
+
 def query_tokens(query):
     """Lowercased word tokens with naive plural stripping (trailing single
     's' on tokens longer than 3 chars, 'ss' endings left alone), capped at 6.
@@ -92,7 +99,7 @@ def query_tokens(query):
     return out
 
 
-def _lexical_sql(n_tokens, scored):
+def _lexical_sql(n_tokens, scored, domain_only):
     """Lexical arm: every token must appear in the label or comment (AND of
     per-token substring patterns). With scored=True each row also carries its
     cosine distance so lexical hits share the semantic scoring scale."""
@@ -106,6 +113,7 @@ def _lexical_sql(n_tokens, scored):
                o.name AS ontology_name, o.ontology_type,
                {distance}
         {_COMMON_FILTER}
+        {_DOMAIN_FILTER if domain_only else ''}
           {token_clauses}
         ORDER BY
             CASE WHEN LOWER(oe.label) = LOWER(:exact) THEN 0 ELSE 1 END,
@@ -115,25 +123,28 @@ def _lexical_sql(n_tokens, scored):
         LIMIT :limit
     """)
 
-# DISTINCT ON collapses the many per-case copies of one URI to a single row
-# (preferring the base-ontology row) BEFORE the top-k cut; without it the
-# nearest-neighbor list is a handful of entities repeated across the 119 case
-# ontologies. The corpus is ~50k embedded rows, so the exact scan is cheap.
-_SEMANTIC_SQL = text(f"""
-    SELECT * FROM (
-        SELECT DISTINCT ON (oe.uri)
-               oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
-               o.name AS ontology_name, o.ontology_type,
-               (oe.embedding <=> CAST(:qvec AS vector)) AS distance
-        {_COMMON_FILTER}
-          AND oe.embedding IS NOT NULL
-        ORDER BY oe.uri,
-                 CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
-                 (oe.embedding <=> CAST(:qvec AS vector))
-    ) deduped
-    ORDER BY distance
-    LIMIT :limit
-""")
+def _semantic_sql(domain_only):
+    """Semantic arm. DISTINCT ON collapses the many per-case copies of one URI
+    to a single row (preferring the base-ontology row) BEFORE the top-k cut;
+    without it the nearest-neighbor list is a handful of entities repeated
+    across the 119 case ontologies. The corpus is ~50k embedded rows, so the
+    exact scan is cheap."""
+    return text(f"""
+        SELECT * FROM (
+            SELECT DISTINCT ON (oe.uri)
+                   oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
+                   o.name AS ontology_name, o.ontology_type,
+                   (oe.embedding <=> CAST(:qvec AS vector)) AS distance
+            {_COMMON_FILTER}
+            {_DOMAIN_FILTER if domain_only else ''}
+              AND oe.embedding IS NOT NULL
+            ORDER BY oe.uri,
+                     CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
+                     (oe.embedding <=> CAST(:qvec AS vector))
+        ) deduped
+        ORDER BY distance
+        LIMIT :limit
+    """)
 
 
 def derive_category(parent_uri, label, uri=None):
@@ -170,11 +181,18 @@ def case_id_for(ontology_name):
 
 class UnifiedSearchService:
     """Entity lane of the unified search. The engine and embedder are
-    injectable for tests."""
+    injectable for tests.
 
-    def __init__(self, engine=None, embed_fn=None):
+    domain_only (default True, plan decision D7) restricts results to the
+    proethica family (core, intermediate, extended, engineering-ethics, NSPE,
+    cases); foreign vocabularies (BFO, PROV-O, IAO, RO) are supporting
+    infrastructure and are served by OntServe's own search. Pass
+    domain_only=False to include them (ranked under the D6 discount)."""
+
+    def __init__(self, engine=None, embed_fn=None, domain_only=True):
         self._engine = engine
         self._embed_fn = embed_fn
+        self.domain_only = domain_only
 
     @property
     def engine(self):
@@ -224,11 +242,12 @@ class UnifiedSearchService:
                 if qvec is not None:
                     params['qvec'] = qvec
                 lexical = conn.execute(
-                    _lexical_sql(len(tokens), scored=qvec is not None), params,
+                    _lexical_sql(len(tokens), scored=qvec is not None,
+                                 domain_only=self.domain_only), params,
                 ).fetchall()
             semantic = []
             if qvec is not None:
-                semantic = conn.execute(_SEMANTIC_SQL, {
+                semantic = conn.execute(_semantic_sql(self.domain_only), {
                     'qvec': qvec, 'limit': overfetch,
                 }).fetchall()
 

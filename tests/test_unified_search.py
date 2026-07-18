@@ -111,11 +111,24 @@ I = 'http://proethica.org/ontology/intermediate#'
 
 class TestSearchEntities:
 
-    def _svc(self, engine, embed=True):
+    def _svc(self, engine, embed=True, domain_only=True):
         return UnifiedSearchService(
             engine=engine,
             embed_fn=(lambda q: FAKE_VEC) if embed else (lambda q: (_ for _ in ()).throw(RuntimeError('no model'))),
+            domain_only=domain_only,
         )
+
+    def test_domain_only_filter_present_in_sql(self):
+        engine, conn = _make_engine([], [])
+        self._svc(engine).search_entities('welfare')
+        sqls = [str(c.args[0]) for c in conn.execute.call_args_list]
+        assert sqls and all('proethica' in s.lower() for s in sqls)
+
+    def test_domain_only_off_omits_filter(self):
+        engine, conn = _make_engine([], [])
+        self._svc(engine, domain_only=False).search_entities('welfare')
+        sqls = [str(c.args[0]) for c in conn.execute.call_args_list]
+        assert sqls and all("o.name ILIKE 'proethica%'" not in s for s in sqls)
 
     def test_empty_query_returns_empty_without_db(self):
         engine, _ = _make_engine([], [])
@@ -188,7 +201,7 @@ class TestSearchEntities:
         faithful = _row(I + 'FaithfulAgentObligation', 'Faithful Agent Obligation',
                         parent='http://proethica.org/ontology/core#Obligation', distance=0.398)
         engine, _ = _make_engine([], [prov, faithful])
-        results = self._svc(engine).search_entities('faithful agents')
+        results = self._svc(engine, domain_only=False).search_entities('faithful agents')
         assert [r['label'] for r in results] == ['Faithful Agent Obligation', 'Agent']
         assert results[1]['score'] == pytest.approx(0.719)  # display undiscounted
         assert results[1]['category'] is None  # foreign term: no component badge
@@ -198,7 +211,7 @@ class TestSearchEntities:
                 'http://www.w3.org/2002/07/owl#Thing', 'w3c-prov-o', 'base', 0.1)
         other = _row(I + 'ParticipantAgent', 'Participant Agent', distance=0.05)
         engine, _ = _make_engine([prov, other], [])
-        results = self._svc(engine).search_entities('Agent')
+        results = self._svc(engine, domain_only=False).search_entities('Agent')
         assert results[0]['label'] == 'Agent'  # exact pin survives the discount
 
     def test_limit_applied_after_dedup(self):
@@ -248,3 +261,7 @@ class TestSearchEntitiesIntegration:
         assert results
         assert results[0]['label'] == 'Faithful Agent Obligation'
         assert results[0]['lexical'], 'plural query should still be a lexical hit'
+
+    def test_default_lane_is_domain_only(self):
+        results = self._results('Faithful Agents')
+        assert results and all(r['is_domain'] for r in results)

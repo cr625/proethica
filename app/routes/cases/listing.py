@@ -8,10 +8,62 @@ from app.models import Document
 from app.models.world import World
 from app.services.embedding.section_embedding_service import SectionEmbeddingService
 from app.services.pipeline_state_manager import get_bulk_progress
-from app.services.search.unified_search_service import UnifiedSearchService
+from app.services.search.unified_search_service import UnifiedSearchService, query_tokens
 from app import db
 
 logger = logging.getLogger(__name__)
+
+
+def _case_result(document, chunk=None, tag_match=None):
+    """Build the template dict for one search hit, from a matched section
+    chunk (semantic lane) or a matched subject tag (tag band)."""
+    metadata = {}
+    if document.doc_metadata:
+        if isinstance(document.doc_metadata, dict):
+            metadata = document.doc_metadata
+        else:
+            logger.warning(f"doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
+
+    year = metadata.get('year', '')
+    if not year and metadata.get('case_number'):
+        case_num = metadata.get('case_number', '')
+        if '-' in case_num:
+            year_prefix = case_num.split('-')[0]
+            if len(year_prefix) == 2:
+                century = "20" if int(year_prefix) < 50 else "19"
+                year = century + year_prefix
+
+    questions_list = metadata.get('questions_list', [])
+    conclusion_items = metadata.get('conclusion_items', [])
+
+    if not questions_list and metadata.get('sections', {}).get('question'):
+        questions_list = [metadata['sections']['question']]
+
+    if not conclusion_items and metadata.get('sections', {}).get('conclusion'):
+        conclusion_items = [metadata['sections']['conclusion']]
+
+    chunk = chunk or {}
+    return {
+        'id': document.id,
+        'title': document.title,
+        'description': document.content[:500] + '...' if document.content and len(document.content) > 500 else (document.content or ''),
+        'decision': metadata.get('decision', ''),
+        'outcome': metadata.get('outcome', ''),
+        'ethical_analysis': metadata.get('ethical_analysis', ''),
+        'source': document.source,
+        'document_id': document.id,
+        'is_document': True,
+        'similarity_score': chunk.get('similarity'),
+        'matching_chunk': chunk.get('content', ''),
+        'matching_section': chunk.get('section_type', ''),
+        'tag_match': tag_match,
+        'year': year,
+        'questions_list': questions_list,
+        'conclusion_items': conclusion_items,
+        'case_number': metadata.get('case_number', ''),
+        'full_date': metadata.get('full_date', ''),
+        'doc_metadata': metadata
+    }
 
 
 def register_listing_routes(bp):
@@ -217,6 +269,30 @@ def register_listing_routes(bp):
             logger.error(f"OntServe entity search failed for query '{query}': {e}")
             entity_error = str(e)
 
+        # Subject-tag matches first: tags were assigned to the case by the
+        # board/editors, so a query matching one is authoritative and outranks
+        # any similarity signal (plan decision D7). Token-subset matching with
+        # the same plural-insensitive tokens as the entity lane, so "Faithful
+        # Agents" matches the tag "Faithful Agents and Trustees".
+        tag_matched_cases = []
+        tag_matched_ids = set()
+        matched_tags = []
+        q_tokens = set(query_tokens(query))
+        if q_tokens:
+            docs = Document.query.filter(Document.document_type.in_(('case', 'case_study')))
+            if world_id is not None:
+                docs = docs.filter(Document.world_id == world_id)
+            for document in docs.all():
+                metadata = document.doc_metadata if isinstance(document.doc_metadata, dict) else {}
+                for tag in metadata.get('subject_tags') or []:
+                    if q_tokens <= set(query_tokens(tag)):
+                        tag_matched_ids.add(document.id)
+                        if tag not in matched_tags:
+                            matched_tags.append(tag)
+                        tag_matched_cases.append(_case_result(document, tag_match=tag))
+                        break
+            tag_matched_cases.sort(key=lambda c: (c.get('year') or '', c.get('case_number') or ''), reverse=True)
+
         try:
             # Case lane: section-level pgvector similarity. The corpus carries
             # embeddings on document_sections (not document_chunks), so search
@@ -224,7 +300,7 @@ def register_listing_routes(bp):
             section_service = SectionEmbeddingService()
             similar_sections = section_service.find_similar_sections(query, limit=40)
 
-            seen_doc_ids = set()
+            seen_doc_ids = set(tag_matched_ids)
 
             for chunk in similar_sections:
                 document_id = chunk.get('document_id')
@@ -237,53 +313,7 @@ def register_listing_routes(bp):
 
                 document = Document.query.get(document_id)
                 if document and document.document_type in ('case', 'case_study'):
-                    metadata = {}
-                    if document.doc_metadata:
-                        if isinstance(document.doc_metadata, dict):
-                            metadata = document.doc_metadata
-                        else:
-                            logger.warning(f"doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
-
-                    year = metadata.get('year', '')
-                    if not year and metadata.get('case_number'):
-                        case_num = metadata.get('case_number', '')
-                        if '-' in case_num:
-                            year_prefix = case_num.split('-')[0]
-                            if len(year_prefix) == 2:
-                                century = "20" if int(year_prefix) < 50 else "19"
-                                year = century + year_prefix
-
-                    questions_list = metadata.get('questions_list', [])
-                    conclusion_items = metadata.get('conclusion_items', [])
-
-                    if not questions_list and metadata.get('sections', {}).get('question'):
-                        questions_list = [metadata['sections']['question']]
-
-                    if not conclusion_items and metadata.get('sections', {}).get('conclusion'):
-                        conclusion_items = [metadata['sections']['conclusion']]
-
-                    case = {
-                        'id': document.id,
-                        'title': document.title,
-                        'description': document.content[:500] + '...' if document.content and len(document.content) > 500 else (document.content or ''),
-                        'decision': metadata.get('decision', ''),
-                        'outcome': metadata.get('outcome', ''),
-                        'ethical_analysis': metadata.get('ethical_analysis', ''),
-                        'source': document.source,
-                        'document_id': document.id,
-                        'is_document': True,
-                        'similarity_score': chunk.get('similarity', 0.0),
-                        'matching_chunk': chunk.get('content', ''),
-                        'matching_section': chunk.get('section_type', ''),
-                        'year': year,
-                        'questions_list': questions_list,
-                        'conclusion_items': conclusion_items,
-                        'case_number': metadata.get('case_number', ''),
-                        'full_date': metadata.get('full_date', ''),
-                        'doc_metadata': metadata
-                    }
-
-                    cases.append(case)
+                    cases.append(_case_result(document, chunk=chunk))
 
         except Exception as e:
             # Roll back so a failed search query cannot leave the session
@@ -292,7 +322,7 @@ def register_listing_routes(bp):
             logger.error(f"Case chunk search failed for query '{query}': {e}")
             error = str(e)
 
-        # Group cases by year
+        # Group: the tag-match band leads, then semantic results by year.
         grouped_by_year = defaultdict(list)
         unknown_year_cases = []
 
@@ -304,6 +334,9 @@ def register_listing_routes(bp):
                 unknown_year_cases.append(case)
 
         grouped_cases = OrderedDict()
+        if tag_matched_cases:
+            label = 'Tagged ' + ', '.join(f'“{t}”' for t in matched_tags)
+            grouped_cases[label] = tag_matched_cases
         for year in sorted(grouped_by_year.keys(), reverse=True):
             grouped_cases[year] = grouped_by_year[year]
 

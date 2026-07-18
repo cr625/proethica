@@ -130,15 +130,13 @@
             <div class="row g-3">
                 {% for e in entity_results %}
                 <div class="col-md-6 col-lg-4">
-                    <div class="entity-result h-100" {% if e.color %}style="border-left: 3px solid {{ e.color }};"{% endif %}>
+                    <div class="entity-result h-100" {% if e.color %}style="border-left: 3px solid {{ e.color }};"{% endif %}
+                         {% if e.score is not none %}title="Similarity score {{ '%.2f'|format(e.score) }}"{% endif %}>
                         <div class="d-flex align-items-center gap-2 mb-1">
                             {% if e.category %}
                             <span class="badge entity-category-badge" style="background-color: {{ e.color }}1a; color: {{ e.color }};">{{ e.category }}</span>
                             {% endif %}
                             <span class="badge bg-light text-muted border">{{ e.entity_type }}</span>
-                            {% if e.score is not none %}
-                            <span class="badge similarity-badge ms-auto" title="Semantic similarity to your search">{{ '%.0f'|format(e.score * 100) }}%</span>
-                            {% endif %}
                         </div>
                         <a href="{{ e.ontserve_url }}" target="_blank" rel="noopener"
                            class="fw-semibold text-decoration-none entity-result-label" title="View in OntServe">
@@ -182,9 +180,13 @@
                                 <a href="/cases/{{ case.id }}" class="text-decoration-none text-dark case-title-link">{{ case.title }} <i class="bi bi-chevron-right small text-muted"></i></a>
                             </h5>
                             <div class="d-flex align-items-center gap-2">
-                                {% if case.similarity_score is defined and case.similarity_score %}
-                                <span class="badge similarity-badge" title="Semantic similarity to your search{% if case.matching_section %} (best section: {{ case.matching_section }}){% endif %}">
-                                    {{ '%.0f'|format(case.similarity_score * 100) }}% match
+                                {% if case.tag_match is defined and case.tag_match %}
+                                <span class="badge bg-warning text-dark" title="This case carries the subject tag your search matched">
+                                    <i class="bi bi-tag-fill"></i> {{ case.tag_match }}
+                                </span>
+                                {% elif case.similarity_score is defined and case.similarity_score %}
+                                <span class="badge similarity-badge" title="Semantically similar to your search (score {{ '%.2f'|format(case.similarity_score) }}{% if case.matching_section %}, best section: {{ case.matching_section }}{% endif %})">
+                                    <i class="bi bi-stars"></i> related
                                 </span>
                                 {% endif %}
                                 {% if case.case_number %}
