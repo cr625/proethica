@@ -345,12 +345,18 @@ class TestSearchEntitiesIntegration:
 
     def test_faithful_agents_prefers_domain_over_prov(self):
         # The calibration case for FOREIGN_ONTOLOGY_WEIGHT and the plural-
-        # insensitive lexical arm: prov:Agent scores highest raw but must not
-        # outrank the on-point proethica obligation.
+        # insensitive lexical arm. Originally pinned to FaithfulAgentObligation
+        # first; after the NSPE provision individuals gained embeddings
+        # (2026-07-18, D8c data task) the NSPE concept 'Faithful Agency' wins,
+        # which is equally on-point domain content. The invariants: the top hit
+        # is domain and about faithful agency, and the obligation is still a
+        # top-3 LEXICAL hit despite the plural query.
         results = self._results('Faithful Agents')
         assert results
-        assert results[0]['label'] == 'Faithful Agent Obligation'
-        assert results[0]['lexical'], 'plural query should still be a lexical hit'
+        assert results[0]['is_domain']
+        assert 'faithful' in results[0]['label'].lower()
+        top3 = results[:3]
+        assert any(r['label'] == 'Faithful Agent Obligation' and r['lexical'] for r in top3)
 
     def test_default_lane_is_domain_only(self):
         results = self._results('Faithful Agents')

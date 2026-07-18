@@ -8,6 +8,8 @@ from app.models import Document
 from app.models.world import World
 from app.services.embedding.section_embedding_service import SectionEmbeddingService
 from app.services.pipeline_state_manager import get_bulk_progress
+from app.concept_meta import COMPONENT_COLORS, COMPONENT_LABELS
+from app.services.search.deep_search_service import DeepSearchService, component_display
 from app.services.search.unified_search_service import (
     UnifiedSearchService,
     chips_by_case,
@@ -271,6 +273,10 @@ def register_listing_routes(bp):
         # narrowed to. Repeated ?entities= params, order-insensitive.
         selected_uris = [u for u in request.args.getlist('entities') if u]
 
+        # Deep search (increment 6, free mode per D8c): ontology-mediated
+        # component ranking instead of section similarity.
+        deep_mode = request.args.get('mode') == 'deep'
+
         # Entity lane: matching OntServe ontology entities (unified search
         # increment 1). A failure here must stay visible, not empty the panel.
         search_service = UnifiedSearchService()
@@ -301,9 +307,9 @@ def register_listing_routes(bp):
         # cards, case-card chips, and the active-filter bar).
         selected_set = set(selected_uris)
 
-        def _search_url(uris):
+        def _search_url(uris, mode=('deep' if deep_mode else None)):
             return url_for('cases.search_cases', query=query, world_id=world_id,
-                           entities=sorted(uris))
+                           entities=sorted(uris), mode=mode)
 
         for e in entity_results:
             e['selected'] = e['uri'] in selected_set
@@ -359,8 +365,36 @@ def register_listing_routes(bp):
                         break
             tag_matched_cases.sort(key=lambda c: (c.get('year') or '', c.get('case_number') or ''), reverse=True)
 
+        scenario_structure = None
+        deep_message = None
         try:
-            if allowed_case_ids is not None:
+            if deep_mode:
+                # Deep search (D8c free mode): the ontology structures the
+                # scenario, the precedent feature store ranks the corpus.
+                deep_service = DeepSearchService()
+                scenario_structure = deep_service.structure_query(query, entity_results)
+                if len(scenario_structure['components']) < 2:
+                    deep_message = ("The scenario was too sparse to structure "
+                                    "(fewer than two components detected). "
+                                    "Describe the situation in a sentence or two.")
+                else:
+                    ranked = deep_service.rank_cases(scenario_structure, limit=10)
+                    if allowed_case_ids is not None:
+                        ranked = [r for r in ranked if r['case_id'] in allowed_case_ids]
+                    docs = {d.id: d for d in Document.query.filter(
+                        Document.id.in_([r['case_id'] for r in ranked])).all()}
+                    for r in ranked:
+                        document = docs.get(r['case_id'])
+                        if document is None or document.document_type not in ('case', 'case_study'):
+                            continue
+                        if document.id in tag_matched_ids:
+                            continue
+                        case = _case_result(document)
+                        case['deep_components'] = component_display(r['per_component'])
+                        case['deep_score'] = r['score']
+                        case['deep_provisions'] = r['provision_matches']
+                        cases.append(case)
+            elif allowed_case_ids is not None:
                 # Active concept filter: the lane is exactly the cases
                 # containing ALL selected concepts (minus the tag band).
                 remaining = allowed_case_ids - tag_matched_ids
@@ -398,26 +432,29 @@ def register_listing_routes(bp):
             logger.error(f"Case chunk search failed for query '{query}': {e}")
             error = str(e)
 
-        # Group: the tag-match band leads, then semantic results by year.
-        grouped_by_year = defaultdict(list)
-        unknown_year_cases = []
-
-        for case in cases:
-            year = case.get('year')
-            if year:
-                grouped_by_year[year].append(case)
-            else:
-                unknown_year_cases.append(case)
-
+        # Group: the tag-match band leads. Deep results keep their rank order
+        # in a single band; standard results group by year.
         grouped_cases = OrderedDict()
         if tag_matched_cases:
             label = 'Tagged ' + ', '.join(f'“{t}”' for t in matched_tags)
             grouped_cases[label] = tag_matched_cases
-        for year in sorted(grouped_by_year.keys(), reverse=True):
-            grouped_cases[year] = grouped_by_year[year]
 
-        if unknown_year_cases:
-            grouped_cases['Unknown Year'] = unknown_year_cases
+        if deep_mode:
+            if cases:
+                grouped_cases['Analogous cases (component-ranked)'] = cases
+        else:
+            grouped_by_year = defaultdict(list)
+            unknown_year_cases = []
+            for case in cases:
+                year = case.get('year')
+                if year:
+                    grouped_by_year[year].append(case)
+                else:
+                    unknown_year_cases.append(case)
+            for year in sorted(grouped_by_year.keys(), reverse=True):
+                grouped_cases[year] = grouped_by_year[year]
+            if unknown_year_cases:
+                grouped_cases['Unknown Year'] = unknown_year_cases
 
         worlds = World.query.all()
 
@@ -434,5 +471,11 @@ def register_listing_routes(bp):
             case_titles=case_titles,
             entity_chips=entity_chips,
             selected_entities=selected_entities,
-            clear_url=clear_url
+            clear_url=clear_url,
+            deep_mode=deep_mode,
+            deep_toggle_url=_search_url(selected_set, mode=(None if deep_mode else 'deep')),
+            scenario_structure=scenario_structure,
+            deep_message=deep_message,
+            component_colors=COMPONENT_COLORS,
+            component_labels=COMPONENT_LABELS
         )

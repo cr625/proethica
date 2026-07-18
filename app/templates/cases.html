@@ -109,12 +109,51 @@
     {% endif %}
 
     {% if search_results %}
-    <div class="d-flex align-items-center gap-2 mb-3">
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
         <h5 class="mb-0">Results for &ldquo;{{ query }}&rdquo;</h5>
         <a href="{{ url_for('cases.list_cases', world_id=selected_world_id) }}" class="small">
             <i class="bi bi-x-circle"></i> Clear search
         </a>
+        {% if deep_toggle_url is defined %}
+        <a href="{{ deep_toggle_url }}" class="btn btn-sm {{ 'btn-primary' if deep_mode else 'btn-outline-primary' }} ms-auto"
+           title="{{ 'Back to text search' if deep_mode else 'Rank cases by the ethical structure of your scenario (roles, obligations, states) instead of text similarity' }}">
+            <i class="bi bi-layers"></i> {{ 'Deep search: on' if deep_mode else 'Deep search' }}
+        </a>
+        {% endif %}
     </div>
+
+    {% if deep_mode and scenario_structure %}
+    <div class="card mb-3 scenario-structure">
+        <div class="card-body py-2">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <span class="small fw-semibold text-muted">Your scenario, structured:</span>
+                {% for code, comp in scenario_structure.components.items() %}
+                <span class="badge entity-chip" style="background-color: {{ component_colors[code] }}1a; color: {{ component_colors[code] }}; border-color: {{ component_colors[code] }}40;"
+                      title="Matched concepts: {{ comp.entities|join(', ') }}">
+                    {{ component_labels[code] }}
+                </span>
+                {% endfor %}
+                {% if scenario_structure.provision_labels %}
+                <span class="mx-1 text-muted">|</span>
+                <span class="small text-muted">implicated provisions:</span>
+                {% for p in scenario_structure.provision_labels %}
+                <span class="badge bg-light text-dark border">{{ p }}</span>
+                {% endfor %}
+                {% endif %}
+                {% if scenario_structure.tags %}
+                <span class="mx-1 text-muted">|</span>
+                {% for t in scenario_structure.tags %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-tag-fill"></i> {{ t }}</span>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if deep_message %}
+    <div class="alert alert-info" role="alert">{{ deep_message }}</div>
+    {% endif %}
 
     {% if selected_entities %}
     <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
@@ -214,6 +253,14 @@
                                 <a href="/cases/{{ case.id }}" class="text-decoration-none text-dark case-title-link">{{ case.title }} <i class="bi bi-chevron-right small text-muted"></i></a>
                             </h5>
                             <div class="d-flex align-items-center gap-2">
+                                {% if case.deep_components is defined and case.deep_components %}
+                                <span class="small text-muted">matched on:</span>
+                                {% for dc in case.deep_components %}
+                                <span class="badge entity-chip"
+                                      style="background-color: {{ dc.color }}1a; color: {{ dc.color }}; border-color: {{ dc.color }}40;"
+                                      title="Component similarity {{ dc.value }}">{{ dc.label }}</span>
+                                {% endfor %}
+                                {% endif %}
                                 {% if case.tag_match is defined and case.tag_match %}
                                 <span class="badge bg-warning text-dark" title="This case carries the subject tag your search matched">
                                     <i class="bi bi-tag-fill"></i> {{ case.tag_match }}
