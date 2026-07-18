@@ -60,6 +60,14 @@ FOREIGN_ONTOLOGY_WEIGHT = 0.8
 
 _CASE_ONTOLOGY_RE = re.compile(r'^proethica-case-(\d+)$')
 
+_CASE_URI_RE = re.compile(r'^http://proethica\.org/ontology/case/(\d+)#')
+
+
+def case_id_from_uri(uri):
+    """Return the owning case id for a case-minted entity URI, else None."""
+    m = _CASE_URI_RE.match(uri or '')
+    return int(m.group(1)) if m else None
+
 _PROETHICA_NAMESPACE = 'http://proethica.org/'
 
 
@@ -214,6 +222,10 @@ def chips_by_case(entity_results, cap=4):
                     'color': e['color'],
                     'ontserve_url': e['ontserve_url'],
                     'uri': e['uri'],
+                    # Filter-control fields (increment 5), present once the
+                    # route has attached them to the entity results.
+                    'toggle_url': e.get('toggle_url'),
+                    'selected': e.get('selected', False),
                 })
     return chips
 
@@ -294,6 +306,28 @@ class UnifiedSearchService:
             self._attach_case_links(conn, results)
 
         return results
+
+    def case_ids_for_uris(self, uris):
+        """Resolve which cases contain each of the given entity URIs
+        (increment 5, the D3 derivations inverted for filtering). Returns
+        {uri: set(case_ids)}; case-minted URIs resolve without a query."""
+        ids_by_uri = {}
+        base_uris = []
+        for u in uris:
+            cid = case_id_from_uri(u)
+            if cid is not None:
+                ids_by_uri[u] = {cid}
+            else:
+                ids_by_uri[u] = set()
+                base_uris.append(u)
+        if base_uris:
+            with self.engine.connect() as conn:
+                rows = conn.execute(_CASE_LINKS_SQL, {'uris': base_uris}).fetchall()
+            for uri, onto_name in rows:
+                cid = case_id_for(onto_name)
+                if cid is not None:
+                    ids_by_uri[uri].add(cid)
+        return ids_by_uri
 
     def _attach_case_links(self, conn, results):
         """Batch-resolve which cases contain each result (D3). Case-minted

@@ -13,6 +13,10 @@ from app.services.search.unified_search_service import (
     chips_by_case,
     query_tokens,
 )
+
+
+def _fragment(uri):
+    return uri.rsplit('#', 1)[-1] if '#' in uri else uri.rsplit('/', 1)[-1]
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -263,15 +267,60 @@ def register_listing_routes(bp):
         if not query:
             return redirect(url_for('cases.list_cases', world_id=world_id))
 
+        # Concept filter (increment 5): entity URIs whose cases the lane is
+        # narrowed to. Repeated ?entities= params, order-insensitive.
+        selected_uris = [u for u in request.args.getlist('entities') if u]
+
         # Entity lane: matching OntServe ontology entities (unified search
         # increment 1). A failure here must stay visible, not empty the panel.
+        search_service = UnifiedSearchService()
         entity_results = []
         entity_error = None
         try:
-            entity_results = UnifiedSearchService().search_entities(query)
+            entity_results = search_service.search_entities(query)
         except Exception as e:
             logger.error(f"OntServe entity search failed for query '{query}': {e}")
             entity_error = str(e)
+
+        # Resolve the filter intersection: cases containing ALL selected
+        # concepts. On failure the filter is dropped loudly, not silently
+        # applied wrong.
+        allowed_case_ids = None
+        if selected_uris:
+            try:
+                ids_by_uri = search_service.case_ids_for_uris(selected_uris)
+                sets = list(ids_by_uri.values())
+                allowed_case_ids = set.intersection(*sets) if sets else set()
+            except Exception as e:
+                logger.error(f"Concept-filter resolution failed for {selected_uris}: {e}")
+                entity_error = entity_error or f"Concept filter unavailable: {e}"
+                selected_uris = []
+                allowed_case_ids = None
+
+        # Toggle URLs and selection state for the filter controls (entity
+        # cards, case-card chips, and the active-filter bar).
+        selected_set = set(selected_uris)
+
+        def _search_url(uris):
+            return url_for('cases.search_cases', query=query, world_id=world_id,
+                           entities=sorted(uris))
+
+        for e in entity_results:
+            e['selected'] = e['uri'] in selected_set
+            toggled = (selected_set - {e['uri']}) if e['selected'] else (selected_set | {e['uri']})
+            e['toggle_url'] = _search_url(toggled)
+
+        entity_by_uri = {e['uri']: e for e in entity_results}
+        selected_entities = []
+        for u in selected_uris:
+            src = entity_by_uri.get(u)
+            selected_entities.append({
+                'uri': u,
+                'label': src['label'] if src else _fragment(u),
+                'color': src['color'] if src else None,
+                'remove_url': _search_url(selected_set - {u}),
+            })
+        clear_url = _search_url(set())
 
         # Titles for the entity back-links ("appears in N cases").
         linked_case_ids = {cid for e in entity_results for cid in e.get('case_ids', [])}
@@ -298,6 +347,8 @@ def register_listing_routes(bp):
             if world_id is not None:
                 docs = docs.filter(Document.world_id == world_id)
             for document in docs.all():
+                if allowed_case_ids is not None and document.id not in allowed_case_ids:
+                    continue
                 metadata = document.doc_metadata if isinstance(document.doc_metadata, dict) else {}
                 for tag in metadata.get('subject_tags') or []:
                     if q_tokens <= set(query_tokens(tag)):
@@ -309,26 +360,36 @@ def register_listing_routes(bp):
             tag_matched_cases.sort(key=lambda c: (c.get('year') or '', c.get('case_number') or ''), reverse=True)
 
         try:
-            # Case lane: section-level pgvector similarity. The corpus carries
-            # embeddings on document_sections (not document_chunks), so search
-            # sections and keep each document's best-scoring section.
-            section_service = SectionEmbeddingService()
-            similar_sections = section_service.find_similar_sections(query, limit=40)
+            if allowed_case_ids is not None:
+                # Active concept filter: the lane is exactly the cases
+                # containing ALL selected concepts (minus the tag band).
+                remaining = allowed_case_ids - tag_matched_ids
+                if remaining:
+                    for document in Document.query.filter(Document.id.in_(remaining)).all():
+                        if document.document_type in ('case', 'case_study'):
+                            cases.append(_case_result(document))
+            else:
+                # Case lane: section-level pgvector similarity. The corpus
+                # carries embeddings on document_sections (not
+                # document_chunks), so search sections and keep each
+                # document's best-scoring section.
+                section_service = SectionEmbeddingService()
+                similar_sections = section_service.find_similar_sections(query, limit=40)
 
-            seen_doc_ids = set(tag_matched_ids)
+                seen_doc_ids = set(tag_matched_ids)
 
-            for chunk in similar_sections:
-                document_id = chunk.get('document_id')
+                for chunk in similar_sections:
+                    document_id = chunk.get('document_id')
 
-                if document_id in seen_doc_ids:
-                    continue
-                seen_doc_ids.add(document_id)
-                if len(cases) >= 10:
-                    break
+                    if document_id in seen_doc_ids:
+                        continue
+                    seen_doc_ids.add(document_id)
+                    if len(cases) >= 10:
+                        break
 
-                document = Document.query.get(document_id)
-                if document and document.document_type in ('case', 'case_study'):
-                    cases.append(_case_result(document, chunk=chunk))
+                    document = Document.query.get(document_id)
+                    if document and document.document_type in ('case', 'case_study'):
+                        cases.append(_case_result(document, chunk=chunk))
 
         except Exception as e:
             # Roll back so a failed search query cannot leave the session
@@ -371,5 +432,7 @@ def register_listing_routes(bp):
             entity_results=entity_results,
             entity_error=entity_error,
             case_titles=case_titles,
-            entity_chips=entity_chips
+            entity_chips=entity_chips,
+            selected_entities=selected_entities,
+            clear_url=clear_url
         )

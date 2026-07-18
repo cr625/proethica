@@ -116,6 +116,20 @@
         </a>
     </div>
 
+    {% if selected_entities %}
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+        <span class="small text-muted"><i class="bi bi-funnel-fill"></i> Cases containing:</span>
+        {% for s in selected_entities %}
+        <a href="{{ s.remove_url }}" class="badge text-decoration-none entity-chip"
+           {% if s.color %}style="background-color: {{ s.color }}1a; color: {{ s.color }}; border-color: {{ s.color }}40;"{% endif %}
+           title="Remove this concept from the filter">
+            {{ s.label }} <i class="bi bi-x"></i>
+        </a>
+        {% endfor %}
+        <a href="{{ clear_url }}" class="small">Clear concept filter</a>
+    </div>
+    {% endif %}
+
     {% if entity_error %}
     <div class="alert alert-warning" role="alert">
         Ontology concept search unavailable: {{ entity_error }}
@@ -130,13 +144,20 @@
             <div class="row g-3">
                 {% for e in entity_results %}
                 <div class="col-md-6 col-lg-4">
-                    <div class="entity-result h-100" {% if e.color %}style="border-left: 3px solid {{ e.color }};"{% endif %}
+                    <div class="entity-result h-100{% if e.selected %} entity-result-selected{% endif %}"
+                         {% if e.color %}style="border-left: 3px solid {{ e.color }};"{% endif %}
                          {% if e.score is not none %}title="Similarity score {{ '%.2f'|format(e.score) }}"{% endif %}>
                         <div class="d-flex align-items-center gap-2 mb-1">
                             {% if e.category %}
                             <span class="badge entity-category-badge" style="background-color: {{ e.color }}1a; color: {{ e.color }};">{{ e.category }}</span>
                             {% endif %}
                             <span class="badge bg-light text-muted border">{{ e.entity_type }}</span>
+                            {% if e.toggle_url %}
+                            <a href="{{ e.toggle_url }}" class="ms-auto text-decoration-none entity-filter-toggle"
+                               title="{{ 'Remove this concept from the case filter' if e.selected else 'Show only cases containing this concept' }}">
+                                <i class="bi bi-funnel{{ '-fill' if e.selected }}"></i>
+                            </a>
+                            {% endif %}
                         </div>
                         <a href="{{ e.ontserve_url }}" target="_blank" rel="noopener"
                            class="fw-semibold text-decoration-none entity-result-label" title="View in OntServe">
@@ -297,7 +318,12 @@
     {% endfor %}
     {% else %}
     <div class="alert alert-info" role="alert">
-        {% if selected_tag %}
+        {% if search_results and selected_entities %}
+        No cases contain all the selected concepts together.
+        <a href="{{ clear_url }}">Clear the concept filter</a>
+        {% elif search_results %}
+        No cases matched this search.
+        {% elif selected_tag %}
         No cases found with tag "{{ selected_tag }}".
         <a href="{{ url_for('cases.list_cases', world_id=selected_world_id) }}">Clear filter</a>
         {% else %}

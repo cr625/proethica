@@ -8,6 +8,7 @@ from app.services.search.unified_search_service import (
     MIN_SEMANTIC_SCORE,
     UnifiedSearchService,
     case_id_for,
+    case_id_from_uri,
     chips_by_case,
     derive_category,
     is_domain_ontology,
@@ -81,6 +82,45 @@ class TestCaseIdFor:
 
 
 FAKE_VEC = [0.1] * 384
+
+
+class TestCaseIdFromUri:
+
+    def test_case_minted(self):
+        assert case_id_from_uri('http://proethica.org/ontology/case/97#Facts_Engineer_A') == 97
+
+    def test_base_uri(self):
+        assert case_id_from_uri('http://proethica.org/ontology/intermediate#PublicWelfarePrinciple') is None
+
+    def test_none(self):
+        assert case_id_from_uri(None) is None
+
+
+class TestCaseIdsForUris:
+
+    def test_mixed_uris(self):
+        base_uri = 'http://proethica.org/ontology/intermediate#SafetyObligation'
+        minted_uri = 'http://proethica.org/ontology/case/7#Facts_Duty'
+        engine = MagicMock()
+        conn = MagicMock()
+        engine.connect.return_value.__enter__.return_value = conn
+        conn.execute.return_value.fetchall.return_value = [
+            (base_uri, 'proethica-case-3'),
+            (base_uri, 'proethica-case-11'),
+        ]
+        svc = UnifiedSearchService(engine=engine, embed_fn=lambda q: FAKE_VEC)
+        ids = svc.case_ids_for_uris([base_uri, minted_uri])
+        assert ids[base_uri] == {3, 11}
+        assert ids[minted_uri] == {7}  # resolved without touching the DB rows
+        # Intersection of the two is empty -- the empty-result filter case.
+        assert set.intersection(*ids.values()) == set()
+
+    def test_all_case_minted_skips_db(self):
+        engine = MagicMock()
+        svc = UnifiedSearchService(engine=engine, embed_fn=lambda q: FAKE_VEC)
+        ids = svc.case_ids_for_uris(['http://proethica.org/ontology/case/5#X'])
+        assert ids == {'http://proethica.org/ontology/case/5#X': {5}}
+        engine.connect.assert_not_called()
 
 
 class TestChipsByCase:

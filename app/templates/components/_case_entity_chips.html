@@ -4,11 +4,12 @@
 <span class="mx-1 text-muted">|</span>
 <span class="small text-muted">concepts:</span>
 {% for chip in entity_chips.get(case.id) %}
-<a href="{{ chip.ontserve_url }}" target="_blank" rel="noopener"
-   class="badge text-decoration-none entity-chip"
+<a href="{{ chip.toggle_url or chip.ontserve_url }}"
+   {% if not chip.toggle_url %}target="_blank" rel="noopener"{% endif %}
+   class="badge text-decoration-none entity-chip{% if chip.selected %} entity-chip-selected{% endif %}"
    {% if chip.color %}style="background-color: {{ chip.color }}1a; color: {{ chip.color }}; border-color: {{ chip.color }}40;"{% endif %}
-   title="This case contains the matched concept{% if chip.category %} ({{ chip.category }}){% endif %} -- view in OntServe">
-    <i class="bi bi-diagram-3"></i> {{ chip.label }}
+   title="{% if chip.selected %}Remove this concept from the case filter{% else %}Show only cases containing this concept{% if chip.category %} ({{ chip.category }}){% endif %}{% endif %}">
+    <i class="bi bi-{{ 'funnel-fill' if chip.selected else 'diagram-3' }}"></i> {{ chip.label }}
 </a>
 {% endfor %}
 {% endif %}
