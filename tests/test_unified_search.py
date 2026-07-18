@@ -82,15 +82,17 @@ class TestCaseIdFor:
 FAKE_VEC = [0.1] * 384
 
 
-def _make_engine(lexical_rows, semantic_rows=None):
-    """Engine mock: first execute() returns the lexical rows, second the
-    semantic rows (matching the service's call order)."""
+def _make_engine(lexical_rows, semantic_rows=None, link_rows=None):
+    """Engine mock: execute() returns the lexical rows, then the semantic
+    rows, then the case-link rows (matching the service's call order; unused
+    trailing result sets are harmless)."""
     engine = MagicMock()
     conn = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
     result_sets = [lexical_rows]
     if semantic_rows is not None:
         result_sets.append(semantic_rows)
+    result_sets.append(link_rows or [])
     executes = []
     for rows in result_sets:
         r = MagicMock()
@@ -180,7 +182,10 @@ class TestSearchEntities:
         results = self._svc(engine, embed=False).search_entities('public welfare')
         assert len(results) == 1
         assert results[0]['score'] is None
-        assert conn.execute.call_count == 1  # no semantic arm
+        # Lexical arm + case-links only; the semantic arm never ran.
+        sqls = [str(c.args[0]) for c in conn.execute.call_args_list]
+        assert len(sqls) == 2
+        assert not any('deduped' in s for s in sqls)
 
     def test_result_mapping(self):
         minted = ('http://proethica.org/ontology/case/7#Discussion_Public_Welfare',
@@ -213,6 +218,25 @@ class TestSearchEntities:
         engine, _ = _make_engine([prov, other], [])
         results = self._svc(engine, domain_only=False).search_entities('Agent')
         assert results[0]['label'] == 'Agent'  # exact pin survives the discount
+
+    def test_base_entity_case_back_links(self):
+        base = _row(I + 'PublicWelfarePrinciple', 'Public Welfare Principle', distance=0.2)
+        links = [(I + 'PublicWelfarePrinciple', 'proethica-case-11'),
+                 (I + 'PublicWelfarePrinciple', 'proethica-case-3'),
+                 (I + 'PublicWelfarePrinciple', 'proethica-case-3')]
+        engine, _ = _make_engine([base], [], link_rows=links)
+        (r,) = self._svc(engine).search_entities('public welfare')
+        assert r['case_ids'] == [3, 11]  # deduped, sorted
+
+    def test_case_minted_entity_links_to_own_case(self):
+        minted = ('http://proethica.org/ontology/case/7#Discussion_Public_Welfare',
+                  'Public Welfare in Testimony', None, 'individual',
+                  I + 'PublicWelfarePrinciple', 'proethica-case-7', 'case', 0.2)
+        engine, conn = _make_engine([minted], [])
+        (r,) = self._svc(engine).search_entities('public welfare')
+        assert r['case_ids'] == [7]
+        # No base entities in the result set, so no back-link query ran.
+        assert conn.execute.call_count == 2
 
     def test_limit_applied_after_dedup(self):
         rows = [_row(I + f'Thing{i}', f'Thing {i}', distance=0.2) for i in range(30)]
@@ -265,3 +289,10 @@ class TestSearchEntitiesIntegration:
     def test_default_lane_is_domain_only(self):
         results = self._results('Faithful Agents')
         assert results and all(r['is_domain'] for r in results)
+
+    def test_base_class_back_links_cover_corpus(self):
+        results = self._results('Public Welfare Principle')
+        top = results[0]
+        assert top['label'] == 'Public Welfare Principle'
+        # Spot-checked 2026-07-17: 65 case ontologies carry this class.
+        assert len(top['case_ids']) > 20

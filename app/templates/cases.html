@@ -147,9 +147,22 @@
                         {% endif %}
                         <div class="small text-muted">
                             {% if e.case_id %}
-                            from <a href="/cases/{{ e.case_id }}">Case {{ e.case_id }}</a>
+                            from <a href="/cases/{{ e.case_id }}">{{ case_titles.get(e.case_id) or 'Case ' ~ e.case_id }}</a>
                             {% else %}
                             {{ e.ontology_name }}
+                            {% if e.case_ids %}
+                            <details class="entity-case-links">
+                                <summary>appears in {{ e.case_ids|length }} case{{ 's' if e.case_ids|length != 1 }}</summary>
+                                <ul class="list-unstyled mb-0 mt-1">
+                                    {% for cid in e.case_ids[:8] %}
+                                    <li><a href="/cases/{{ cid }}">{{ case_titles.get(cid) or 'Case ' ~ cid }}</a></li>
+                                    {% endfor %}
+                                    {% if e.case_ids|length > 8 %}
+                                    <li class="text-muted">and {{ e.case_ids|length - 8 }} more</li>
+                                    {% endif %}
+                                </ul>
+                            </details>
+                            {% endif %}
                             {% endif %}
                         </div>
                     </div>

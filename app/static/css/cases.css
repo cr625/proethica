@@ -61,3 +61,11 @@
     background-color: rgba(13, 110, 253, 0.12);
     color: #0d6efd;
 }
+.entity-case-links summary {
+    cursor: pointer;
+    color: var(--bs-primary, #0d6efd);
+}
+.entity-case-links ul {
+    max-height: 10rem;
+    overflow-y: auto;
+}

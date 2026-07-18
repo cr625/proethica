@@ -269,6 +269,13 @@ def register_listing_routes(bp):
             logger.error(f"OntServe entity search failed for query '{query}': {e}")
             entity_error = str(e)
 
+        # Titles for the entity back-links ("appears in N cases").
+        linked_case_ids = {cid for e in entity_results for cid in e.get('case_ids', [])}
+        case_titles = {}
+        if linked_case_ids:
+            for doc in Document.query.filter(Document.id.in_(linked_case_ids)).all():
+                case_titles[doc.id] = doc.title
+
         # Subject-tag matches first: tags were assigned to the case by the
         # board/editors, so a query matching one is authoritative and outranks
         # any similarity signal (plan decision D7). Token-subset matching with
@@ -354,5 +361,6 @@ def register_listing_routes(bp):
             error=error,
             search_results=True,
             entity_results=entity_results,
-            entity_error=entity_error
+            entity_error=entity_error,
+            case_titles=case_titles
         )

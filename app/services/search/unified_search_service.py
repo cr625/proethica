@@ -147,6 +147,23 @@ def _semantic_sql(domain_only):
     """)
 
 
+# Back-links (plan D3): a case "contains" an entity if the case ontology
+# re-declares its URI or holds individuals typed to it via parent_uri. The
+# 2026-07-17 spot-check found the two signals identical on the live corpus
+# (commits re-declare every referenced base class), but the UNION guards the
+# case-local-subclass path at no real cost.
+_CASE_LINKS_SQL = text("""
+    SELECT DISTINCT x.uri, o.name
+    FROM (
+        SELECT uri, ontology_id FROM ontology_entities WHERE uri = ANY(:uris)
+        UNION
+        SELECT parent_uri AS uri, ontology_id FROM ontology_entities WHERE parent_uri = ANY(:uris)
+    ) x
+    JOIN ontologies o ON o.id = x.ontology_id
+    WHERE o.name LIKE 'proethica-case-%'
+""")
+
+
 def derive_category(parent_uri, label, uri=None):
     """Map an entity to one of the nine component categories, or None.
 
@@ -251,7 +268,28 @@ class UnifiedSearchService:
                     'qvec': qvec, 'limit': overfetch,
                 }).fetchall()
 
-        return self._merge(query, lexical, semantic, limit)
+            results = self._merge(query, lexical, semantic, limit)
+            self._attach_case_links(conn, results)
+
+        return results
+
+    def _attach_case_links(self, conn, results):
+        """Batch-resolve which cases contain each result (D3). Case-minted
+        entities link to their own case; base entities get the cases that
+        re-declare them or type individuals to them."""
+        base_uris = [e['uri'] for e in results if e['case_id'] is None]
+        links = {}
+        if base_uris:
+            rows = conn.execute(_CASE_LINKS_SQL, {'uris': base_uris}).fetchall()
+            for uri, onto_name in rows:
+                cid = case_id_for(onto_name)
+                if cid is not None:
+                    links.setdefault(uri, set()).add(cid)
+        for e in results:
+            if e['case_id'] is not None:
+                e['case_ids'] = [e['case_id']]
+            else:
+                e['case_ids'] = sorted(links.get(e['uri'], set()))
 
     def _merge(self, query, lexical, semantic, limit):
         """Dedup by URI (lexical arm first, so its base-over-case ordering
