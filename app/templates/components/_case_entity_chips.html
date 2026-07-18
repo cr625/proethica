@@ -1,0 +1,14 @@
+{# Matched ontology concepts contained in this case (unified search increment 4).
+   Expects `case` in scope and the optional `entity_chips` map from search_cases. #}
+{% if entity_chips is defined and entity_chips and entity_chips.get(case.id) %}
+<span class="mx-1 text-muted">|</span>
+<span class="small text-muted">concepts:</span>
+{% for chip in entity_chips.get(case.id) %}
+<a href="{{ chip.ontserve_url }}" target="_blank" rel="noopener"
+   class="badge text-decoration-none entity-chip"
+   {% if chip.color %}style="background-color: {{ chip.color }}1a; color: {{ chip.color }}; border-color: {{ chip.color }}40;"{% endif %}
+   title="This case contains the matched concept{% if chip.category %} ({{ chip.category }}){% endif %} -- view in OntServe">
+    <i class="bi bi-diagram-3"></i> {{ chip.label }}
+</a>
+{% endfor %}
+{% endif %}

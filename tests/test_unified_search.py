@@ -8,6 +8,7 @@ from app.services.search.unified_search_service import (
     MIN_SEMANTIC_SCORE,
     UnifiedSearchService,
     case_id_for,
+    chips_by_case,
     derive_category,
     is_domain_ontology,
     query_tokens,
@@ -80,6 +81,31 @@ class TestCaseIdFor:
 
 
 FAKE_VEC = [0.1] * 384
+
+
+class TestChipsByCase:
+
+    def _entity(self, label, case_ids, category='Obligation', color='#dc3545'):
+        return {'label': label, 'category': category, 'color': color,
+                'ontserve_url': f'http://localhost:5003/entity/x/{label}',
+                'uri': f'http://proethica.org/ontology/intermediate#{label}',
+                'case_ids': case_ids}
+
+    def test_inverts_ranked_entities_per_case(self):
+        results = [self._entity('A', [1, 2]), self._entity('B', [2])]
+        chips = chips_by_case(results)
+        assert [c['label'] for c in chips[1]] == ['A']
+        assert [c['label'] for c in chips[2]] == ['A', 'B']  # rank order kept
+
+    def test_cap_per_case(self):
+        results = [self._entity(f'E{i}', [5]) for i in range(7)]
+        chips = chips_by_case(results, cap=4)
+        assert len(chips[5]) == 4
+        assert [c['label'] for c in chips[5]] == ['E0', 'E1', 'E2', 'E3']
+
+    def test_entities_without_case_ids_ignored(self):
+        results = [self._entity('A', [])]
+        assert chips_by_case(results) == {}
 
 
 def _make_engine(lexical_rows, semantic_rows=None, link_rows=None):

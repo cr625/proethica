@@ -196,6 +196,28 @@ def case_id_for(ontology_name):
     return int(m.group(1)) if m else None
 
 
+def chips_by_case(entity_results, cap=4):
+    """Invert entity back-links into per-case chips (increment 4).
+
+    entity_results is already ranked, so each case receives its top-ranked
+    matched concepts, capped to keep the card readable. Returns
+    {case_id: [{label, category, color, ontserve_url, uri}, ...]}.
+    """
+    chips = {}
+    for e in entity_results:
+        for cid in e.get('case_ids', []):
+            bucket = chips.setdefault(cid, [])
+            if len(bucket) < cap:
+                bucket.append({
+                    'label': e['label'],
+                    'category': e['category'],
+                    'color': e['color'],
+                    'ontserve_url': e['ontserve_url'],
+                    'uri': e['uri'],
+                })
+    return chips
+
+
 class UnifiedSearchService:
     """Entity lane of the unified search. The engine and embedder are
     injectable for tests.

@@ -8,7 +8,11 @@ from app.models import Document
 from app.models.world import World
 from app.services.embedding.section_embedding_service import SectionEmbeddingService
 from app.services.pipeline_state_manager import get_bulk_progress
-from app.services.search.unified_search_service import UnifiedSearchService, query_tokens
+from app.services.search.unified_search_service import (
+    UnifiedSearchService,
+    chips_by_case,
+    query_tokens,
+)
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -276,6 +280,10 @@ def register_listing_routes(bp):
             for doc in Document.query.filter(Document.id.in_(linked_case_ids)).all():
                 case_titles[doc.id] = doc.title
 
+        # Chips: which of the matched concepts each case result contains
+        # (increment 4; back-links inverted, top-ranked concepts first).
+        entity_chips = chips_by_case(entity_results)
+
         # Subject-tag matches first: tags were assigned to the case by the
         # board/editors, so a query matching one is authoritative and outranks
         # any similarity signal (plan decision D7). Token-subset matching with
@@ -362,5 +370,6 @@ def register_listing_routes(bp):
             search_results=True,
             entity_results=entity_results,
             entity_error=entity_error,
-            case_titles=case_titles
+            case_titles=case_titles,
+            entity_chips=entity_chips
         )
