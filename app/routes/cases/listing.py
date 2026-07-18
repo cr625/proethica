@@ -6,11 +6,74 @@ from flask import render_template, request, redirect, url_for
 from app.utils.environment_auth import auth_optional
 from app.models import Document
 from app.models.world import World
-from app.services.embedding.embedding_service import EmbeddingService
+from app.services.embedding.section_embedding_service import SectionEmbeddingService
 from app.services.pipeline_state_manager import get_bulk_progress
+from app.concept_meta import COMPONENT_COLORS, COMPONENT_LABELS
+from app.services.search.deep_search_service import DeepSearchService, component_display
+from app.services.search.unified_search_service import (
+    UnifiedSearchService,
+    chips_by_case,
+    query_tokens,
+)
+
+
+def _fragment(uri):
+    return uri.rsplit('#', 1)[-1] if '#' in uri else uri.rsplit('/', 1)[-1]
 from app import db
 
 logger = logging.getLogger(__name__)
+
+
+def _case_result(document, chunk=None, tag_match=None):
+    """Build the template dict for one search hit, from a matched section
+    chunk (semantic lane) or a matched subject tag (tag band)."""
+    metadata = {}
+    if document.doc_metadata:
+        if isinstance(document.doc_metadata, dict):
+            metadata = document.doc_metadata
+        else:
+            logger.warning(f"doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
+
+    year = metadata.get('year', '')
+    if not year and metadata.get('case_number'):
+        case_num = metadata.get('case_number', '')
+        if '-' in case_num:
+            year_prefix = case_num.split('-')[0]
+            if len(year_prefix) == 2:
+                century = "20" if int(year_prefix) < 50 else "19"
+                year = century + year_prefix
+
+    questions_list = metadata.get('questions_list', [])
+    conclusion_items = metadata.get('conclusion_items', [])
+
+    if not questions_list and metadata.get('sections', {}).get('question'):
+        questions_list = [metadata['sections']['question']]
+
+    if not conclusion_items and metadata.get('sections', {}).get('conclusion'):
+        conclusion_items = [metadata['sections']['conclusion']]
+
+    chunk = chunk or {}
+    return {
+        'id': document.id,
+        'title': document.title,
+        'description': document.content[:500] + '...' if document.content and len(document.content) > 500 else (document.content or ''),
+        'decision': metadata.get('decision', ''),
+        'outcome': metadata.get('outcome', ''),
+        'ethical_analysis': metadata.get('ethical_analysis', ''),
+        'source': document.source,
+        'document_id': document.id,
+        'is_document': True,
+        'similarity_score': chunk.get('similarity'),
+        'matching_chunk': chunk.get('content', ''),
+        'matching_section': chunk.get('section_type', ''),
+        'tag_match': tag_match,
+        'year': year,
+        'questions_list': questions_list,
+        'conclusion_items': conclusion_items,
+        'case_number': metadata.get('case_number', ''),
+        'full_date': metadata.get('full_date', ''),
+        'doc_metadata': metadata
+    }
 
 
 def register_listing_routes(bp):
@@ -206,94 +269,192 @@ def register_listing_routes(bp):
         if not query:
             return redirect(url_for('cases.list_cases', world_id=world_id))
 
+        # Concept filter (increment 5): entity URIs whose cases the lane is
+        # narrowed to. Repeated ?entities= params, order-insensitive.
+        selected_uris = [u for u in request.args.getlist('entities') if u]
+
+        # Deep search (increment 6, free mode per D8c): ontology-mediated
+        # component ranking instead of section similarity.
+        deep_mode = request.args.get('mode') == 'deep'
+
+        # Entity lane: matching OntServe ontology entities (unified search
+        # increment 1). A failure here must stay visible, not empty the panel.
+        search_service = UnifiedSearchService()
+        entity_results = []
+        entity_error = None
         try:
-            embedding_service = EmbeddingService()
+            entity_results = search_service.search_entities(query)
+        except Exception as e:
+            logger.error(f"OntServe entity search failed for query '{query}': {e}")
+            entity_error = str(e)
 
-            similar_chunks = embedding_service.search_similar_chunks(
-                query=query,
-                k=10,
-                world_id=world_id,
-                document_type=['case_study', 'case']
-            )
+        # Resolve the filter intersection: cases containing ALL selected
+        # concepts. On failure the filter is dropped loudly, not silently
+        # applied wrong.
+        allowed_case_ids = None
+        if selected_uris:
+            try:
+                ids_by_uri = search_service.case_ids_for_uris(selected_uris)
+                sets = list(ids_by_uri.values())
+                allowed_case_ids = set.intersection(*sets) if sets else set()
+            except Exception as e:
+                logger.error(f"Concept-filter resolution failed for {selected_uris}: {e}")
+                entity_error = entity_error or f"Concept filter unavailable: {e}"
+                selected_uris = []
+                allowed_case_ids = None
 
-            seen_doc_ids = set()
+        # Toggle URLs and selection state for the filter controls (entity
+        # cards, case-card chips, and the active-filter bar).
+        selected_set = set(selected_uris)
 
-            for chunk in similar_chunks:
-                document_id = chunk.get('document_id')
+        def _search_url(uris, mode=('deep' if deep_mode else None)):
+            return url_for('cases.search_cases', query=query, world_id=world_id,
+                           entities=sorted(uris), mode=mode)
 
-                if document_id in seen_doc_ids:
+        for e in entity_results:
+            e['selected'] = e['uri'] in selected_set
+            toggled = (selected_set - {e['uri']}) if e['selected'] else (selected_set | {e['uri']})
+            e['toggle_url'] = _search_url(toggled)
+
+        entity_by_uri = {e['uri']: e for e in entity_results}
+        selected_entities = []
+        for u in selected_uris:
+            src = entity_by_uri.get(u)
+            selected_entities.append({
+                'uri': u,
+                'label': src['label'] if src else _fragment(u),
+                'color': src['color'] if src else None,
+                'remove_url': _search_url(selected_set - {u}),
+            })
+        clear_url = _search_url(set())
+
+        # Titles for the entity back-links ("appears in N cases").
+        linked_case_ids = {cid for e in entity_results for cid in e.get('case_ids', [])}
+        case_titles = {}
+        if linked_case_ids:
+            for doc in Document.query.filter(Document.id.in_(linked_case_ids)).all():
+                case_titles[doc.id] = doc.title
+
+        # Chips: which of the matched concepts each case result contains
+        # (increment 4; back-links inverted, top-ranked concepts first).
+        entity_chips = chips_by_case(entity_results)
+
+        # Subject-tag matches first: tags were assigned to the case by the
+        # board/editors, so a query matching one is authoritative and outranks
+        # any similarity signal (plan decision D7). Token-subset matching with
+        # the same plural-insensitive tokens as the entity lane, so "Faithful
+        # Agents" matches the tag "Faithful Agents and Trustees".
+        tag_matched_cases = []
+        tag_matched_ids = set()
+        matched_tags = []
+        q_tokens = set(query_tokens(query))
+        if q_tokens:
+            docs = Document.query.filter(Document.document_type.in_(('case', 'case_study')))
+            if world_id is not None:
+                docs = docs.filter(Document.world_id == world_id)
+            for document in docs.all():
+                if allowed_case_ids is not None and document.id not in allowed_case_ids:
                     continue
+                metadata = document.doc_metadata if isinstance(document.doc_metadata, dict) else {}
+                for tag in metadata.get('subject_tags') or []:
+                    if q_tokens <= set(query_tokens(tag)):
+                        tag_matched_ids.add(document.id)
+                        if tag not in matched_tags:
+                            matched_tags.append(tag)
+                        tag_matched_cases.append(_case_result(document, tag_match=tag))
+                        break
+            tag_matched_cases.sort(key=lambda c: (c.get('year') or '', c.get('case_number') or ''), reverse=True)
 
-                document = Document.query.get(document_id)
-                if document:
-                    metadata = {}
-                    if document.doc_metadata:
-                        if isinstance(document.doc_metadata, dict):
-                            metadata = document.doc_metadata
-                        else:
-                            logger.warning(f"doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
+        scenario_structure = None
+        deep_message = None
+        try:
+            if deep_mode:
+                # Deep search (D8c free mode): the ontology structures the
+                # scenario, the precedent feature store ranks the corpus.
+                deep_service = DeepSearchService()
+                scenario_structure = deep_service.structure_query(query, entity_results)
+                if len(scenario_structure['components']) < 2:
+                    deep_message = ("The scenario was too sparse to structure "
+                                    "(fewer than two components detected). "
+                                    "Describe the situation in a sentence or two.")
+                else:
+                    ranked = deep_service.rank_cases(scenario_structure, limit=10)
+                    if allowed_case_ids is not None:
+                        ranked = [r for r in ranked if r['case_id'] in allowed_case_ids]
+                    docs = {d.id: d for d in Document.query.filter(
+                        Document.id.in_([r['case_id'] for r in ranked])).all()}
+                    for r in ranked:
+                        document = docs.get(r['case_id'])
+                        if document is None or document.document_type not in ('case', 'case_study'):
+                            continue
+                        if document.id in tag_matched_ids:
+                            continue
+                        case = _case_result(document)
+                        case['deep_components'] = component_display(r['per_component'])
+                        case['deep_score'] = r['score']
+                        case['deep_provisions'] = r['provision_matches']
+                        cases.append(case)
+            elif allowed_case_ids is not None:
+                # Active concept filter: the lane is exactly the cases
+                # containing ALL selected concepts (minus the tag band).
+                remaining = allowed_case_ids - tag_matched_ids
+                if remaining:
+                    for document in Document.query.filter(Document.id.in_(remaining)).all():
+                        if document.document_type in ('case', 'case_study'):
+                            cases.append(_case_result(document))
+            else:
+                # Case lane: section-level pgvector similarity. The corpus
+                # carries embeddings on document_sections (not
+                # document_chunks), so search sections and keep each
+                # document's best-scoring section.
+                section_service = SectionEmbeddingService()
+                similar_sections = section_service.find_similar_sections(query, limit=40)
 
-                    year = metadata.get('year', '')
-                    if not year and metadata.get('case_number'):
-                        case_num = metadata.get('case_number', '')
-                        if '-' in case_num:
-                            year_prefix = case_num.split('-')[0]
-                            if len(year_prefix) == 2:
-                                century = "20" if int(year_prefix) < 50 else "19"
-                                year = century + year_prefix
+                seen_doc_ids = set(tag_matched_ids)
 
-                    questions_list = metadata.get('questions_list', [])
-                    conclusion_items = metadata.get('conclusion_items', [])
+                for chunk in similar_sections:
+                    document_id = chunk.get('document_id')
 
-                    if not questions_list and metadata.get('sections', {}).get('question'):
-                        questions_list = [metadata['sections']['question']]
-
-                    if not conclusion_items and metadata.get('sections', {}).get('conclusion'):
-                        conclusion_items = [metadata['sections']['conclusion']]
-
-                    case = {
-                        'id': document.id,
-                        'title': document.title,
-                        'description': document.content[:500] + '...' if document.content and len(document.content) > 500 else (document.content or ''),
-                        'decision': metadata.get('decision', ''),
-                        'outcome': metadata.get('outcome', ''),
-                        'ethical_analysis': metadata.get('ethical_analysis', ''),
-                        'source': document.source,
-                        'document_id': document.id,
-                        'is_document': True,
-                        'similarity_score': 1.0 - chunk.get('distance', 0.0),
-                        'matching_chunk': chunk.get('chunk_text', ''),
-                        'year': year,
-                        'questions_list': questions_list,
-                        'conclusion_items': conclusion_items,
-                        'case_number': metadata.get('case_number', ''),
-                        'full_date': metadata.get('full_date', ''),
-                        'doc_metadata': metadata
-                    }
-
-                    cases.append(case)
+                    if document_id in seen_doc_ids:
+                        continue
                     seen_doc_ids.add(document_id)
+                    if len(cases) >= 10:
+                        break
+
+                    document = Document.query.get(document_id)
+                    if document and document.document_type in ('case', 'case_study'):
+                        cases.append(_case_result(document, chunk=chunk))
 
         except Exception as e:
+            # Roll back so a failed search query cannot leave the session
+            # aborted for the queries that render the rest of the page.
+            db.session.rollback()
+            logger.error(f"Case chunk search failed for query '{query}': {e}")
             error = str(e)
 
-        # Group cases by year
-        grouped_by_year = defaultdict(list)
-        unknown_year_cases = []
-
-        for case in cases:
-            year = case.get('year')
-            if year:
-                grouped_by_year[year].append(case)
-            else:
-                unknown_year_cases.append(case)
-
+        # Group: the tag-match band leads. Deep results keep their rank order
+        # in a single band; standard results group by year.
         grouped_cases = OrderedDict()
-        for year in sorted(grouped_by_year.keys(), reverse=True):
-            grouped_cases[year] = grouped_by_year[year]
+        if tag_matched_cases:
+            label = 'Tagged ' + ', '.join(f'“{t}”' for t in matched_tags)
+            grouped_cases[label] = tag_matched_cases
 
-        if unknown_year_cases:
-            grouped_cases['Unknown Year'] = unknown_year_cases
+        if deep_mode:
+            if cases:
+                grouped_cases['Analogous cases (component-ranked)'] = cases
+        else:
+            grouped_by_year = defaultdict(list)
+            unknown_year_cases = []
+            for case in cases:
+                year = case.get('year')
+                if year:
+                    grouped_by_year[year].append(case)
+                else:
+                    unknown_year_cases.append(case)
+            for year in sorted(grouped_by_year.keys(), reverse=True):
+                grouped_cases[year] = grouped_by_year[year]
+            if unknown_year_cases:
+                grouped_cases['Unknown Year'] = unknown_year_cases
 
         worlds = World.query.all()
 
@@ -304,5 +465,17 @@ def register_listing_routes(bp):
             selected_world_id=world_id,
             query=query,
             error=error,
-            search_results=True
+            search_results=True,
+            entity_results=entity_results,
+            entity_error=entity_error,
+            case_titles=case_titles,
+            entity_chips=entity_chips,
+            selected_entities=selected_entities,
+            clear_url=clear_url,
+            deep_mode=deep_mode,
+            deep_toggle_url=_search_url(selected_set, mode=(None if deep_mode else 'deep')),
+            scenario_structure=scenario_structure,
+            deep_message=deep_message,
+            component_colors=COMPONENT_COLORS,
+            component_labels=COMPONENT_LABELS
         )

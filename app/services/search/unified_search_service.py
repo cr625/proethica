@@ -1,0 +1,403 @@
+"""Unified search: OntServe ontology entity lane for the case search page.
+
+Increments 1-2 of the unified-semantic-search plan: hybrid lexical + semantic
+entity search against the OntServe database over the sanctioned direct cross-DB
+channel (see docs-internal/architecture/ontserve-boundary.md).
+
+Both ProEthica and OntServe embed with all-MiniLM-L6-v2 (384 dims), so the
+query vector computed here is directly comparable to OntServe's
+ontology_entities.embedding column. The lexical arm matches every query token
+(plural-insensitive) and also computes each hit's cosine distance, so every
+result with an embedding carries an honest score; semantic-only hits below
+MIN_SEMANTIC_SCORE are dropped so that nonsense queries return an empty lane
+instead of confident-looking noise. Ranking discounts foreign vocabularies
+(FOREIGN_ONTOLOGY_WEIGHT) so near-ties resolve toward the proethica family.
+
+Results carry the nine-component category (derived from parent_uri, the same
+suffix convention OntServe's case_display.py uses) and the canonical component
+color from app.concept_meta, plus a link to the OntServe entity page and, for
+case-minted entities, the owning case id.
+"""
+
+import logging
+import re
+
+from sqlalchemy import create_engine, text
+
+from app.concept_meta import CONCEPT_COLORS
+from app.services.ontserve.ontserve_config import (
+    get_ontserve_db_url,
+    get_ontserve_web_url,
+)
+
+logger = logging.getLogger(__name__)
+
+# Singular category name -> canonical color (concept_meta keys are plural).
+CATEGORY_COLORS = {
+    'Role': CONCEPT_COLORS['roles'],
+    'State': CONCEPT_COLORS['states'],
+    'Resource': CONCEPT_COLORS['resources'],
+    'Principle': CONCEPT_COLORS['principles'],
+    'Obligation': CONCEPT_COLORS['obligations'],
+    'Constraint': CONCEPT_COLORS['constraints'],
+    'Capability': CONCEPT_COLORS['capabilities'],
+    'Action': CONCEPT_COLORS['actions'],
+    'Event': CONCEPT_COLORS['events'],
+}
+
+# Floor for hits found ONLY by the semantic arm (no substring match). MiniLM
+# cosine similarity of an unrelated short query against entity label+comment
+# text typically stays below this; topical matches land well above.
+MIN_SEMANTIC_SCORE = 0.35
+
+# Ranking discount for foreign vocabularies (BFO, PROV-O, IAO, RO, ...): their
+# terms are supporting infrastructure, not domain content, so a near-tie should
+# resolve toward the proethica family (calibrated on 'Faithful Agents', where
+# prov:Agent at 0.72 must rank below FaithfulAgentObligation at 0.60). Applies
+# to the rank key only -- the displayed score stays the honest cosine -- and
+# exact-label matches are pinned above the weighting entirely.
+FOREIGN_ONTOLOGY_WEIGHT = 0.8
+
+_CASE_ONTOLOGY_RE = re.compile(r'^proethica-case-(\d+)$')
+
+_CASE_URI_RE = re.compile(r'^http://proethica\.org/ontology/case/(\d+)#')
+
+
+def case_id_from_uri(uri):
+    """Return the owning case id for a case-minted entity URI, else None."""
+    m = _CASE_URI_RE.match(uri or '')
+    return int(m.group(1)) if m else None
+
+_PROETHICA_NAMESPACE = 'http://proethica.org/'
+
+
+def is_domain_ontology(ontology_name):
+    """True for the proethica family (core, intermediate, extended, cases,
+    engineering-ethics, the NSPE code); False for foreign vocabularies."""
+    if not ontology_name:
+        return False
+    name = ontology_name.lower()
+    return name.startswith('proethica') or name.startswith('engineering-ethics') or 'nspe' in name
+
+_COMMON_FILTER = """
+    FROM ontology_entities oe
+    JOIN ontologies o ON o.id = oe.ontology_id
+    WHERE oe.label IS NOT NULL
+      AND (oe.properties->>'deprecated') IS DISTINCT FROM 'true'
+"""
+
+# SQL twin of is_domain_ontology(); appended when domain_only is set.
+_DOMAIN_FILTER = """
+      AND (o.name ILIKE 'proethica%'
+           OR o.name ILIKE 'engineering-ethics%'
+           OR o.name ILIKE '%nspe%')
+"""
+
+def query_tokens(query):
+    """Lowercased word tokens with naive plural stripping (trailing single
+    's' on tokens longer than 3 chars, 'ss' endings left alone), capped at 6.
+    'Faithful Agents' -> ['faithful', 'agent'], so the lexical arm matches
+    'Faithful Agent Obligation' despite the plural."""
+    tokens = re.findall(r'[a-z0-9]+', (query or '').lower())[:6]
+    out = []
+    for t in tokens:
+        if len(t) > 3 and t.endswith('s') and not t.endswith('ss'):
+            t = t[:-1]
+        out.append(t)
+    return out
+
+
+def _lexical_sql(n_tokens, scored, domain_only):
+    """Lexical arm: every token must appear in the label or comment (AND of
+    per-token substring patterns). With scored=True each row also carries its
+    cosine distance so lexical hits share the semantic scoring scale."""
+    distance = ("(oe.embedding <=> CAST(:qvec AS vector)) AS distance"
+                if scored else "NULL AS distance")
+    token_clauses = "\n      ".join(
+        f"AND (LOWER(oe.label) LIKE :tok{i} OR LOWER(oe.comment) LIKE :tok{i})"
+        for i in range(n_tokens))
+    return text(f"""
+        SELECT oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
+               o.name AS ontology_name, o.ontology_type,
+               {distance}
+        {_COMMON_FILTER}
+        {_DOMAIN_FILTER if domain_only else ''}
+          {token_clauses}
+        ORDER BY
+            CASE WHEN LOWER(oe.label) = LOWER(:exact) THEN 0 ELSE 1 END,
+            CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
+            CASE oe.entity_type WHEN 'class' THEN 0 WHEN 'property' THEN 1 ELSE 2 END,
+            LENGTH(oe.label)
+        LIMIT :limit
+    """)
+
+def _semantic_sql(domain_only):
+    """Semantic arm. DISTINCT ON collapses the many per-case copies of one URI
+    to a single row (preferring the base-ontology row) BEFORE the top-k cut;
+    without it the nearest-neighbor list is a handful of entities repeated
+    across the 119 case ontologies. The corpus is ~50k embedded rows, so the
+    exact scan is cheap."""
+    return text(f"""
+        SELECT * FROM (
+            SELECT DISTINCT ON (oe.uri)
+                   oe.uri, oe.label, oe.comment, oe.entity_type, oe.parent_uri,
+                   o.name AS ontology_name, o.ontology_type,
+                   (oe.embedding <=> CAST(:qvec AS vector)) AS distance
+            {_COMMON_FILTER}
+            {_DOMAIN_FILTER if domain_only else ''}
+              AND oe.embedding IS NOT NULL
+            ORDER BY oe.uri,
+                     CASE WHEN o.ontology_type = 'case' THEN 1 ELSE 0 END,
+                     (oe.embedding <=> CAST(:qvec AS vector))
+        ) deduped
+        ORDER BY distance
+        LIMIT :limit
+    """)
+
+
+# Back-links (plan D3): a case "contains" an entity if the case ontology
+# re-declares its URI or holds individuals typed to it via parent_uri. The
+# 2026-07-17 spot-check found the two signals identical on the live corpus
+# (commits re-declare every referenced base class), but the UNION guards the
+# case-local-subclass path at no real cost.
+_CASE_LINKS_SQL = text("""
+    SELECT DISTINCT x.uri, o.name
+    FROM (
+        SELECT uri, ontology_id FROM ontology_entities WHERE uri = ANY(:uris)
+        UNION
+        SELECT parent_uri AS uri, ontology_id FROM ontology_entities WHERE parent_uri = ANY(:uris)
+    ) x
+    JOIN ontologies o ON o.id = x.ontology_id
+    WHERE o.name LIKE 'proethica-case-%'
+""")
+
+
+def derive_category(parent_uri, label, uri=None):
+    """Map an entity to one of the nine component categories, or None.
+
+    Prefers the parent_uri fragment (exact core name, then suffix match, the
+    convention case individuals follow, e.g. intermediate#PublicWelfarePrinciple
+    -> Principle); falls back to a label suffix match for proethica-namespace
+    entities whose parent is outside the nine (e.g. a BFO ancestor).
+
+    The heuristics are gated to the proethica namespace: a foreign term like
+    prov:Role is NOT a nine-component Role, even though its label ends in one.
+    """
+    if parent_uri and parent_uri.startswith(_PROETHICA_NAMESPACE) and '#' in parent_uri:
+        frag = parent_uri.rsplit('#', 1)[1]
+        if frag in CATEGORY_COLORS:
+            return frag
+        for cat in CATEGORY_COLORS:
+            if frag.endswith(cat):
+                return cat
+    if label and uri and uri.startswith(_PROETHICA_NAMESPACE):
+        compact = label.replace(' ', '')
+        for cat in CATEGORY_COLORS:
+            if compact.endswith(cat):
+                return cat
+    return None
+
+
+def case_id_for(ontology_name):
+    """Return the owning case id for a proethica-case-N ontology, else None."""
+    m = _CASE_ONTOLOGY_RE.match(ontology_name or '')
+    return int(m.group(1)) if m else None
+
+
+def chips_by_case(entity_results, cap=4):
+    """Invert entity back-links into per-case chips (increment 4).
+
+    entity_results is already ranked, so each case receives its top-ranked
+    matched concepts, capped to keep the card readable. Returns
+    {case_id: [{label, category, color, ontserve_url, uri}, ...]}.
+    """
+    chips = {}
+    for e in entity_results:
+        for cid in e.get('case_ids', []):
+            bucket = chips.setdefault(cid, [])
+            if len(bucket) < cap:
+                bucket.append({
+                    'label': e['label'],
+                    'category': e['category'],
+                    'color': e['color'],
+                    'ontserve_url': e['ontserve_url'],
+                    'uri': e['uri'],
+                    # Filter-control fields (increment 5), present once the
+                    # route has attached them to the entity results.
+                    'toggle_url': e.get('toggle_url'),
+                    'selected': e.get('selected', False),
+                })
+    return chips
+
+
+class UnifiedSearchService:
+    """Entity lane of the unified search. The engine and embedder are
+    injectable for tests.
+
+    domain_only (default True, plan decision D7) restricts results to the
+    proethica family (core, intermediate, extended, engineering-ethics, NSPE,
+    cases); foreign vocabularies (BFO, PROV-O, IAO, RO) are supporting
+    infrastructure and are served by OntServe's own search. Pass
+    domain_only=False to include them (ranked under the D6 discount)."""
+
+    def __init__(self, engine=None, embed_fn=None, domain_only=True):
+        self._engine = engine
+        self._embed_fn = embed_fn
+        self.domain_only = domain_only
+
+    @property
+    def engine(self):
+        if self._engine is None:
+            self._engine = create_engine(get_ontserve_db_url())
+        return self._engine
+
+    def _query_vector(self, query):
+        """Return the 384-dim query embedding as a pgvector literal, or None
+        (lexical-only degrade, logged loudly per plan decision D5)."""
+        try:
+            if self._embed_fn is not None:
+                vec = self._embed_fn(query)
+            else:
+                from app.services.embedding.embedding_service import EmbeddingService
+                vec = EmbeddingService.get_instance()._get_local_embedding(query)
+        except Exception as e:
+            logger.warning(f"Query embedding failed; entity lane degrades to lexical-only: {e}")
+            return None
+        if not vec or len(vec) != 384:
+            logger.warning(
+                f"Query embedding has dimension {len(vec) if vec else 0}, expected 384; "
+                "entity lane degrades to lexical-only")
+            return None
+        return '[' + ','.join(str(x) for x in vec) + ']'
+
+    def search_entities(self, query, limit=12):
+        """Hybrid lexical + semantic entity search over all OntServe ontologies.
+
+        Returns a list of dicts (deduplicated by URI, base ontologies winning
+        over case copies) ranked exact-label first, then by semantic score.
+        Raises on DB failure; the route decides how to surface the error.
+        """
+        query = (query or '').strip()
+        if not query:
+            return []
+
+        qvec = self._query_vector(query)
+        overfetch = limit * 3  # URI-level dedup shrinks the raw rows
+        tokens = query_tokens(query)
+
+        lexical = []
+        with self.engine.connect() as conn:
+            if tokens:
+                params = {f'tok{i}': f'%{t}%' for i, t in enumerate(tokens)}
+                params.update({'exact': query, 'limit': overfetch})
+                if qvec is not None:
+                    params['qvec'] = qvec
+                lexical = conn.execute(
+                    _lexical_sql(len(tokens), scored=qvec is not None,
+                                 domain_only=self.domain_only), params,
+                ).fetchall()
+            semantic = []
+            if qvec is not None:
+                semantic = conn.execute(_semantic_sql(self.domain_only), {
+                    'qvec': qvec, 'limit': overfetch,
+                }).fetchall()
+
+            results = self._merge(query, lexical, semantic, limit)
+            self._attach_case_links(conn, results)
+
+        return results
+
+    def case_ids_for_uris(self, uris):
+        """Resolve which cases contain each of the given entity URIs
+        (increment 5, the D3 derivations inverted for filtering). Returns
+        {uri: set(case_ids)}; case-minted URIs resolve without a query."""
+        ids_by_uri = {}
+        base_uris = []
+        for u in uris:
+            cid = case_id_from_uri(u)
+            if cid is not None:
+                ids_by_uri[u] = {cid}
+            else:
+                ids_by_uri[u] = set()
+                base_uris.append(u)
+        if base_uris:
+            with self.engine.connect() as conn:
+                rows = conn.execute(_CASE_LINKS_SQL, {'uris': base_uris}).fetchall()
+            for uri, onto_name in rows:
+                cid = case_id_for(onto_name)
+                if cid is not None:
+                    ids_by_uri[uri].add(cid)
+        return ids_by_uri
+
+    def _attach_case_links(self, conn, results):
+        """Batch-resolve which cases contain each result (D3). Case-minted
+        entities link to their own case; base entities get the cases that
+        re-declare them or type individuals to them."""
+        base_uris = [e['uri'] for e in results if e['case_id'] is None]
+        links = {}
+        if base_uris:
+            rows = conn.execute(_CASE_LINKS_SQL, {'uris': base_uris}).fetchall()
+            for uri, onto_name in rows:
+                cid = case_id_for(onto_name)
+                if cid is not None:
+                    links.setdefault(uri, set()).add(cid)
+        for e in results:
+            if e['case_id'] is not None:
+                e['case_ids'] = [e['case_id']]
+            else:
+                e['case_ids'] = sorted(links.get(e['uri'], set()))
+
+    def _merge(self, query, lexical, semantic, limit):
+        """Dedup by URI (lexical arm first, so its base-over-case ordering
+        wins), attach scores, floor semantic-only hits, rank, truncate."""
+        web_url = get_ontserve_web_url().rstrip('/')
+        query_lower = query.lower()
+
+        merged = {}
+        for row, from_lexical in (
+                [(r, True) for r in lexical] + [(r, False) for r in semantic]):
+            uri = row[0]
+            if uri in merged:
+                # Keep the first occurrence but adopt a score or the lexical
+                # flag the later duplicate contributes.
+                entry = merged[uri]
+                if entry['score'] is None and row[7] is not None:
+                    entry['score'] = max(0.0, 1.0 - float(row[7]))
+                entry['lexical'] = entry['lexical'] or from_lexical
+                continue
+            (_, label, comment, entity_type, parent_uri,
+             onto_name, onto_type, distance) = row
+            category = derive_category(parent_uri, label, uri)
+            fragment = uri.rsplit('#', 1)[1] if '#' in uri else uri.rsplit('/', 1)[1]
+            merged[uri] = {
+                'uri': uri,
+                'label': label,
+                'definition': comment,
+                'entity_type': entity_type,
+                'category': category,
+                'color': CATEGORY_COLORS.get(category),
+                'ontology_name': onto_name,
+                'ontology_type': onto_type,
+                'is_domain': is_domain_ontology(onto_name),
+                'case_id': case_id_for(onto_name),
+                'ontserve_url': f'{web_url}/entity/{onto_name}/{fragment}',
+                'score': max(0.0, 1.0 - float(distance)) if distance is not None else None,
+                'lexical': from_lexical,
+                'exact': (label or '').lower() == query_lower,
+            }
+
+        results = [
+            e for e in merged.values()
+            if e['lexical'] or (e['score'] is not None and e['score'] >= MIN_SEMANTIC_SCORE)
+        ]
+        # Exact label first, then the weighted rank score descending: the
+        # honest cosine (displayed as-is) discounted for foreign vocabularies,
+        # so near-ties resolve toward the proethica family. Unscored lexical
+        # hits sort last.
+        def rank_score(e):
+            if e['score'] is None:
+                return -1.0
+            return e['score'] * (1.0 if e['is_domain'] else FOREIGN_ONTOLOGY_WEIGHT)
+
+        results.sort(key=lambda e: (0 if e['exact'] else 1, -rank_score(e)))
+        return results[:limit]

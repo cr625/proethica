@@ -26,18 +26,30 @@
     <!-- Quick Start Cards - uses selected domain from session -->
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
-            <a href="/cases{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}" class="text-decoration-none">
-                <div class="card h-100 quick-start-card">
-                    <div class="card-body text-center py-4">
+            <div class="card h-100 quick-start-card">
+                <div class="card-body text-center py-4">
+                    <a href="/cases{% if selected_domain_id %}?world_id={{ selected_domain_id }}{% endif %}" class="text-decoration-none">
                         <i class="bi bi-folder2-open display-4 text-primary mb-3"></i>
                         <h5 class="card-title">Browse Cases</h5>
-                        <p class="card-text text-muted small">
-                            Explore {{ total_cases or 'available' }} ethics cases
-                            {% if selected_domain %}in {{ selected_domain.name }}{% endif %}
-                        </p>
-                    </div>
+                    </a>
+                    <p class="card-text text-muted small">
+                        Explore {{ total_cases or 'available' }} ethics cases
+                        {% if selected_domain %}in {{ selected_domain.name }}{% endif %}
+                    </p>
+                    <form action="{{ url_for('cases.search_cases') }}" method="get" class="mt-2 px-2">
+                        {% if selected_domain_id %}
+                        <input type="hidden" name="world_id" value="{{ selected_domain_id }}">
+                        {% endif %}
+                        <div class="input-group input-group-sm">
+                            <input type="search" class="form-control" name="query"
+                                   placeholder="Search cases and concepts..." aria-label="Search cases">
+                            <button class="btn btn-primary" type="submit" title="Search">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </a>
+            </div>
         </div>
         <div class="col-md-4 mb-3">
             <a href="/cases/precedents/network" class="text-decoration-none">
