@@ -25,6 +25,7 @@ from typing import Any, Dict, Optional
 from rdflib import Graph, Namespace, URIRef, RDF, RDFS, OWL
 
 from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
+from app.services.commit import naming
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ class CategoryResolutionMixin:
             matched_local = str(matched_uri).rsplit('#', 1)[-1].rsplit('/', 1)[-1]
             if not matched_local:
                 return None
-            if self._safe_local_name(matched_local) != matched_local:
+            if naming.safe_local_name(matched_local) != matched_local:
                 # A local name the URI sanitizer would mangle (e.g. concepts#Non_Deception)
                 # cannot round-trip through the minted-IRI conventions; keep the minted type.
                 logger.info(
@@ -163,7 +164,7 @@ class CategoryResolutionMixin:
                     "local name; keeping minted type(s).", matched_uri)
                 return None
             minted_locals = {
-                self._safe_local_name(str(u).rsplit('#', 1)[-1].rsplit('/', 1)[-1])
+                naming.safe_local_name(str(u).rsplit('#', 1)[-1].rsplit('/', 1)[-1])
                 for u in (minted_type_uris or [])
             }
             if matched_local in minted_locals:
@@ -533,7 +534,7 @@ class CategoryResolutionMixin:
                 "canonicalization sweep could not see.",
                 post_vetoes, case_id,
             )
-            self._sanitize_graph_literals(g)
+            naming.sanitize_graph_literals(g)
             g.serialize(destination=str(ttl_path), format='turtle')
         stats['role_axis_vetoes_post_canonicalization'] = post_vetoes
         return stats

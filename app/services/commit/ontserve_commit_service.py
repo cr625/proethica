@@ -128,18 +128,6 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
         title = (doc.title or '').strip() if doc else ''
         return title or None
 
-    # naming.py shims (god-file split Item 1 Step 1.1): every self._method(...)
-    # call site below is unaffected.
-    _enforce_role_suffix = staticmethod(naming.enforce_role_suffix)
-    _safe_local_name = staticmethod(naming.safe_local_name)
-    _case_ontology_iri = staticmethod(naming.case_ontology_iri)
-    _camelCase = staticmethod(naming.camelCase)
-    _sanitize_graph_literals = staticmethod(naming.sanitize_graph_literals)
-    _confidence_literal = staticmethod(naming.confidence_literal)
-    _safe_label = staticmethod(naming.safe_label)
-    _norm_label = staticmethod(naming.norm_label)
-    _safe_frag = staticmethod(naming.safe_frag)
-
     def _record_edge_provenance(self, case_id, edge_result):
         """Record the commit-time edge materialization (per family) + the unified guard as
         provenance PASSES, so the record shows the post-extraction graph construction, not only
@@ -549,7 +537,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 # chars. Reified TemporalRelation / CausalChain individuals instead take
                 # the opaque case#TemporalRelation_<n> / CausalChain_<n> URI from their @id
                 # (rdfs:label stays readable).
-                safe_label = self._opaque_reified_uri_local(rdf_data) or self._safe_label(label)
+                safe_label = self._opaque_reified_uri_local(rdf_data) or naming.safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Check if individual already exists
@@ -631,7 +619,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                             class_name = type_uri.split('#')[-1]
                         else:
                             class_name = type_uri.split('/')[-1]
-                        safe_class = self._safe_local_name(class_name)
+                        safe_class = naming.safe_local_name(class_name)
                         # Category-aware disambiguation (mirrors the class-commit
                         # path): a Principle individual must not be typed to an IRI
                         # the base reserves for a disjoint category. Disambiguating
@@ -794,7 +782,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
             qc_edges_dropped = self._prune_dangling_qc_edges(g)
 
             # Save the graph
-            self._sanitize_graph_literals(g)
+            naming.sanitize_graph_literals(g)
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Committed {count} new individuals ({merged} merged onto existing) to {case_file}")
 
@@ -1141,7 +1129,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
             role_facets = set(getattr(self, '_facet_to_agent', {}) or {})
         if not index or not target:
             return None
-        nt = self._norm_label(target)
+        nt = naming.norm_label(target)
 
         def _pick(cands):
             cands = sorted(set(cands), key=str)

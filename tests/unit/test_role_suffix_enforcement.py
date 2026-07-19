@@ -3,9 +3,9 @@
 The extraction prompt only soft-biases the convention; OntServeCommitService applies it
 deterministically so a suffixless extraction maps onto the canonical promoted class.
 """
-from app.services.commit.ontserve_commit_service import OntServeCommitService
+from app.services.commit import naming
 
-_f = OntServeCommitService._enforce_role_suffix
+_f = naming.enforce_role_suffix
 
 
 def test_appends_role_to_uri_and_label_when_missing():

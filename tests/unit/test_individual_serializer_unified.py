@@ -22,6 +22,7 @@ from rdflib import Graph, Namespace, RDF, RDFS, OWL, Literal, URIRef
 from rdflib.namespace import SKOS, XSD
 
 from app.services.commit.ontserve_commit_service import OntServeCommitService
+from app.services.commit import naming
 
 PROV_NS = Namespace('http://proethica.org/provenance#')
 
@@ -215,8 +216,8 @@ def test_agent_layer_unifies_cross_section_actor():
     svc._emit_agent_layer(g)
     agent = CASE['Agent_Engineer_A']
     assert (agent, RDF.type, CORE['Agent']) in g
-    f1 = CASE[svc._safe_label('Engineer A Original Design Engineer')]
-    f2 = CASE[svc._safe_label('Cooperation-Refusing Design Engineer')]
+    f1 = CASE[naming.safe_label('Engineer A Original Design Engineer')]
+    f2 = CASE[naming.safe_label('Cooperation-Refusing Design Engineer')]
     assert (agent, CORE['hasRole'], f1) in g
     assert (agent, CORE['hasRole'], f2) in g
     assert len(list(g.subjects(RDF.type, CORE['Agent']))) == 1
@@ -241,7 +242,7 @@ def test_actor_fallback_to_label_when_absent():
     svc._build_agent_indices(individuals, CASE)
     g = Graph()
     svc._emit_agent_layer(g)
-    agent = CASE['Agent_' + svc._safe_label('Some Lone Engineer')]
+    agent = CASE['Agent_' + naming.safe_label('Some Lone Engineer')]
     assert (agent, RDF.type, CORE['Agent']) in g
 
 
@@ -254,11 +255,11 @@ def test_relationship_attaches_at_role_level():
         'relationships': ["{'type': 'client', 'target': 'Owner Tower Development Client'}"],
     }}
     individuals = [(subj_facet, subj_rdf), (tgt_facet, {'properties': {'actor': ['Owner']}})]
-    subj_uri = CASE[svc._safe_label('Engineer A Original Design Engineer')]
-    tgt_uri = CASE[svc._safe_label('Owner Tower Development Client')]
+    subj_uri = CASE[naming.safe_label('Engineer A Original Design Engineer')]
+    tgt_uri = CASE[naming.safe_label('Owner Tower Development Client')]
     svc._rel_label_index = {
-        svc._norm_label('Engineer A Original Design Engineer'): subj_uri,
-        svc._norm_label('Owner Tower Development Client'): tgt_uri,
+        naming.norm_label('Engineer A Original Design Engineer'): subj_uri,
+        naming.norm_label('Owner Tower Development Client'): tgt_uri,
     }
     svc._build_agent_indices(individuals, CASE)
     g = Graph()
@@ -283,11 +284,11 @@ def test_relationship_edge_carries_prov_derivation():
                           "'quote': 'Engineer A was retained by the Owner'}"],
     }}
     individuals = [(subj_facet, subj_rdf), (tgt_facet, {'properties': {'actor': ['Owner']}})]
-    subj_uri = CASE[svc._safe_label('Engineer A Original Design Engineer')]
-    tgt_uri = CASE[svc._safe_label('Owner Tower Development Client')]
+    subj_uri = CASE[naming.safe_label('Engineer A Original Design Engineer')]
+    tgt_uri = CASE[naming.safe_label('Owner Tower Development Client')]
     svc._rel_label_index = {
-        svc._norm_label('Engineer A Original Design Engineer'): subj_uri,
-        svc._norm_label('Owner Tower Development Client'): tgt_uri,
+        naming.norm_label('Engineer A Original Design Engineer'): subj_uri,
+        naming.norm_label('Owner Tower Development Client'): tgt_uri,
     }
     svc._build_agent_indices(individuals, CASE)
     g = Graph()
@@ -348,11 +349,11 @@ def test_role_relational_archetype_edge_primary():
                           "'quote': 'Engineer A was retained by the Owner'}"],
     }}
     individuals = [(subj_facet, subj_rdf), (tgt_facet, {'properties': {'actor': ['Owner']}})]
-    subj_uri = CASE[svc._safe_label('Engineer A Original Design Engineer')]
-    tgt_uri = CASE[svc._safe_label('Owner Tower Development Client')]
+    subj_uri = CASE[naming.safe_label('Engineer A Original Design Engineer')]
+    tgt_uri = CASE[naming.safe_label('Owner Tower Development Client')]
     svc._rel_label_index = {
-        svc._norm_label('Engineer A Original Design Engineer'): subj_uri,
-        svc._norm_label('Owner Tower Development Client'): tgt_uri,
+        naming.norm_label('Engineer A Original Design Engineer'): subj_uri,
+        naming.norm_label('Owner Tower Development Client'): tgt_uri,
     }
     svc._build_agent_indices(individuals, CASE)
     svc._role_edge_archetyped = set()
@@ -411,11 +412,11 @@ def _rel_fixture(svc, subj_label, subj_actor, rtype, target_label, target_actor,
         'relationships': ["{'type': '%s', 'target': '%s'}" % (rtype, target_label)],
     }}
     individuals = [(subj_facet, subj_rdf), (tgt_facet, {'properties': {'actor': [target_actor]}})]
-    subj_uri = CASE[svc._safe_label(subj_label)]
-    tgt_uri = CASE[svc._safe_label(target_label)]
+    subj_uri = CASE[naming.safe_label(subj_label)]
+    tgt_uri = CASE[naming.safe_label(target_label)]
     svc._rel_label_index = dict(extra_index or {})
-    svc._rel_label_index[svc._norm_label(subj_label)] = subj_uri
-    svc._rel_label_index[svc._norm_label(target_label)] = tgt_uri
+    svc._rel_label_index[naming.norm_label(subj_label)] = subj_uri
+    svc._rel_label_index[naming.norm_label(target_label)] = tgt_uri
     svc._build_agent_indices(individuals, CASE)
     g = Graph()
     svc._add_individual_properties(g, subj_uri, subj_facet, subj_rdf, CASE)
@@ -446,7 +447,7 @@ def test_target_resolver_prefers_role_facet_over_nonrole():
     """A bare actor name that substring-matches a non-role node (e.g. an action
     "Owner Covert Review Instruction") still resolves to the role facet."""
     svc = _svc()
-    action_uri = CASE[svc._safe_label('Owner Covert Review Instruction')]
+    action_uri = CASE[naming.safe_label('Owner Covert Review Instruction')]
     # Build the fixture with the bare "Owner" target to exercise substring
     # resolution, seeding the non-role action node FIRST so it would win under a
     # naive first-match resolver.
@@ -457,12 +458,12 @@ def test_target_resolver_prefers_role_facet_over_nonrole():
         'relationships': ["{'type': 'has_client', 'target': 'Owner'}"],
     }}
     individuals = [(subj_facet, subj_rdf), (owner_facet, {'properties': {'actor': ['Owner']}})]
-    subj_uri = CASE[svc._safe_label('Engineer A Original Design Engineer')]
-    owner_uri = CASE[svc._safe_label('Owner Peer Review Instructing Client')]
+    subj_uri = CASE[naming.safe_label('Engineer A Original Design Engineer')]
+    owner_uri = CASE[naming.safe_label('Owner Peer Review Instructing Client')]
     svc._rel_label_index = {
-        svc._norm_label('Owner Covert Review Instruction'): action_uri,
-        svc._norm_label('Engineer A Original Design Engineer'): subj_uri,
-        svc._norm_label('Owner Peer Review Instructing Client'): owner_uri,
+        naming.norm_label('Owner Covert Review Instruction'): action_uri,
+        naming.norm_label('Engineer A Original Design Engineer'): subj_uri,
+        naming.norm_label('Owner Peer Review Instructing Client'): owner_uri,
     }
     svc._build_agent_indices(individuals, CASE)
     g2 = Graph()
@@ -483,12 +484,12 @@ def test_actor_edge_to_non_role_target_is_skipped():
         'relationships': ["{'type': 'has_client', 'target': 'Owner Covert Review Instruction'}"],
     }}
     svc._build_agent_indices([(subj_facet, subj_rdf)], CASE)
-    subj_uri = CASE[svc._safe_label('Engineer A Original Design Engineer')]
-    action_uri = CASE[svc._safe_label('Owner Covert Review Instruction')]
+    subj_uri = CASE[naming.safe_label('Engineer A Original Design Engineer')]
+    action_uri = CASE[naming.safe_label('Owner Covert Review Instruction')]
     # The only candidate for the target label is the non-role action node.
     svc._rel_label_index = {
-        svc._norm_label('Engineer A Original Design Engineer'): subj_uri,
-        svc._norm_label('Owner Covert Review Instruction'): action_uri,
+        naming.norm_label('Engineer A Original Design Engineer'): subj_uri,
+        naming.norm_label('Owner Covert Review Instruction'): action_uri,
     }
     g = Graph()
     svc._add_individual_properties(g, subj_uri, subj_facet, subj_rdf, CASE)

@@ -24,6 +24,7 @@ from rdflib.namespace import DCTERMS
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.ontserve.ontserve_config import get_ontserve_db_config
+from app.services.commit import naming
 
 logger = logging.getLogger(__name__)
 
@@ -313,7 +314,7 @@ class VersionedCommitMixin:
 
                 for entity, rdf_data in classes:
                     label = entity.entity_label or 'UnknownClass'
-                    safe_label = self._safe_local_name(label)
+                    safe_label = naming.safe_local_name(label)
                     # Category-aware disambiguation (same rule as the TTL commit paths).
                     safe_label = self._category_safe_class_local(safe_label, self._get_concept_category(entity))
 
@@ -466,7 +467,7 @@ class VersionedCommitMixin:
                 # Reified TemporalRelation / CausalChain individuals get the opaque
                 # case#TemporalRelation_<n> / CausalChain_<n> URI (rdfs:label keeps the
                 # readable text); every other individual mints from its label.
-                safe_label = self._opaque_reified_uri_local(rdf_data) or self._safe_label(label)
+                safe_label = self._opaque_reified_uri_local(rdf_data) or naming.safe_label(label)
                 individual_uri = case_ns[safe_label]
 
                 # Add individual
@@ -499,7 +500,7 @@ class VersionedCommitMixin:
                             class_name = type_uri.split('#')[-1]
                         else:
                             class_name = type_uri.split('/')[-1]
-                        safe_class = self._safe_local_name(class_name)
+                        safe_class = naming.safe_local_name(class_name)
                         # Category-aware disambiguation (same rule as the append +
                         # class-commit paths): never type to an IRI the base reserves
                         # for a disjoint category.
@@ -549,7 +550,7 @@ class VersionedCommitMixin:
             qc_edges_dropped = self._prune_dangling_qc_edges(g)
 
             # Write file (overwrites existing)
-            self._sanitize_graph_literals(g)
+            naming.sanitize_graph_literals(g)
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Wrote fresh TTL file with {count} individuals to {case_file}")
 

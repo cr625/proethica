@@ -32,6 +32,7 @@ from app.services.commit.enrichment import (
     _readable_question_label,
     _readable_conclusion_label,
 )
+from app.services.commit import naming
 
 logger = logging.getLogger(__name__)
 
@@ -230,13 +231,13 @@ class EmitterMixin:
         _reshaped = {'attributes', 'additionalRelationships', 'relationships'}
         _routing = ('roleCategory', 'roleKind', 'eventType')
         kept = [p for p in kept
-                if not self._camelCase(p).endswith('Class')
+                if not naming.camelCase(p).endswith('Class')
                 # temporal preds arrive proeth:-prefixed, so the routing check
                 # must compare the normalized local name, not the raw key
                 # (case-5 run 51 still minted eventType markers via the raw form)
-                and self._camelCase(p) not in _routing
+                and naming.camelCase(p) not in _routing
                 and _normalize(p) not in _routing
-                and self._camelCase(p) not in _reshaped
+                and naming.camelCase(p) not in _reshaped
                 and not _is_unkept_value(_value_of(p))]
         # The temporal serializer redirects literal values on OBJECT properties
         # to a <local>Text datatype sibling; list the shadow name the graph
@@ -580,7 +581,7 @@ class EmitterMixin:
                     continue
                 if not isinstance(prop_values, list):
                     prop_values = [prop_values]
-                safe_prop = self._camelCase(prop_name)
+                safe_prop = naming.camelCase(prop_name)
                 # CMT-3: do not persist the spec's "Not stored" shadows. A RELATION field is materialized as an
                 # object-property edge elsewhere, and a *Class field is the rdf:type (reconstructable from the
                 # type chain); writing either here re-introduces a literal shadow of the canonical form.
@@ -594,7 +595,7 @@ class EmitterMixin:
                 prop_uri = PROETHICA[safe_prop]
                 for value in prop_values:
                     if value:
-                        lit = (self._confidence_literal(value)
+                        lit = (naming.confidence_literal(value)
                                if safe_prop == 'confidence' else Literal(value))
                         g.add((uri, prop_uri, lit))
 
@@ -766,7 +767,7 @@ class EmitterMixin:
                 # satisfied (e.g. proeth:temporalSequence has range xsd:nonNegativeInteger;
                 # a stringified "6" would violate it and make the case inconsistent).
                 if pred_local == 'confidence':
-                    lit = self._confidence_literal(v)
+                    lit = naming.confidence_literal(v)
                 else:
                     lit = Literal(v) if isinstance(v, (bool, int, float)) else Literal(str(v))
                 g.add((uri, PROETHICA[pred_local], lit))

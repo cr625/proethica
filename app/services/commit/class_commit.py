@@ -28,6 +28,8 @@ from typing import Any, Dict, List, Tuple
 from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS, DCTERMS
 
+from app.services.commit import naming
+
 logger = logging.getLogger(__name__)
 
 # Namespaces (see ontserve_commit_service.py module docstring for the shared definitions).
@@ -75,14 +77,14 @@ class ClassCommitMixin:
                 # Use entity attributes directly
                 label = entity.entity_label or 'UnknownClass'
                 # Sanitize label -> URI local-name via the shared allowlist (drops spaces, hyphens, and
-                # all punctuation; see _safe_local_name for why a denylist was the wrong shape here).
-                safe_label = self._safe_local_name(label)
+                # all punctuation; see naming.safe_local_name for why a denylist was the wrong shape here).
+                safe_label = naming.safe_local_name(label)
                 # Category-aware disambiguation: never mint a class IRI that the
                 # immutable base reserves for a disjoint category (e.g. a Principle
                 # onto proeth:CompetenceSelfAssessmentCapability, a base Capability).
                 category = self._get_concept_category(entity)
                 safe_label = self._category_safe_class_local(safe_label, category)
-                safe_label, label = self._enforce_role_suffix(safe_label, label, category)
+                safe_label, label = naming.enforce_role_suffix(safe_label, label, category)
                 class_uri = PROETHICA[safe_label]
 
                 # Normalized D15 rule: do NOT copy a class that already lives in the curated
@@ -174,13 +176,13 @@ class ClassCommitMixin:
                     # confidence). The class serializer previously emitted only
                     # definitions + provenance, so the entire "Properties" column was
                     # dropped at commit. Emit each remaining key as a literal,
-                    # mirroring the individual generic path (same _camelCase predicate
+                    # mirroring the individual generic path (same naming.camelCase predicate
                     # convention) so the class round-trips.
                     for prop_name, prop_values in props.items():
                         if prop_name in self._PROV_PROP_KEYS:
                             continue
                         values = prop_values if isinstance(prop_values, list) else [prop_values]
-                        safe_prop = self._camelCase(prop_name)
+                        safe_prop = naming.camelCase(prop_name)
                         # Routing inputs are consumed by the subClassOf/type routing
                         # and must not leak as class literals -- the individual loop
                         # has carried this skip since CMT-3, the class loop had not
@@ -202,7 +204,7 @@ class ClassCommitMixin:
                         for value in values:
                             if value not in (None, '', [], {}):
                                 if safe_prop == 'confidence':
-                                    g.add((class_uri, prop_uri, self._confidence_literal(value)))
+                                    g.add((class_uri, prop_uri, naming.confidence_literal(value)))
                                     continue
                                 lit = value if isinstance(value, (str, int, float, bool)) else str(value)
                                 g.add((class_uri, prop_uri, Literal(lit)))
@@ -228,7 +230,7 @@ class ClassCommitMixin:
                 count += 1
 
             # Save the graph
-            self._sanitize_graph_literals(g)
+            naming.sanitize_graph_literals(g)
             g.serialize(destination=extracted_file, format='turtle')
             logger.info(f"Committed {count} classes to {extracted_file}")
 
@@ -249,7 +251,7 @@ class ClassCommitMixin:
             case_ids = [case_ids]
         for case_id_val in case_ids:
             try:
-                source = self._case_ontology_iri(case_id_val)
+                source = naming.case_ontology_iri(case_id_val)
             except (TypeError, ValueError):
                 continue
             if (class_uri, DCTERMS.source, source) not in g:

@@ -18,6 +18,8 @@ from typing import Dict
 
 from rdflib import Graph, Literal, Namespace, RDF, RDFS, OWL, XSD
 
+from app.services.commit import naming
+
 logger = logging.getLogger(__name__)
 
 PROETHICA_CORE = Namespace("http://proethica.org/ontology/core#")
@@ -84,7 +86,7 @@ class AgentLayerMixin:
         endpoints, carrying the triggering quote in prov:value when the roles
         prompt supplied one. Best-effort and additive; never blocks the edge."""
         try:
-            frag = f"{self._safe_frag(subj)}_{relprop}_{self._safe_frag(obj)}"
+            frag = f"{naming.safe_frag(subj)}_{relprop}_{naming.safe_frag(obj)}"
             prov_iri = case_ns['relationship_edge_provenance_' + frag]
             # Idempotent: the prov-node IRI is deterministic from (subj, relprop,
             # obj), and the same actor edge is emitted once per facet the actor
