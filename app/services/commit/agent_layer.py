@@ -14,7 +14,6 @@ behavioral effect.
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict
 
 from rdflib import Graph, Literal, Namespace, RDF, RDFS, OWL, XSD
 
@@ -39,40 +38,22 @@ class AgentLayerMixin:
     # (so every role still gets an Agent, but only a shared `actor` merges
     # facets). The Agent URI is deterministic from the actor label, so separate
     # section commits on the append path converge on the same Agent node.
-
-    @staticmethod
-    def _is_role_individual(entity) -> bool:
-        from app.services.commit.commit_context import _is_role_individual
-        return _is_role_individual(entity)
-
-    def _actor_key_and_label(self, entity, rdf_data: Dict):
-        """(normalized key, display label) of a role individual's underlying
-        actor, or (None, None) if it cannot be determined. Canonical logic
-        is in commit_context (Step 2.1); this delegate remains for direct
-        callers until Step 2.4."""
-        from app.services.commit.commit_context import _actor_key_and_label
-        return _actor_key_and_label(entity, rdf_data)
-
-    def _build_agent_indices(self, individuals, case_ns: Namespace) -> None:
-        """First-pass build of the Agent layer maps over the batch:
-        - self._agent_index: actor_key -> Agent URI
-        - self._facet_to_agent: role-facet URI -> Agent URI
-        - self._agent_facets: Agent URI -> (actor_label, set(facet URIs))
-        Transitional (Step 2.1): the canonical builder is
-        commit_context.build_agent_indices, which the commit paths use via
-        build_commit_context; this instance-state wrapper remains for
-        direct test callers and is removed in Step 2.4."""
-        from app.services.commit.commit_context import build_agent_indices
-        self._agent_index, self._facet_to_agent, self._agent_facets = \
-            build_agent_indices(individuals, case_ns)
+    #
+    # _is_role_individual / _actor_key_and_label / _build_agent_indices (the
+    # per-instance builder) moved to commit_context.py in Step 2.1; their
+    # transitional instance-state delegates on this mixin were removed in
+    # Step 2.4 once every call site moved to the CommitContext built by
+    # commit_context.build_commit_context.
 
     def _emit_agent_layer(self, g: Graph, ctx=None) -> None:
         """Emit one proeth-core:Agent per distinct actor and a hasRole edge to
         each role facet it bears. Idempotent: re-emitting the same Agent URI on a
-        later-section append commit just re-asserts the same triples."""
-        agent_facets = ctx.agent_facets if ctx is not None \
-            else getattr(self, '_agent_facets', {})
-        for agent_uri, (alabel, facet_uris) in agent_facets.items():
+        later-section append commit just re-asserts the same triples. ctx=None
+        (a stray direct caller with no per-commit context) means there is
+        nothing to emit."""
+        if ctx is None:
+            return
+        for agent_uri, (alabel, facet_uris) in ctx.agent_facets.items():
             g.add((agent_uri, RDF.type, OWL.NamedIndividual))
             g.add((agent_uri, RDF.type, PROETHICA_CORE.Agent))
             g.add((agent_uri, RDFS.label, Literal(alabel)))

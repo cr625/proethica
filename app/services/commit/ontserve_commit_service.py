@@ -40,7 +40,7 @@ from app.services.ontserve.ontserve_config import (
     get_ontserve_db_config, get_ontserve_base_path, get_ontserve_mcp_url,
 )
 from app.services.commit import naming
-from app.services.commit.commit_context import build_commit_context
+from app.services.commit.commit_context import build_commit_context, _is_role_individual
 
 logger = logging.getLogger(__name__)
 
@@ -586,7 +586,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
 
                 # Record the extraction's professional-vs-participant call for
                 # the finalized-graph role-axis guard.
-                if self._is_role_individual(entity):
+                if _is_role_individual(entity):
                     role_kind_by_uri[individual_uri] = self._extract_role_kind(rdf_data)
 
                 # Add full description if we used a short label
@@ -685,7 +685,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                         # (the normalized case does not re-declare shared classes). The relational
                         # archetype is materialized edge-primary on the individual (rdf:type), not here
                         # (R1). The occupational axis carries no disjointness risk for the new class.
-                        if established is None and self._is_role_individual(entity):
+                        if established is None and _is_role_individual(entity):
                             for arch_uri in self._role_individual_occupational_parents(rdf_data, class_name):
                                 g.add((class_uri, RDF.type, OWL.Class))
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:
@@ -1119,14 +1119,14 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
         non-role individual; otherwise a bare actor name like "Owner" can substring
         -match a non-role node (e.g. an action "Owner Covert Review Instruction").
         Match tiers: exact, then prefix/substring. Returns the URI or None.
-        Reads the per-commit CommitContext when supplied; the instance-attribute
-        fallback remains for direct test callers until Step 2.4."""
+        Reads the per-commit CommitContext; ctx=None (a stray direct caller)
+        gets an empty index/facets, matching the former empty-index behavior."""
         if ctx is not None:
             index = ctx.rel_label_index
             role_facets = set(ctx.facet_to_agent)
         else:
-            index = getattr(self, '_rel_label_index', None)
-            role_facets = set(getattr(self, '_facet_to_agent', {}) or {})
+            index = {}
+            role_facets = set()
         if not index or not target:
             return None
         nt = naming.norm_label(target)

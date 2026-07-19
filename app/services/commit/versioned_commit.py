@@ -25,6 +25,7 @@ from rdflib.namespace import DCTERMS
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.ontserve.ontserve_config import get_ontserve_db_config
 from app.services.commit import naming
+from app.services.commit.commit_context import _is_role_individual
 
 logger = logging.getLogger(__name__)
 
@@ -475,7 +476,7 @@ class VersionedCommitMixin:
                 g.add((individual_uri, RDFS.label, Literal(label)))
 
                 # Record the role_kind decision for the role-axis guard.
-                if self._is_role_individual(entity):
+                if _is_role_individual(entity):
                     role_kind_by_uri[individual_uri] = self._extract_role_kind(rdf_data)
 
                 # Base concept category for this entity (from its extraction pass).
@@ -513,7 +514,7 @@ class VersionedCommitMixin:
                         # Layer-1 convergence: the OCCUPATIONAL archetype (or role_kind backstop) on the
                         # individual's own type-class (see _commit_individuals_to_case_ontology). The
                         # relational archetype is materialized edge-primary on the individual (R1).
-                        if self._is_role_individual(entity):
+                        if _is_role_individual(entity):
                             for arch_uri in self._role_individual_occupational_parents(rdf_data, class_name):
                                 g.add((class_uri, RDF.type, OWL.Class))
                                 if (class_uri, RDFS.subClassOf, URIRef(arch_uri)) not in g:

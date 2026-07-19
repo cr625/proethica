@@ -33,6 +33,7 @@ from app.services.commit.enrichment import (
     _readable_conclusion_label,
 )
 from app.services.commit import naming
+from app.services.commit.commit_context import _is_role_individual
 
 logger = logging.getLogger(__name__)
 
@@ -275,20 +276,18 @@ class EmitterMixin:
         (arguments, validations, decision points, conclusions, questions) AND the
         Step-1/2 generic handler that turns `attributes` into per-key triples and
         `relationships` into real proeth-core actor edges (resolved via
-        `_rel_label_index`). Keeping one serializer is what stops the two paths
+        `ctx.rel_label_index`). Keeping one serializer is what stops the two paths
         re-drifting; do not reintroduce an inline copy in either caller.
         """
-        # Per-commit state source (Step 2.1): the commit paths pass a
-        # CommitContext; the instance-attribute fallback remains for direct
-        # unit-test callers until Step 2.4 migrates them.
-        if ctx is not None:
-            role_edge_archetyped = ctx.role_edge_archetyped
-            facet_to_agent = ctx.facet_to_agent
-        else:
-            if not hasattr(self, '_role_edge_archetyped'):
-                self._role_edge_archetyped = set()
-            role_edge_archetyped = self._role_edge_archetyped
-            facet_to_agent = getattr(self, '_facet_to_agent', {}) or {}
+        # Per-commit state source (Step 2.1, made the sole source in Step 2.4):
+        # the commit paths pass a CommitContext; a stray direct caller that
+        # passes none gets an empty context built on the spot, preserving the
+        # former defensive empty-default behavior without a second state path.
+        if ctx is None:
+            from app.services.commit.commit_context import CommitContext
+            ctx = CommitContext(case_id=0, case_ns=case_ns, graph=g)
+        role_edge_archetyped = ctx.role_edge_archetyped
+        facet_to_agent = ctx.facet_to_agent
         extraction_type = entity.extraction_type or ''
 
         # Universal per-individual serialization. Lives here (not in a caller) so
@@ -603,7 +602,7 @@ class EmitterMixin:
         # falls back to its role_category (the four Kong archetypes) for the relational type. Materialized
         # as the individual's direct rdf:type so it sits beside the edge route (edge primary, role_category
         # fallback, edge wins on conflict). Skipped when an actor edge already classified this facet.
-        if self._is_role_individual(entity) and uri not in role_edge_archetyped:
+        if _is_role_individual(entity) and uri not in role_edge_archetyped:
             self._apply_role_category_fallback_archetype(g, uri, rdf_data)
 
     def _apply_role_category_fallback_archetype(self, g: Graph, uri: URIRef, rdf_data: Dict) -> None:
