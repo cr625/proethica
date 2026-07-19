@@ -1,0 +1,33 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix proeth: <http://proethica.org/ontology/intermediate#> .
+@prefix proeth-prov: <http://proethica.org/provenance#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+proeth:NovelCredentialAccuracyObligation a owl:Class ;
+    rdfs:label "Novel Credential Accuracy Obligation"@en ;
+    proeth:confidence 0.88 ;
+    proeth:valueBasis "Truthful representation of credentials preserves public trust." ;
+    proeth-prov:discoveredInCase 501 ;
+    proeth-prov:matchConfidence 0.0 ;
+    proeth-prov:matchReasoning "no sufficiently similar existing class" ;
+    proeth-prov:matchesExisting false ;
+    dcterms:source <http://proethica.org/ontology/case/501> ;
+    rdfs:comment "The duty to represent one's professional credentials accurately in all public communications." ;
+    rdfs:subClassOf proeth:DisclosureObligation ;
+    skos:definition "The duty to represent one's professional credentials accurately in all public communications." ;
+    prov:wasAttributedTo "claude-test-model" .
+
+proeth-prov:matchConfidence a owl:AnnotationProperty .
+
+proeth-prov:matchReasoning a owl:AnnotationProperty .
+
+proeth-prov:matchedOntologyClass a owl:AnnotationProperty .
+
+proeth-prov:matchedOntologyLabel a owl:AnnotationProperty .
+
+proeth-prov:matchesExisting a owl:AnnotationProperty .
+
