@@ -436,18 +436,13 @@ class VersionedCommitMixin:
             g.bind("iao", IAO)
             g.bind("prov", PROV)
 
-            # Label -> individual URI index (first pass) so role relationship targets,
-            # which are short actor names like "Engineer A", resolve to real edges.
-            self._rel_label_index = {}
-            for _ent, _rdf in individuals:
-                _lbl = getattr(_ent, 'entity_label', None)
-                if _lbl:
-                    self._rel_label_index[self._norm_label(_lbl)] = case_ns[self._safe_label(_lbl)]
-
-            # Agent layer (Option C): one proeth-core:Agent per distinct actor.
-            self._build_agent_indices(individuals, case_ns)
-            # R1 edge-primary relational archetype tracker (see the append path).
-            self._role_edge_archetyped = set()
+            # Per-commit context (Step 2.1): label->URI index, Agent layer maps,
+            # R1 edge-archetype tracker. Shared factory with the append path;
+            # this fresh-write path overwrites and has no prior graph, so it
+            # does not seed the label index from the loaded graph.
+            from app.services.commit.commit_context import build_commit_context
+            ctx = build_commit_context(case_id, case_ns, g, individuals,
+                                       seed_rel_index_from_graph=False)
 
             # Role individual URI -> role_kind decision, for the finalized-graph
             # role-axis contradiction guard (see the append path).
@@ -530,7 +525,7 @@ class VersionedCommitMixin:
                     g.add((individual_uri, RDF.type, PROETHICA_CORE[resolved_cat]))
 
                 # Add type-specific properties (reuse existing logic)
-                self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)
+                self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns, ctx=ctx)
 
                 # Commit-time marker only; extraction-time prov:generatedAtTime is
                 # emitted by _emit_provenance (inside _add_individual_properties).
@@ -539,7 +534,7 @@ class VersionedCommitMixin:
                 count += 1
 
             # Emit the Agent layer (one proeth-core:Agent per actor + hasRole).
-            self._emit_agent_layer(g)
+            self._emit_agent_layer(g, ctx=ctx)
 
             # Role-axis contradiction guard (case-4 lesson): finalized-graph
             # sweep, same as the append path. Provable both-sides

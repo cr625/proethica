@@ -40,52 +40,37 @@ class AgentLayerMixin:
 
     @staticmethod
     def _is_role_individual(entity) -> bool:
-        return (getattr(entity, 'extraction_type', '') or '').lower() == 'roles'
+        from app.services.commit.commit_context import _is_role_individual
+        return _is_role_individual(entity)
 
     def _actor_key_and_label(self, entity, rdf_data: Dict):
         """(normalized key, display label) of a role individual's underlying
-        actor, or (None, None) if it cannot be determined."""
-        props = (rdf_data or {}).get('properties', {}) or {}
-        actor_vals = props.get('actor')
-        actor = None
-        if actor_vals:
-            actor = actor_vals[0] if isinstance(actor_vals, list) else actor_vals
-        if not actor:
-            actor = getattr(entity, 'entity_label', None)
-        if not actor:
-            return None, None
-        return self._norm_label(str(actor)), str(actor)
+        actor, or (None, None) if it cannot be determined. Canonical logic
+        is in commit_context (Step 2.1); this delegate remains for direct
+        callers until Step 2.4."""
+        from app.services.commit.commit_context import _actor_key_and_label
+        return _actor_key_and_label(entity, rdf_data)
 
     def _build_agent_indices(self, individuals, case_ns: Namespace) -> None:
         """First-pass build of the Agent layer maps over the batch:
         - self._agent_index: actor_key -> Agent URI
         - self._facet_to_agent: role-facet URI -> Agent URI
         - self._agent_facets: Agent URI -> (actor_label, set(facet URIs))
-        Used by _emit_agent_layer (mints the Agents + hasRole) and by the
-        relationships branch (attaches actor relations at the Agent level)."""
-        self._agent_index = {}
-        self._facet_to_agent = {}
-        self._agent_facets = {}
-        for _ent, _rdf in individuals:
-            if not self._is_role_individual(_ent):
-                continue
-            akey, alabel = self._actor_key_and_label(_ent, _rdf)
-            if not akey:
-                continue
-            facet_uri = case_ns[self._safe_label(getattr(_ent, 'entity_label', '') or '')]
-            agent_uri = self._agent_index.get(akey)
-            if agent_uri is None:
-                agent_uri = case_ns['Agent_' + self._safe_label(alabel)]
-                self._agent_index[akey] = agent_uri
-                self._agent_facets[agent_uri] = (alabel, set())
-            self._facet_to_agent[facet_uri] = agent_uri
-            self._agent_facets[agent_uri][1].add(facet_uri)
+        Transitional (Step 2.1): the canonical builder is
+        commit_context.build_agent_indices, which the commit paths use via
+        build_commit_context; this instance-state wrapper remains for
+        direct test callers and is removed in Step 2.4."""
+        from app.services.commit.commit_context import build_agent_indices
+        self._agent_index, self._facet_to_agent, self._agent_facets = \
+            build_agent_indices(individuals, case_ns)
 
-    def _emit_agent_layer(self, g: Graph) -> None:
+    def _emit_agent_layer(self, g: Graph, ctx=None) -> None:
         """Emit one proeth-core:Agent per distinct actor and a hasRole edge to
         each role facet it bears. Idempotent: re-emitting the same Agent URI on a
         later-section append commit just re-asserts the same triples."""
-        for agent_uri, (alabel, facet_uris) in getattr(self, '_agent_facets', {}).items():
+        agent_facets = ctx.agent_facets if ctx is not None \
+            else getattr(self, '_agent_facets', {})
+        for agent_uri, (alabel, facet_uris) in agent_facets.items():
             g.add((agent_uri, RDF.type, OWL.NamedIndividual))
             g.add((agent_uri, RDF.type, PROETHICA_CORE.Agent))
             g.add((agent_uri, RDFS.label, Literal(alabel)))

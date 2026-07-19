@@ -263,7 +263,7 @@ class EmitterMixin:
                 emitted.add(local)
 
     def _add_individual_properties(self, g: Graph, uri: URIRef, entity: Any,
-                                   rdf_data: Dict, case_ns: Namespace):
+                                   rdf_data: Dict, case_ns: Namespace, ctx=None):
         """Add type-specific properties to an individual in the graph.
 
         SINGLE per-individual serializer shared by BOTH commit paths: the live
@@ -277,10 +277,17 @@ class EmitterMixin:
         `_rel_label_index`). Keeping one serializer is what stops the two paths
         re-drifting; do not reintroduce an inline copy in either caller.
         """
-        # Lazy-init the R1 edge-archetype tracker so the serializer is self-contained
-        # (both commit paths pre-initialize it; a direct unit-test caller need not).
-        if not hasattr(self, '_role_edge_archetyped'):
-            self._role_edge_archetyped = set()
+        # Per-commit state source (Step 2.1): the commit paths pass a
+        # CommitContext; the instance-attribute fallback remains for direct
+        # unit-test callers until Step 2.4 migrates them.
+        if ctx is not None:
+            role_edge_archetyped = ctx.role_edge_archetyped
+            facet_to_agent = ctx.facet_to_agent
+        else:
+            if not hasattr(self, '_role_edge_archetyped'):
+                self._role_edge_archetyped = set()
+            role_edge_archetyped = self._role_edge_archetyped
+            facet_to_agent = getattr(self, '_facet_to_agent', {}) or {}
         extraction_type = entity.extraction_type or ''
 
         # Universal per-individual serialization. Lives here (not in a caller) so
@@ -481,7 +488,6 @@ class EmitterMixin:
                 # facet; unresolvable / non-role targets are logged and skipped.
                 if prop_name == 'relationships':
                     import ast
-                    facet_to_agent = getattr(self, '_facet_to_agent', {}) or {}
                     subj = uri  # the source role facet (was the bearer Agent)
                     rels = prop_values if isinstance(prop_values, list) else [prop_values]
                     for rel in rels:
@@ -503,7 +509,7 @@ class EmitterMixin:
                         if not rtype:
                             logger.warning(f"relationship missing type, dropped: target={tgt!r}")
                             continue
-                        tgt_uri = self._resolve_rel_target(str(tgt))
+                        tgt_uri = self._resolve_rel_target(str(tgt), ctx=ctx)
                         if tgt_uri is None:
                             logger.info(f"relationship target unresolved, skipped: type={rtype!r} target={tgt!r}")
                             continue
@@ -535,10 +541,10 @@ class EmitterMixin:
                         archetype = self._REL_PROP_TO_RELATIONAL_ARCHETYPE.get(relprop)
                         if archetype:
                             g.add((edge_subj, RDF.type, PROETHICA[archetype]))
-                            self._role_edge_archetyped.add(edge_subj)
+                            role_edge_archetyped.add(edge_subj)
                             if relprop in self._SYMMETRIC_REL_PROPS:
                                 g.add((edge_obj, RDF.type, PROETHICA[archetype]))
-                                self._role_edge_archetyped.add(edge_obj)
+                                role_edge_archetyped.add(edge_obj)
                         # PROV-O derivation for the edge (mirrors defeasibility edges);
                         # carries the per-relationship quote when the prompt supplied one.
                         self._emit_relationship_provenance(
@@ -596,7 +602,7 @@ class EmitterMixin:
         # falls back to its role_category (the four Kong archetypes) for the relational type. Materialized
         # as the individual's direct rdf:type so it sits beside the edge route (edge primary, role_category
         # fallback, edge wins on conflict). Skipped when an actor edge already classified this facet.
-        if self._is_role_individual(entity) and uri not in getattr(self, '_role_edge_archetyped', set()):
+        if self._is_role_individual(entity) and uri not in role_edge_archetyped:
             self._apply_role_category_fallback_archetype(g, uri, rdf_data)
 
     def _apply_role_category_fallback_archetype(self, g: Graph, uri: URIRef, rdf_data: Dict) -> None:

@@ -40,6 +40,7 @@ from app.services.ontserve.ontserve_config import (
     get_ontserve_db_config, get_ontserve_base_path, get_ontserve_mcp_url,
 )
 from app.services.commit import naming
+from app.services.commit.commit_context import build_commit_context
 
 logger = logging.getLogger(__name__)
 
@@ -500,31 +501,14 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
 
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
 
-            # First pass: label -> individual URI index, so role relationship
-            # targets (short actor names like "Engineer A") resolve to real edges
-            # in _add_individual_properties. Mirrors _write_case_ttl_fresh.
-            self._rel_label_index = {}
-            for _ent, _rdf in individuals:
-                _lbl = getattr(_ent, 'entity_label', None)
-                if _lbl:
-                    self._rel_label_index[self._norm_label(_lbl)] = case_ns[self._safe_label(_lbl)]
-            # Append path only: also seed from individuals already on disk (the
-            # loaded graph), so a later-section commit can still resolve targets
-            # against actors an earlier-section commit wrote. The current batch
-            # (authoritative fresh URIs) wins via setdefault. The versioned path
-            # overwrites and has no prior graph, so it does not need this.
-            for _s in g.subjects(RDF.type, OWL.NamedIndividual):
-                for _lbl_lit in g.objects(_s, RDFS.label):
-                    self._rel_label_index.setdefault(self._norm_label(str(_lbl_lit)), _s)
-
-            # Agent layer (Option C): map each role facet to one proeth-core:Agent
-            # per distinct actor (must precede the loop so the relationships branch
-            # can attach actor relations at the Agent level).
-            self._build_agent_indices(individuals, case_ns)
-            # R1 edge-primary relational archetype: role facets that received a
-            # relational archetype from an actor edge (so the role_category fallback
-            # is skipped for them; the edge wins on conflict). Reset per commit.
-            self._role_edge_archetyped = set()
+            # Per-commit context (Step 2.1): label->URI index (seeded from the
+            # loaded graph on this append path so a later-section commit still
+            # resolves actors an earlier-section commit wrote) plus the Agent
+            # layer maps and the R1 edge-archetype tracker. Shared factory with
+            # _write_case_ttl_fresh -- the two paths' index building no longer
+            # duplicates.
+            ctx = build_commit_context(case_id, case_ns, g, individuals,
+                                       seed_rel_index_from_graph=True)
 
             count = 0
             merged = 0
@@ -754,7 +738,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 # temporal fields, and the Step-1/2 generic handler that turns
                 # `attributes` into per-key triples and `relationships` into real
                 # proeth-core actor edges (resolved via the _rel_label_index).
-                self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns)
+                self._add_individual_properties(g, individual_uri, entity, rdf_data, case_ns, ctx=ctx)
 
                 # Commit-time generation marker. The extraction-time generatedAtTime
                 # (from the extracted props) is emitted as prov:generatedAtTime by
@@ -783,7 +767,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
 
             # Emit the Agent layer (one proeth-core:Agent per actor + hasRole to
             # each role facet) once all facets have been written.
-            self._emit_agent_layer(g)
+            self._emit_agent_layer(g, ctx=ctx)
 
             # Role-axis contradiction guard (case-4 lesson): runs on the
             # finalized graph so it sees every rdf:type source, including the
@@ -1129,18 +1113,24 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 return prop, swap
         return 'relatedTo', False
 
-    def _resolve_rel_target(self, target: str):
+    def _resolve_rel_target(self, target: str, ctx=None):
         """Resolve an actor-relationship target label to a case individual URI via
         the first-pass index. Actor relationships hold between role-bearers, so a
-        role facet (a key of _facet_to_agent) is always preferred over a same-named
+        role facet (a key of facet_to_agent) is always preferred over a same-named
         non-role individual; otherwise a bare actor name like "Owner" can substring
         -match a non-role node (e.g. an action "Owner Covert Review Instruction").
-        Match tiers: exact, then prefix/substring. Returns the URI or None."""
-        index = getattr(self, '_rel_label_index', None)
+        Match tiers: exact, then prefix/substring. Returns the URI or None.
+        Reads the per-commit CommitContext when supplied; the instance-attribute
+        fallback remains for direct test callers until Step 2.4."""
+        if ctx is not None:
+            index = ctx.rel_label_index
+            role_facets = set(ctx.facet_to_agent)
+        else:
+            index = getattr(self, '_rel_label_index', None)
+            role_facets = set(getattr(self, '_facet_to_agent', {}) or {})
         if not index or not target:
             return None
         nt = self._norm_label(target)
-        role_facets = set(getattr(self, '_facet_to_agent', {}) or {})
 
         def _pick(cands):
             cands = sorted(set(cands), key=str)
