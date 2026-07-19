@@ -404,7 +404,7 @@ async function previewVariables() {
                 html += `
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <strong class="text-primary">${" + varName + "}</strong>
+                            <strong class="text-primary">{{ ${varName} }}</strong>
                             <span class="badge bg-secondary">${varInfo.length} chars</span>
                         </div>
                         <div class="var-preview-content">${escapeHtml(varInfo.value)}</div>
@@ -434,7 +434,7 @@ async function previewSingleVariable(varName) {
 
     currentSingleVarName = varName;
     const modal = new bootstrap.Modal(document.getElementById('singleVarModal'));
-    document.getElementById('singleVarName').textContent = ' + varName + ';
+    document.getElementById('singleVarName').textContent = '{{ ' + varName + ' }}';
     document.getElementById('singleVarLoading').style.display = 'block';
     document.getElementById('singleVarContent').style.display = 'none';
     document.getElementById('singleVarMeta').textContent = '';
