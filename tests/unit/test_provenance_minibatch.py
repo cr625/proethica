@@ -152,7 +152,7 @@ def test_temporal_converter_stamps_and_serializer_emits_generated_at():
     assert rdf_data.get('generatedAtTime'), "converter must stamp the extraction time"
 
     svc = OntServeCommitService.__new__(OntServeCommitService)
-    svc._objprop_cache = set()
+    svc._base_ontology_index._objprop_cache = set()
     g = Graph()
     uri = URIRef("http://proethica.org/ontology/case/9#Notify_Client")
     svc._add_temporal_fields(g, uri, rdf_data)

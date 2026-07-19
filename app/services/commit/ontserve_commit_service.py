@@ -100,11 +100,22 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
         # Ensure directories exist
         self.ontologies_dir.mkdir(parents=True, exist_ok=True)
 
-        # Lazily-built resolver: intermediate class local-name -> its established
-        # core category (resolved via subClassOf* in
-        # proethica-core+intermediate[-extended]). Shared implementation with the
-        # matcher cross-category gate (app.services.extraction.category_resolver).
-        self._category_resolver = None
+        # Cross-commit base-ontology caches (established-category resolver,
+        # base category reservation map, object-property locals), owned by
+        # one collaborator so the service's remaining state is exactly its
+        # immutable configuration above. Built lazily on first use.
+        self._base_index = None
+
+    @property
+    def _base_ontology_index(self):
+        # getattr default: tests construct the service via __new__ (skipping
+        # __init__) and plant caches directly on the index.
+        idx = getattr(self, '_base_index', None)
+        if idx is None:
+            from app.services.commit.base_ontology_index import BaseOntologyIndex
+            idx = BaseOntologyIndex(getattr(self, 'ontologies_dir', None))
+            self._base_index = idx
+        return idx
 
     def _case_title(self, case_id: int) -> Optional[str]:
         """Return the human case title for a case id, or None if the document is

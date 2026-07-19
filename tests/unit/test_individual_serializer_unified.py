@@ -610,7 +610,7 @@ def test_category_disambiguation_on_cross_layer_collision():
     there is no collision, the IRI is not in the base, or no category is given."""
     svc = _svc()
     # Stand in for the core+intermediate base map (avoids parsing TTLs in the test).
-    svc._base_cat_cache = {'ProfessionalCompetence': 'Capability', 'EngineerRole': 'Role'}
+    svc._base_ontology_index._base_cat_cache = {'ProfessionalCompetence': 'Capability', 'EngineerRole': 'Role'}
     # Collision: a Principle onto a base Capability IRI -> disambiguated.
     assert svc._category_safe_class_local('ProfessionalCompetence', 'Principle') == 'ProfessionalCompetencePrinciple'
     # Same category as the base -> unchanged (legit reuse of an existing class).

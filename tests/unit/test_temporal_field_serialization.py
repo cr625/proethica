@@ -18,7 +18,7 @@ INT = 'http://proethica.org/ontology/intermediate#'
 def _emit(rdf_data, object_properties=frozenset()):
     svc = OntServeCommitService.__new__(OntServeCommitService)
     # Control the declared-object-property set deterministically (no file load).
-    svc._objprop_cache = set(object_properties)
+    svc._base_ontology_index._objprop_cache = set(object_properties)
     g = Graph()
     uri = CASE['Subject']
     svc._add_temporal_fields(g, uri, rdf_data)

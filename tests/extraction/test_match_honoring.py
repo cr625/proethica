@@ -397,7 +397,7 @@ def test_class_channel_row_dedups_against_curated_base_without_individual(
     svc = object.__new__(OntServeCommitService)
     svc.ontologies_dir = tmp_path
     # Curated-base stand-in: the label chains to Principle in the base.
-    svc._base_cat_cache = {'TransparencyPrinciple': 'Principle'}
+    svc._base_ontology_index._base_cat_cache = {'TransparencyPrinciple': 'Principle'}
     entity = _placement_entity('Transparency Principle')
 
     result = svc._commit_classes_to_intermediate([(entity, {})])
@@ -420,7 +420,7 @@ def test_new_class_channel_row_still_writes_to_extended(tmp_path, monkeypatch):
     curated base) still lands in the extended store."""
     svc = object.__new__(OntServeCommitService)
     svc.ontologies_dir = tmp_path
-    svc._base_cat_cache = {}  # nothing reserved in the base
+    svc._base_ontology_index._base_cat_cache = {}  # nothing reserved in the base
     entity = _placement_entity('Novel AI Verification Principle')
 
     result = svc._commit_classes_to_intermediate([(entity, {})])

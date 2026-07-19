@@ -20,7 +20,7 @@ PROETH = Namespace("http://proethica.org/ontology/intermediate#")
 
 def _svc(base_map):
     svc = OntServeCommitService.__new__(OntServeCommitService)
-    svc._base_cat_cache = dict(base_map)
+    svc._base_ontology_index._base_cat_cache = dict(base_map)
     return svc
 
 

@@ -54,10 +54,7 @@ class CategoryResolutionMixin:
         Delegates to the shared CategoryResolver (one implementation, shared with
         the matcher cross-category gate), pinned to this service's ontologies_dir.
         """
-        if self._category_resolver is None:
-            from app.services.extraction.category_resolver import CategoryResolver
-            self._category_resolver = CategoryResolver(self.ontologies_dir)
-        return self._category_resolver.resolve(class_local_name)
+        return self._base_ontology_index.established_core_category(class_local_name)
 
     def _base_core_category(self, class_local_name: str) -> Optional[str]:
         """Core category an IRI is reserved for in the IMMUTABLE base (core +
@@ -71,42 +68,7 @@ class CategoryResolutionMixin:
         CompetenceSelfAssessmentCapability -> Capability (reserved by proethica-intermediate),
         regardless of what a principle pass tries to write to the same IRI.
         """
-        cache = getattr(self, '_base_cat_cache', None)
-        if cache is None:
-            cache = {}
-            from rdflib import Graph as _G
-            base = _G()
-            for fn in ('proethica-core.ttl', 'proethica-intermediate.ttl'):
-                p = self.ontologies_dir / fn
-                if p.exists():
-                    try:
-                        base.parse(str(p), format='turtle')
-                    except Exception as e:
-                        logger.warning("base-category map: could not parse %s: %s", fn, e)
-            core_ns = str(PROETHICA_CORE)
-            nine = {'Role', 'Principle', 'Obligation', 'State', 'Resource',
-                    'Action', 'Event', 'Capability', 'Constraint'}
-
-            def reach(cls, seen):
-                if cls in seen:
-                    return None
-                seen.add(cls)
-                s = str(cls)
-                if s.startswith(core_ns) and s.split('#')[-1] in nine:
-                    return s.split('#')[-1]
-                for sup in base.objects(cls, RDFS.subClassOf):
-                    r = reach(sup, seen)
-                    if r:
-                        return r
-                return None
-
-            for cls in set(base.subjects(RDF.type, OWL.Class)):
-                local = str(cls).split('#')[-1].split('/')[-1]
-                cat = reach(cls, set())
-                if cat:
-                    cache[local] = cat
-            self._base_cat_cache = cache
-        return cache.get(class_local_name)
+        return self._base_ontology_index.base_core_category(class_local_name)
 
     _NINE_CORE = {'Role', 'Principle', 'Obligation', 'State', 'Resource',
                   'Action', 'Event', 'Capability', 'Constraint'}

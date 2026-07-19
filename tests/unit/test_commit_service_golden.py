@@ -102,7 +102,7 @@ def _stub_service(tmp_path, monkeypatch):
     # Deterministic empty object-property set except the two the Action
     # fixture below needs redirected to a <local>Text sibling (mirrors
     # test_temporal_field_serialization.py).
-    svc._objprop_cache = {'fulfillsObligation', 'causedByAction'}
+    svc._base_ontology_index._objprop_cache = {'fulfillsObligation', 'causedByAction'}
 
     def _stub_canonicalize(case_id, ttl_path):
         g = Graph()

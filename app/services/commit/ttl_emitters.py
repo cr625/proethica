@@ -624,30 +624,10 @@ class EmitterMixin:
 
     def _object_property_locals(self) -> set:
         """Local names of every owl:ObjectProperty declared in core / intermediate.
-        Cached per instance. Used so the temporal serializer never emits a literal
-        on an object property (which would make the case OWL-DL inconsistent)."""
-        if getattr(self, '_objprop_cache', None) is not None:
-            return self._objprop_cache
-        names = set()
-        base = getattr(self, 'ontologies_dir', None)
-        if not base:
-            self._objprop_cache = names
-            return names
-        for fn in ('proethica-core.ttl', 'proethica-intermediate.ttl',
-                   'proethica-intermediate-extended.ttl'):
-            p = base / fn
-            if not p.exists():
-                continue
-            try:
-                gg = Graph()
-                gg.parse(p, format='turtle')
-            except Exception as e:
-                logger.warning(f"Could not parse {fn} for object-property detection: {e}")
-                continue
-            for s in gg.subjects(RDF.type, OWL.ObjectProperty):
-                names.add(str(s).split('#')[-1].split('/')[-1])
-        self._objprop_cache = names
-        return names
+        Used so the temporal serializer never emits a literal on an object
+        property (which would make the case OWL-DL inconsistent). Cache owned by
+        BaseOntologyIndex (Step 2.2)."""
+        return self._base_ontology_index.object_property_locals()
 
     def _add_temporal_fields(self, g: Graph, uri: URIRef, rdf_data: Dict):
         """Emit the descriptive triples for a temporal (Action/Event) individual
