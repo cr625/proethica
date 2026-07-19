@@ -1,0 +1,47 @@
+/* CaseCard -- the standard case-details fragment (shared/case_card.js).
+   Single source for the card's own classes; page CSS keeps owning the
+   surrounding panel (position, size, visibility). */
+
+.case-card-heading {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid;
+}
+
+.case-card-title {
+    font-size: 0.9rem;
+}
+
+.provision-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    margin: 2px;
+    background: #e7f1ff;
+    color: #0d6efd;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+.provision-tag-interactive {
+    cursor: pointer;
+}
+
+.provision-tag-interactive:hover,
+.provision-tag-interactive:focus {
+    background: #d4e5ff;
+    text-decoration: underline;
+}
+
+.case-card-list-item {
+    padding: 4px 0;
+    font-size: 0.85rem;
+}
+
+.case-card-list-item-clickable {
+    cursor: pointer;
+    color: #0d6efd;
+}
+
+.case-card-list-item-clickable:hover {
+    text-decoration: underline;
+}

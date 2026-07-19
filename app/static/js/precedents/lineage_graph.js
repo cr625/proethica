@@ -367,12 +367,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function showNodeDetails(event, d) {
         event.stopPropagation();
         const panel = document.getElementById('details-panel');
-        const title = document.getElementById('detail-title');
         const content = document.getElementById('detail-content');
-
-        const color = outcomeColors[d.outcome] || outcomeColors['unknown'];
-        title.style.borderColor = color;
-        title.textContent = d.label;
 
         // Build citation lists from edges
         const cites = [];
@@ -386,56 +381,39 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sid === d.id && nodeMap[tid]) cites.push(nodeMap[tid]);
             if (tid === d.id && nodeMap[sid]) citedBy.push(nodeMap[sid]);
         });
+        cites.sort((a, b) => a.year - b.year);
+        citedBy.sort((a, b) => a.year - b.year);
 
-        let html = `
-            <div class="mb-2"><strong>${d.full_title}</strong></div>
-            <div class="small text-muted mb-2">
-                Year: ${d.year} &middot;
-                Outcome: <span style="color:${color}; font-weight:600">${d.outcome}</span>
-            </div>
-            <div class="mb-1">
-                <a href="/cases/${d.id}" class="small" target="_blank">View case detail <i class="bi bi-box-arrow-up-right"></i></a>
-            </div>
-            <hr class="my-2">
-        `;
-
-        if (cites.length > 0) {
-            html += `<div class="small text-muted mb-1"><strong>Cites ${cites.length} precedent${cites.length > 1 ? 's' : ''}:</strong></div>`;
-            cites.sort((a, b) => a.year - b.year);
-            cites.forEach(c => {
-                html += `<div class="citation-list-item" data-case-id="${c.id}">
-                    <span style="color:${outcomeColors[c.outcome]||'#999'}">&#9679;</span>
-                    ${c.label} (${c.year}) - ${c.full_title.substring(0, 50)}${c.full_title.length > 50 ? '...' : ''}
-                </div>`;
-            });
-        } else {
-            html += `<div class="small text-muted mb-1">Does not cite any precedents in the database.</div>`;
-        }
-
-        if (citedBy.length > 0) {
-            html += `<hr class="my-2"><div class="small text-muted mb-1"><strong>Cited by ${citedBy.length} case${citedBy.length > 1 ? 's' : ''}:</strong></div>`;
-            citedBy.sort((a, b) => a.year - b.year);
-            citedBy.forEach(c => {
-                html += `<div class="citation-list-item" data-case-id="${c.id}">
-                    <span style="color:${outcomeColors[c.outcome]||'#999'}">&#9679;</span>
-                    ${c.label} (${c.year}) - ${c.full_title.substring(0, 50)}${c.full_title.length > 50 ? '...' : ''}
-                </div>`;
-            });
-        } else {
-            html += `<hr class="my-2"><div class="small text-muted mb-1">Not cited by any case in the database.</div>`;
-        }
-
-        content.innerHTML = html;
-        panel.classList.add('visible');
-
-        // Click handler for citation list items to focus that node
-        content.querySelectorAll('.citation-list-item').forEach(el => {
-            el.addEventListener('click', () => {
-                const targetId = parseInt(el.dataset.caseId);
-                const targetNode = graphData.nodes.find(n => n.id === targetId);
-                if (targetNode) showNodeDetails({stopPropagation: () => {}}, targetNode);
-            });
+        const toItem = c => ({
+            id: c.id,
+            label: c.label,
+            year: c.year,
+            outcome: c.outcome,
+            extra: '- ' + c.full_title.substring(0, 50) + (c.full_title.length > 50 ? '...' : '')
         });
+
+        // Standard case-details fragment (shared/case_card.js): heading,
+        // outcome badge, full title, year, /cases/<id> link.
+        CaseCard.render(content, d, {
+            outcomeColors: outcomeColors,
+            sections: [
+                {
+                    title: `Cites ${cites.length || 'no'} precedent${cites.length === 1 ? '' : 's'}:`,
+                    emptyText: 'Does not cite any precedents in the database.',
+                    items: cites.map(toItem)
+                },
+                {
+                    title: `Cited by ${citedBy.length || 'no'} case${citedBy.length === 1 ? '' : 's'}:`,
+                    emptyText: 'Not cited by any case in the database.',
+                    items: citedBy.map(toItem)
+                }
+            ],
+            onItemClick: item => {
+                const targetNode = graphData.nodes.find(n => n.id === item.id);
+                if (targetNode) showNodeDetails({stopPropagation: () => {}}, targetNode);
+            }
+        });
+        panel.classList.add('visible');
     }
 
     // Close details

@@ -312,60 +312,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showNodeDetails(event, d) {
         const panel = document.getElementById('details-panel');
-        document.getElementById('node-details').style.display = 'block';
+        const nodeBox = document.getElementById('node-details');
+        nodeBox.style.display = 'block';
         document.getElementById('edge-details').style.display = 'none';
 
-        document.getElementById('detail-title').textContent = d.label;
-        document.getElementById('detail-title').style.borderColor = outcomeColors[d.outcome];
-        document.getElementById('detail-full-title').textContent = d.full_title;
-
-        const outcomeBadge = document.getElementById('detail-outcome-badge');
-        outcomeBadge.textContent = d.outcome;
-        outcomeBadge.style.backgroundColor = outcomeColors[d.outcome];
-
-        const transformBadge = document.getElementById('detail-transform-badge');
-        if (d.transformation) {
-            transformBadge.textContent = d.transformation;
-            transformBadge.style.display = 'inline';
-        } else {
-            transformBadge.style.display = 'none';
-        }
-
-        // Provisions
-        const provDiv = document.getElementById('detail-provisions');
-        if (d.provisions && d.provisions.length > 0) {
-            provDiv.innerHTML = d.provisions.map(p =>
-                `<span class="provision-tag">${p}</span>`
-            ).join('');
-        } else {
-            provDiv.innerHTML = '<span class="text-muted small">None</span>';
-        }
-
-        document.getElementById('detail-entity-count').textContent = d.entity_count;
-
-        // Find connections
+        // Connections at the current threshold
         const connections = graphData.edges.filter(e =>
             e.source.id === d.id || e.target.id === d.id ||
             e.source === d.id || e.target === d.id
         );
+        const items = connections.slice(0, 10).map(conn => {
+            const otherId = (conn.source.id || conn.source) === d.id ?
+                (conn.target.id || conn.target) : (conn.source.id || conn.source);
+            const otherNode = graphData.nodes.find(n => n.id === otherId);
+            return otherNode ? {
+                id: otherNode.id,
+                label: otherNode.label,
+                outcome: otherNode.outcome,
+                extra: `(${conn.similarity.toFixed(2)})`
+            } : null;
+        }).filter(Boolean);
 
-        const connList = document.getElementById('detail-connections');
-        connList.innerHTML = '';
-
-        if (connections.length === 0) {
-            connList.innerHTML = '<li class="text-muted">No connections at current threshold</li>';
-        } else {
-            connections.slice(0, 10).forEach(conn => {
-                const otherId = (conn.source.id || conn.source) === d.id ?
-                    (conn.target.id || conn.target) : (conn.source.id || conn.source);
-                const otherNode = graphData.nodes.find(n => n.id === otherId);
-                if (otherNode) {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<span style="color:${outcomeColors[otherNode.outcome]}">&#9679;</span> ${otherNode.label} <span class="text-muted">(${conn.similarity.toFixed(2)})</span>`;
-                    connList.appendChild(li);
-                }
-            });
-        }
+        // Standard case-details fragment (shared/case_card.js): heading,
+        // badges, full title, /cases/<id> link, interactive provision tags.
+        CaseCard.render(nodeBox, d, {
+            outcomeColors: outcomeColors,
+            sections: [{
+                title: 'Connected Cases:',
+                emptyText: 'No connections at current threshold',
+                items: items
+            }],
+            onItemClick: item => {
+                const n = graphData.nodes.find(n => n.id === item.id);
+                if (n) showNodeDetails(null, n);
+            }
+        });
 
         panel.classList.add('visible');
     }

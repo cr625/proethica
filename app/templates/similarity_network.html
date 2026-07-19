@@ -4,6 +4,8 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/similarity_network.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/case-card.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -183,24 +185,9 @@
                 <!-- Details Panel -->
                 <div id="details-panel">
                     <button type="button" class="btn-close float-end" id="close-details"></button>
-                    <div id="node-details" style="display: none;">
-                        <h6 id="detail-title" style="border-color: #666;">Case Details</h6>
-                        <p class="mb-2">
-                            <span class="badge" id="detail-outcome-badge">Outcome</span>
-                            <span class="badge bg-secondary" id="detail-transform-badge">Transform</span>
-                        </p>
-                        <p class="small text-muted mb-2" id="detail-full-title"></p>
-                        <div class="mb-2">
-                            <strong class="small">Provisions:</strong>
-                            <div id="detail-provisions"></div>
-                        </div>
-                        <p class="small mb-1">
-                            <strong>Entities:</strong> <span id="detail-entity-count">0</span>
-                        </p>
-                        <hr>
-                        <p class="small mb-1"><strong>Connected Cases:</strong></p>
-                        <ul class="small list-unstyled" id="detail-connections"></ul>
-                    </div>
+                    {# Rendered by CaseCard (static/js/shared/case_card.js) --
+                       the standard case-details fragment. #}
+                    <div id="node-details" style="display: none;"></div>
                     <div id="edge-details" style="display: none;">
                         <h6 style="border-color: #0d6efd;">Connection Details</h6>
                         <p class="mb-2">
@@ -301,5 +288,7 @@
 <script>
     window.SIMILARITY_NETWORK = { focusCaseId: {{ focus_case_id|tojson }} };
 </script>
+<script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shared/case_card.js') }}"></script>
 <script src="{{ url_for('static', filename='js/precedents/similarity_network.js') }}"></script>
 {% endblock %}
