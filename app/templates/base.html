@@ -276,40 +276,6 @@
             </p>
         </div>
 
-        <!-- Floating feedback button -->
-        <a href="https://forms.gle/sGSis4ghUAE2Cqyx9" target="_blank" rel="noopener"
-           class="feedback-btn" title="Share your feedback">
-            <i class="bi bi-chat-heart"></i>
-        </a>
-        <style>
-            .feedback-btn {
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                width: 48px;
-                height: 48px;
-                background: #6c757d;
-                color: white;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 1.25rem;
-                text-decoration: none;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                transition: background 0.2s, transform 0.2s;
-                z-index: 1000;
-            }
-            .feedback-btn:hover {
-                background: #0d6efd;
-                color: white;
-                transform: scale(1.1);
-            }
-        </style>
-        <script>
-            // Add current page to feedback URL
-            document.querySelector('.feedback-btn').href += '?page=' + encodeURIComponent(location.pathname);
-        </script>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
