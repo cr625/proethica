@@ -39,6 +39,7 @@ from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
 from app.services.ontserve.ontserve_config import (
     get_ontserve_db_config, get_ontserve_base_path, get_ontserve_mcp_url,
 )
+from app.services.commit import naming
 
 logger = logging.getLogger(__name__)
 
@@ -61,44 +62,14 @@ _NINE_CORE_CATEGORIES = frozenset({
     "Action", "Event", "Capability", "Constraint",
 })
 
-# ONT-4 (2026-07-01): the Step-3 temporal serializer emits an event individual as proeth:Event
-# plus proeth:eventType (outcome/exogenous/automatic) with no per-case subclass. The ratified
-# design types the event to exactly one of the three DISJOINT core ORIGIN subclasses. This maps
-# the emitted eventType to the origin-subclass LOCAL name; each origin subclass is subClassOf
-# core:Event, so typing an event to one is consistent with the chain and the nine-way
-# AllDisjointClasses (the three origins are disjoint with each other, not with Event). The topical
-# event taxonomy this replaces is owl:deprecated in proethica-intermediate.
-_EVENT_ORIGIN_SUBCLASS = {
-    'outcome': 'AgentCausedEvent',
-    'exogenous': 'ExogenousEvent',
-    'automatic': 'AutomaticEvent',
-}
-
-
-def resolve_event_origin_category(rdf_data: dict) -> "str | None":
-    """Return the core Event ORIGIN-subclass local name (AgentCausedEvent / ExogenousEvent /
-    AutomaticEvent) for an event individual's emitted proeth:eventType, or None when the field is
-    absent or its value is unrecognized. Reads the flat Step-3 JSON-LD (top-level proeth:eventType)
-    and, defensively, a nested properties dict; a list value takes its first element."""
-    if not rdf_data:
-        return None
-    v = rdf_data.get('proeth:eventType') or rdf_data.get('eventType')
-    if not v:
-        props = rdf_data.get('properties')
-        if isinstance(props, dict):
-            v = props.get('proeth:eventType') or props.get('eventType')
-    if isinstance(v, list):
-        v = v[0] if v else None
-    if not v:
-        return None
-    resolved = _EVENT_ORIGIN_SUBCLASS.get(str(v).strip().lower())
-    if resolved is None:
-        # A PRESENT but unrecognized value must not silently commit as bare
-        # Event (no-silent-fallback rule); absence is the intended bare case.
-        logger.warning("Event origin routing: eventType value %r not in the "
-                       "outcome/exogenous/automatic vocabulary; committing as bare Event",
-                       v)
-    return resolved
+# Naming/label/URI hygiene helpers (naming.py, god-file split Item 1 Step 1.1).
+# _EVENT_ORIGIN_SUBCLASS is re-imported here because _commit_individuals_to_case_ontology
+# (below, not moved) reads it directly; resolve_event_origin_category is re-exported so
+# existing `from ontserve_commit_service import resolve_event_origin_category` keeps working.
+from app.services.commit.naming import (  # noqa: E402
+    resolve_event_origin_category,
+    _EVENT_ORIGIN_SUBCLASS,
+)
 
 
 class OntServeCommitService:
@@ -317,30 +288,17 @@ class OntServeCommitService:
                 "Matched-class honoring lookup failed (%s); keeping minted type(s).", e)
             return None
 
-    @staticmethod
-    def _enforce_role_suffix(local_name: str, label: str, category: Optional[str]) -> Tuple[str, str]:
-        """Every role CLASS ends in 'Role' (URI local-name + rdfs:label). Deterministic hard
-        enforcement of the convention the extraction prompt only soft-biases; idempotent and a
-        no-op for non-Role categories. Applied before the base-check so a suffixless extraction
-        (e.g. 'Design Engineer') maps onto the canonical promoted class (DesignEngineerRole) and
-        is reused, not re-minted."""
-        if category != 'Role':
-            return local_name, label
-        if local_name and not local_name.endswith('Role'):
-            local_name = f"{local_name}Role"
-        if label and not label.rstrip().endswith('Role'):
-            label = f"{label.rstrip()} Role"
-        return local_name, label
-
-    @staticmethod
-    def _safe_local_name(label: str) -> str:
-        """Label -> URI local-name: keep only [A-Za-z0-9], dropping spaces, hyphens, and every other
-        punctuation mark. An allowlist, not the former hand-enumerated denylist, so no character is ever
-        forgotten -- the denylist missed the hyphen and minted 'CompetenceSelf-AssessmentCapability' where
-        the curated base has 'CompetenceSelfAssessmentCapability'. That mismatch defeated both the class
-        matcher and the D15 base-residence check, leaking a duplicate class into the extended store."""
-        import re
-        return re.sub(r'[^A-Za-z0-9]', '', label or '')
+    # naming.py shims (god-file split Item 1 Step 1.1): every self._method(...)
+    # call site below is unaffected.
+    _enforce_role_suffix = staticmethod(naming.enforce_role_suffix)
+    _safe_local_name = staticmethod(naming.safe_local_name)
+    _case_ontology_iri = staticmethod(naming.case_ontology_iri)
+    _camelCase = staticmethod(naming.camelCase)
+    _sanitize_graph_literals = staticmethod(naming.sanitize_graph_literals)
+    _confidence_literal = staticmethod(naming.confidence_literal)
+    _safe_label = staticmethod(naming.safe_label)
+    _norm_label = staticmethod(naming.norm_label)
+    _safe_frag = staticmethod(naming.safe_frag)
 
     def _record_edge_provenance(self, case_id, edge_result):
         """Record the commit-time edge materialization (per family) + the unified guard as
@@ -858,15 +816,6 @@ class OntServeCommitService:
         except Exception as e:
             logger.error(f"Error committing classes: {e}")
             return {'count': 0, 'error': str(e)}
-
-    @staticmethod
-    def _case_ontology_iri(case_id) -> URIRef:
-        """The case ontology declaration IRI (<.../ontology/case/N>), used as the
-        machine-readable dcterms:source citation on case-discovered classes --
-        symmetric with the curated classes' literature dcterms:source (DOIs). A
-        discovered class is grounded extensionally by the case(s) it was found
-        in (McLaren), so the case IS its source."""
-        return URIRef(f"http://proethica.org/ontology/case/{int(case_id)}")
 
     def _cite_discovering_cases(self, g: Graph, class_uri: URIRef, props: Dict) -> None:
         """Emit one dcterms:source case citation per discoveredInCase value
@@ -1779,49 +1728,6 @@ class OntServeCommitService:
         stats['role_axis_vetoes_post_canonicalization'] = post_vetoes
         return stats
 
-    def _camelCase(self, text: str) -> str:
-        """Convert a snake_case / spaced key to camelCase for a property local name.
-
-        Delegates to the single shared converter (R3, app/utils/predicate_naming)
-        so commit and storage cannot drift apart from the edge readers that hardcode
-        these predicate names. Idempotent on an already-camelCase single token (the
-        generic `properties` keys arrive already camelCase and must be preserved, not
-        lowercased -- that was the `activePeriod` -> `activeperiod` mangling bug).
-        """
-        from app.utils.predicate_naming import to_camel_case
-        return to_camel_case(text)
-
-    @staticmethod
-    def _sanitize_graph_literals(g: Graph) -> int:
-        """Strip C0 control characters (except tab/newline/CR) from every literal in the
-        graph, in place, before serialization. Source documents occasionally carry stray
-        control bytes (the case-56 probe found U+0002 inside question text propagated from
-        document_sections), which survive Turtle but break every XML-based consumer
-        (RDF/XML serialization, OWLAPI/Pellet explain). One chokepoint for all emission
-        paths rather than per-field cleaning. Returns the number of literals rewritten."""
-        import re
-        ctrl = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
-        fixes = []
-        for s, p, o in g:
-            if isinstance(o, Literal) and ctrl.search(str(o)):
-                fixes.append((s, p, o,
-                              Literal(ctrl.sub('', str(o)), lang=o.language, datatype=o.datatype)))
-        for s, p, o, clean in fixes:
-            g.remove((s, p, o))
-            g.add((s, p, clean))
-        return len(fixes)
-
-    @staticmethod
-    def _confidence_literal(value) -> Literal:
-        """proeth:confidence typed xsd:decimal (B12). The extraction JSON carries
-        confidence as a string ("0.9"), which the generic property loops emitted
-        as an untyped literal, so the value was not numerically comparable in
-        SPARQL. A non-numeric value falls back to the plain literal."""
-        try:
-            return Literal(float(value), datatype=XSD.decimal)
-        except (TypeError, ValueError):
-            return Literal(value if isinstance(value, str) else str(value))
-
     # Synthesis / temporal individuals carry their text in dedicated predicates
     # (proeth:focus / questionText / conclusionText / description), so they are
     # skipped by the generic definition emitter to avoid a redundant comment.
@@ -2651,14 +2557,6 @@ class OntServeCommitService:
             logger.error(f"Error writing fresh case TTL: {e}")
             return {'count': 0, 'error': str(e)}
 
-    def _safe_label(self, label: str) -> str:
-        """URI-safe local name from a label (single source of truth for minting
-        individual URIs and for the relationship target index)."""
-        s = (label or '').replace(" ", "_").replace("(", "").replace(")", "")
-        s = s.replace('"', '').replace("'", "").replace(",", "")
-        s = s.replace("<", "").replace(">", "").replace("&", "")
-        return s
-
     # Reified nodes whose identity should be OPAQUE (the W3C n-ary-relations
     # convention -- "Purchase_1", not the participant prose), keyed to the local-name
     # prefix their extraction-time @id carries. A TemporalRelation reifies an Allen
@@ -2726,10 +2624,6 @@ class OntServeCommitService:
             return None
         frag = str(rdf_data.get('@id', '')).split('#')[-1]
         return frag if frag.startswith(prefix) else None
-
-    @staticmethod
-    def _norm_label(label: str) -> str:
-        return ' '.join((label or '').lower().split())
 
     # LLM relationship type -> proeth-core actor relation; relatedTo is the fallback.
     # Ordered: the passive/subject review forms (the role-bearer whose work is
@@ -2906,13 +2800,6 @@ class OntServeCommitService:
             g.add((agent_uri, RDFS.label, Literal(alabel)))
             for f in sorted(facet_uris):
                 g.add((agent_uri, PROETHICA_CORE.hasRole, f))
-
-    @staticmethod
-    def _safe_frag(iri) -> str:
-        """Sanitized local name of an IRI, for building a derived provenance-node
-        fragment (mirrors defeasibility_pipeline._safe_frag)."""
-        frag = str(iri).rsplit('#', 1)[-1].rsplit('/', 1)[-1]
-        return ''.join(c if c.isalnum() or c in '_-' else '_' for c in frag)[:60]
 
     def _emit_relationship_provenance(self, g: Graph, case_ns: Namespace, subj,
                                       relprop: str, obj, rtype, quote) -> None:
