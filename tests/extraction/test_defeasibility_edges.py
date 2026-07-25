@@ -911,3 +911,39 @@ class TestSpecificationVsDefeat:
             )
         assert len(edges) == 1  # kept, not dropped
         assert any("specification-cast-as-defeat" in r.message for r in caplog.records)
+
+
+class TestResolutionKindEmission:
+    """The applier marks prevailsOver derivations with resolutionKind."""
+
+    def test_prevailsover_derivation_carries_override(self):
+        from rdflib import Graph, Literal
+        from app.services.extraction.defeasibility_pipeline import (
+            PROETH, add_edges_to_graph,
+        )
+        g = Graph()
+        edges = [
+            DefeasibilityEdge(
+                predicate="prevailsOver",
+                subject_iri=PUBLIC_WELFARE_IRI,
+                object_iri=FAITHFUL_AGENT_IRI,
+                source_field="tensionresolution",
+                source_text="The Board resolves the conflict in favor of public welfare.",
+                confidence=0.9,
+            ),
+            DefeasibilityEdge(
+                predicate="competesWith",
+                subject_iri=PUBLIC_WELFARE_IRI,
+                object_iri=FAITHFUL_AGENT_IRI,
+                source_field="tensionresolution",
+                source_text="The two duties are in tension.",
+                confidence=0.8,
+            ),
+        ]
+        added = add_edges_to_graph(g, edges, case_id=72)
+        assert added == 2
+        marked = list(g.subject_objects(PROETH.resolutionKind))
+        assert len(marked) == 1
+        prov_iri, kind = marked[0]
+        assert "prevailsOver" in str(prov_iri)
+        assert kind == Literal("override")

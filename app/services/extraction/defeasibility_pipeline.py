@@ -226,6 +226,11 @@ def add_edges_to_graph(
         g.add((prov_iri, PROV.generatedAtTime, Literal(
             datetime.now(timezone.utc).isoformat(), datatype=XSD.dateTime,
         )))
+        # resolutionKind marks the resolution itself; competesWith records the
+        # competition and defeasibleUnder the licensing context, neither of
+        # which asserts a resolution mode.
+        if ed.predicate == "prevailsOver":
+            g.add((prov_iri, PROETH.resolutionKind, Literal("override")))
     return added
 
 
