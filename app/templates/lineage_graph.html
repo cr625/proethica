@@ -4,6 +4,8 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/lineage_graph.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/case-card.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -97,10 +99,9 @@
                 </div>
 
                 <div id="details-panel">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <h6 id="detail-title" style="border-color: #666;"></h6>
-                        <button class="btn btn-sm btn-light" id="close-details">&times;</button>
-                    </div>
+                    <button type="button" class="btn-close float-end" id="close-details"></button>
+                    {# Rendered by CaseCard (static/js/shared/case_card.js) --
+                       the standard case-details fragment. #}
                     <div id="detail-content"></div>
                 </div>
 
@@ -117,5 +118,7 @@
 
 {% block scripts %}
 <script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shared/case_card.js') }}"></script>
 <script src="{{ url_for('static', filename='js/precedents/lineage_graph.js') }}"></script>
 {% endblock %}

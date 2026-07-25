@@ -77,6 +77,15 @@ CRITICAL FORMATTING REQUIREMENT:
 
 - Do NOT use em dash characters anywhere in your output. Use commas or periods instead.
 
+CRITICAL CONTINGENCY REQUIREMENT:
+
+- Do NOT construct a decision point whose premise is a contingency the case text does not
+  discuss: a party's future or hypothetical refusal, rejection, non-compliance, or any
+  other event the facts, discussion, and conclusion never reach. A decision point may
+  explore an alternative OPEN TO THE ACTOR at a moment the case narrates; it may NOT posit
+  an un-discussed downstream scenario (e.g. "if the attorney then declines to correct the
+  record, should the engineer withdraw?") and resolve duties for it.
+
 CRITICAL ROLE LABEL REQUIREMENT:
 
 - The role_label must be a SHORT identifier for the decision-maker: "Engineer A", "Firm C",

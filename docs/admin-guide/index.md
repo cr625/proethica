@@ -50,5 +50,6 @@ The `@admin_required_production` decorator protects administrative endpoints. Se
 The Tools dropdown organizes into three groups:
 
 - **Academic References** - Available to all users
-- **Linked Data** - OntServe Web, Browse ProEthica Ontologies
-- **Admin Tools** (admin login required) -- Batch Processing, Batch Queue, Prompt Editor
+- **Linked Data** - Browse ProEthica Ontologies
+- **Prompt Viewer** - Read-only template viewer, shown to non-admin users
+- **Admin Tools** (admin login required) -- Batch Processing, Batch Queue, Validation Studies, Prompt Editor

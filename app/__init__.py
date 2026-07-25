@@ -198,6 +198,8 @@ def create_app(config_name=None):
     app.register_blueprint(prompt_editor_bp)  # Extraction prompt template editor
     app.register_blueprint(tools_bp)  # Register tools routes (references, etc.)
     app.register_blueprint(precedents_bp)  # Register precedent discovery routes
+    from app.routes.provisions_api import provisions_api_bp
+    app.register_blueprint(provisions_api_bp)  # Case-independent NSPE provision lookup (shared popovers)
     app.register_blueprint(pipeline_bp)  # Pipeline automation dashboard
     app.register_blueprint(docs_bp)  # Documentation routes
     app.register_blueprint(health_bp)  # Health check endpoints for monitoring

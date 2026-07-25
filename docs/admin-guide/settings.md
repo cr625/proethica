@@ -33,9 +33,10 @@ postgresql://<user>:<password>@localhost:5432/ai_ethical_dm
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | (required) | Claude API key |
-| `CLAUDE_DEFAULT_MODEL` | claude-sonnet-4-6 | Default Claude model |
-| `CLAUDE_POWERFUL_MODEL` | claude-opus-4-6 | Powerful model for complex tasks |
+| `CLAUDE_DEFAULT_MODEL` | claude-sonnet-5 | Default Claude model |
+| `CLAUDE_POWERFUL_MODEL` | claude-fable-5 | Powerful model for complex tasks |
 | `CLAUDE_FAST_MODEL` | claude-haiku-4-5-20251001 | Fast model for simple tasks |
+| `CLAUDE_GATE_MODEL` | claude-opus-4-8 | Verification and commit-gate judge model |
 | `OPENAI_API_KEY` | (optional) | OpenAI fallback |
 | `ENABLE_GEMINI` | false | Enable Google Gemini |
 | `GOOGLE_API_KEY` | (optional) | Gemini API key |
@@ -96,8 +97,9 @@ worker_prefetch_multiplier = 1  # One task at a time
 
 | Model | Use Case |
 |-------|----------|
-| `claude-sonnet-4-6` | All extraction tasks (Steps 1-4) |
-| `claude-opus-4-6` | Complex analysis tasks (reserved for high-stakes operations) |
+| `claude-sonnet-5` | All extraction tasks (Steps 1-4) |
+| `claude-fable-5` | Complex analysis tasks (reserved for high-stakes operations) |
+| `claude-opus-4-8` | Verification and commit-gate judging |
 | `claude-haiku-4-5-20251001` | Simple, fast tasks |
 
 ### Changing Models
@@ -105,8 +107,9 @@ worker_prefetch_multiplier = 1  # One task at a time
 Edit environment variables:
 
 ```bash
-CLAUDE_DEFAULT_MODEL=claude-sonnet-4-6
-CLAUDE_POWERFUL_MODEL=claude-opus-4-6
+CLAUDE_DEFAULT_MODEL=claude-sonnet-5
+CLAUDE_POWERFUL_MODEL=claude-fable-5
+CLAUDE_GATE_MODEL=claude-opus-4-8
 ```
 
 Or update at runtime via Admin interface.

@@ -95,6 +95,7 @@ nav:
       - Ontology Integration: admin-guide/ontology-integration.md
       - Production Server: admin-guide/production-server.md
       - Settings: admin-guide/settings.md
+  - References: references.md
   - Publications: papers/index.md
   - "Back to ProEthica": "/"
 

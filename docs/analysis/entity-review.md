@@ -17,10 +17,9 @@ After each extraction pass, entities enter a review queue:
 
 ## Accessing Review
 
-After extraction completes, the entity review page displays automatically. Access it via:
+Access the review page after an extraction substep completes:
 
-- Pipeline step completion redirect
-- Entity review link in the pipeline sidebar
+- Review links in the pipeline status bar on the case detail page
 - Direct URL: `/scenario_pipeline/case/<case_id>/entities/review` (Pass 2: append `/pass2`)
 
 ![Entity Review Interface](../assets/images/screenshots/entity-review-content.png)
@@ -87,7 +86,7 @@ Entities are automatically matched to existing ontology classes during extractio
 The OntServe commit publishes entities from `temporary_rdf_storage` to the ontology. The pipeline performs two commits:
 
 1. **First commit** (after Reconcile) - Steps 1-3 base entities (9 component types)
-2. **Second commit** (after Step 4) - Step 4 synthesis entities (8 additional types)
+2. **Second commit** (after Step 4) - Step 4 synthesis entities (9 additional types, including transformation results)
 
 Each commit generates a TTL file and registers entities in the OntServe database.
 

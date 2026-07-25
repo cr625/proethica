@@ -65,6 +65,14 @@ Generate analytical questions that deepen understanding beyond the Board's expli
 - Generate UP TO 4 questions per category; fewer or zero is acceptable. Emit only
   questions that meet the category's criteria -- do not pad a category to reach a count.
 - Link to source Board questions when applicable (source_question field).
+- CONTINGENCY ANCHORING (applies to EVERY category): a question whose premise is a
+  contingency -- a party's future or hypothetical refusal, rejection, non-compliance,
+  or any other event the case does not narrate -- is permitted ONLY when the case text
+  itself raises that contingency (in the facts, discussion, or conclusion). If the text
+  never discusses the condition, do not ask what should happen under it. (Counterfactual
+  questions that NEGATE a stated fact per the counterfactual criteria remain permitted;
+  the forbidden form is the un-discussed FORWARD contingency, e.g. "if the client then
+  refuses to act, must the engineer escalate?" in a case that never reaches that point.)
 
 **OUTPUT FORMAT (JSON):**
 ```json

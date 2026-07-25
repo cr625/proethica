@@ -55,6 +55,7 @@ class BoardConclusionType(Enum):
     NO_VIOLATION = "no_violation"   # Found no violation
     INTERPRETATION = "interpretation"  # Clarifies interpretation
     RECOMMENDATION = "recommendation"  # Recommends action
+    MIXED = "mixed"                 # Multi-situation verdict, differing polarities
 
 
 @dataclass
@@ -368,11 +369,58 @@ class ConclusionAnalyzer:
         violation' holdings returned VIOLATION and the NO_VIOLATION branch was
         dead code (polarity inversion). The semantic audit (S4) also found the
         era phrasings 'acted ethically' and 'has an ethical obligation to'
-        falling through to 'unknown'; both are covered below. Deterministic by
+        falling through to 'unknown'; both are covered below. Round 3 (batch-5
+        audit): 'Situation N.' multi-verdict bundles segment before detection
+        and aggregate (uniform -> that type, differing polarities -> MIXED);
+        '(not) consistent with the ... Code' maps per polarity; a past-tense
+        duty affirmation ('had an (ethical) obligation to') is a breach
+        finding, not a recommendation; and a prescriptive-opening conclusion
+        whose only 'violation' tokens describe a third party's LEGAL violation
+        inside advisory speech stays a recommendation. Deterministic by
         design -- the corpus backfill recomputes stored values with the same
         rules, so committed literals never drift from this function."""
         text_lower = conclusion_text.lower()
 
+        # Multi-situation bundles ('Situation 1. ... Situation 2. ...') carry
+        # one verdict per situation; detect per segment and aggregate.
+        segments = re.split(r'(?i)(?=situation\s+\d+\s*[.:)])', conclusion_text)
+        segments = [s for s in segments if re.match(r'(?i)situation\s+\d+', s.strip())]
+        if len(segments) >= 2:
+            seg_types = {self._detect_single_verdict(s.lower()) for s in segments}
+            seg_types.discard("unknown")
+            if len(seg_types) == 1:
+                return seg_types.pop()
+            if len(seg_types) > 1:
+                return BoardConclusionType.MIXED.value
+        return self._detect_single_verdict(text_lower)
+
+    def _detect_single_verdict(self, text_lower: str) -> str:
+        """The single-verdict pattern chain (see _detect_board_conclusion_type)."""
+        # The board's own explicit mixed declaration (gold case 10 c2: 'the
+        # answer is mixed as multiple considerations...').
+        if 'the answer is mixed' in text_lower:
+            return BoardConclusionType.MIXED.value
+        # Past-duty breach clause bundled with a permissibility clearance in
+        # one holding (gold case 16 c4: 'was obligated to report ... it would
+        # have been permissible to help') -> MIXED; must precede the
+        # past-duty violation rule.
+        if (re.search(r'\b(?:was|were)\s+obligated\s+to\b', text_lower)
+                and 'permissible' in text_lower):
+            return BoardConclusionType.MIXED.value
+        # Conditional duty-trigger holdings (gold case 59 c1: 'If Engineer A
+        # reasonably believes ..., Engineer A has a duty to advise') state
+        # the conditions under which duties arise -- interpretation, not a
+        # recommendation; must precede the 'duty to' recommendation token.
+        if (text_lower.strip().startswith('if ')
+                and re.search(r'\b(?:duty|obligation) to\b', text_lower)
+                and not re.search(r'\bviolat|unethical\b', text_lower)):
+            return BoardConclusionType.INTERPRETATION.value
+        # Split verdict in one holding (gold case 7 c2: 'was not unethical
+        # per se. However, ... was unethical') -> MIXED; must precede the
+        # 'not unethical' NO_VIOLATION token below.
+        if (re.search(r'\bnot unethical\b', text_lower)
+                and re.search(r'\b(?:was|is|were)\s+unethical\b', text_lower)):
+            return BoardConclusionType.MIXED.value
         # Negated / exonerating forms before anything containing 'violation'
         # or 'unethical' as a substring. Convention (batch-3 semantic audit):
         # negated-violation wordings ('not unethical', 'no violation') ->
@@ -382,20 +430,111 @@ class ConclusionAnalyzer:
                 or 'did not violate' in text_lower or 'does not violate' in text_lower
                 or 'not unethical' in text_lower):
             return BoardConclusionType.NO_VIOLATION.value
+        # Modern exoneration forms (batch-7 audit): a negated-deception or
+        # no-conflict clearance is a no-violation finding, not a
+        # recommendation, even when 'should' appears in the sentence
+        # (case 129: 'should not present any clear or apparent conflict of
+        # interest'; case 146: 'does not compel disclosure nor does a failure
+        # to disclose somehow constitute a deception').
+        if (re.search(r'\b(?:does not|nor does|do not|did not)\b[^.]*\bconstitutes? a\b',
+                      text_lower)
+                or re.search(r'should not present any\b[^.]*\bconflict of interest',
+                             text_lower)):
+            return BoardConclusionType.NO_VIOLATION.value
+        # Round 5 (batch-8 + gold audit). Split verdicts in one sentence
+        # ('partly ethical, and partly unethical', gold case 7) -> MIXED;
+        # must precede the bare 'unethical' violation token.
+        if (re.search(r'\bpartly\s+ethical\b', text_lower)
+                and re.search(r'\bpartly\s+unethical\b', text_lower)):
+            return BoardConclusionType.MIXED.value
+        # Misconduct finding bundled with an
+        # affirmative report duty in one holding (case 19: 'would constitute
+        # professional misconduct ... and Engineer A has a clear obligation
+        # to report') -> MIXED.
+        if (re.search(r'(?<!not )\bconstitutes?\b[^.]*\bmisconduct\b', text_lower)
+                and re.search(r'\bha(?:s|ve) a (?:clear )?obligation to\b', text_lower)):
+            return BoardConclusionType.MIXED.value
+        # Duty-scope holdings are interpretations (case 18): 'X satisfies the
+        # obligation' (discharge-condition statement) and 'not an obligation
+        # ... but rather a personal choice' (negative scope ruling); both must
+        # outrank the generic 'should'/'obligation to' recommendation match.
+        if (re.search(r'\bsatisf(?:ies|y|ied)\b[^.]*\bobligations?\b', text_lower)
+                and not re.search(r'\b(?:not|fails? to)\s+satisf', text_lower)):
+            return BoardConclusionType.INTERPRETATION.value
+        if 'not an obligation' in text_lower and 'personal choice' in text_lower:
+            return BoardConclusionType.INTERPRETATION.value
+        # Negated-duty clearances (batch-8/gold audit): 'does not have an
+        # obligation to' / 'has no (professional or ethical) obligation to'.
+        # Alone -> NO_VIOLATION (the conduct without the duty is cleared);
+        # with a prescriptive 'should' rider -> MIXED (clearance + guidance,
+        # gold case 7 c3). Must precede the 'obligation to' recommendation
+        # token, which these phrases contain.
+        neg_duty = re.search(
+            r'\b(?:does not|do not)\s+have\s+an?\s+obligation to\b'
+            r'|\bha(?:s|ve) no (?:professional or ethical |professional |ethical )?obligation to\b',
+            text_lower)
+        if neg_duty and 'should' in text_lower:
+            return BoardConclusionType.MIXED.value
+        if neg_duty:
+            return BoardConclusionType.NO_VIOLATION.value
         if ('was ethical' in text_lower or 'were ethical' in text_lower
                 or 'acted ethically' in text_lower or 'acted properly' in text_lower
-                or 'it was ethical' in text_lower):
+                or 'it was ethical' in text_lower or 'would be ethical' in text_lower):
             return BoardConclusionType.COMPLIANCE.value
+        # Fulfilled/discharged duty is a compliance verdict (batch-6 case 133:
+        # 'has fulfilled his ethical obligation by taking prudent action');
+        # negated fulfillment ('did not fulfill', 'had not fulfilled') stays
+        # with the violation block below.
+        if (re.search(r'\bfulfilled\s+(?:(?:his|her|their|its)\s+)?(?:ethical\s+)?obligations?\b',
+                      text_lower)
+                and 'not fulfill' not in text_lower):
+            return BoardConclusionType.COMPLIANCE.value
+        # 2000s-era per-situation verdict form (batch-5 case 128): negated
+        # polarity first ('not consistent' contains 'consistent').
+        if 'not consistent with' in text_lower and 'code' in text_lower:
+            return BoardConclusionType.VIOLATION.value
+        if 'consistent with' in text_lower and 'code' in text_lower:
+            return BoardConclusionType.NO_VIOLATION.value
+        # Past-tense duty affirmation is a breach finding (batch-5 case 148:
+        # 'had an ethical obligation to report' where the facts show the duty
+        # unmet); must precede the 'obligation to' -> recommendation rule.
+        if ('had an ethical obligation to' in text_lower
+                or 'had an obligation to' in text_lower
+                or 'was obligated to' in text_lower):
+            return BoardConclusionType.VIOLATION.value
+        # Prescriptive-opening advisory conclusions (batch-5 case 86:
+        # 'Engineer A should contact the client ... point out the action is a
+        # violation of the law'): the 'violation' tokens describe a third
+        # party's LEGAL violation inside recommended speech, not a Code
+        # verdict. Suppress the bare-violation rule when the first sentence
+        # prescribes ('should') and no Code-verdict wording appears anywhere.
+        first_sentence = text_lower.split('.', 1)[0]
+        # 'not ethical' is word-boundary-guarded (round 5): the adverb form
+        # 'not ethically <verb>' appears in permissibility interpretations
+        # ('Engineer A may not ethically object', case 15) and must not read
+        # as a conduct verdict.
+        code_verdict = ('unethical' in text_lower or 'violated' in text_lower
+                        or 'violation of the code' in text_lower
+                        or 'violation of the nspe code' in text_lower
+                        or re.search(r'\bnot ethical\b', text_lower) is not None
+                        or 'did not act ethically' in text_lower
+                        or 'not be ethical' in text_lower)
+        if 'should' in first_sentence and not code_verdict:
+            return BoardConclusionType.RECOMMENDATION.value
         # Violation-by-omission and negated-ethical wordings (batch-3 audit:
         # 'did not fulfill her ethical obligations', 'would not be ethical').
         # 'not unethical' is already routed above and cannot reach these.
         if ('violation' in text_lower or 'violated' in text_lower
                 or 'unethical' in text_lower or 'did not fulfill' in text_lower
-                or 'failed to fulfill' in text_lower or 'not be ethical' in text_lower
-                or 'not ethical' in text_lower):
+                or 'failed to fulfill' in text_lower or 'not fulfilled' in text_lower
+                or 'not be ethical' in text_lower
+                or 'did not act ethically' in text_lower
+                or re.search(r'\bnot ethical\b', text_lower)):
             return BoardConclusionType.VIOLATION.value
         if ('recommend' in text_lower or 'should' in text_lower
-                or 'obligation to' in text_lower or 'duty to' in text_lower):
+                or 'obligation to' in text_lower or 'duty to' in text_lower
+                or 'is free to' in text_lower or 'required to' in text_lower
+                or re.search(r'\b(?:is|are)\s+obligated\s+to\b', text_lower)):
             return BoardConclusionType.RECOMMENDATION.value
         if 'interpret' in text_lower or 'means' in text_lower or 'clarif' in text_lower:
             return BoardConclusionType.INTERPRETATION.value

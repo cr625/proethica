@@ -24,13 +24,13 @@ The first band shows the conflicts internal to the case being viewed. For each c
 
 ### Band 2: Cross-Case Comparison
 
-The second band places the case's central tension beside the same tension as it appears in other cases. The comparison set is selected by matching the case's defeated-obligation pattern against every other case: candidates are ranked by the similarity of their yielding-obligation label to the anchor's, combined with the overlap of their licensing State contexts, and the closest few are shown. The ranking reads from an index built at commit time from the committed case ontologies, so the band reflects the current corpus without re-reading every case at view time. For a small set of demonstration themes a fixed comparison set is pinned instead, so a walkthrough renders identically. Each row links to the corresponding case and its ontology.
+The second band places the central tension of the case beside the same tension as it appears in other cases. The comparison set is selected by matching the obligation-defeat pattern of the case against every other case: candidates are scored pairwise on both sides of the resolution (the mean label similarity of the winning and yielding obligations, combined with the similarity of their licensing State contexts), and up to five rows above a calibrated similarity floor are shown. When no candidate clears the floor, the band states that no sufficiently similar resolution is indexed. The ranking reads from an index built at commit time from the committed case ontologies, so the band reflects the current corpus without re-reading every case at view time. Each row links to the corresponding case and its ontology.
 
 The matching key is the extracted formalism, not the case subject tags: two cases are judged comparable because their obligation-defeat structure aligns, not because they share a topic label.
 
 ## Entity Definitions
 
-Labels in both bands carry hover popovers sourced from the committed case ontologies: the entity label, its definition or comment, and its concept category. Because the lookup is built from the committed TTL of each case in the view, the definitions match what OntServe stores and cover every case shown, not only the anchor case.
+Labels in both bands have hover popovers sourced from the committed case ontologies: the entity label, its definition or comment, and its concept category. Because the lookup is built from the committed TTL of each case in the view, the definitions match what OntServe stores and cover every case shown, not only the anchor case.
 
 ## Related Documentation
 

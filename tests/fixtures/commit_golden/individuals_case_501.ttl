@@ -1,0 +1,200 @@
+@prefix case501: <http://proethica.org/ontology/case/501#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix proeth: <http://proethica.org/ontology/intermediate#> .
+@prefix proeth-cases: <http://proethica.org/ontology/cases#> .
+@prefix proeth-core: <http://proethica.org/ontology/core#> .
+@prefix proeth-prov: <http://proethica.org/provenance#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://proethica.org/ontology/case/501> a owl:Ontology ;
+    rdfs:label "ProEthica Case 501 Ontology" ;
+    dcterms:title "AI Diplomate Credential Case" ;
+    owl:imports <http://proethica.org/ontology/cases>,
+        <http://proethica.org/ontology/intermediate> .
+
+case501:Agent_Engineer_A a proeth-core:Agent,
+        owl:NamedIndividual ;
+    rdfs:label "Engineer A" ;
+    proeth-core:hasRole case501:Engineer_A_Original_Design_Engineer .
+
+case501:Agent_Owner a proeth-core:Agent,
+        owl:NamedIndividual ;
+    rdfs:label "Owner" ;
+    proeth-core:hasRole case501:Owner_Tower_Development_Client .
+
+case501:Conclusion_1 a proeth-cases:EthicalConclusion,
+        owl:NamedIndividual ;
+    rdfs:label "Board conclusion 1: Engineer A violated the Code by using the Diplomate title..." ;
+    proeth-cases:answersQuestion case501:Question_1 ;
+    proeth:boardConclusionType "violation" ;
+    proeth:citedProvision "II.1.a",
+        "III.3.a" ;
+    proeth:conclusionNumber 1 ;
+    proeth:conclusionText "Engineer A violated the Code by using the Diplomate title without clarification." ;
+    proeth:conclusionType "violation" ;
+    proeth:extractionReasoning "The Board explicitly found a violation of Section III.3.a." ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+case501:Credential_Title_Selection_During_Report_Signing a proeth-core:Action,
+        owl:NamedIndividual ;
+    rdfs:label "Credential Title Selection During Report Signing" ;
+    proeth:foreseenUnintendedEffects "Board scrutiny of the title",
+        "Client confusion about credential status" ;
+    proeth:fulfillsObligationText "Duty to Present Earned Credentials Truthfully" ;
+    proeth:hasAgent "Engineer A" ;
+    proeth:temporalMarker "At the time of report signing" ;
+    proeth:temporalSequence 6 ;
+    proeth:withinCompetence false ;
+    proeth-prov:discoveredInStep 3 ;
+    proeth-prov:synthesisLiteral "description",
+        "foreseenUnintendedEffects",
+        "fulfillsObligationText",
+        "hasAgent",
+        "temporalMarker",
+        "temporalSequence",
+        "withinCompetence" ;
+    rdfs:comment "Engineer A signed the report identifying himself as a Diplomate rather than a licensed PE." ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+case501:DP1 a proeth-cases:DecisionPoint,
+        owl:NamedIndividual ;
+    rdfs:label "DP1" ;
+    proeth:boardChosenOption "Clarify" ;
+    proeth:boardResolution "The Board found the unclarified use of Diplomate misleading." ;
+    proeth:citedProvision "II.1.a",
+        "III.3.a" ;
+    proeth:decisionPointId "DP1" ;
+    proeth:decisionQuestion "Should Engineer A have used the title \"Diplomate\" without clarifying it was not a PE license?" ;
+    proeth:focus "Whether Engineer A should have disclosed use of the Diplomate title." ;
+    proeth:intensityScore 0.6 ;
+    proeth:option "1. Use as-is: Use the Diplomate title without further clarification",
+        "2. Clarify: Clarify the Diplomate title is not a PE license" ;
+    proeth:qcAlignmentScore 0.75 ;
+    proeth:toulminClaim "Engineer A should have clarified the title." ;
+    proeth:toulminData "The title Diplomate is a specialty certification, not a PE license." ;
+    proeth:toulminQualifier "absent a clear disclaimer" ;
+    proeth:toulminRebuttal "Some Diplomates are commonly known by that title alone." ;
+    proeth:toulminWarrant "NSPE Code requires accurate representation of qualifications." ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+case501:Design_Under_Peer_Review_Prior_to_Signing a proeth-core:State,
+        proeth:PeerReviewPendingStateDraft,
+        owl:NamedIndividual ;
+    rdfs:label "Design Under Peer Review Prior to Signing" ;
+    proeth:confidence 0.8 ;
+    proeth:triggeringEvent "The peer review request was submitted to Engineer B." ;
+    proeth-prov:synthesisLiteral "confidence",
+        "triggeringEvent" ;
+    rdfs:comment "A state in which the design remains subject to peer review before signing." ;
+    skos:definition "A state in which the design remains subject to peer review before signing." ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+case501:Duty_to_Present_Earned_Credentials_Truthfully a proeth-core:Obligation,
+        proeth:DisclosureObligationDraft,
+        owl:NamedIndividual ;
+    rdfs:label "Duty to Present Earned Credentials Truthfully" ;
+    proeth:confidence 0.92 ;
+    proeth:valueBasis "Professional integrity requires accurate representation of one's credentials." ;
+    proeth-prov:matchConfidence 0.0 ;
+    proeth-prov:matchReasoning "no sufficiently similar existing obligation" ;
+    proeth-prov:matchesExisting false ;
+    proeth-prov:synthesisLiteral "confidence",
+        "valueBasis" ;
+    rdfs:comment "The duty to identify oneself only by earned credentials." ;
+    skos:definition "The duty to identify oneself only by earned credentials." ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+case501:State_Board_Denial_of_the_Permit_Application a proeth-core:Event,
+        proeth-core:ExogenousEvent,
+        owl:NamedIndividual ;
+    rdfs:label "State Board Denial of the Permit Application" ;
+    proeth:createsObligation "Duty_to_Present_Earned_Credentials_Truthfully" ;
+    proeth-prov:discoveredInSection "facts" ;
+    proeth-prov:synthesisLiteral "createsObligation",
+        "description" ;
+    rdfs:comment "The state licensing board denied the permit application without explanation." ;
+    prov:generatedAtTime "2024-02-01T10:15:00"^^xsd:dateTime ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+case501:relationship_edge_provenance_Engineer_A_Original_Design_Engineer_hasClient_Owner_Tower_Development_Client a prov:Derivation ;
+    rdfs:label "Actor relationship edge (has_client)" ;
+    rdfs:comment "relation_type=has_client; property=hasClient" ;
+    prov:value "Engineer A was retained by the Owner for design services." ;
+    prov:wasDerivedFrom case501:Engineer_A_Original_Design_Engineer,
+        case501:Owner_Tower_Development_Client .
+
+proeth-prov:matchConfidence a owl:AnnotationProperty .
+
+proeth-prov:matchReasoning a owl:AnnotationProperty .
+
+proeth-prov:matchedOntologyClass a owl:AnnotationProperty .
+
+proeth-prov:matchedOntologyLabel a owl:AnnotationProperty .
+
+proeth-prov:matchesExisting a owl:AnnotationProperty .
+
+proeth-prov:synthesisLiteral a owl:AnnotationProperty .
+
+case501:Question_1 a proeth-cases:EthicalQuestion,
+        owl:NamedIndividual ;
+    rdfs:label "Board question 1: Did Engineer A's use of the Diplomate title violate the N..." ;
+    proeth:questionNumber 1 ;
+    proeth:questionText "Did Engineer A's use of the Diplomate title violate the NSPE Code's truthfulness provisions?" ;
+    proeth:questionType "board_explicit" ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+proeth:DeveloperClient a owl:Class ;
+    rdfs:subClassOf proeth-core:Role,
+        proeth:ClientRole .
+
+proeth:DisclosureObligationDraft a owl:Class ;
+    rdfs:subClassOf proeth-core:Obligation .
+
+proeth:PeerReviewPendingStateDraft a owl:Class ;
+    rdfs:subClassOf proeth-core:State .
+
+case501:Engineer_A_Original_Design_Engineer a proeth-core:Role,
+        proeth:EngineerRole,
+        proeth:ProviderClientRole,
+        owl:NamedIndividual ;
+    rdfs:label "Engineer A Original Design Engineer" ;
+    proeth-core:hasClient case501:Owner_Tower_Development_Client ;
+    proeth:experienceLevel "15 years" ;
+    proeth:license "PE in State X" ;
+    proeth-prov:matchConfidence 0.87 ;
+    proeth-prov:matchReasoning "Design Engineer is a specialization of Engineer Role." ;
+    proeth-prov:matchedOntologyClass proeth:EngineerRole ;
+    proeth-prov:matchedOntologyLabel "Engineer Role" ;
+    proeth-prov:matchesExisting true ;
+    proeth-prov:sourceText "Engineer A served as the original design engineer of record." ;
+    rdfs:comment "Served as the engineer of record for the original tower designs." ;
+    skos:definition "Served as the engineer of record for the original tower designs." ;
+    skos:scopeNote "[EngineerRole] Occupational archetype head for engineer specializations." ;
+    prov:generatedAtTime "2024-01-01T09:00:00+00:00"^^xsd:dateTime ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+
+proeth:EngineerRole a owl:Class ;
+    rdfs:subClassOf proeth-core:Role .
+
+case501:Owner_Tower_Development_Client a proeth-core:Role,
+        proeth:DeveloperClient,
+        proeth:ProviderClientRole,
+        owl:NamedIndividual ;
+    rdfs:label "Owner Tower Development Client" ;
+    rdfs:comment "The party that commissioned the tower development project." ;
+    skos:definition "The party that commissioned the tower development project." ;
+    prov:wasAttributedTo "claude-test-model" ;
+    prov:wasGeneratedBy "ProEthica Case 501 Extraction" .
+

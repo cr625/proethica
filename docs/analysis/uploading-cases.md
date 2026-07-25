@@ -112,13 +112,15 @@ Similar cases from state licensing boards and professional organizations follow 
 
 User-created scenarios for analysis should follow the Facts/Discussion structure even if not from official board proceedings.
 
-## Batch Upload
+## Batch Processing
 
-For multiple cases, use the batch processing interface (requires admin login):
+Cases are added one at a time through the three creation methods above. Once
+imported, multiple cases can be processed together through the extraction
+pipeline (requires admin login):
 
-1. Navigate to **Tools** > **Batch Processing**
-2. Use **Queue** tab for batch operations
-3. Upload cases through batch interface
+1. Navigate to **Tools** > **Batch Queue**
+2. Add the imported cases to the queue
+3. Monitor progress at **Tools** > **Batch Processing**
 
 ## Case Metadata
 

@@ -53,7 +53,7 @@ def _patch_pgvector(query_vec: List[float], sql_row, captured: Dict[str, Any]):
         patch("app.services.embedding.embedding_service.EmbeddingService")
     )
     engine_patch = stack.enter_context(
-        patch("app.services.commit.auto_commit_service.create_engine")
+        patch("app.services.commit.duplicate_matching.create_engine")
     )
 
     # candidate-side embedding
@@ -264,7 +264,7 @@ class TestCheckEmbeddingDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.commit.auto_commit_service.create_engine")
+                patch("app.services.commit.duplicate_matching.create_engine")
             )
             mock_es = MagicMock()
             mock_es._get_local_embedding.return_value = [0.1] * 384
@@ -321,7 +321,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.commit.auto_commit_service.create_engine")
+                patch("app.services.commit.duplicate_matching.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -339,7 +339,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.commit.auto_commit_service.create_engine")
+                patch("app.services.commit.duplicate_matching.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -364,7 +364,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.commit.auto_commit_service.create_engine")
+                patch("app.services.commit.duplicate_matching.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -386,7 +386,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.commit.auto_commit_service.create_engine")
+                patch("app.services.commit.duplicate_matching.create_engine")
             )
             es_patch.get_instance.return_value._get_local_embedding.return_value = [0.1] * 384
             mock_conn = MagicMock()
@@ -404,7 +404,7 @@ class TestCheckDuplicate:
                 patch("app.services.embedding.embedding_service.EmbeddingService")
             )
             engine_patch = stack.enter_context(
-                patch("app.services.commit.auto_commit_service.create_engine")
+                patch("app.services.commit.duplicate_matching.create_engine")
             )
             mock_es = MagicMock()
             mock_es._get_local_embedding.return_value = [0.1] * 384

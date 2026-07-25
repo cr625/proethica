@@ -246,16 +246,61 @@ class CaseFeatureExtractor:
         ethical_indicators = []
         unethical_indicators = []
 
-        # Pattern: "was/is/would be ethical" (positive) vs negated forms
-        # Must check "not ethical" before "ethical" to avoid false positives
-        if re.search(r'\b(was|is|would be|were)\s+not\s+ethical\b', conclusion_lower):
+        # Pattern: "was/is/would be ethical" (positive) vs negated forms.
+        # Must check "not ethical" before "ethical" to avoid false positives.
+        # Negation can sit after the copula ("was not ethical") or between the
+        # modal and "be" ("would not be ethical" -- the prospective form BER
+        # uses for conduct not yet taken; batch-5 case 109).
+        if re.search(r'\b(?:(?:was|is|were)\s+not|(?:would|will)\s+not\s+be)\s+ethical\b',
+                     conclusion_lower):
             unethical_indicators.append('was not ethical statement')
         elif re.search(r'\b(was|is|would be|were)\s+ethical\b', conclusion_lower):
             ethical_indicators.append('explicit ethical statement')
 
+        # Pattern: "(not) consistent with the ... Code" -- the verdict form
+        # 2000s-era opinions use for per-situation holdings (batch-5 case 128).
+        # Separate ifs so a mixed multi-situation conclusion scores both ways.
+        if re.search(r'\b(?:was|is|were|are)\s+not\s+consistent\s+with\b[^.]*\bcode\b',
+                     conclusion_lower):
+            unethical_indicators.append('not consistent with code')
+        if re.search(r'\b(?:was|is|were|are)\s+consistent\s+with\b[^.]*\bcode\b',
+                     conclusion_lower):
+            ethical_indicators.append('consistent with code')
+
         # Pattern: "unethical" explicitly
         if re.search(r'\bunethical\b', conclusion_lower):
             unethical_indicators.append('explicit unethical statement')
+
+        # Pattern: "partly ethical" / "ethical in part" -- a split verdict's
+        # positive half ("partly ethical, and partly unethical", gold case 7);
+        # scores the ethical side so the pair resolves to mixed, not unethical.
+        if re.search(r'\bpartly\s+ethical\b|\bethical\s+in\s+part\b', conclusion_lower):
+            ethical_indicators.append('partly ethical statement')
+
+        # Pattern: fulfilled/discharged duty (batch-6 case 133: "has fulfilled
+        # his ethical obligation by taking prudent action"); negated first.
+        if re.search(r'\b(?:did\s+not|failed\s+to)\s+fulfill\b|\bnot\s+fulfilled\b',
+                     conclusion_lower):
+            unethical_indicators.append('did not fulfill obligation')
+        elif re.search(r'\bfulfilled\s+(?:his|her|their|its)\s+(?:ethical\s+)?obligation',
+                       conclusion_lower):
+            ethical_indicators.append('fulfilled obligation')
+
+        # Pattern: conditional permission (batch-6 case 106: "Engineer A is
+        # free to pursue employment ... provided"); adverb-tolerant (batch-7
+        # case 146: "is certainly free to"); negation guarded.
+        if (re.search(r'\bis\s+(?:\w+\s+)?free\s+to\b', conclusion_lower)
+                and not re.search(r'\bnot\s+(?:\w+\s+)?free\s+to\b', conclusion_lower)):
+            ethical_indicators.append('permission granted')
+
+        # Modern exoneration forms (batch-7 cases 146/129): negated-deception
+        # and no-conflict clearances.
+        if re.search(r'\b(?:does not|nor does|do not|did not)\b[^.]*\bconstitutes? a\b',
+                     conclusion_lower):
+            ethical_indicators.append('negated-offense clearance')
+        if re.search(r'should not present any\b[^.]*\bconflict of interest',
+                     conclusion_lower):
+            ethical_indicators.append('no-conflict clearance')
 
         # Pattern: "did not violate" / "does not violate" vs "violates"
         if re.search(r'\b(did|does|do)\s+not\s+violate\b', conclusion_lower):

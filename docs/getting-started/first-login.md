@@ -8,9 +8,10 @@ ProEthica operates in demo mode by default, allowing exploration of cases and ex
 
 | Level | Access | Available Features |
 |-------|--------|-------------------|
-| Anonymous (Demo) | No login required | Browse cases, view extractions, explore precedent network, read guidelines |
+| Anonymous | No login required | Browse cases, view extractions, explore precedent network, read guidelines, view prompt templates |
+| Demo | Shared read-only account | Anonymous features plus the authenticated views; all write operations disabled |
 | Authenticated | Login required | Run extractions, edit entities, manage pipeline queue |
-| Admin | Admin account | User management, domain configuration, system settings |
+| Admin | Admin account | User management, prompt editing, batch processing, system settings |
 
 Users exploring the demo will see view-only interfaces. Buttons for extraction, editing, and pipeline operations appear only for authenticated users. This documentation describes the full interface as seen by authenticated users.
 
@@ -24,9 +25,8 @@ The top navigation provides access to main features:
 | **[Domain]** | Dropdown | Current domain (e.g., Engineering) |
 | **Cases** | Link | Case repository |
 | **Case Relations** | Dropdown | Similar Cases, Similarity Network, Lineage Graph |
-| **Guidelines** | Link | Browse ethical guidelines and codes of ethics |
 | **Docs** | Link | This documentation |
-| **Tools** | Dropdown | Academic References; Linked Data (OntServe Web, Browse ProEthica Ontologies); Admin Tools (Batch Processing, Batch Queue, Prompt Editor) |
+| **Tools** | Dropdown | Academic References; Linked Data (Browse ProEthica Ontologies); Prompt Viewer (non-admin); Admin Tools (Batch Processing, Batch Queue, Validation Studies, Prompt Editor) |
 | **[User]** | Dropdown | User menu with Logout |
 
 ![Case Relations Dropdown](../assets/images/screenshots/navbar-case-relations-dropdown.png)
