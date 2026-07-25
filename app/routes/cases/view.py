@@ -172,8 +172,10 @@ def register_view_routes(bp):
         except Exception as e:
             logger.debug(f"Could not query OntServe for case {document.id}: {str(e)}")
 
-        # Obligation Conflicts navigation only renders when the committed graph
-        # actually carries competition edges; an empty conflicts view helps nobody.
+        # Obligation Conflicts navigation renders when the committed graph
+        # carries competition edges OR a ResolutionPattern classified with
+        # proeth:resolutionKind (boundary specification / dissolution); an
+        # empty conflicts view helps nobody.
         has_obligation_conflicts = False
         try:
             from app.services.defeasibility_view_service import case_has_conflicts

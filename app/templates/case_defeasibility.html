@@ -49,10 +49,12 @@
   </div>
 
   <h5 class="mt-4 mb-3"><i class="bi bi-1-circle me-1"></i>How this case resolved it
+    {% if view.case_conflicts.conflicts %}
     <a href="{{ ontserve_web_url }}{{ view.ontserve_panel_path }}" target="_blank" rel="noopener"
        class="small fw-normal ms-2 text-decoration-none" title="The Obligation Competition panel on the OntServe case-ontology page">
       <i class="bi bi-box-arrow-up-right me-1"></i>competition structure in OntServe
     </a>
+    {% endif %}
   </h5>
 
   {% if view.case_conflicts.conflicts %}
@@ -93,6 +95,9 @@
     </div>
     {% endfor %}
   </div>
+  {% elif view.case_conflicts.boundary_resolutions %}
+  <p class="text-muted">No obligation was overridden in this case: the board resolved the
+    apparent tension without defeat, as recorded below.</p>
   {% else %}
   <p class="text-muted">No resolved obligation competitions are committed for this case.</p>
   {% endif %}
@@ -102,6 +107,29 @@
     <span class="text-muted me-1">Open tensions recorded without a resolution:</span>
     {% for pair in view.case_conflicts.unresolved %}
     <span class="badge bg-light text-dark border me-1">{{ onto(pair[0], L) }} vs {{ onto(pair[1], L) }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if view.case_conflicts.boundary_resolutions %}
+  <h6 class="mt-4"><i class="bi bi-signpost-split me-1"></i>Resolved without defeat</h6>
+  <p class="small text-body-secondary mb-2">
+    The board resolved the apparent tension here by setting a duty's boundary
+    (<strong>specification</strong>) or by finding no genuine conflict on the facts
+    (<strong>dissolution</strong>), rather than by allowing one obligation to prevail over another.
+  </p>
+  <div class="row g-3">
+    {% for br in view.case_conflicts.boundary_resolutions %}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body py-2">
+          <span class="badge {% if br.kind == 'specification' %}bg-info text-dark{% else %}bg-secondary{% endif %} float-end">{{ br.kind }}</span>
+          {% if br.conclusion %}<div class="small fw-semibold">{{ br.conclusion }}
+            {% if br.conclusion_type %}<span class="badge bg-light text-dark border ms-1">{{ br.conclusion_type }}</span>{% endif %}</div>{% endif %}
+          {% if br.text %}<div class="small text-body-secondary mt-1">{{ br.text|truncate(360) }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
     {% endfor %}
   </div>
   {% endif %}

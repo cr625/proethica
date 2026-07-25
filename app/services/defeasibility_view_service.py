@@ -160,15 +160,68 @@ def _featured_index(conflicts):
 
 
 def case_has_conflicts(case_id: int) -> bool:
-    """Whether the committed case graph carries any obligation-competition edge
-    (prevailsOver or competesWith), i.e. whether the conflicts view has content.
-    False when the case has no committed ontology. defeasibleUnder alone does not
-    count: it enriches a conflict but cannot render one by itself."""
+    """Whether the committed case graph gives the conflicts view content:
+    an obligation-competition edge (prevailsOver or competesWith), or a
+    ResolutionPattern classified with proeth:resolutionKind (the board
+    resolved the apparent tension by boundary specification or dissolution
+    rather than defeat). False when the case has no committed ontology.
+    defeasibleUnder alone does not count: it enriches a conflict but cannot
+    render one by itself."""
     try:
         g = load_case_graph(case_id)
     except FileNotFoundError:
         return False
-    return any(_local(p) in ("prevailsOver", "competesWith") for p in g.predicates())
+    # Single pass over the triples: competition edges answer immediately;
+    # resolutionKind subjects are collected for a targeted type check so the
+    # boolean path never builds the full boundary-resolution list.
+    kind_subjects = []
+    for s, p, o in g:
+        lp = _local(p)
+        if lp in ("prevailsOver", "competesWith"):
+            return True
+        if lp == "resolutionKind" and str(o) in ("specification", "dissolution"):
+            kind_subjects.append(s)
+    for s in kind_subjects:
+        if any(_local(t) == "ResolutionPattern" for t in g.objects(s, rdflib.RDF.type)):
+            return True
+    return False
+
+
+def _boundary_resolutions(g) -> list:
+    """ResolutionPattern individuals classified specification or dissolution:
+    the board's record of resolving an apparent duty tension WITHOUT defeat.
+    Override markers live on the prevailsOver derivation records and render
+    through the conflicts band, not here."""
+    kind_by_subject = {}
+    for s, p, o in g:
+        if _local(p) == "resolutionKind" and str(o) in ("specification", "dissolution"):
+            kind_by_subject[s] = str(o)
+    out = []
+    for s, kind in kind_by_subject.items():
+        types = {_local(t) for t in g.objects(s, rdflib.RDF.type)}
+        if "ResolutionPattern" not in types:
+            continue
+        text = None
+        conclusion_label = None
+        conclusion_type = None
+        for p, o in g.predicate_objects(s):
+            lp = _local(p)
+            if lp == "definition" or (lp == "comment" and text is None):
+                text = str(o)
+            elif lp == "describesResolutionOf":
+                conclusion_label = _label(g, o)
+                for cp, co in g.predicate_objects(o):
+                    if _local(cp) == "boardConclusionType":
+                        conclusion_type = str(co)
+        out.append({
+            "pattern": _label(g, s),
+            "kind": kind,
+            "text": text,
+            "conclusion": conclusion_label,
+            "conclusion_type": conclusion_type,
+        })
+    out.sort(key=lambda r: (r["kind"], r["pattern"]))
+    return out
 
 
 def get_case_conflicts(case_id: int) -> dict:
@@ -222,6 +275,7 @@ def get_case_conflicts(case_id: int) -> dict:
     return {
         "conflicts": conflicts,
         "unresolved": unresolved,
+        "boundary_resolutions": _boundary_resolutions(g),
         "conclusions": _conclusions(g),
         "violations": _violations(g),
     }

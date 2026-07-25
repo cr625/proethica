@@ -211,3 +211,55 @@ def test_case_conflicts_link_reified_triple(monkeypatch):
         "/entity/proethica-case-99/"
         "defeasibility_edge_provenance_Obl_A_prevailsOver_Obl_B")
     assert by_winner["Duty C"]["ontserve_triple_path"] is None
+
+
+_BOUNDARY_TTL = """
+@prefix proeth: <http://proethica.org/ontology/intermediate#> .
+@prefix proeth-cases: <http://proethica.org/ontology/cases#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix case: <http://proethica.org/ontology/case/98#> .
+
+case:ResolutionPattern_3 a proeth-cases:ResolutionPattern ;
+    rdfs:label "ResolutionPattern_3" ;
+    skos:definition "The confidentiality obligation does not extend to imminent dangers." ;
+    proeth:resolutionKind "specification" ;
+    proeth-cases:describesResolutionOf case:Conclusion_1 .
+
+case:Conclusion_1 a proeth-cases:EthicalConclusion ;
+    rdfs:label "Conclusion 1" ;
+    proeth:boardConclusionType "no_violation" .
+
+case:ResolutionPattern_4 a proeth-cases:ResolutionPattern ;
+    rdfs:label "ResolutionPattern_4" ;
+    skos:definition "An override-marked pattern renders through the conflicts band." ;
+    proeth:resolutionKind "override" .
+
+case:NotAPattern a proeth-cases:EthicalConclusion ;
+    rdfs:label "Not a pattern" ;
+    proeth:resolutionKind "specification" .
+"""
+
+
+def test_boundary_resolutions_and_button(monkeypatch):
+    """A case with no trio edges but a classified ResolutionPattern gets the
+    conflicts button; the boundary band lists specification and dissolution
+    patterns only, and only on ResolutionPattern individuals."""
+    import rdflib
+    g = rdflib.Graph()
+    g.parse(data=_BOUNDARY_TTL, format="turtle")
+    monkeypatch.setattr(svc, "load_case_graph", lambda cid: g)
+
+    assert svc.case_has_conflicts(98) is True
+    rows = svc._boundary_resolutions(g)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["kind"] == "specification"
+    assert row["pattern"] == "ResolutionPattern_3"
+    assert row["conclusion"] == "Conclusion 1"
+    assert row["conclusion_type"] == "no_violation"
+    assert "does not extend" in row["text"]
+
+    empty = rdflib.Graph()
+    monkeypatch.setattr(svc, "load_case_graph", lambda cid: empty)
+    assert svc.case_has_conflicts(98) is False

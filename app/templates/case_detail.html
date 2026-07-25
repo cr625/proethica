@@ -80,7 +80,7 @@
                     <i class="bi bi-diagram-2 me-1"></i>Find Similar
                 </a>
                 {% if has_obligation_conflicts %}
-                <a href="{{ url_for('cases.case_defeasibility', id=case.id) }}" class="btn btn-sm btn-outline-primary" title="Obligation conflicts: which duty prevails, under what context, and how comparable cases resolved the same tension">
+                <a href="{{ url_for('cases.case_defeasibility', id=case.id) }}" class="btn btn-sm btn-outline-primary" title="Obligation conflicts: which duty prevails, under what context, and how comparable cases resolved the same tension; includes resolutions the board reached by setting a duty's boundary rather than by defeat">
                     <i class="bi bi-shuffle me-1"></i>Obligation Conflicts
                 </a>
                 {% endif %}

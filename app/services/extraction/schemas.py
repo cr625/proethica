@@ -1185,6 +1185,32 @@ class DefeasibilityEdgeExtractionResult(BaseModel):
     edges: List[DefeasibilityEdge] = Field(default_factory=list)
 
 
+class ResolutionKindAssignment(BaseModel):
+    """One proeth:resolutionKind classification for an existing
+    ResolutionPattern individual. The classifier assigns a kind only where
+    the pattern records a tension-resolution mode; patterns carrying plain
+    violation or compliance reasoning receive no assignment."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    pattern_iri: str = Field(
+        ..., description="Full IRI of the ResolutionPattern individual"
+    )
+    kind: Literal["override", "specification", "dissolution"]
+    evidence: str = Field(
+        ...,
+        description=(
+            "Verbatim fragment of the pattern or conclusion text showing "
+            "the resolution mode"
+        ),
+    )
+    confidence: float = Field(0.7, ge=0.0, le=1.0)
+
+
+class ResolutionKindResult(BaseModel):
+    """Top-level LLM output for resolutionKind classification."""
+    assignments: List[ResolutionKindAssignment] = Field(default_factory=list)
+
+
 
 # ---------------------------------------------------------------------------
 # Ontology IRI Mapping
