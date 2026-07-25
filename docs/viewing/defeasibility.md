@@ -16,11 +16,15 @@ A resolved conflict reads as a triple: when obligation `O1` `competesWith` `O2`,
 
 ## Reading the View
 
-The view reads edges directly from the committed case ontologies, not from temporary extraction storage, so it reflects the same graph that OntServe serves. It is organized into two bands.
+The view reads edges directly from the committed case ontologies, not from temporary extraction storage, so it reflects the same graph that OntServe serves. It is organized into two bands, with an additional record for cases resolved without defeat.
 
 ### Band 1: Resolved Conflicts in the Case
 
 The first band shows the conflicts internal to the case being viewed. For each conflict it presents the competing obligations, the obligation that prevails, the state under which the losing obligation is defeated, and the board conclusions that the resolution supports. This band is derived from the anchor case's own committed ontology.
+
+### Resolved Without Defeat
+
+Board analyses resolve most apparent duty tensions without allowing one obligation to defeat another: the analysis defines a duty's boundary so that only one duty applies (specification), or finds that the apparent conflict does not exist on the facts (dissolution). Where a resolution pattern in the committed ontology records such a mode, it carries a `resolutionKind` marker, and the view lists these resolutions with the resolving passage and the conclusion each one supports. A case with only boundary-setting resolutions still reaches this view; its record states that no obligation was overridden. Override markers on defeat edges render through Band 1.
 
 ### Band 2: Cross-Case Comparison
 
