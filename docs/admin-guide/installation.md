@@ -11,7 +11,7 @@
 ## 1. Clone and Install
 
 ```bash
-git clone https://github.com/cr625/proethica.git
+git clone <proethica-repository-url>
 cd proethica
 
 python3 -m venv venv-proethica
@@ -96,7 +96,7 @@ source venv-ontserve/bin/activate
 python servers/mcp_server.py
 ```
 
-OntServe MCP listens on port 8082. See [OntServe repository](https://github.com/cr625/OntServe) for full setup instructions.
+OntServe MCP listens on port 8082. See the OntServe repository for full setup instructions.
 
 ProEthica will start without OntServe but ontology features (class assignment, entity commit) will be unavailable.
 

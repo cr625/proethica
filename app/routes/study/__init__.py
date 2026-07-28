@@ -38,6 +38,26 @@ register_admin_routes(study_bp)
 register_flow_demo_routes(study_bp)
 
 
+@study_bp.before_request
+def _withhold_during_anonymous_review():
+    """
+    Withhold the validation-study surfaces during the anonymous review window.
+
+    The consent documents (`_info_sheet_v2.html`, `_info_sheet_v3_prolific.html`)
+    and the completion page name the principal investigator, the student
+    investigator, their institutional addresses, and the reviewing IRB. That
+    wording is bound to the approved protocol and is checked by a wording-parity
+    test, so it is not edited here: the documents stay verbatim for the research
+    record and the routes are made unreachable instead.
+
+    Recruitment closed before this guard was added, so no live participant flow
+    depends on these routes. See config.ANONYMOUS_MODE.
+    """
+    from flask import current_app, render_template
+    if current_app.config.get('ANONYMOUS_MODE', True):
+        return render_template('withheld.html'), 404
+
+
 
 # Back-compat re-export: tests/unit/test_retrospective_shuffle.py imports this directly.
 from app.routes.study.helpers import _RANKING_VIEWS  # noqa: E402,F401

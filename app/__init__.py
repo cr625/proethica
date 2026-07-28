@@ -260,6 +260,7 @@ def create_app(config_name=None):
             'app_name': 'ProEthica',
             'ontserve_web_url': app.config.get('ONTSERVE_WEB_URL', 'http://localhost:5003'),
             'demo_readonly': is_demo_user(),
+            'anonymous_mode': app.config.get('ANONYMOUS_MODE', True),
         }
 
     @app.context_processor

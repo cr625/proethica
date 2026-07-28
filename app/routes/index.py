@@ -112,9 +112,17 @@ def demo():
     """
     Demo landing page for AAAI-26 conference attendees.
 
+    The page accompanies a published demonstration paper and names its authors
+    in the citation, the source-repository link, and the contact address, so it
+    is withheld in its entirety during the anonymous review window rather than
+    scrubbed field by field. See config.ANONYMOUS_MODE.
+
     Returns:
-        Rendered demo template with video, docs links, and references
+        Rendered demo template with video, docs links, and references, or a
+        neutral withheld-content notice under ANONYMOUS_MODE
     """
+    if current_app.config.get('ANONYMOUS_MODE', True):
+        return render_template('withheld.html'), 404
     return render_template('demo.html')
 
 

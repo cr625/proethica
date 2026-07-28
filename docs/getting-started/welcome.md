@@ -89,4 +89,3 @@ A condensed introduction to ProEthica is available at `/demo`. The page presents
 - [Interface Overview](first-login.md) - Navigation and UI elements
 - [Upload Cases](../analysis/uploading-cases.md) - Adding cases to the repository
 - [Nine-Component Framework](../concepts/nine-components.md) - Methodology reference
-- [Publications](../papers/index.md) - Research papers and citations

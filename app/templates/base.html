@@ -269,10 +269,14 @@
 
         <div class="footer">
             <p>&copy; Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU GPL v3</a>
+                {# The source-repository link identifies the authors by account name and is
+                   withheld during the anonymous review window. See config.ANONYMOUS_MODE. #}
+                {% if not anonymous_mode %}
                 <span class="mx-2">|</span>
                 <a href="https://github.com/cr625/proethica/issues" target="_blank" rel="noopener">
                     <i class="bi bi-github"></i> Report Issue
                 </a>
+                {% endif %}
             </p>
         </div>
 

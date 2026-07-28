@@ -24,8 +24,8 @@ foundational works:
   (2021)**. Implementations in machine ethics: A survey. *ACM Computing
   Surveys*, 53(6), Article 132. [DOI](https://doi.org/10.1145/3419633)
 
-The dissertation grounding the framework, and the peer-reviewed papers derived
-from it, are listed on the [Publications](papers/index.md) page.
+The publication record for the framework is withheld while this work is under
+anonymous peer review.
 
 ## Component Literature { #nine-component }
 

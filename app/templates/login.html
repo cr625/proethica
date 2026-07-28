@@ -49,7 +49,14 @@
                     </form>
                 </div>
                 <div class="card-footer text-center">
+                    {# The account-access address is an institutional account that names the
+                       author. Withheld during the anonymous review window; the login form
+                       itself is unaffected. See config.ANONYMOUS_MODE. #}
+                    {% if anonymous_mode %}
+                    <p class="text-muted small mb-0">Accounts are issued to registered collaborators.</p>
+                    {% else %}
                     <p class="text-muted small mb-0">Contact <a href="mailto:cr625@drexel.edu">cr625@drexel.edu</a> for account access</p>
+                    {% endif %}
                 </div>
             </div>
         </div>

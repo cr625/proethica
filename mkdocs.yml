@@ -1,12 +1,20 @@
 site_name: ProEthica Documentation
 site_description: User manual for ProEthica - Professional Ethics Analysis Tool
-site_author: Christopher B. Rauch
 site_url: https://proethica.org/docs
 
+# ANONYMOUS REVIEW (AAAI-27, through 2026-11-30): site_author and the repository
+# settings below are withheld. site_author emits a <meta name="author"> tag on
+# every page; repo_url adds a header link and per-page "edit" links that name the
+# account. MkDocs is built statically, so these cannot be gated by
+# config.ANONYMOUS_MODE at request time; restore them from
+# docs-internal/anonymization-restore-2026-07.md at camera-ready.
+#
+# site_author: Christopher B. Rauch
+#
 # Repository
-repo_url: https://github.com/cr625/proethica
-repo_name: proethica
-edit_uri: edit/main/docs/
+# repo_url: https://github.com/cr625/proethica
+# repo_name: proethica
+# edit_uri: edit/main/docs/
 
 theme:
   name: material
@@ -48,6 +56,14 @@ theme:
 plugins:
   - search:
       lang: en
+
+# ANONYMOUS REVIEW (AAAI-27, through 2026-11-30): keep the publications page and
+# the conference PDFs out of the build entirely. Excluding rather than
+# route-gating is deliberate -- the PDFs carry author names and affiliations on
+# their title pages, and a built-but-blocked page would still contribute its text
+# to the search index. Delete this block at camera-ready.
+exclude_docs: |
+  papers/
 
 markdown_extensions:
   - admonition
@@ -96,13 +112,18 @@ nav:
       - Production Server: admin-guide/production-server.md
       - Settings: admin-guide/settings.md
   - References: references.md
-  - Publications: papers/index.md
+  # ANONYMOUS REVIEW (AAAI-27): the publications page lists the authors by name
+  # across every prior paper. Removed from the nav AND excluded from the build
+  # below, because a nav-only removal would leave the page text in the Material
+  # search index at /docs/search/search_index.json.
+  # - Publications: papers/index.md
   - "Back to ProEthica": "/"
 
 extra_css:
   - assets/css/custom.css
 
-extra:
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/cr625/proethica
+# ANONYMOUS REVIEW (AAAI-27): the social link names the author's account.
+# extra:
+#   social:
+#     - icon: fontawesome/brands/github
+#       link: https://github.com/cr625/proethica

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Unavailable - ProEthica{% endblock %}
+
+{#
+  Neutral notice for pages withheld under config.ANONYMOUS_MODE during the
+  AAAI-27 anonymous review window (through 2026-11-30).
+
+  The wording states that the material is withheld and why, without naming the
+  venue, the authors, or the institution. A bare 404 would read as a broken
+  site to visitors who were invited to try the system; this reads as
+  deliberate. Restoration is covered in
+  docs-internal/anonymization-restore-2026-07.md.
+#}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card mt-5">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-file-earmark-lock2 text-muted" style="font-size: 2.5rem;"></i>
+                <h4 class="mt-3 mb-3">Temporarily unavailable</h4>
+                <p class="text-muted mb-4">
+                    Author and publication information is withheld while this work is under
+                    anonymous peer review. This material will be restored once the review
+                    period closes.
+                </p>
+                <p class="text-muted small mb-4">
+                    The system itself is unaffected. Case analyses, the nine-component
+                    formalism, precedent comparison, and the ontology browser are all
+                    available.
+                </p>
+                <a href="{{ url_for('index.index') }}" class="btn btn-primary">
+                    <i class="bi bi-house me-1"></i> Return to ProEthica
+                </a>
+                <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-secondary ms-2">
+                    <i class="bi bi-collection me-1"></i> Browse cases
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

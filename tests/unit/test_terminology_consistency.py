@@ -150,27 +150,33 @@ class TestNineComponentTerminology:
 
         assert not missing_terminology, "\n".join(missing_terminology)
 
-    def test_references_template_uses_nine_component_id(self):
-        """Verify references.html template uses 'nine-component' as ID."""
-        template_path = self.project_root / "app" / "templates" / "tools" / "references.html"
-        assert template_path.exists(), f"Template {template_path} not found"
+    # The references content moved from the app template `tools/references.html`
+    # to the MkDocs page `docs/references.md` in commit ef82ad58 (`/tools/references`
+    # now 301-redirects). The section anchor is carried by the attr-list syntax
+    # `{ #nine-component }` rather than a literal HTML id.
+    REFERENCES_PAGE = ("docs", "references.md")
 
-        content = template_path.read_text(encoding='utf-8')
+    def test_references_page_uses_nine_component_id(self):
+        """Verify the references page anchors the framework section as 'nine-component'."""
+        page_path = self.project_root.joinpath(*self.REFERENCES_PAGE)
+        assert page_path.exists(), f"References page {page_path} not found"
 
-        # Check for the framework section ID
-        assert 'id="nine-component"' in content, (
-            "Expected id='nine-component' not found in references.html template"
+        content = page_path.read_text(encoding='utf-8')
+
+        # Check for the framework section anchor
+        assert '{ #nine-component }' in content, (
+            "Expected anchor '{ #nine-component }' not found in docs/references.md"
         )
 
-        # Verify no old ID exists
-        assert 'id="nine-concept"' not in content, (
-            "Found old id='nine-concept' in references.html, should be 'nine-component'"
+        # Verify no old anchor exists
+        assert '#nine-concept' not in content, (
+            "Found old anchor '#nine-concept' in docs/references.md, should be 'nine-component'"
         )
 
-    def test_references_template_uses_nine_component_terminology(self):
-        """Verify references.html uses 'Nine-Component' or '9-Component' terminology."""
-        template_path = self.project_root / "app" / "templates" / "tools" / "references.html"
-        content = template_path.read_text(encoding='utf-8')
+    def test_references_page_uses_nine_component_terminology(self):
+        """Verify the references page uses 'Nine-Component' or '9-Component' terminology."""
+        page_path = self.project_root.joinpath(*self.REFERENCES_PAGE)
+        content = page_path.read_text(encoding='utf-8')
 
         # Check for correct terminology variations
         has_nine_component = (
@@ -180,7 +186,7 @@ class TestNineComponentTerminology:
         )
 
         assert has_nine_component, (
-            "references.html should contain 'Nine-Component', '9-Component', or 'nine-component'"
+            "docs/references.md should contain 'Nine-Component', '9-Component', or 'nine-component'"
         )
 
     def test_extraction_files_no_old_terminology(self):

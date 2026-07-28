@@ -62,6 +62,20 @@ class Config:
     # Monitoring settings
     MONITOR_ENABLED = os.environ.get('MONITOR_ENABLED', 'true').lower() == 'true'
 
+    # Double-blind anonymization for the AAAI-27 review window (submission
+    # through final notification 2026-11-30). When true, the surfaces that name
+    # the authors or their institution are withheld: the /demo landing page, the
+    # documentation publications section, the validation-study consent
+    # documents, and the source-repository and contact links in the footer.
+    # System behavior, case content, and the ProEthica name are unaffected.
+    #
+    # Defaults to true so that an unconfigured deployment stays anonymous; the
+    # failure mode of a forgotten environment variable is a withheld page rather
+    # than a broken double-blind. Restoration at camera-ready is a single
+    # toggle: set ANONYMOUS_MODE=false. Items that could not be flag-gated are
+    # listed in docs-internal/anonymization-restore-2026-07.md.
+    ANONYMOUS_MODE = os.environ.get('ANONYMOUS_MODE', 'true').lower() == 'true'
+
 
 class DevelopmentConfig(Config):
     """Development configuration."""
@@ -82,6 +96,12 @@ class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
     ENVIRONMENT = 'testing'
+    # Anonymization is a presentation concern for the public deployment, not
+    # system behavior, so the suite exercises the real flows (notably the
+    # validation-study e2e flow, whose routes are withheld under ANONYMOUS_MODE).
+    # The withholding behavior itself is covered by tests/test_anonymous_mode.py,
+    # which opts back in explicitly.
+    ANONYMOUS_MODE = False
     # Use PostgreSQL test database instead of SQLite for schema compatibility
     SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
                               'postgresql://postgres:PASS@localhost:5432/ai_ethical_dm_test'
