@@ -524,9 +524,14 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
         seen_pairs.add(key)
         doc = Document.query.get(r.case_id)
         meta = doc.doc_metadata if (doc and isinstance(doc.doc_metadata, dict)) else {}
+        # Ranks 1-2 match BOTH endpoints (genuinely the same tension); ranks 3-6
+        # share only one duty type. The heading promises "the same tension", so
+        # the weaker rows have to be visually separated or they read as if the
+        # board had ruled on this pairing when it did not.
         type_rows.append({
             "rank": rel[0],
             "relation": rel[1],
+            "group": "same" if rel[0] <= 2 else "related",
             "case_id": r.case_id,
             "case_number": meta.get("case_number", ""),
             "title": doc.title if doc else f"Case {r.case_id}",

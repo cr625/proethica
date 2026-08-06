@@ -4,6 +4,27 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ontology-labels.css') }}">
+<style>
+  /* Type-recurrence table: rows matching BOTH duty types are direct evidence
+     about this pairing; rows matching only ONE are context, not a ruling on it.
+     The left rule and the muted treatment keep that difference visible without
+     a second table. */
+  .deft-grp td { font-weight: 600; font-size: .8rem; letter-spacing: .02em;
+                 text-transform: uppercase; color: var(--bs-secondary-color);
+                 background: var(--bs-tertiary-bg); }
+  /* Space each band off the one above it; :not(:first-child) leaves the first
+     band flush against the header where the gap would just look like a bug. */
+  .deft-grp:not(:first-child) td { padding-top: 1.1rem; }
+  tr.deft-same    td:first-child,
+  tr.deft-related td:first-child { padding-left: .85rem; }
+  tr.deft-same    td:first-child { box-shadow: inset 3px 0 0 var(--bs-primary); }
+  tr.deft-related td:first-child { box-shadow: inset 3px 0 0 var(--bs-border-color); }
+  tr.deft-related .deft-types .badge { opacity: .75; }
+  .deft-key { display: inline-block; width: .65rem; height: .65rem;
+              border-radius: 2px; vertical-align: baseline; margin-right: .3rem; }
+  .deft-key-same    { background: var(--bs-primary); }
+  .deft-key-related { background: var(--bs-border-color); }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -151,7 +172,7 @@
   {% endif %}
 
   {% if view.cross_case %}
-  <h5 class="mt-5 mb-2"><i class="bi bi-2-circle me-1"></i>How comparable cases resolved the same tension
+  <h5 class="mt-5 mb-2"><i class="bi bi-2-circle me-1"></i>How comparable cases resolved this and related tensions
     <a tabindex="0" role="button" class="info-popover text-muted ms-1" data-bs-toggle="popover"
        data-bs-trigger="focus hover" data-bs-placement="right" data-bs-container="body"
        data-bs-title="Context-indexed resolutions"
@@ -164,10 +185,21 @@
   <p class="text-muted small">
     Read at the type level, this resolution is: <em>{{ tp.loser_type_display }}</em> yields to
     <em>{{ tp.winner_type_display }}</em>. Comparison across cases happens at this level; the duty types
-    recur while each case's obligations instantiate them.
+    recur while each case's obligations instantiate them. Cases below are grouped by how much of that
+    pairing they share. A duty type that yields here may prevail elsewhere, which is the
+    context-dependence itself, not an inconsistency.
   </p>
   {% endif %}
   {% if tp and tp.rows %}
+  {% set same_rows = tp.rows | selectattr('group', 'equalto', 'same') | list %}
+  {% set related_rows = tp.rows | selectattr('group', 'equalto', 'related') | list %}
+  <p class="small text-muted mb-2">
+    <span class="me-3"><span class="deft-key deft-key-same"></span><strong>Same tension:</strong>
+      both duty types match, so the board ruled on this exact pairing.</span>
+    <span><span class="deft-key deft-key-related"></span><strong>Related tension:</strong>
+      only one duty type matches; the other duty differs, so these show how a type behaves
+      elsewhere rather than a ruling on this pairing.</span>
+  </p>
   <div class="table-responsive">
     <table class="table table-sm align-middle">
       <thead class="table-light">
@@ -179,16 +211,23 @@
         </tr>
       </thead>
       <tbody>
-        {% for t in tp.rows %}
-        <tr>
+        {% for group, rows_in_group, heading in [
+             ('same', same_rows, 'Same tension: both duty types match'),
+             ('related', related_rows, 'Related tension: one duty type matches')] %}
+        {% if rows_in_group %}
+        <tr class="deft-grp"><td colspan="4">{{ heading|safe }} ({{ rows_in_group|length }})</td></tr>
+        {% for t in rows_in_group %}
+        <tr class="deft-{{ group }}">
           <td>
             <a href="{{ url_for('cases.case_defeasibility', id=t.case_id) }}">{% if t.case_number %}{{ t.case_number }}{% else %}Case {{ t.case_id }}{% endif %}</a>
             <div class="small text-muted">{{ t.title|truncate(46) }}</div>
           </td>
-          <td><span class="badge bg-success">{{ t.winner_type_display }}</span></td>
-          <td><span class="badge bg-secondary">{{ t.loser_type_display }}</span></td>
-          <td class="small">{{ t.relation }}</td>
+          <td class="deft-types"><span class="badge bg-success">{{ t.winner_type_display }}</span></td>
+          <td class="deft-types"><span class="badge bg-secondary">{{ t.loser_type_display }}</span></td>
+          <td class="small{% if group == 'related' %} text-muted{% endif %}">{{ t.relation }}</td>
         </tr>
+        {% endfor %}
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
