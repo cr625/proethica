@@ -41,6 +41,7 @@ from app.services.ontserve.ontserve_config import (
 )
 from app.services.commit import naming
 from app.services.commit.commit_context import build_commit_context, _is_role_individual
+from app.services.commit.case_header import add_case_ontology_header
 
 logger = logging.getLogger(__name__)
 
@@ -116,17 +117,6 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
             idx = BaseOntologyIndex(getattr(self, 'ontologies_dir', None))
             self._base_index = idx
         return idx
-
-    def _case_title(self, case_id: int) -> Optional[str]:
-        """Return the human case title for a case id, or None if the document is
-        absent. Emitted as dcterms:title in the case TTL header so the title
-        travels with the artifact (OntServe reads it into display_name on sync,
-        rather than coupling to the ProEthica database)."""
-        from app.models.document import Document
-        from app.models import db
-        doc = db.session.get(Document, case_id)
-        title = (doc.title or '').strip() if doc else ''
-        return title or None
 
     def _record_edge_provenance(self, case_id, edge_result):
         """Record the commit-time edge materialization (per family) + the unified guard as
@@ -476,15 +466,7 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 g.parse(case_file, format='turtle')
             else:
                 # Add ontology declaration for new case file
-                case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
-                g.add((case_ontology_uri, RDF.type, OWL.Ontology))
-                g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
-                _title = self._case_title(case_id)
-                if _title:
-                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
-                g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/cases")))
-                g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
-                g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
+                add_case_ontology_header(g, case_id)
 
             # Bind namespaces
             g.bind(f"case{case_id}", Namespace(f"http://proethica.org/ontology/case/{case_id}#"))

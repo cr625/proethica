@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Tuple
 
 from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS, DCTERMS
+from app.services.commit.case_header import add_case_ontology_header
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
@@ -41,16 +42,6 @@ PROV = Namespace("http://www.w3.org/ns/prov#")
 class CaseTtlBuilderMixin:
     """Case TTL generation: fresh/legacy graph building, entity-property
     merging, and the section-type / core-type / safe-URI helpers it uses."""
-
-    def _case_title(self, case_id: int) -> Optional[str]:
-        """Human case title for the case id, or None if the document is absent.
-        Emitted as dcterms:title in the TTL header so OntServe can read it into
-        display_name on sync (see OntServeCommitService._case_title)."""
-        from app.models.document import Document
-        from app.models import db
-        doc = db.session.get(Document, case_id)
-        title = (doc.title or '').strip() if doc else ''
-        return title or None
 
     def _generate_case_ttl(
         self,
@@ -89,14 +80,7 @@ class CaseTtlBuilderMixin:
                 # Versioned: always create fresh ontology declaration
                 if versioned and case_file.exists():
                     logger.info(f"Versioned mode: overwriting TTL for case {case_id}")
-                case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
-                g.add((case_ontology_uri, RDF.type, OWL.Ontology))
-                g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
-                _title = self._case_title(case_id)
-                if _title:
-                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
-                g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
-                g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
+                add_case_ontology_header(g, case_id, imports=("http://proethica.org/ontology/intermediate",))
 
             # Bind namespaces
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")

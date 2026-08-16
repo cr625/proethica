@@ -26,6 +26,7 @@ from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.ontserve.ontserve_config import get_ontserve_db_config
 from app.services.commit import naming
 from app.services.commit.commit_context import _is_role_individual
+from app.services.commit.case_header import add_case_ontology_header
 
 logger = logging.getLogger(__name__)
 
@@ -418,15 +419,7 @@ class VersionedCommitMixin:
             g = Graph()
 
             # Add ontology declaration
-            case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
-            g.add((case_ontology_uri, RDF.type, OWL.Ontology))
-            g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
-            _title = self._case_title(case_id)
-            if _title:
-                g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
-            g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/cases")))
-            g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
-            g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.now(timezone.utc))))
+            add_case_ontology_header(g, case_id)
 
             # Bind namespaces
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")

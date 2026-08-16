@@ -280,14 +280,16 @@ def _placement_entity(label, extraction_type='principles'):
 def _placement_service(tmp_path, monkeypatch, chain_resolver):
     """OntServeCommitService wired to a tmp ontologies dir with the DB / LLM /
     OntServe touchpoints stubbed (edge materialization, canonicalization, the
-    role-axis resolver, the case-title lookup, edge provenance)."""
+    role-axis resolver, the case-header lookup, edge provenance)."""
     import app.services.extraction.canonicalization as canon
     import app.services.extraction.edge_materialization as edge_mat
 
     svc = object.__new__(OntServeCommitService)
     svc.ontologies_dir = tmp_path
     svc._established_core_category = chain_resolver
-    svc._case_title = lambda case_id: 'Mock Case'
+    import app.services.commit.case_header as case_header
+    monkeypatch.setattr(case_header, 'case_header_fields',
+                        lambda case_id: {'title': 'Mock Case', 'case_number': None, 'decade': None})
     svc._record_edge_provenance = lambda *a, **k: None
     monkeypatch.setattr(edge_mat, 'materialize_edges_on_ttl',
                         lambda cid, f: {'stubbed': True})

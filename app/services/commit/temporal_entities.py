@@ -11,9 +11,9 @@ auto_commit_service.py so existing imports keep working.
 
 Depends at runtime (via self, once mixed into AutoCommitService) on
 CaseTtlBuilderMixin's ``_make_safe_uri`` / ``_get_core_type`` and on
-AutoCommitService's own ``_sync_to_ontserve`` / ``_case_title``
-(``_case_title`` moved to CaseTtlBuilderMixin) -- no import needed for
-those, since the final class mixes in all of them.
+AutoCommitService's own ``_sync_to_ontserve`` -- no import needed for
+those, since the final class mixes in all of them. The ontology header
+comes from ``case_header.add_case_ontology_header``.
 
 Namespace constants (PROETHICA, PROETHICA_CORE, PROV) are redeclared locally
 rather than imported back from auto_commit_service.py (which imports this
@@ -37,6 +37,7 @@ from typing import Any, Dict
 
 from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, OWL
 from rdflib.namespace import SKOS, DCTERMS
+from app.services.commit.case_header import add_case_ontology_header
 
 from app import db
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
@@ -94,14 +95,7 @@ class TemporalEntitiesMixin:
                 logger.info(f"Loaded existing case TTL: {case_file}")
             else:
                 # Create new graph with ontology declaration
-                case_ontology_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}")
-                g.add((case_ontology_uri, RDF.type, OWL.Ontology))
-                g.add((case_ontology_uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
-                _title = self._case_title(case_id)
-                if _title:
-                    g.add((case_ontology_uri, DCTERMS.title, Literal(_title)))
-                g.add((case_ontology_uri, OWL.imports, URIRef("http://proethica.org/ontology/intermediate")))
-                g.add((case_ontology_uri, DCTERMS.created, Literal(datetime.utcnow())))
+                add_case_ontology_header(g, case_id, imports=("http://proethica.org/ontology/intermediate",))
 
             # Bind namespaces
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")

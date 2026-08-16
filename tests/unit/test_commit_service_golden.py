@@ -97,7 +97,10 @@ def _stub_service(tmp_path, monkeypatch):
     svc = object.__new__(OntServeCommitService)
     svc.ontologies_dir = tmp_path
     svc._established_core_category = _chain_resolver
-    svc._case_title = lambda case_id: 'AI Diplomate Credential Case'
+    # The header helper reads the Document row; stub it with the golden facts.
+    import app.services.commit.case_header as case_header
+    monkeypatch.setattr(case_header, 'case_header_fields', lambda case_id: {
+        'title': 'AI Diplomate Credential Case', 'case_number': '24-9', 'decade': '2020s'})
     svc._record_edge_provenance = lambda *a, **k: None
     # Deterministic empty object-property set except the two the Action
     # fixture below needs redirected to a <local>Text sibling (mirrors

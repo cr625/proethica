@@ -12,6 +12,8 @@
 
 <http://proethica.org/ontology/case/601> a owl:Ontology ;
     rdfs:label "ProEthica Case 601 Ontology" ;
+    dcterms:identifier "24-9" ;
+    dcterms:temporal "2020s" ;
     dcterms:title "AI Diplomate Credential Case" ;
     owl:imports <http://proethica.org/ontology/cases>,
         <http://proethica.org/ontology/intermediate> .
