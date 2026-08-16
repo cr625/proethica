@@ -25,6 +25,16 @@ from .correction_handler import CorrectionHandler
 # Set up logging
 logger = logging.getLogger(__name__)
 
+
+_NUMBER_ONLY_TITLE = re.compile(r'^\s*(?:nspe\s+)?(?:ber\s+)?case(?:\s+number|\s+no\.?)?[\s:#]*\d+-\d+\s*$', re.IGNORECASE)
+
+
+def is_number_only_title(title: str) -> bool:
+    """True for titles that carry nothing but the BER case number
+    ("Case Number 58-1", "BER Case 60-3", "Case 24-2")."""
+    return bool(title) and bool(_NUMBER_ONLY_TITLE.match(title))
+
+
 class CaseUrlProcessor:
     """
     Main orchestrator for processing case URLs.
@@ -150,11 +160,18 @@ class CaseUrlProcessor:
             
             # Title priority logic:
             # 1. For NSPE cases, prefer LLM title if it contains a case number
+            #    AND says more than the number (older BER PDFs have no title line,
+            #    only "Case Number 58-1" + a Subject; a number-only title must not
+            #    beat a descriptive HTML title -- cases 90/102 were ingested that way)
             # 2. Otherwise prefer HTML title
             # 3. Fall back to pattern metadata
             # 4. Last resort: URL-based title
-            if is_nspe_case and llm_structured_data.get("title") and re.search(r'Case\s+\d+-\d+', llm_structured_data.get("title", ""), re.IGNORECASE):
-                title = llm_structured_data.get("title")
+            llm_title = llm_structured_data.get("title") or ""
+            if (is_nspe_case and llm_title
+                    and re.search(r'Case\s+\d+-\d+', llm_title, re.IGNORECASE)
+                    and not (is_number_only_title(llm_title) and html_title and len(html_title) > 5
+                             and not is_number_only_title(html_title))):
+                title = llm_title
             elif html_title and len(html_title) > 5:
                 title = html_title
             elif metadata.get("title"):
