@@ -11,36 +11,41 @@ into the ontology record on sync (services/ontology_sync_service.py):
     dcterms:identifier the NSPE case number      -> metadata.case_number
     dcterms:temporal   the decade, e.g. "1990s"  -> metadata.subcategory (index grouping)
     dcterms:created    commit timestamp
-    owl:imports        the base ontologies the case builds on
+    owl:imports        the base ontologies the case builds on (DEFAULT_IMPORTS)
 
-The decade comes from the case-number prefix (NSPE numbers cases YY-N by the
-year of the Board decision; two-digit years >= 50 are 19YY, otherwise 20YY),
-falling back to doc_metadata['year'] when the number is not in that form.
+Every writer imports the same base ontologies (cases + intermediate), matching
+the persisted corpus: all 119 case TTLs import both. The decade comes from the
+case-number prefix (app/utils/nspe_case_number.py holds the two-digit-year
+century pivot), falling back to doc_metadata['year'] when the number is not
+in that form.
 """
 
-import re
 from datetime import datetime, timezone
-from typing import Dict, Iterable, Optional
+from typing import Dict, Optional
 
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, OWL, RDF, RDFS
 
-CASE_ONTOLOGY_URI = "http://proethica.org/ontology/case/{case_id}"
+from app.services.commit import naming
+from app.utils.nspe_case_number import year_from_case_number
+
 DEFAULT_IMPORTS = (
     "http://proethica.org/ontology/cases",
     "http://proethica.org/ontology/intermediate",
 )
 
-_CASE_NUMBER = re.compile(r'^\s*(\d{2})-\d+\s*$')
+# OntServe metadata keys in the backfill manifest written by
+# scripts/export_case_categories_manifest.py; OntServe's
+# tools/set_ontology_categories.py reads them.
+MANIFEST_SUBCATEGORY_KEY = 'subcategory'
+MANIFEST_CASE_NUMBER_KEY = 'case_number'
 
 
 def decade_from_case_number(case_number: Optional[str], year: Optional[object] = None) -> Optional[str]:
     """'24-2' -> '2020s'; '58-1' -> '1950s'; else from a four-digit year; else None."""
     if case_number:
-        m = _CASE_NUMBER.match(str(case_number))
-        if m:
-            yy = int(m.group(1))
-            full = 1900 + yy if yy >= 50 else 2000 + yy
+        full = year_from_case_number(case_number)
+        if full is not None:
             return f"{full // 10 * 10}s"
     if year:
         try:
@@ -70,10 +75,9 @@ def case_header_fields(case_id: int) -> Dict[str, Optional[str]]:
 
 
 def add_case_ontology_header(g: Graph, case_id: int,
-                             imports: Iterable[str] = DEFAULT_IMPORTS,
                              created: Optional[datetime] = None) -> URIRef:
     """Add the owl:Ontology declaration for a case to graph g; returns its URI."""
-    uri = URIRef(CASE_ONTOLOGY_URI.format(case_id=case_id))
+    uri = naming.case_ontology_iri(case_id)
     g.add((uri, RDF.type, OWL.Ontology))
     g.add((uri, RDFS.label, Literal(f"ProEthica Case {case_id} Ontology")))
     fields = case_header_fields(case_id)
@@ -83,7 +87,7 @@ def add_case_ontology_header(g: Graph, case_id: int,
         g.add((uri, DCTERMS.identifier, Literal(fields['case_number'])))
     if fields['decade']:
         g.add((uri, DCTERMS.temporal, Literal(fields['decade'])))
-    for imp in imports:
+    for imp in DEFAULT_IMPORTS:
         g.add((uri, OWL.imports, URIRef(imp)))
     g.add((uri, DCTERMS.created, Literal(created or datetime.now(timezone.utc))))
     return uri

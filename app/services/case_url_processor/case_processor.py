@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 _NUMBER_ONLY_TITLE = re.compile(r'^\s*(?:nspe\s+)?(?:ber\s+)?case(?:\s+number|\s+no\.?)?[\s:#]*\d+-\d+\s*$', re.IGNORECASE)
+# Gate for preferring the LLM title of an NSPE case: it must cite the case number
+# as "Case NN-N" (this does not match "Case Number 58-1" / "Case No. 58-1").
+_HAS_CASE_NUMBER = re.compile(r'Case\s+\d+-\d+', re.IGNORECASE)
 
 
 def is_number_only_title(title: str) -> bool:
@@ -162,17 +165,23 @@ class CaseUrlProcessor:
             # 1. For NSPE cases, prefer LLM title if it contains a case number
             #    AND says more than the number (older BER PDFs have no title line,
             #    only "Case Number 58-1" + a Subject; a number-only title must not
-            #    beat a descriptive HTML title -- cases 90/102 were ingested that way)
+            #    beat a descriptive HTML title -- cases 90/102 were ingested that way).
+            #    The gate (_HAS_CASE_NUMBER) does not match "Case Number 58-1" /
+            #    "Case No. 58-1", so the number-only guard only bites for
+            #    "Case 58-1" / "BER Case 60-3"-style LLM titles; and the guard is
+            #    one-directional: a number-only HTML title still beats a
+            #    descriptive LLM title lacking a case number, per rule 2.
             # 2. Otherwise prefer HTML title
             # 3. Fall back to pattern metadata
             # 4. Last resort: URL-based title
             llm_title = llm_structured_data.get("title") or ""
+            html_ok = bool(html_title) and len(html_title) > 5
             if (is_nspe_case and llm_title
-                    and re.search(r'Case\s+\d+-\d+', llm_title, re.IGNORECASE)
-                    and not (is_number_only_title(llm_title) and html_title and len(html_title) > 5
+                    and _HAS_CASE_NUMBER.search(llm_title)
+                    and not (is_number_only_title(llm_title) and html_ok
                              and not is_number_only_title(html_title))):
                 title = llm_title
-            elif html_title and len(html_title) > 5:
+            elif html_ok:
                 title = html_title
             elif metadata.get("title"):
                 title = metadata.get("title")

@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import psycopg2
 from psycopg2.extras import Json
 from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, OWL
-from rdflib.namespace import DCTERMS
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.ontserve.ontserve_config import get_ontserve_db_config

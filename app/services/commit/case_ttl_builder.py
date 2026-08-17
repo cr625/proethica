@@ -26,7 +26,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, OWL, XSD
-from rdflib.namespace import SKOS, DCTERMS
+from rdflib.namespace import SKOS
 from app.services.commit.case_header import add_case_ontology_header
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
@@ -80,7 +80,7 @@ class CaseTtlBuilderMixin:
                 # Versioned: always create fresh ontology declaration
                 if versioned and case_file.exists():
                     logger.info(f"Versioned mode: overwriting TTL for case {case_id}")
-                add_case_ontology_header(g, case_id, imports=("http://proethica.org/ontology/intermediate",))
+                add_case_ontology_header(g, case_id)
 
             # Bind namespaces
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")

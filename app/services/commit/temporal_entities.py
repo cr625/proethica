@@ -36,7 +36,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, OWL
-from rdflib.namespace import SKOS, DCTERMS
+from rdflib.namespace import SKOS
 from app.services.commit.case_header import add_case_ontology_header
 
 from app import db
@@ -95,7 +95,7 @@ class TemporalEntitiesMixin:
                 logger.info(f"Loaded existing case TTL: {case_file}")
             else:
                 # Create new graph with ontology declaration
-                add_case_ontology_header(g, case_id, imports=("http://proethica.org/ontology/intermediate",))
+                add_case_ontology_header(g, case_id)
 
             # Bind namespaces
             case_ns = Namespace(f"http://proethica.org/ontology/case/{case_id}#")

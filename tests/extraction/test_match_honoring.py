@@ -39,6 +39,7 @@ from rdflib.compare import isomorphic
 from app.services.commit.ontserve_commit_service import OntServeCommitService
 from app.services.extraction import category_resolver
 from app.services.extraction.unified_dual_extractor import UnifiedDualExtractor
+from tests.mocks.commit_service_stub import make_stub_commit_service
 
 INT_NS = "http://proethica.org/ontology/intermediate#"
 CONCEPTS_NS = "http://proethica.org/ontology/concepts#"
@@ -280,32 +281,11 @@ def _placement_entity(label, extraction_type='principles'):
 def _placement_service(tmp_path, monkeypatch, chain_resolver):
     """OntServeCommitService wired to a tmp ontologies dir with the DB / LLM /
     OntServe touchpoints stubbed (edge materialization, canonicalization, the
-    role-axis resolver, the case-header lookup, edge provenance)."""
-    import app.services.extraction.canonicalization as canon
-    import app.services.extraction.edge_materialization as edge_mat
-
-    svc = object.__new__(OntServeCommitService)
-    svc.ontologies_dir = tmp_path
-    svc._established_core_category = chain_resolver
-    import app.services.commit.case_header as case_header
-    monkeypatch.setattr(case_header, 'case_header_fields',
-                        lambda case_id: {'title': 'Mock Case', 'case_number': None, 'decade': None})
-    svc._record_edge_provenance = lambda *a, **k: None
-    monkeypatch.setattr(edge_mat, 'materialize_edges_on_ttl',
-                        lambda cid, f: {'stubbed': True})
-
-    # The canonicalize_ttl contract includes the post-rewrite graph under
-    # '_graph' (consumed by the post-canonicalization role-axis re-sweep);
-    # the stub honors it by parsing the on-disk TTL unchanged.
-    def _stub_canonicalize(cid, f):
-        g = Graph()
-        g.parse(str(f), format='turtle')
-        return {'stubbed': True, '_graph': g}
-
-    monkeypatch.setattr(canon, 'canonicalize_ttl', _stub_canonicalize)
-    monkeypatch.setattr(category_resolver, 'resolve_role_axis',
-                        lambda uri: None)
-    return svc
+    role-axis resolver, the case-header lookup, edge provenance); wiring shared
+    with test_commit_service_golden.py via tests/mocks/commit_service_stub.py."""
+    return make_stub_commit_service(
+        tmp_path, monkeypatch, chain_resolver=chain_resolver,
+        header_fields={'title': 'Mock Case', 'case_number': None, 'decade': None})
 
 
 def test_matched_class_principle_individual_commits_as_case_individual(

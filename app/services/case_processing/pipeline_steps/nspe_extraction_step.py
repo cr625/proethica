@@ -6,6 +6,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from .base_step import BaseStep
+from app.utils.nspe_case_number import year_from_two_digit
 from urllib.parse import urljoin, urlparse
 
 # Set up logging
@@ -111,9 +112,7 @@ class NSPECaseExtractionStep(BaseStep):
         if case_number:
             year_prefix = case_number.split('-')[0]
             if len(year_prefix) == 2:
-                # Assume 20xx for modern cases, 19xx for older
-                century = "20" if int(year_prefix) < 50 else "19"
-                return century + year_prefix
+                return str(year_from_two_digit(int(year_prefix)))
                 
         # Look for a year pattern in the text
         content_text = soup.get_text()

@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict, OrderedDict
 from flask import render_template, request, redirect, url_for
 from app.utils.environment_auth import auth_optional
+from app.utils.nspe_case_number import year_from_two_digit
 from app.models import Document
 from app.models.world import World
 from app.services.embedding.section_embedding_service import SectionEmbeddingService
@@ -40,8 +41,7 @@ def _case_result(document, chunk=None, tag_match=None):
         if '-' in case_num:
             year_prefix = case_num.split('-')[0]
             if len(year_prefix) == 2:
-                century = "20" if int(year_prefix) < 50 else "19"
-                year = century + year_prefix
+                year = str(year_from_two_digit(int(year_prefix)))
 
     questions_list = metadata.get('questions_list', [])
     conclusion_items = metadata.get('conclusion_items', [])
@@ -156,8 +156,7 @@ def register_listing_routes(bp):
                     if '-' in case_num:
                         year_prefix = case_num.split('-')[0]
                         if len(year_prefix) == 2:
-                            century = "20" if int(year_prefix) < 50 else "19"
-                            year = century + year_prefix
+                            year = str(year_from_two_digit(int(year_prefix)))
 
                 # Extract questions and conclusions
                 questions_list = metadata.get('questions_list', [])

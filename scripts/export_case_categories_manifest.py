@@ -24,7 +24,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app import create_app  # noqa: E402
-from app.services.commit.case_header import case_header_fields  # noqa: E402
+from app.services.commit.case_header import (  # noqa: E402
+    MANIFEST_CASE_NUMBER_KEY, MANIFEST_SUBCATEGORY_KEY, case_header_fields,
+)
 
 
 def main() -> int:
@@ -45,9 +47,9 @@ def main() -> int:
             if not fields['decade']:
                 skipped.append((doc_id, fields['case_number']))
                 continue
-            entry = {'subcategory': fields['decade']}
+            entry = {MANIFEST_SUBCATEGORY_KEY: fields['decade']}
             if fields['case_number']:
-                entry['case_number'] = fields['case_number']
+                entry[MANIFEST_CASE_NUMBER_KEY] = fields['case_number']
             manifest[f'proethica-case-{doc_id}'] = entry
     out_path.write_text(json.dumps(manifest, indent=1) + '\n')
     for doc_id, num in skipped:

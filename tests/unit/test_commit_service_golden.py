@@ -61,7 +61,7 @@ from pathlib import Path
 from rdflib import Graph, Namespace, RDF, OWL
 from rdflib.compare import isomorphic, graph_diff
 
-from app.services.commit.ontserve_commit_service import OntServeCommitService
+from tests.mocks.commit_service_stub import make_stub_commit_service
 
 GOLDEN_DIR = Path(__file__).parent.parent / 'fixtures' / 'commit_golden'
 
@@ -89,33 +89,16 @@ def _chain_resolver(local_name):
 
 def _stub_service(tmp_path, monkeypatch):
     """OntServeCommitService with every DB / OntServe / filesystem-base
-    touchpoint stubbed, mirroring test_match_honoring.py's _placement_service."""
-    import app.services.extraction.canonicalization as canon
-    import app.services.extraction.edge_materialization as edge_mat
-    import app.services.extraction.category_resolver as category_resolver
-
-    svc = object.__new__(OntServeCommitService)
-    svc.ontologies_dir = tmp_path
-    svc._established_core_category = _chain_resolver
-    # The header helper reads the Document row; stub it with the golden facts.
-    import app.services.commit.case_header as case_header
-    monkeypatch.setattr(case_header, 'case_header_fields', lambda case_id: {
-        'title': 'AI Diplomate Credential Case', 'case_number': '24-9', 'decade': '2020s'})
-    svc._record_edge_provenance = lambda *a, **k: None
+    touchpoint stubbed; the wiring is shared with test_match_honoring.py's
+    _placement_service via tests/mocks/commit_service_stub.py."""
+    svc = make_stub_commit_service(
+        tmp_path, monkeypatch, chain_resolver=_chain_resolver,
+        # The header helper reads the Document row; stub it with the golden facts.
+        header_fields={'title': 'AI Diplomate Credential Case', 'case_number': '24-9', 'decade': '2020s'})
     # Deterministic empty object-property set except the two the Action
     # fixture below needs redirected to a <local>Text sibling (mirrors
     # test_temporal_field_serialization.py).
     svc._base_ontology_index._objprop_cache = {'fulfillsObligation', 'causedByAction'}
-
-    def _stub_canonicalize(case_id, ttl_path):
-        g = Graph()
-        g.parse(str(ttl_path), format='turtle')
-        return {'stubbed': True, '_graph': g}
-
-    monkeypatch.setattr(canon, 'canonicalize_ttl', _stub_canonicalize)
-    monkeypatch.setattr(edge_mat, 'materialize_edges_on_ttl',
-                         lambda case_id, ttl_path: {'stubbed': True})
-    monkeypatch.setattr(category_resolver, 'resolve_role_axis', lambda uri: None)
     return svc
 
 
