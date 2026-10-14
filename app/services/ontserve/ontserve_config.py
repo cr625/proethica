@@ -43,13 +43,34 @@ def get_ontserve_base_path() -> Path:
     if env:
         return Path(env)
     for ancestor in Path(__file__).resolve().parents:
-        candidate = ancestor / 'OntServe'
-        if candidate.is_dir():
-            return candidate
+        for name in ('OntServe', 'ontserve'):
+            candidate = ancestor / name
+            # Require the ontologies dir so the app/services/ontserve
+            # package itself is not mistaken for the checkout.
+            if (candidate / 'ontologies').is_dir():
+                return candidate
     raise RuntimeError(
         "OntServe checkout not found in any parent directory; "
         "set ONTSERVE_BASE_PATH to its location."
     )
+
+
+def get_ontserve_ontologies_path() -> Path:
+    """Return the directory holding the curated OntServe ontology TTLs.
+
+    Resolution order:
+      1. ``ONTSERVE_ONTOLOGIES_PATH`` env var, else
+      2. ``ontologies`` under :func:`get_ontserve_base_path`.
+
+    This is the single source for TTL locations; callers must not derive
+    the directory from their own file location, which encodes the
+    development checkout layout and breaks where the checkout lives
+    elsewhere (production: ``/opt/ontserve``).
+    """
+    env = os.environ.get('ONTSERVE_ONTOLOGIES_PATH')
+    if env:
+        return Path(env)
+    return get_ontserve_base_path() / 'ontologies'
 
 
 def get_ontserve_mcp_url() -> str:

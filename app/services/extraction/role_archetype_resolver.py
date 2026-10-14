@@ -13,7 +13,6 @@ The RELATIONAL axis is resolved separately from the Kong ``role_category``
 """
 import os
 import threading
-from pathlib import Path
 from typing import Dict, Optional
 
 import rdflib
@@ -28,11 +27,16 @@ _OCCUPATIONAL_ARCHETYPE = rdflib.URIRef(_INTERMEDIATE_NS + "OccupationalArchetyp
 
 # Default to the engineering archetype ontology; override per domain via the env var or the
 # ttl_path argument so a different domain points at its own archetype ontology.
-_DEFAULT_TTL = (
-    os.environ.get("PROETHICA_ARCHETYPE_TTL")
-    or str(Path(__file__).resolve().parents[4] / "OntServe" / "ontologies"
-           / "proethica-intermediate.ttl")
-)
+# Resolved lazily through the configured OntServe location so the module
+# imports cleanly where no checkout is present.
+_DEFAULT_TTL = os.environ.get("PROETHICA_ARCHETYPE_TTL")
+
+
+def _default_ttl() -> str:
+    if _DEFAULT_TTL:
+        return _DEFAULT_TTL
+    from app.services.ontserve.ontserve_config import get_ontserve_ontologies_path
+    return str(get_ontserve_ontologies_path() / "proethica-intermediate.ttl")
 
 _cache: Dict[str, Dict[str, str]] = {}   # ttl_path -> {synonym_lower: archetype_iri}
 _lock = threading.Lock()
@@ -87,7 +91,7 @@ def resolve_occupational_archetype(label: str, ttl_path: Optional[str] = None) -
     if not label:
         return None
     try:
-        idx = _index(ttl_path or _DEFAULT_TTL)
+        idx = _index(ttl_path or _default_ttl())
     except Exception:
         return None
     t = label.lower()

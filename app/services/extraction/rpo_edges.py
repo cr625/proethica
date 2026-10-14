@@ -577,11 +577,12 @@ ALL_EDGE_RANGE = {**_EDGE_RANGE, **_DEFEASIBILITY_RANGE, **_STATE_EDGE_RANGE,
 
 
 def _default_ontology_paths() -> Tuple[Any, Any]:
-    """Locate proethica-core.ttl / proethica-intermediate.ttl on the OntServe
-    disk relative to this file (/home/chris/onto/OntServe/ontologies)."""
-    from pathlib import Path
-    onto_root = Path(__file__).resolve().parents[4]  # .../onto
-    ont_dir = onto_root / "OntServe" / "ontologies"
+    """Locate proethica-core.ttl / proethica-intermediate.ttl in the
+    configured OntServe ontologies directory (see
+    ``get_ontserve_ontologies_path``; production sets
+    ``ONTSERVE_ONTOLOGIES_PATH=/opt/ontserve/ontologies``)."""
+    from app.services.ontserve.ontserve_config import get_ontserve_ontologies_path
+    ont_dir = get_ontserve_ontologies_path()
     return ont_dir / "proethica-core.ttl", ont_dir / "proethica-intermediate.ttl"
 
 
