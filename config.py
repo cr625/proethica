@@ -19,7 +19,16 @@ class Config:
                              os.environ.get('DATABASE_URL') or \
                              'postgresql://postgres:PASS@localhost:5432/ai_ethical_dm'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
+
+    # Pool resilience against server-side connection loss: pre_ping discards
+    # a pooled connection the server has already closed (PostgreSQL restart,
+    # idle timeout) instead of handing it to the next request as a 500;
+    # recycle retires connections before typical server/firewall idle limits.
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
+
     # CSRF protection
     WTF_CSRF_ENABLED = True
     
