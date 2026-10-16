@@ -24,7 +24,6 @@ from app.models import Document
 from .case_feature_extractor import CaseFeatureExtractor, ExtractedFeatures
 from .similarity_service import PrecedentSimilarityService, SimilarityResult
 from model_config import ModelConfig
-from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +98,12 @@ class PrecedentDiscoveryService:
         self.llm_client = llm_client
         self.feature_extractor = CaseFeatureExtractor()
         self.similarity_service = PrecedentSimilarityService(llm_client)
+
+    def _llm_text(self, prompt: str, max_tokens: int, temperature: float) -> str:
+        """One completion through the provider protocol (default tier)."""
+        from app.services.llm.factory import complete_text
+
+        return complete_text(self.llm_client, prompt, max_tokens, temperature)
 
     def find_precedents(
         self,
@@ -468,13 +473,7 @@ In 2-3 sentences, explain:
 2. How it might inform analysis of the source case"""
 
         try:
-            from app.utils.llm_utils import direct_call_params
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=200, temperature=0.3),
-                messages=[{"role": "user", "content": prompt}]
-            )
-            text = text_from_message(response)
+            text = self._llm_text(prompt, max_tokens=200, temperature=0.3)
 
             return {
                 'summary': text[:500],
@@ -530,13 +529,7 @@ Analyze this precedent relationship:
 Format your response with clear section headers."""
 
         try:
-            from app.utils.llm_utils import direct_call_params
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=1000, temperature=0.2),
-                messages=[{"role": "user", "content": prompt}]
-            )
-            text = text_from_message(response)
+            text = self._llm_text(prompt, max_tokens=1000, temperature=0.2)
 
             # Parse response
             return self._parse_analysis_response(text)

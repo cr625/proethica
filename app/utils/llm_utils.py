@@ -16,43 +16,40 @@ logger = logging.getLogger(__name__)
 
 def streaming_completion(client, model: str, max_tokens: int, prompt: str,
                          temperature: float = 0.1) -> str:
-    """Call Anthropic API with streaming to prevent WSL2 TCP idle timeout.
+    """Stream one completion and return the full response text.
 
-    WSL2 kills TCP connections after ~60s of no data.  Non-streaming calls
-    that take longer than 60s to process on the server side will fail.
-    Streaming keeps data flowing throughout the request.
+    Retained as the shared helper for its 18 call sites; the call itself
+    delegates to the provider protocol (stream_complete), so an injected
+    raw client, a provider adapter, or an OpenAI-shaped client all route
+    to the correct vendor. WSL2 kills TCP connections after ~60s of no
+    data, which is why streaming transport is used throughout.
 
-    Returns the full response text.
+    Semantics preserved from the original implementation: the
+    thinking-model budget floor and the temperature gate are applied by
+    the adapter (direct_call_params), and the truncation warning below
+    is re-emitted from the response metadata. Exceptions propagate to
+    callers, as before.
     """
-    from model_config import ModelConfig
-    # Thinking-by-default models (Fable 5, Sonnet 5) spend thinking tokens from the same
-    # max_tokens budget as the text, so a budget sized for the text alone truncates the
-    # text mid-generation (observed: Fable 5 cut the transformation-classifier JSON at
-    # max_tokens=1500). Floor the budget so thinking + text both fit; a cap is not a spend.
-    if ModelConfig.thinking_on_by_default(model):
-        max_tokens = max(max_tokens, 16000)
-    stream_kwargs = dict(
-        model=model,
-        max_tokens=max_tokens,
+    from app.services.llm.factory import provider_for_client
+
+    provider = provider_for_client(client, model)
+    response = provider.stream_complete(
         messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=temperature,
+        model=model,
     )
-    # Some models (e.g. Opus 4.8) reject `temperature` (HTTP 400). Pass it only when
-    # supported, so this shared helper works across every tier its callers use.
-    if ModelConfig.supports_temperature(model):
-        stream_kwargs["temperature"] = temperature
-    with client.messages.stream(**stream_kwargs) as stream:
-        response = stream.get_final_message()
-    if getattr(response, "stop_reason", None) == "max_tokens":
+    stop = response.metadata.get("stop_reason") or response.metadata.get("finish_reason")
+    if stop in ("max_tokens", "length"):
         # Thinking spends from the same budget, so a deep-thinking run can
         # exhaust max_tokens mid-text (case 121 Phase 3, 2026-07-08: ~14K
         # thinking tokens left ~2K for text and the JSON cut mid-string,
         # silently yielding 1 of 5 decision points). Callers with partial
         # recovery proceed; the warning makes the truncation diagnosable.
-        import logging
-        logging.getLogger(__name__).warning(
+        logger.warning(
             f"streaming_completion hit max_tokens={max_tokens} on {model}; "
-            f"text is truncated ({len(text_from_message(response))} chars)")
-    return text_from_message(response)
+            f"text is truncated ({len(response.text)} chars)")
+    return response.text
 
 def text_from_message(message) -> str:
     """Text of an Anthropic message, robust to extended-thinking content blocks.

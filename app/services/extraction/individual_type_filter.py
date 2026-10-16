@@ -203,28 +203,24 @@ def _llm_classify(individuals, flags, crit, client=None, model=None) -> Optional
     if not individuals:
         return {}
     try:
-        if client is None:
-            from app.utils.llm_utils import get_llm_client
-            client = get_llm_client()
         if model is None:
             from model_config import ModelConfig
-            model = ModelConfig.get_claude_model("default")
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
+            model = ModelConfig.get_tier_model("default")
+        from app.services.llm.factory import streaming_provider_for_client
+
+        provider = streaming_provider_for_client(client, model)
+        if provider is None:
             logger.warning("individual_filter: no streaming client; deterministic fallback")
             return None
         prompt = _build_prompt(individuals, flags, crit)
-        chunks: List[str] = []
-        from app.utils.llm_utils import direct_call_params
-        with client.messages.stream(
-            **direct_call_params(model, max_tokens=2048, temperature=0.0),
+        raw = provider.stream_complete(
+            messages=[{"role": "user", "content": prompt}],
             system=(f"You decide whether each {crit.component} individual is a genuine "
                     "individual (keep) or a type/wrong-component entry (drop). Strict JSON only."),
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for t in stream.text_stream:
-                chunks.append(t)
+            max_tokens=2048, temperature=0.0, model=model,
+        ).text
         from app.utils.llm_utils import extract_json_from_response
-        data = extract_json_from_response("".join(chunks))
+        data = extract_json_from_response(raw)
         if not isinstance(data, dict):
             return None
         out: Dict[int, bool] = {}

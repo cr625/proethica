@@ -145,17 +145,16 @@ def test_parse_consequence_response_malformed():
     assert result["board_rationale"] == ""
 
 
-@patch("app.services.scenario_generation.consequence_generator.get_llm_client")
+@patch("app.services.scenario_generation.consequence_generator.get_tier_provider")
 def test_generate_consequences_populates_fields(
-    mock_get_client, sample_seeds, sample_causal_links, sample_resolution, sample_entity_lookup
+    mock_get_provider, sample_seeds, sample_causal_links, sample_resolution, sample_entity_lookup
 ):
     """generate_consequences_for_seeds populates consequence fields on the ScenarioSeeds object."""
-    mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
-    # type="text" required: the generator reads via text_from_message, which skips
-    # non-text blocks (thinking-model hardening, 2026-07).
-    mock_client.messages.create.return_value = MagicMock(
-        content=[MagicMock(type="text", text=json.dumps({
+    mock_provider = MagicMock()
+    mock_provider.model = "claude-sonnet-4-6"
+    mock_get_provider.return_value = mock_provider
+    mock_provider.complete.return_value = MagicMock(
+        text=json.dumps({
             "options": [
                 {
                     "option_id": "opt_0_0",
@@ -171,7 +170,7 @@ def test_generate_consequences_populates_fields(
                 },
             ],
             "board_rationale": "Candor is required.",
-        }))]
+        })
     )
 
     generate_consequences_for_seeds(
@@ -189,4 +188,4 @@ def test_generate_consequences_populates_fields(
     assert branch.competing_obligation_labels == ["Duty of Candor", "Loyalty to Employer"]
 
     # Verify LLM was called once (one branch = one call)
-    assert mock_client.messages.create.call_count == 1
+    assert mock_provider.complete.call_count == 1

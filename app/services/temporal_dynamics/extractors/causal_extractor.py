@@ -13,10 +13,7 @@ import logging
 import re
 from datetime import datetime
 
-import os
 
-from model_config import ModelConfig
-from app.utils.llm_utils import direct_call_params, text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -53,20 +50,17 @@ def analyze_causal_chains(
     """
     logger.info(f"[Stage 5] Analyzing causal chains for case {case_id}")
 
-    # Initialize Anthropic client directly using environment variables
-    # (avoids Flask context issues in LangGraph execution)
+    # Provider from the powerful tier; strongest model for the logic
+    # step (low volume, high value); see docstring.
     try:
-        import anthropic
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=300.0, max_retries=2)
-        # Strongest model for the logic step (low volume, high value); see docstring.
-        model_name = ModelConfig.get_claude_model('powerful')
-        logger.info(f"[Stage 5] Initialized Anthropic client with model {model_name}")
+        from app.services.llm.factory import get_tier_provider
+
+        provider = get_tier_provider('powerful', timeout=300.0)
+        model_name = provider.model
+        logger.info(f"[Stage 5] Initialized {provider.name} provider with model {model_name}")
     except Exception as e:
-        logger.error(f"[Stage 5] Failed to initialize LLM client: {e}")
-        raise RuntimeError(f"No LLM client available: {e}")
+        logger.error(f"[Stage 5] Failed to initialize LLM provider: {e}")
+        raise RuntimeError(f"No LLM provider available: {e}")
 
     # Build prompt with action/event context + the full case text
     prompt = _build_causal_analysis_prompt(actions, events, facts_text, discussion_text)
@@ -86,15 +80,11 @@ def analyze_causal_chains(
         # (thinking spends from the same budget; 12000 stays the requested floor input
         # for non-thinking models) and includes temperature=0.2 only when the model
         # supports it (Opus 4.8 / Sonnet 5 / Fable 5 reject it with HTTP 400).
-        stream_kwargs = dict(
-            **direct_call_params(model_name, max_tokens=12000, temperature=0.2),
+        response = provider.stream_complete(
             messages=[{"role": "user", "content": prompt}],
+            max_tokens=12000, temperature=0.2, model=model_name,
         )
-        with llm_client.messages.stream(**stream_kwargs) as stream:
-            response = stream.get_final_message()
-
-        # Extract response content
-        response_text = text_from_message(response)
+        response_text = response.text
 
         # Record response in trace
         trace_entry['response'] = response_text

@@ -9,8 +9,6 @@ from typing import Dict, List
 import logging
 import os
 
-from model_config import ModelConfig
-from app.utils.llm_utils import direct_call_params, text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +35,15 @@ def extract_temporal_markers_llm(facts: str, discussion: str, timeline_summary: 
 
     from datetime import datetime
 
-    # Initialize Anthropic client directly
+    # Provider from the powerful tier (context-free, for LangGraph use).
     try:
-        import anthropic
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
-        logger.info("[Temporal Extractor] Initialized Anthropic client")
+        from app.services.llm.factory import get_tier_provider
+
+        provider = get_tier_provider('powerful')
+        logger.info(f"[Temporal Extractor] Initialized {provider.name} provider")
     except Exception as e:
-        logger.error(f"[Temporal Extractor] Failed to initialize LLM client: {e}")
-        raise RuntimeError(f"No LLM client available: {e}")
+        logger.error(f"[Temporal Extractor] Failed to initialize LLM provider: {e}")
+        raise RuntimeError(f"No LLM provider available: {e}")
 
     prompt = f"""You are analyzing an engineering ethics case to extract temporal information.
 
@@ -107,7 +103,7 @@ Focus on precision. If unsure about a temporal marker, note it as "approximate" 
 JSON Response:"""
 
     # Record prompt in trace
-    model_name = ModelConfig.get_claude_model('powerful')
+    model_name = provider.model
     trace_entry = {
         'stage': 'temporal_markers',
         'timestamp': datetime.utcnow().isoformat(),
@@ -121,12 +117,11 @@ JSON Response:"""
         # direct_call_params floors max_tokens at 16000 for thinking-by-default models
         # (thinking spends from the same budget) and gates temperature; 4000 stays the
         # requested floor input for non-thinking models.
-        with llm_client.messages.stream(
-            **direct_call_params(model_name, max_tokens=4000),
+        response = provider.stream_complete(
             messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            response = stream.get_final_message()
-        response_text = text_from_message(response)
+            max_tokens=4000, temperature=None, model=model_name,
+        )
+        response_text = response.text
 
         # Record response in trace
         trace_entry['response'] = response_text

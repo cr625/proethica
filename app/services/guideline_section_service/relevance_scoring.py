@@ -282,38 +282,20 @@ class RelevanceScoringMixin:
             }}
             """
             
-            # Send to LLM based on API version
+            # One completion through the provider protocol; the
+            # factory detects the injected client's vendor shape.
             result = ""
             try:
-                # If new API (v2)
-                if hasattr(client, 'chat') and hasattr(client.chat, 'completions'):
-                    response = client.chat.completions.create(
-                        model=client.available_models[0],  # Use latest available model
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.1,  # Low temperature for more consistent results
-                        max_tokens=500
-                    )
-                    result = response.choices[0].message.content
-                    
-                # If messages API (v1.5)
-                elif hasattr(client, 'messages') and hasattr(client.messages, 'create'):
-                    from app.utils.llm_utils import text_from_message, direct_call_params
-                    response = client.messages.create(
-                        **direct_call_params(client.available_models[0],
-                                             max_tokens=500, temperature=0.1),
-                        messages=[{"role": "user", "content": prompt}],
-                    )
-                    result = text_from_message(response)
-                    
-                # If old API (v1)
-                else:
-                    response = client.completion(
-                        prompt=f"Human: {prompt}\n\nAssistant:",
-                        model=client.available_models[0],
-                        temperature=0.1,
-                        max_tokens_to_sample=500
-                    )
-                    result = response.completion
+                from app.services.llm.factory import provider_for_client
+                from model_config import ModelConfig
+
+                _models = getattr(client, "available_models", None) or []
+                _model = _models[0] if _models else ModelConfig.get_tier_model("default")
+                _provider = provider_for_client(client, _model)
+                result = _provider.complete(
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=500, temperature=0.1, model=_model,
+                ).text
             except Exception as api_error:
                 logger.warning(f"Error using LLM API: {str(api_error)}")
                 return {

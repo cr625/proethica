@@ -407,31 +407,24 @@ def register_templates_api(bp):
             rendered_prompt = template.render(**render_vars)
             rendered_system = template.render_system(**render_vars)
 
-            # Call the LLM
-            from app.utils.llm_utils import (
-                get_llm_client, text_from_message, direct_call_params,
-            )
+            # Call the LLM through the provider protocol (default tier)
+            from app.utils.llm_utils import get_llm_client
             from model_config import ModelConfig
+            from app.services.llm.factory import provider_for_client
             import json as json_module
 
-            model_name = ModelConfig.get_claude_model("default")  # Sonnet - faster for testing
+            model_name = ModelConfig.get_tier_model("default")
 
-            # Get LLM client
             client = get_llm_client()
             if client is None:
                 raise RuntimeError("No LLM client available - check API key configuration")
 
-            # Call LLM using messages API
-            call_kwargs = dict(
-                **direct_call_params(model_name, max_tokens=4000, temperature=0.3),
+            provider = provider_for_client(client, model_name)
+            raw_response = provider.complete(
                 messages=[{"role": "user", "content": rendered_prompt}],
-            )
-            if rendered_system:
-                call_kwargs['system'] = rendered_system
-            response = client.messages.create(**call_kwargs)
-
-            # Extract text from response (robust to thinking-first content blocks)
-            raw_response = text_from_message(response)
+                system=rendered_system or None,
+                max_tokens=4000, temperature=0.3, model=model_name,
+            ).text
 
             # Try to parse as JSON
             entities = {}

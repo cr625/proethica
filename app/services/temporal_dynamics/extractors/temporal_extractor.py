@@ -7,11 +7,9 @@ the unified temporal narrative.
 
 from typing import Dict, Tuple
 import logging
-import os
 from datetime import datetime
 
 from model_config import ModelConfig
-from app.utils.llm_utils import direct_call_params, text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +42,15 @@ def analyze_combined_sections(facts: str, discussion: str) -> Tuple[Dict, Dict]:
     """
     logger.info("[Extractor] Analyzing combined sections")
 
-    # Initialize Anthropic client directly using environment variables
-    # (avoids Flask context issues in LangGraph execution)
+    # Provider from the powerful tier (context-free, for LangGraph use).
     try:
-        import anthropic
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
-        logger.info("[Extractor] Initialized Anthropic client")
+        from app.services.llm.factory import get_tier_provider
+
+        provider = get_tier_provider('powerful')
+        logger.info(f"[Extractor] Initialized {provider.name} provider")
     except Exception as e:
-        logger.error(f"[Extractor] Failed to initialize LLM client: {e}")
-        raise RuntimeError(f"No LLM client available: {e}")
+        logger.error(f"[Extractor] Failed to initialize LLM provider: {e}")
+        raise RuntimeError(f"No LLM provider available: {e}")
 
     prompt = f"""You are analyzing an engineering ethics case to understand its temporal dynamics.
 
@@ -98,18 +93,16 @@ JSON Response:"""
     try:
         # Capture timestamp before LLM call
         call_timestamp = datetime.utcnow().isoformat()
-        model_name = ModelConfig.get_claude_model('powerful')
+        model_name = provider.model
 
-        # Use Anthropic messages API (streaming to prevent WSL2 TCP idle timeout).
-        # direct_call_params floors max_tokens at 16000 for thinking-by-default models
-        # (thinking spends from the same budget) and gates temperature; 4000 stays the
-        # requested floor input for non-thinking models.
-        with llm_client.messages.stream(
-            **direct_call_params(model_name, max_tokens=4000),
+        # Streaming through the provider protocol (WSL2 idle-timeout
+        # avoidance stays in the adapters); 4000 stays the requested
+        # budget for non-thinking models.
+        response = provider.stream_complete(
             messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            response = stream.get_final_message()
-        response_text = text_from_message(response)
+            max_tokens=4000, temperature=None, model=model_name,
+        )
+        response_text = response.text
 
         logger.info(f"[Extractor] LLM response length: {len(response_text)} chars")
 
@@ -153,7 +146,7 @@ JSON Response:"""
             'timestamp': datetime.utcnow().isoformat(),
             'prompt': prompt if 'prompt' in locals() else '',
             'response': f'ERROR: {str(e)}',
-            'model': ModelConfig.get_claude_model('powerful'),
+            'model': provider.model if 'provider' in locals() else ModelConfig.get_tier_model('powerful'),
             'parsed_output': error_analysis,
             'tokens': {}
         }

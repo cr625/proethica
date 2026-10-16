@@ -646,14 +646,14 @@ class ObligationCoverageAnalyzer:
         )
 
         try:
-            from app.utils.llm_utils import text_from_message, direct_call_params
-            response = llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=1000),
-                messages=[{"role": "user", "content": prompt}]
-            )
+            from app.services.llm.factory import provider_for_client
 
-            response_text = text_from_message(response).strip()
+            model = ModelConfig.get_tier_model("default")
+            provider = provider_for_client(llm_client, model)
+            response_text = provider.complete(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000, temperature=None, model=model,
+            ).text.strip()
 
             # Parse response
             import json

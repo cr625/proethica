@@ -696,35 +696,25 @@ class EntityReconciliationService:
         )
 
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
-        """Call Haiku for dedup evaluation."""
-        from model_config import ModelConfig
-        from app.utils.llm_utils import (
-            extract_json_from_response, text_from_message, direct_call_params,
-        )
+        """Call the fast tier for dedup evaluation."""
+        from app.utils.llm_utils import extract_json_from_response
 
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            try:
-                from flask import current_app
-                api_key = current_app.config.get('ANTHROPIC_API_KEY')
-            except RuntimeError:
-                pass
+        from app.services.llm.factory import get_tier_provider
 
-        if not api_key:
-            raise RuntimeError("No ANTHROPIC_API_KEY available for reconciliation")
-
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        model = ModelConfig.get_claude_model("fast")
+        try:
+            provider = get_tier_provider("fast")
+        except Exception as e:
+            raise RuntimeError(f"No LLM provider available for reconciliation: {e}") from e
+        model = provider.model
 
         logger.info(f"Calling {model} for entity reconciliation")
 
-        response = client.messages.create(
-            **direct_call_params(model, max_tokens=4096, temperature=0),
-            messages=[{"role": "user", "content": prompt}]
+        response = provider.complete(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=4096, temperature=0, model=model,
         )
 
-        response_text = text_from_message(response)
+        response_text = response.text
         usage = response.usage
         logger.info(
             f"LLM reconciliation: {usage.input_tokens} input, "

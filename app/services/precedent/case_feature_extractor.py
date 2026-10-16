@@ -405,7 +405,9 @@ class CaseFeatureExtractor:
         from app.data.nspe_provisions_reference import NSPE_PROVISIONS_TEXT, NSPE_TAG_VOCABULARY
         from app.utils.llm_utils import extract_json_from_response
 
-        llm = LLMManager(model="claude-haiku-4-5-20251001")
+        from model_config import ModelConfig
+
+        llm = LLMManager(model=ModelConfig.get_tier_model("fast"))
 
         tag_list = '\n'.join(f'- {t}' for t in NSPE_TAG_VOCABULARY)
 

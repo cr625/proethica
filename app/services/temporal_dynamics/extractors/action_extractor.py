@@ -15,12 +15,9 @@ docs-internal/reextraction/pass3-fluents-owltime-revision.md.
 
 from typing import Dict, List, Optional
 import logging
-import os
 
-from model_config import ModelConfig
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from datetime import datetime
-from app.utils.llm_utils import direct_call_params, text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -50,21 +47,19 @@ def extract_actions_with_metadata(
     """
     logger.info(f"[Stage 3] Extracting actions for case {case_id}")
 
-    # Initialize Anthropic client
+    # Provider from the powerful tier (LLM_POWERFUL_REF or legacy tier).
     try:
-        import anthropic
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
-        model_name = ModelConfig.get_claude_model('powerful')
-        logger.info(f"[Stage 3] Initialized Anthropic client with model {model_name}")
+        from app.services.llm.factory import get_tier_provider
+
+        provider = get_tier_provider('powerful')
+        model_name = provider.model
+        logger.info(f"[Stage 3] Initialized {provider.name} provider with model {model_name}")
     except Exception as e:
-        logger.error(f"[Stage 3] Failed to initialize LLM client: {e}")
-        raise RuntimeError(f"No LLM client available: {e}")
+        logger.error(f"[Stage 3] Failed to initialize LLM provider: {e}")
+        raise RuntimeError(f"No LLM provider available: {e}")
 
     actions = _extract_core_actions(
-        narrative, temporal_markers, case_id, llm_client, model_name, llm_trace,
+        narrative, temporal_markers, case_id, provider, model_name, llm_trace,
         facts_text=facts_text, discussion_text=discussion_text
     )
     logger.info(f"[Stage 3] Extracted {len(actions)} actions")
@@ -88,16 +83,19 @@ def _call_llm_with_streaming(
     """
     logger.info(f"[Stage 3] {phase} - LLM streaming call")
 
-    # direct_call_params floors max_tokens at 16000 for thinking-by-default models
-    # (Fable 5 / Sonnet 5 spend thinking tokens from the same budget) and gates
-    # temperature; 8000 stays the requested floor input for non-thinking models.
-    with llm_client.messages.stream(
-        **direct_call_params(model_name, max_tokens=8000),
-        messages=[{"role": "user", "content": prompt}]
-    ) as stream:
-        response = stream.get_final_message()
+    # stream_complete keeps the adapter budget floor / temperature gates;
+    # 8000 stays the requested budget for non-thinking models. A raw
+    # vendor client is still accepted and wrapped, for injected fakes.
+    from app.services.llm.anthropic_provider import AnthropicProvider
+    from app.services.llm.protocol import BaseLLMProvider
 
-    return text_from_message(response), response
+    provider = llm_client if isinstance(llm_client, BaseLLMProvider) else (
+        AnthropicProvider(model=model_name, client=llm_client))
+    response = provider.stream_complete(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=8000, temperature=None, model=model_name,
+    )
+    return response.text, response
 
 
 def _extract_core_actions(

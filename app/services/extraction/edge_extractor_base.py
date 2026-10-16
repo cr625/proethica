@@ -74,6 +74,18 @@ class StreamingEdgeExtractor:
             self._llm_client = get_llm_client()
         return self._llm_client
 
+    def _get_provider(self):
+        """Provider adapter for this extractor.
+
+        An injected vendor client (tests, backfill scripts) is wrapped in
+        the Anthropic adapter; an injected provider is used directly; with
+        neither, the adapter is resolved from the model reference so a
+        model override on another provider routes correctly.
+        """
+        from app.services.llm.factory import provider_for_client
+
+        return provider_for_client(self._llm_client, self._resolve_model())
+
     def _default_model(self) -> str:
         """Model used when the caller did not pin one. Defaults to the powerful
         (Opus) tier; relational edge reasoning is paper-critical and bounded to
@@ -96,43 +108,42 @@ class StreamingEdgeExtractor:
         ``swallow_stream_errors`` is False, in which case the exception
         propagates.
         """
-        client = self._get_client()
+        # An injected raw client must still be a streaming vendor client;
+        # that check keeps its original return-None (not raise) semantics.
+        if self._llm_client is not None:
+            from app.services.llm.factory import has_streaming_shape
+
+            if not has_streaming_shape(self._llm_client):
+                logger.error(
+                    "%s requires a streaming provider client; got %s",
+                    type(self).__name__, type(self._llm_client).__name__,
+                )
+                return None
+
+        provider = self._get_provider()
         model = self._resolve_model()
 
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.error(
-                "%s requires an Anthropic streaming client; got %s",
-                type(self).__name__, type(client).__name__,
-            )
-            return None
-
         try:
-            chunks: List[str] = []
-            stream_kwargs = dict(
-                model=model,
-                max_tokens=self.max_tokens,
-                system=self._system_prompt(),
+            # The adapter gates temperature per model (Opus 4.8 rejects it).
+            response = provider.stream_complete(
                 messages=[{"role": "user", "content": user_prompt}],
+                system=self._system_prompt(),
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                model=model,
             )
-            if ModelConfig.supports_temperature(model):  # Opus 4.8 rejects temperature
-                stream_kwargs["temperature"] = self.temperature
-            with client.messages.stream(**stream_kwargs) as stream:
-                for text in stream.text_stream:
-                    chunks.append(text)
-                final_msg = stream.get_final_message()
-            stop_reason = getattr(final_msg, "stop_reason", None)
-            usage = getattr(final_msg, "usage", None)
-            if usage:
-                logger.info(
-                    "%s stream complete: %d in / %d out, stop=%s",
-                    self.log_label, usage.input_tokens, usage.output_tokens, stop_reason,
-                )
+            stop_reason = response.metadata.get("stop_reason")
+            logger.info(
+                "%s stream complete: %d in / %d out, stop=%s",
+                self.log_label, response.usage.input_tokens,
+                response.usage.output_tokens, stop_reason,
+            )
             if stop_reason == "max_tokens":
                 logger.warning(
                     "%s hit max_tokens (%d); response may be truncated",
                     self.log_label, self.max_tokens,
                 )
-            self.last_raw_response = "".join(chunks)
+            self.last_raw_response = response.text
             return self.last_raw_response
         except Exception as e:
             if not self.swallow_stream_errors:

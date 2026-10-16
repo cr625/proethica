@@ -19,7 +19,7 @@ from datetime import datetime
 from flask import jsonify, Response, stream_with_context
 
 from app.models import Document, TemporaryRDFStorage, ExtractionPrompt, db
-from app.utils.llm_utils import get_llm_client, text_from_message, direct_call_params
+from app.utils.llm_utils import get_llm_client
 from app.utils.llm_json_utils import parse_json_response
 from app.utils.environment_auth import auth_required_for_llm
 from app.routes.scenario_pipeline.step4.config import (
@@ -27,6 +27,13 @@ from app.routes.scenario_pipeline.step4.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _precedent_llm_text(llm_client, prompt: str) -> str:
+    """One completion through the provider protocol (default tier)."""
+    from app.services.llm.factory import complete_text
+
+    return complete_text(llm_client, prompt, max_tokens=4096, temperature=0.1)
 
 
 # ---------------------------------------------------------------------------
@@ -188,11 +195,7 @@ def register_precedent_routes(bp):
                 yield sse_msg({'stage': 'PROMPTING', 'progress': 25, 'messages': ['Sending to LLM for precedent analysis...']})
 
                 # Call LLM
-                response = llm_client.messages.create(
-                    **direct_call_params(STEP4_DEFAULT_MODEL, max_tokens=4096, temperature=0.1),
-                    messages=[{'role': 'user', 'content': prompt}]
-                )
-                raw_response = text_from_message(response)
+                raw_response = _precedent_llm_text(llm_client, prompt)
                 yield sse_msg({'stage': 'RECEIVED', 'progress': 60, 'messages': ['LLM response received, parsing...']})
 
                 # Parse JSON response
@@ -354,11 +357,7 @@ def register_precedent_routes(bp):
             prompt = build_precedent_prompt(case_text)
 
             # Call LLM
-            response = llm_client.messages.create(
-                **direct_call_params(STEP4_DEFAULT_MODEL, max_tokens=4096, temperature=0.1),
-                messages=[{'role': 'user', 'content': prompt}]
-            )
-            raw_response = text_from_message(response)
+            raw_response = _precedent_llm_text(llm_client, prompt)
 
             # Parse
             precedents = parse_json_response(raw_response, context="precedent_extraction")

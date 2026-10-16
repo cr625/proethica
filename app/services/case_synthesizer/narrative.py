@@ -62,12 +62,17 @@ from app.services.decision_point_synthesizer import (
     Phase3SynthesisResult,
     synthesize_decision_points
 )
-from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
 
 class NarrativeConstructionMixin:
+    def _llm_text(self, prompt: str, max_tokens: int, temperature: float = 0.3) -> str:
+        """One completion through the provider protocol (default tier)."""
+        from app.services.llm.factory import complete_text
+
+        return complete_text(self.llm_client, prompt, max_tokens, temperature)
+
     """Phase-4 narrative construction. Mixed into CaseSynthesizer."""
 
     def _construct_narrative(
@@ -239,14 +244,8 @@ class NarrativeConstructionMixin:
         summary_prompt = get_step4_template('step4_case_summary').render(**summary_variables)
 
         try:
-            from app.utils.llm_utils import direct_call_params
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=300, temperature=0.3),
-                messages=[{"role": "user", "content": summary_prompt}]
-            )
-
-            enhanced_summary = text_from_message(response).strip()
+            enhanced_summary = self._llm_text(summary_prompt, max_tokens=300, temperature=0.3)
+            enhanced_summary = enhanced_summary.strip()
 
             llm_traces.append(LLMTrace(
                 phase=4,
@@ -278,14 +277,7 @@ class NarrativeConstructionMixin:
         timeline_prompt = get_step4_template('step4_timeline_phases').render(**timeline_variables)
 
         try:
-            from app.utils.llm_utils import direct_call_params
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=800, temperature=0.3),
-                messages=[{"role": "user", "content": timeline_prompt}]
-            )
-
-            response_text = text_from_message(response)
+            response_text = self._llm_text(timeline_prompt, max_tokens=800, temperature=0.3)
 
             llm_traces.append(LLMTrace(
                 phase=4,

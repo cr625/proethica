@@ -261,6 +261,20 @@ def _map_selection_data(data: Dict[str, Any], items: List[Dict[str, Any]]) -> Di
     return out
 
 
+def _provider_for(client, model):
+    """Provider adapter for an injected client (factory streaming helper)."""
+    from app.services.llm.factory import streaming_provider_for_client
+
+    return streaming_provider_for_client(client, model)
+
+
+def _has_streaming_shape(client) -> bool:
+    """Streaming-shape check (factory helper, kept for call-site readability)."""
+    from app.services.llm.factory import has_streaming_shape
+
+    return has_streaming_shape(client)
+
+
 def _select_attempt(client, model, prompt: str, items: List[Dict[str, Any]],
                     cache_prompt: bool = False, diag: Optional[Dict[str, Any]] = None):
     """One streamed select call. Returns the mapped selection dict, or None
@@ -270,19 +284,21 @@ def _select_attempt(client, model, prompt: str, items: List[Dict[str, Any]],
     multi-vote path, whose votes re-send this identical prompt within seconds
     (vote 1 writes, later votes read at ~0.1x). ``diag`` collects the raw
     responses for the zero-outcome diagnosability record."""
-    from app.utils.llm_utils import direct_call_params, extract_json_from_response
+    from app.services.llm.capabilities import ref_provider_name
+    from app.utils.llm_utils import extract_json_from_response
+    provider = _provider_for(client, model)
+    if provider is None:
+        return None
+    # Prompt-cache breakpoints are Anthropic content blocks; other
+    # providers receive the plain prompt (automatic prefix caching).
     content = ([{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
-               if cache_prompt else prompt)
-    chunks: List[str] = []
-    with client.messages.stream(
-        **direct_call_params(model, max_tokens=4096, temperature=0.0),
+               if cache_prompt and ref_provider_name(model) == "anthropic" else prompt)
+    raw = provider.stream_complete(
+        messages=[{"role": "user", "content": content}],
         system=("You select the single matching entity for each request, "
                 "respecting the relation's direction and polarity. Output strict JSON only."),
-        messages=[{"role": "user", "content": content}],
-    ) as stream:
-        for t in stream.text_stream:
-            chunks.append(t)
-    raw = "".join(chunks)
+        max_tokens=4096, temperature=0.0, model=model,
+    ).text
     logger.debug("edge_resolution: select raw response (%d chars): %r", len(raw), raw[:2000])
     if diag is not None:
         diag.setdefault("raws", []).append(raw)
@@ -332,14 +348,11 @@ def _llm_select(items: List[Dict[str, Any]], prompt_builder, client=None, model=
     if not items:
         return {}
     try:
-        if client is None:
-            from app.utils.llm_utils import get_llm_client
-            client = get_llm_client()
         if model is None:
             from model_config import ModelConfig
-            model = ModelConfig.get_claude_model(model_tier)
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.warning("edge_resolution: no Anthropic streaming client; embedding fallback")
+            model = ModelConfig.get_tier_model(model_tier)
+        if not _has_streaming_shape(client):
+            logger.warning("edge_resolution: no streaming provider client; embedding fallback")
             return None
         prompt = prompt_builder(items)
         if diag is not None:
@@ -419,29 +432,23 @@ def _llm_select_multi(items: List[Dict[str, Any]], client=None, model=None,
     if not items:
         return {}
     try:
-        if client is None:
-            from app.utils.llm_utils import get_llm_client
-            client = get_llm_client()
         if model is None:
             from model_config import ModelConfig
-            model = ModelConfig.get_claude_model(model_tier)
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.warning("edge_resolution: no Anthropic streaming client; embedding fallback")
+            model = ModelConfig.get_tier_model(model_tier)
+        if not _has_streaming_shape(client):
+            logger.warning("edge_resolution: no streaming provider client; embedding fallback")
             return None
+        provider = _provider_for(client, model)
         prompt = (prompt_builder or _build_multi_select_prompt)(items)
-        chunks: List[str] = []
-        from app.utils.llm_utils import direct_call_params
-        with client.messages.stream(
-            **direct_call_params(model, max_tokens=4096, temperature=0.0),
+        raw = provider.stream_complete(
+            messages=[{"role": "user", "content": prompt}],
             system=("You select all matching agents for each request, distinguishing "
                     "users of a resource from institutions, generic classes, and "
                     "agents merely analyzed. Output strict JSON only."),
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for t in stream.text_stream:
-                chunks.append(t)
+            max_tokens=4096, temperature=0.0, model=model,
+        ).text
         from app.utils.llm_utils import extract_json_from_response
-        data = extract_json_from_response("".join(chunks))
+        data = extract_json_from_response(raw)
         if not isinstance(data, dict):
             return None
         by_id = {str(it["id"]): it for it in items}

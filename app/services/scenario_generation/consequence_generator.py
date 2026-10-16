@@ -16,7 +16,7 @@ import logging
 import re
 from typing import Dict, List, Any, Optional
 
-from app.utils.llm_utils import get_llm_client, text_from_message, direct_call_params
+from app.services.llm.factory import get_tier_provider
 from model_config import ModelConfig
 from app.services.narrative.scenario_seed_generator import (
     ScenarioSeeds, ScenarioBranch, ScenarioOption
@@ -43,7 +43,7 @@ def generate_consequences_for_seeds(
         resolution: Resolution dict from narrative_elements
         entity_lookup: Dict mapping URIs to entity dicts (for label resolution)
     """
-    client = get_llm_client()
+    provider = get_tier_provider("default")
 
     for branch in seeds.branches:
         # Resolve obligation URIs to labels (filter out None entries)
@@ -61,12 +61,10 @@ def generate_consequences_for_seeds(
         )
 
         try:
-            response = client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=2000, temperature=0.3),
+            response_text = provider.complete(
                 messages=[{"role": "user", "content": prompt}],
-            )
-            response_text = text_from_message(response)
+                max_tokens=2000, temperature=0.3, model=provider.model,
+            ).text
             parsed = _parse_consequence_response(response_text, num_options=len(branch.options))
         except Exception as e:
             logger.error(f"Consequence generation failed for {branch.branch_id}: {e}")

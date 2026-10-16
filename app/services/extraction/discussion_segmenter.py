@@ -32,7 +32,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import List, Optional
-from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -151,11 +150,8 @@ def _load_segmenter_template():
 def _llm_labels(paras: List[Paragraph]) -> Optional[List[str]]:
     """Classify each paragraph present vs recap via one LLM call. None on any failure."""
     try:
-        from app.utils.llm_utils import get_llm_client
-        from model_config import ModelConfig
-        client = get_llm_client()
-        if client is None:
-            return None
+        from app.services.llm.factory import get_tier_provider
+        provider = get_tier_provider("default")
         numbered = "\n".join(
             f"[P{p.index}]{' (cites precedent)' if p.has_link else ''}: {p.text}"
             for p in paras
@@ -163,13 +159,10 @@ def _llm_labels(paras: List[Paragraph]) -> Optional[List[str]]:
         # The segmentation prompt is an editable DB template (prompt editor -> Shared prompts ->
         # Discussion segmenter). Render it with the numbered paragraph list.
         prompt = _load_segmenter_template().render(numbered=numbered)
-        from app.utils.llm_utils import direct_call_params
-        text = client.messages.create(
-            **direct_call_params(ModelConfig.get_claude_model("default"),
-                                 max_tokens=1024),
+        raw = provider.complete(
             messages=[{"role": "user", "content": prompt}],
-        )
-        raw = text_from_message(text)
+            max_tokens=1024, temperature=None, model=provider.model,
+        ).text
         import json
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         if not m:

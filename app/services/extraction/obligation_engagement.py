@@ -181,43 +181,44 @@ class ObligationEngagementExtractor:
         return ModelConfig.get_default_model()
 
     def _call_llm(self, user_prompt: str) -> Optional[str]:
-        client = self._get_client()
         model = self._resolve_model()
 
-        if not (hasattr(client, "messages") and hasattr(client.messages, "stream")):
-            logger.error(
-                "ObligationEngagementExtractor requires an Anthropic streaming client; got %s",
-                type(client).__name__,
-            )
-            return None
+        # An injected raw client must be a streaming vendor client; that
+        # check keeps its original return-None (not raise) semantics.
+        if self._llm_client is not None:
+            from app.services.llm.factory import has_streaming_shape
+
+            if not has_streaming_shape(self._llm_client):
+                logger.error(
+                    "ObligationEngagementExtractor requires a streaming provider client; got %s",
+                    type(self._llm_client).__name__,
+                )
+                return None
 
         try:
-            from app.utils.llm_utils import direct_call_params
-            chunks: List[str] = []
-            with client.messages.stream(
-                **direct_call_params(model, max_tokens=self.max_tokens,
-                                     temperature=self.temperature),
-                system=_load_obligation_engagement_template().render_system(),
+            from app.services.llm.factory import provider_for_client
+
+            provider = provider_for_client(self._llm_client, model)
+            response = provider.stream_complete(
                 messages=[{"role": "user", "content": user_prompt}],
-            ) as stream:
-                for text in stream.text_stream:
-                    chunks.append(text)
-                final_msg = stream.get_final_message()
-            stop_reason = getattr(final_msg, "stop_reason", None)
-            usage = getattr(final_msg, "usage", None)
-            if usage:
-                logger.info(
-                    "ObligationEngagement stream complete: %d in / %d out, stop=%s",
-                    usage.input_tokens, usage.output_tokens, stop_reason,
-                )
+                system=_load_obligation_engagement_template().render_system(),
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                model=model,
+            )
+            stop_reason = response.metadata.get("stop_reason")
+            logger.info(
+                "ObligationEngagement stream complete: %d in / %d out, stop=%s",
+                response.usage.input_tokens, response.usage.output_tokens, stop_reason,
+            )
             if stop_reason == "max_tokens":
                 logger.warning(
                     "ObligationEngagement hit max_tokens (%d); response may be truncated",
                     self.max_tokens,
                 )
-            return "".join(chunks)
+            return response.text
         except Exception as e:
-            logger.error("Anthropic obligation-engagement stream failed: %s", e)
+            logger.error("Obligation-engagement provider stream failed: %s", e)
             return None
 
     @staticmethod

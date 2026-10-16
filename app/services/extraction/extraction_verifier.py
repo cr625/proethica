@@ -85,6 +85,31 @@ def _structured_stream_json(client, model: str, prompt: str, schema: Dict,
     a breakpoint on a never-re-read prompt just pays the 1.25x cache-write premium. Below the
     model's minimum cacheable length (4096 tokens on the Opus gate tier) the marker is a silent
     no-op -- no write premium, no reads -- so short-case prompts neither pay nor save."""
+    # Anthropic models keep the native structured-outputs surface below
+    # (output_config.format with prompt-cache breakpoints). Other
+    # providers route through the provider protocol: the passed client is
+    # an Anthropic client from get_llm_client and must not receive the
+    # call, so the adapter for the model is resolved independently. The
+    # retry-once-with-doubled-budget contract is preserved.
+    from app.services.llm.capabilities import ref_provider_name
+
+    if ref_provider_name(model) != "anthropic":
+        from app.services.llm.factory import get_provider
+
+        provider = get_provider(model)
+        for attempt in range(2):
+            try:
+                return provider.structured(
+                    messages=[{"role": "user", "content": prompt}],
+                    schema=schema, max_tokens=max_tokens * (attempt + 1),
+                )
+            except Exception:
+                if attempt == 0:
+                    logger.warning(
+                        "structured provider call returned unparseable JSON; "
+                        "retrying once with doubled budget")
+                    continue
+                raise
     content = ([{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
                if cache_prompt else prompt)
     for attempt in range(2):

@@ -73,6 +73,71 @@ class ModelConfig:
         """Get the appropriate Claude model for a use case."""
         return cls.CLAUDE_MODELS.get(use_case, cls.CLAUDE_MODELS["default"])
 
+    # ------------------------------------------------------------------
+    # Provider-qualified tier references (LLM provider abstraction)
+    # ------------------------------------------------------------------
+    # A tier reference is "provider:model" (for example
+    # "anthropic:claude-sonnet-4-6" or "openai:gpt-4o") or a bare model id.
+    # Bare ids keep legacy behavior: "claude-*" resolves to anthropic,
+    # "gpt-*" / "o1-*" / "o3-*" / "o4-*" to openai, anything else to
+    # anthropic (the historical default in LLMManager._detect_provider).
+    # Tier refs are read from LLM_<TIER>_REF at call time so a tier can be
+    # repointed without code changes; the legacy CLAUDE_<TIER>_MODEL values
+    # in CLAUDE_MODELS remain the fallback and are unchanged.
+
+    _TIER_ENV = {
+        "fast": "LLM_FAST_REF",
+        "default": "LLM_DEFAULT_REF",
+        "powerful": "LLM_POWERFUL_REF",
+        "gate": "LLM_GATE_REF",
+    }
+
+    @staticmethod
+    def parse_model_ref(ref):
+        """Split a model reference into (provider, model_id).
+
+        Accepts "provider:model" or a bare model id. The provider is
+        lower-cased; "claude" is normalized to "anthropic".
+        """
+        text = (ref or "").strip()
+        if ":" in text:
+            provider, _, model = text.partition(":")
+            provider = provider.strip().lower()
+            if provider == "claude":
+                provider = "anthropic"
+            return provider, model.strip()
+        lowered = text.lower()
+        if lowered.startswith(("gpt-", "o1-", "o3-", "o4-", "chatgpt-")):
+            return "openai", text
+        return "anthropic", text
+
+    @classmethod
+    def get_tier_ref(cls, tier="default"):
+        """Return the "provider:model" reference for a tier.
+
+        Resolution order: LLM_<TIER>_REF environment variable, then the
+        legacy CLAUDE_MODELS entry for the tier (anthropic-qualified).
+        """
+        env_name = cls._TIER_ENV.get(tier)
+        if env_name:
+            override = os.getenv(env_name)
+            if override and override.strip():
+                provider, model = cls.parse_model_ref(override)
+                return f"{provider}:{model}"
+        model = cls.CLAUDE_MODELS.get(tier, cls.CLAUDE_MODELS["default"])
+        provider, model_id = cls.parse_model_ref(model)
+        return f"{provider}:{model_id}"
+
+    @classmethod
+    def get_tier_model(cls, tier="default"):
+        """Return the bare model id for a tier, on any provider."""
+        return cls.parse_model_ref(cls.get_tier_ref(tier))[1]
+
+    @classmethod
+    def get_tier_provider(cls, tier="default"):
+        """Return the provider name for a tier (anthropic, openai, ...)."""
+        return cls.parse_model_ref(cls.get_tier_ref(tier))[0]
+
     @classmethod
     def supports_temperature(cls, model: str) -> bool:
         """Whether `model` accepts the `temperature` parameter (some newer models reject it)."""

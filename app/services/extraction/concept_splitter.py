@@ -19,7 +19,6 @@ from langchain_community.callbacks import get_openai_callback
 from .base import ConceptCandidate
 from model_config import ModelConfig
 from app.utils.llm_utils import get_llm_client
-from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -217,20 +216,21 @@ class GeneralizedConceptSplitter:
         system_prompt = _splitter_tmpl.render_system(**_splitter_vars)
 
         try:
-            # Call LLM
-            if hasattr(client, 'messages') and hasattr(client.messages, 'create'):
-                from app.utils.llm_utils import direct_call_params
-                model = ModelConfig.get_default_model()
-                response = client.messages.create(
-                    **direct_call_params(model, max_tokens=500, temperature=0.1),
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": analysis_prompt}],
-                )
-                content = text_from_message(response)
-            else:
-                # Fallback for other clients
-                content = "Analysis: ATOMIC\nAtomic concepts: [\"" + concept_text + "\"]\nReasoning: Fallback analysis\nConfidence: 0.5"
-            
+            # Call LLM through the provider protocol. A raw vendor client
+            # held by the caller is wrapped; with none, the default tier
+            # adapter is resolved from its model reference.
+            from app.services.llm.factory import provider_for_client
+
+            provider = provider_for_client(
+                client if hasattr(client, 'messages') else None,
+                ModelConfig.get_tier_model("default"),
+            )
+            content = provider.complete(
+                messages=[{"role": "user", "content": analysis_prompt}],
+                system=system_prompt, max_tokens=500, temperature=0.1,
+                model=provider.model,
+            ).text
+
             return self._parse_llm_response(content, concept_text)
             
         except Exception as e:

@@ -11,7 +11,7 @@ import logging
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 
-from app.utils.llm_utils import get_llm_client, text_from_message, direct_call_params
+from app.utils.llm_utils import get_llm_client
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 from app.services.step4_synthesis.template_loader import get_step4_template
 from model_config import ModelConfig
@@ -143,6 +143,12 @@ class ScenarioSeedGenerator:
     def __init__(self, use_llm: bool = True):
         self.use_llm = use_llm
         self.llm_client = get_llm_client() if use_llm else None
+
+    def _llm_text(self, prompt: str, max_tokens: int, temperature: float = 0.3) -> str:
+        """One completion through the provider protocol (default tier)."""
+        from app.services.llm.factory import complete_text
+
+        return complete_text(self.llm_client, prompt, max_tokens, temperature)
 
     def generate(
         self,
@@ -363,13 +369,9 @@ class ScenarioSeedGenerator:
         prompt = get_step4_template('step4_narrative_option_label').render(**variables)
 
         try:
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=100, temperature=0.3),
-                messages=[{"role": "user", "content": prompt}]
-            )
+            text = self._llm_text(prompt, max_tokens=100, temperature=0.3)
 
-            text = text_from_message(response).strip()
+            text = text.strip()
             lines = text.split('\n')
 
             label = "Choose this option"
@@ -444,13 +446,9 @@ class ScenarioSeedGenerator:
         prompt = get_step4_template('step4_narrative_option_set').render(**variables)
 
         try:
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=200, temperature=0.3),
-                messages=[{"role": "user", "content": prompt}]
-            )
+            text = self._llm_text(prompt, max_tokens=200, temperature=0.3)
 
-            text = text_from_message(response).strip()
+            text = text.strip()
             lines = text.split('\n')
 
             opt1_label = opt1_desc = opt2_label = opt2_desc = ""
@@ -608,13 +606,7 @@ class ScenarioSeedGenerator:
 
         llm_trace = None
         try:
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=400, temperature=0.3),
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            response_text = text_from_message(response).strip()
+            response_text = self._llm_text(prompt, max_tokens=400, temperature=0.3).strip()
 
             # Strip markdown quotes the LLM might add
             if response_text.startswith('"') and response_text.endswith('"'):

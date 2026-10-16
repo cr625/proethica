@@ -112,23 +112,18 @@ def _judge(prompt: str) -> Optional[dict]:
     """One structured judgment on the default tier. Returns the parsed dict or
     None on any failure (the check then reports 'judge_unavailable')."""
     try:
-        from app.utils.llm_utils import (
-            get_llm_client, direct_call_params, extract_json_from_response)
-        from model_config import ModelConfig
-        client = get_llm_client()
-        model = ModelConfig.get_claude_model("default")
-        chunks: List[str] = []
-        with client.messages.stream(
-            **direct_call_params(model, max_tokens=4000),
+        from app.services.llm.factory import get_tier_provider
+        from app.utils.llm_utils import extract_json_from_response
+        provider = get_tier_provider("default")
+        raw = provider.stream_complete(
+            messages=[{"role": "user", "content": prompt}],
             system=("You audit knowledge extracted from professional-ethics "
                     "cases for fidelity to the source text. Judge strictly "
                     "from the provided text; quote evidence verbatim. Output "
                     "strict JSON only."),
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for t in stream.text_stream:
-                chunks.append(t)
-        data = extract_json_from_response("".join(chunks))
+            max_tokens=4000, temperature=None, model=provider.model,
+        ).text
+        data = extract_json_from_response(raw)
         return data if isinstance(data, dict) else None
     except Exception:
         return None

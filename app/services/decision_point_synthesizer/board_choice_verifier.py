@@ -65,16 +65,19 @@ def verify_board_choices(case_id: int, canonical_points: List, conclusions: List
     if llm_client is None:
         from app.utils.llm_utils import get_llm_client
         llm_client = get_llm_client()
-    model = ModelConfig.get_claude_model("default")
+    model = ModelConfig.get_tier_model("default")
+    from app.services.llm.factory import provider_for_client
+    provider = provider_for_client(llm_client, model)
 
     data = None
     for attempt in range(1, 4):
         try:
-            resp = llm_client.messages.create(
-                model=model, max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}])
-            txt = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
-            if txt and resp.stop_reason != "max_tokens":
+            resp = provider.complete(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2000, temperature=None, model=model)
+            txt = resp.text.strip()
+            stop = resp.metadata.get("stop_reason") or resp.metadata.get("finish_reason")
+            if txt and stop not in ("max_tokens", "length"):
                 from app.utils.llm_utils import extract_json_from_response
                 data = extract_json_from_response(txt)
                 break

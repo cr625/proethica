@@ -13,11 +13,8 @@ from typing import Dict, List
 import logging
 from datetime import datetime
 
-from model_config import ModelConfig
 from app.services.prompt_style import STYLE_FORMATTING_LINE
 
-import os
-from app.utils.llm_utils import direct_call_params, text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -48,19 +45,17 @@ def extract_events_with_classification(
     """
     logger.info(f"[Stage 4] Extracting events for case {case_id}")
 
-    # Initialize Anthropic client directly using environment variables
-    # (avoids Flask context issues in LangGraph execution)
+    # Provider from the powerful tier (LLM_POWERFUL_REF or the legacy
+    # Anthropic tier); construction is context-free for LangGraph use.
     try:
-        import anthropic
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not found in environment")
-        llm_client = anthropic.Anthropic(api_key=api_key, timeout=180.0, max_retries=2)
-        model_name = ModelConfig.get_claude_model('powerful')
-        logger.info(f"[Stage 4] Initialized Anthropic client with model {model_name}")
+        from app.services.llm.factory import get_tier_provider
+
+        provider = get_tier_provider('powerful')
+        model_name = provider.model
+        logger.info(f"[Stage 4] Initialized {provider.name} provider with model {model_name}")
     except Exception as e:
-        logger.error(f"[Stage 4] Failed to initialize LLM client: {e}")
-        raise RuntimeError(f"No LLM client available: {e}")
+        logger.error(f"[Stage 4] Failed to initialize LLM provider: {e}")
+        raise RuntimeError(f"No LLM provider available: {e}")
 
     # Build prompt with action context + raw case text (verbatim-quote grounding)
     prompt = _build_event_extraction_prompt(narrative, temporal_markers, actions,
@@ -76,19 +71,16 @@ def extract_events_with_classification(
     }
 
     try:
-        # Call LLM with streaming to prevent WSL2 TCP idle timeout (60s)
+        # Stream through the provider protocol (WSL2 idle-timeout
+        # avoidance stays in the adapters). temperature=None preserves
+        # the Anthropic budget floor / temperature gates in the adapter;
+        # 8000 stays the requested budget for non-thinking models.
         logger.info("[Stage 4] Calling LLM for event extraction (streaming)")
-        # direct_call_params floors max_tokens at 16000 for thinking-by-default models
-        # (thinking spends from the same budget) and gates temperature; 8000 stays the
-        # requested floor input for non-thinking models.
-        with llm_client.messages.stream(
-            **direct_call_params(model_name, max_tokens=8000),
+        response = provider.stream_complete(
             messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            response = stream.get_final_message()
-
-        # Extract response content
-        response_text = text_from_message(response)
+            max_tokens=8000, temperature=None, model=model_name,
+        )
+        response_text = response.text
 
         # Record response in trace
         trace_entry['response'] = response_text

@@ -94,6 +94,12 @@ class ConclusionAnalyzer:
         self.stage1_source = None  # Track how Stage 1 was performed
         self.analytical_failed = False  # Set True if analytical generation fails after retries
 
+    def _llm_text(self, prompt: str, max_tokens: int, temperature: float = 0.1) -> str:
+        """One completion through the provider protocol (default tier)."""
+        from app.services.llm.factory import complete_text
+
+        return complete_text(self.llm_client, prompt, max_tokens, temperature)
+
     def extract_conclusions(
         self,
         conclusions_text: str,
@@ -555,14 +561,7 @@ class ConclusionAnalyzer:
         self.last_prompt = prompt
 
         try:
-            from app.utils.llm_utils import text_from_message, direct_call_params
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=6000, temperature=0.1),
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            response_text = text_from_message(response)
+            response_text = self._llm_text(prompt, max_tokens=6000, temperature=0.1)
             self.last_response = response_text
 
             conclusions = self._parse_board_conclusions_response(response_text, all_entities)

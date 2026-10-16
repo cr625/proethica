@@ -44,20 +44,26 @@ class LLMManager:
         print(response.text)
     """
 
-    def __init__(self, config: Optional[LLMConfig] = None, model: Optional[str] = None):
+    def __init__(self, config: Optional[LLMConfig] = None, model: Optional[str] = None,
+                 providers: Optional[Dict[str, Any]] = None):
         """
         Initialize LLM manager.
 
         Args:
             config: LLMConfig instance (defaults to from_env())
             model: Optional model override (overrides config.default_model)
+            providers: Optional {provider_name: provider adapter} map for
+                dependency injection (tests, pre-built clients). When given,
+                no SDK client is constructed at initialization.
         """
         self.config = config or LLMConfig.from_env()
         self.model = model or self.config.default_model
         self.provider = self._detect_provider(self.model)
+        self._injected_providers = providers
+        self._provider_cache: Dict[str, Any] = {}
 
-        # Initialize provider client
-        self.client = self._initialize_client()
+        # Initialize provider client (skipped when providers are injected)
+        self.client = None if providers is not None else self._initialize_client()
 
         # Usage tracking
         self.usage_stats = {
@@ -71,14 +77,33 @@ class LLMManager:
         logger.info(f"[LLM Manager] Initialized with model={self.model}, provider={self.provider}")
 
     def _detect_provider(self, model: str) -> str:
-        """Detect provider from model name."""
-        if 'claude' in model.lower():
-            return 'anthropic'
-        elif 'gpt' in model.lower():
-            return 'openai'
-        else:
-            # Default to anthropic
-            return 'anthropic'
+        """Detect provider from a model reference ("provider:model" or bare id)."""
+        from model_config import ModelConfig
+
+        return ModelConfig.parse_model_ref(model)[0]
+
+    def _provider_for(self, model: str):
+        """Return the provider adapter for a model, dispatching per call.
+
+        A per-call model override on a different provider routes to that
+        provider; the construction-time provider no longer pins routing
+        (the previous behavior sent OpenAI model ids to the Anthropic API
+        and vice versa).
+        """
+        provider_name = self._detect_provider(model)
+        if self._injected_providers is not None:
+            adapter = self._injected_providers.get(provider_name)
+            if adapter is None:
+                raise ValueError(f"No provider injected for {provider_name!r}")
+            return adapter
+        if provider_name not in self._provider_cache:
+            from .factory import get_provider
+
+            # Reuse the already-initialized SDK client when the provider
+            # matches the construction-time one.
+            client = self.client if provider_name == self.provider else None
+            self._provider_cache[provider_name] = get_provider(model, client=client)
+        return self._provider_cache[provider_name]
 
     def _initialize_client(self):
         """Initialize the appropriate LLM client."""
@@ -140,27 +165,26 @@ class LLMManager:
             logger.debug(f"[LLM Manager] System: {system[:100] if system else 'None'}...")
             logger.debug(f"[LLM Manager] First message: {messages[0]['content'][:100] if messages else 'None'}...")
 
-        # Call appropriate provider
-        if self.provider == 'anthropic':
-            response = self._call_anthropic(
-                messages=messages,
-                system=system,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                model=use_model,
-                metadata=use_metadata
+        # Dispatch on the per-call model, not the construction-time
+        # provider, so a model override reaches its own provider.
+        adapter = self._provider_for(use_model)
+        response = adapter.complete(
+            messages=messages,
+            system=system,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model=use_model,
+        )
+        response.metadata = {**use_metadata, **response.metadata}
+        if response.usage.estimated_cost_usd is None:
+            estimator = (
+                self._estimate_cost_anthropic
+                if response.provider == "anthropic"
+                else self._estimate_cost_openai
             )
-        elif self.provider == 'openai':
-            response = self._call_openai(
-                messages=messages,
-                system=system,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                model=use_model,
-                metadata=use_metadata
+            response.usage.estimated_cost_usd = estimator(
+                response.usage.input_tokens, response.usage.output_tokens, use_model
             )
-        else:
-            raise ValueError(f"Unsupported provider: {self.provider}")
 
         # Track usage
         if self.config.track_usage:
@@ -168,128 +192,54 @@ class LLMManager:
 
         return response
 
-    def _call_anthropic(
+    def stream_text(
         self,
         messages: List[Dict[str, str]],
-        system: Optional[str],
-        max_tokens: int,
-        temperature: float,
-        model: str,
-        metadata: Dict[str, Any]
-    ) -> LLMResponse:
-        """Call Anthropic API with timeout and retry handling."""
-        import anthropic
+        system: Optional[str] = None,
+        max_tokens: int = 4000,
+        temperature: float = 0.1,
+        model: Optional[str] = None,
+    ) -> str:
+        """Stream one completion to text through the per-call provider."""
+        use_model = model or self.model
+        return self._provider_for(use_model).stream_text(
+            messages=messages, system=system, max_tokens=max_tokens,
+            temperature=temperature, model=use_model,
+        )
 
-        try:
-            # Build API call. direct_call_params floors max_tokens for
-            # thinking-by-default models (Sonnet 5 / Fable 5 spend thinking from the
-            # same budget) and omits temperature for models that reject it (400).
-            from app.utils.llm_utils import direct_call_params, text_from_message
-            api_kwargs = {
-                **direct_call_params(model, max_tokens, temperature),
-                'messages': messages,
-                'timeout': self.config.timeout.read  # Use read timeout for Anthropic
-            }
-
-            if system:
-                api_kwargs['system'] = system
-
-            # Make the call
-            response = self.client.messages.create(**api_kwargs)
-
-            # Extract response (robust to thinking-first content blocks)
-            text = text_from_message(response) if response.content else ""
-
-            # Build usage
-            usage = Usage(
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-                estimated_cost_usd=self._estimate_cost_anthropic(
-                    response.usage.input_tokens,
-                    response.usage.output_tokens,
-                    model
-                )
-            )
-
-            # Build metadata
-            response_metadata = {
-                **metadata,
-                'response_id': response.id if hasattr(response, 'id') else None,
-                'model': response.model if hasattr(response, 'model') else model,
-                'stop_reason': response.stop_reason if hasattr(response, 'stop_reason') else None
-            }
-
-            return LLMResponse(
-                text=text,
-                model=model,
-                provider='anthropic',
-                usage=usage,
-                metadata=response_metadata
-            )
-
-        except Exception as e:
-            logger.error(f"[LLM Manager] Anthropic API error: {str(e)}")
-            raise
-
-    def _call_openai(
+    def stream_complete(
         self,
         messages: List[Dict[str, str]],
-        system: Optional[str],
-        max_tokens: int,
-        temperature: float,
-        model: str,
-        metadata: Dict[str, Any]
-    ) -> LLMResponse:
-        """Call OpenAI API with timeout and retry handling."""
-        try:
-            # Add system message if provided
-            api_messages = []
-            if system:
-                api_messages.append({"role": "system", "content": system})
-            api_messages.extend(messages)
+        system: Optional[str] = None,
+        max_tokens: int = 4000,
+        temperature: float = 0.1,
+        model: Optional[str] = None,
+    ):
+        """Stream one completion to a full LLMResponse via the per-call provider."""
+        use_model = model or self.model
+        response = self._provider_for(use_model).stream_complete(
+            messages=messages, system=system, max_tokens=max_tokens,
+            temperature=temperature, model=use_model,
+        )
+        if self.config.track_usage:
+            self._track_usage(response)
+        return response
 
-            # Make the call
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=api_messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                timeout=self.config.timeout.read
-            )
-
-            # Extract response
-            text = response.choices[0].message.content
-
-            # Build usage
-            usage = Usage(
-                input_tokens=response.usage.prompt_tokens,
-                output_tokens=response.usage.completion_tokens,
-                estimated_cost_usd=self._estimate_cost_openai(
-                    response.usage.prompt_tokens,
-                    response.usage.completion_tokens,
-                    model
-                )
-            )
-
-            # Build metadata
-            response_metadata = {
-                **metadata,
-                'response_id': response.id if hasattr(response, 'id') else None,
-                'model': response.model if hasattr(response, 'model') else model,
-                'finish_reason': response.choices[0].finish_reason if response.choices else None
-            }
-
-            return LLMResponse(
-                text=text,
-                model=model,
-                provider='openai',
-                usage=usage,
-                metadata=response_metadata
-            )
-
-        except Exception as e:
-            logger.error(f"[LLM Manager] OpenAI API error: {str(e)}")
-            raise
+    def structured(
+        self,
+        messages: List[Dict[str, str]],
+        schema: Dict[str, Any],
+        system: Optional[str] = None,
+        max_tokens: int = 4000,
+        temperature: float = 0.1,
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return parsed structured JSON through the capability ladder."""
+        use_model = model or self.model
+        return self._provider_for(use_model).structured(
+            messages=messages, schema=schema, system=system,
+            max_tokens=max_tokens, temperature=temperature, model=use_model,
+        )
 
     def _estimate_cost_anthropic(self, input_tokens: int, output_tokens: int, model: str) -> float:
         """
@@ -393,10 +343,12 @@ class LLMManager:
         self.model = model
         self.provider = self._detect_provider(model)
 
-        # Re-initialize client if provider changed
+        # Re-initialize client if provider changed (not when providers
+        # were injected: routing is per call and needs no client swap)
         old_provider = self._detect_provider(old_model)
-        if old_provider != self.provider:
+        if old_provider != self.provider and self._injected_providers is None:
             self.client = self._initialize_client()
+            self._provider_cache.pop(old_provider, None)
 
         logger.info(f"[LLM Manager] Switched model: {old_model} → {model} (provider: {self.provider})")
 

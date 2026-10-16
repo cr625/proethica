@@ -119,6 +119,43 @@ class LLMCallMixin:
                 _schema is not None
                 and self.concept_type not in _GRAMMAR_TOO_LARGE
             )
+            # Non-Anthropic models route through the provider protocol:
+            # output_config is Anthropic's structured-outputs surface and
+            # the client above is an Anthropic client, so neither may
+            # receive the call. The capability ladder in the adapter
+            # applies the model's own structured guarantee (or the
+            # prompt-only fallback), and the result is already parsed.
+            from app.services.llm.capabilities import ref_provider_name
+
+            if ref_provider_name(self.model_name) != "anthropic":
+                import json as _json
+
+                from app.services.llm.factory import get_provider
+
+                provider = get_provider(self.model_name)
+                if _use_so:
+                    result = provider.structured(
+                        messages=[{"role": "user", "content": prompt}],
+                        system=_system or None,
+                        schema=_schema,
+                        max_tokens=self.config['max_tokens'],
+                        temperature=self.config['temperature'],
+                        model=self.model_name,
+                    )
+                    self.last_raw_response = _json.dumps(result)
+                    return result
+                response = provider.stream_complete(
+                    messages=[{"role": "user", "content": prompt}],
+                    system=_system or None,
+                    max_tokens=self.config['max_tokens'],
+                    temperature=self.config['temperature'],
+                    model=self.model_name,
+                )
+                response_text = response.text
+                self.last_raw_response = response_text
+                if response.metadata.get("stop_reason") == "max_tokens":
+                    response_text = self._repair_truncated_json(response_text)
+                return extract_json_from_response(response_text)
             if _use_so:
                 stream_kwargs['output_config'] = {
                     "format": {"type": "json_schema", "schema": _schema}
@@ -245,211 +282,42 @@ class LLMCallMixin:
 
         Used in Phase 2 (label-only injection). The LLM sees class labels
         without definitions and can call get_class_definition to retrieve
-        definitions for disambiguation.
-
-        Uses streaming messages.stream() with a tool-use conversation
-        loop to avoid WSL2 TCP timeout on long responses.
-        Max 25 tool-call round-trips to prevent runaway. Concept types
-        with 300+ existing classes (capabilities, constraints, obligations)
-        routinely need 10-15 rounds for definition lookups.
+        definitions for disambiguation. The conversation loop lives in
+        the provider protocol (tool_loop): Anthropic manages two prompt
+        cache breakpoints across rounds, OpenAI receives translated
+        function-calling tools with automatic prefix caching. Max 25
+        tool-call round-trips to prevent runaway; concept types with
+        300+ existing classes (capabilities, constraints, obligations)
+        routinely need 10-15 rounds for definition lookups. The
+        extractor contract returns {} on a failed call.
         """
-        from app.utils.llm_utils import get_llm_client
-
-        client = get_llm_client()
-        if not client:
-            logger.error("No LLM client available")
-            return {}
-
         logger.info(
             f"_call_llm_with_tools: sending {len(prompt)} chars, "
             f"model={self.model_name}, "
             f"max_tokens={self.config['max_tokens']}, "
             f"tools={len(self.ONTOLOGY_LOOKUP_TOOLS)}"
         )
-
-        # Within-call prompt caching (build-gate decision 2026-07-11, the
-        # sequential rebuild's one paying cache pattern): every tool round
-        # re-sends the FULL conversation, and label_only extraction routinely
-        # runs 10-15 rounds, so the 20-90KB initial prompt would be re-billed
-        # at full price each round. Two breakpoints (of the allowed four): a
-        # stable anchor on the initial prompt and a moving one on the latest
-        # tool_result, so each round writes only its own delta and reads the
-        # rest at ~0.1x (5-minute TTL; rounds are seconds apart). Worst case
-        # (zero tool rounds) costs the 1.25x write premium on the prompt once;
-        # the first tool round already recovers it.
-        messages = [{
-            "role": "user",
-            "content": [{
-                "type": "text",
-                "text": prompt,
-                "cache_control": {"type": "ephemeral"},
-            }],
-        }]
-        _prev_tail_mark: Dict[str, Any] | None = None
-        max_rounds = 25
         _system = (getattr(self, '_rendered_system', '') or '').strip()
 
         try:
-            for round_num in range(max_rounds):
-                # Use streaming to avoid WSL2 TCP timeout on long responses.
-                # client.messages.stream() supports tool_use and end_turn
-                # stop reasons identically to messages.create().
-                stream_kwargs = dict(
-                    model=self.model_name,
-                    max_tokens=self.config['max_tokens'],
-                    **self._maybe_temperature(),
-                    messages=messages,
-                    tools=self.ONTOLOGY_LOOKUP_TOOLS,
-                )
-                if _system:
-                    stream_kwargs['system'] = _system
-                with client.messages.stream(**stream_kwargs) as stream:
-                    # Consume the stream to get the final message
-                    response = stream.get_final_message()
+            from app.services.llm.factory import provider_for_client
+            from app.utils.llm_utils import get_llm_client
 
-                logger.info(
-                    f"Tool-use round {round_num + 1}: "
-                    f"{response.usage.input_tokens} in / "
-                    f"{response.usage.output_tokens} out, "
-                    f"stop={response.stop_reason}"
-                )
-
-                if response.stop_reason == 'end_turn':
-                    # Extract text content from the response
-                    response_text = ""
-                    for block in response.content:
-                        if block.type == 'text':
-                            response_text += block.text
-
-                    self.last_raw_response = response_text
-                    logger.info(
-                        f"Tool-use complete after {round_num + 1} rounds, "
-                        f"{self.tool_call_count} tool calls this extraction"
-                    )
-                    return extract_json_from_response(response_text)
-
-                if response.stop_reason == 'max_tokens':
-                    # Truncated -- extract what we can
-                    response_text = ""
-                    for block in response.content:
-                        if block.type == 'text':
-                            response_text += block.text
-                    self.last_raw_response = response_text
-                    logger.warning(
-                        f"Tool-use response truncated at "
-                        f"{self.config['max_tokens']} tokens"
-                    )
-                    response_text = self._repair_truncated_json(response_text)
-                    return extract_json_from_response(response_text)
-
-                if response.stop_reason == 'tool_use':
-                    # Process tool calls and continue the conversation
-                    # Add assistant's response (with tool_use blocks) to messages
-                    messages.append({
-                        "role": "assistant",
-                        "content": response.content,
-                    })
-
-                    # Execute each tool call and collect results
-                    tool_results = []
-                    for block in response.content:
-                        if block.type != 'tool_use':
-                            continue
-
-                        tool_result = self._execute_tool_call(
-                            block.name, block.input
-                        )
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": tool_result,
-                        })
-
-                    if tool_results:
-                        # Move the tail breakpoint: unmark the previous
-                        # round's block (max 4 breakpoints per request) and
-                        # mark the newest tool_result so the cached prefix
-                        # tracks the conversation tail.
-                        if _prev_tail_mark is not None:
-                            _prev_tail_mark.pop("cache_control", None)
-                        tool_results[-1]["cache_control"] = {"type": "ephemeral"}
-                        _prev_tail_mark = tool_results[-1]
-
-                    messages.append({
-                        "role": "user",
-                        "content": tool_results,
-                    })
-                    continue
-
-                # Unexpected stop reason
-                logger.warning(
-                    f"Unexpected stop_reason: {response.stop_reason}"
-                )
-                response_text = ""
-                for block in response.content:
-                    if block.type == 'text':
-                        response_text += block.text
-                self.last_raw_response = response_text
-                return extract_json_from_response(response_text)
-
-            # Exhausted max rounds -- try one final call without tools
-            # to force the LLM to produce its JSON response. (Dropping the
-            # tools list changes the request prefix, so this rare path is a
-            # full cache miss by construction; accepted.)
-            logger.warning(
-                f"Tool-use loop hit max rounds ({max_rounds}) "
-                f"for {self.concept_type}, forcing final response"
-            )
             try:
-                messages.append({
-                    "role": "assistant",
-                    "content": response.content,
-                })
-                # Add stub results for any pending tool calls so the
-                # conversation is valid, then call without tools.
-                tool_stubs = []
-                for block in response.content:
-                    if block.type == 'tool_use':
-                        tool_stubs.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": "Definition not available. Proceed with extraction using the labels you already have.",
-                        })
-                if tool_stubs:
-                    messages.append({"role": "user", "content": tool_stubs})
-
-                final_kwargs = dict(
-                    model=self.model_name,
-                    max_tokens=self.config['max_tokens'],
-                    **self._maybe_temperature(),
-                    messages=messages,
-                )
-                if _system:
-                    final_kwargs['system'] = _system
-                with client.messages.stream(**final_kwargs) as final_stream:
-                    final_response = final_stream.get_final_message()
-
-                response_text = ""
-                for block in final_response.content:
-                    if block.type == 'text':
-                        response_text += block.text
-                if response_text:
-                    self.last_raw_response = response_text
-                    logger.info(
-                        f"Forced final response: {len(response_text)} chars, "
-                        f"stop={final_response.stop_reason}"
-                    )
-                    if final_response.stop_reason == 'max_tokens':
-                        response_text = self._repair_truncated_json(
-                            response_text
-                        )
-                    return extract_json_from_response(response_text)
-            except Exception as fallback_err:
-                logger.error(
-                    f"Forced final response failed: {fallback_err}"
-                )
-            return {}
-
+                client = get_llm_client()
+            except Exception:
+                client = None
+            provider = provider_for_client(client, self.model_name)
+            result = provider.tool_loop(
+                prompt,
+                tools=self.ONTOLOGY_LOOKUP_TOOLS,
+                tool_runner=self._execute_tool_call,
+                system=_system or None,
+                max_tokens=self.config['max_tokens'],
+                temperature=self._maybe_temperature().get('temperature'),
+                model=self.model_name,
+                max_rounds=25,
+            )
         except Exception as e:
             logger.error(
                 f"Tool-use LLM call failed for {self.concept_type}: "
@@ -458,6 +326,20 @@ class LLMCallMixin:
             import traceback
             logger.error(f"  Traceback: {traceback.format_exc()}")
             return {}
+
+        self.last_raw_response = result.text
+        logger.info(
+            f"Tool-use complete after {result.rounds} rounds, "
+            f"{self.tool_call_count} tool calls this extraction"
+        )
+        if result.stop_reason == 'max_tokens':
+            logger.warning(
+                f"Tool-use response truncated at "
+                f"{self.config['max_tokens']} tokens"
+            )
+            return extract_json_from_response(
+                self._repair_truncated_json(result.text))
+        return extract_json_from_response(result.text)
 
     def _execute_tool_call(
         self, tool_name: str, tool_input: Dict[str, Any]

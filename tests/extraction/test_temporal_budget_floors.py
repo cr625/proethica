@@ -76,16 +76,15 @@ class _FakeClient:
 
 
 def _patch_client_and_model(monkeypatch, captured, response_text, model):
-    """Route the in-function ``anthropic.Anthropic(...)`` construction to the fake
-    client and pin the powerful tier to ``model`` (the extractors resolve it via
-    ``ModelConfig.get_claude_model('powerful')``)."""
+    """Route the powerful-tier provider's Anthropic client construction to
+    the fake client and pin the powerful tier to ``model`` via
+    ``LLM_POWERFUL_REF`` (the extractors resolve it via
+    ``get_tier_provider('powerful')``; the Anthropic adapter lazily calls
+    ``anthropic.Anthropic(...)``, which is patched here)."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_POWERFUL_REF", f"anthropic:{model}")
     fake = _FakeClient(captured, response_text)
     monkeypatch.setattr(anthropic, "Anthropic", lambda **kwargs: fake)
-    monkeypatch.setattr(
-        ModelConfig, "get_claude_model",
-        classmethod(lambda cls, use_case="default": model),
-    )
     return fake
 
 

@@ -20,7 +20,6 @@ from sqlalchemy import text
 
 from app import db
 from model_config import ModelConfig
-from app.utils.llm_utils import text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -316,15 +315,17 @@ class PrecedentSimilarityService:
         prompt = self._build_weight_prompt(features, focus)
 
         try:
-            from app.utils.llm_utils import direct_call_params
-            response = self.llm_client.messages.create(
-                **direct_call_params(ModelConfig.get_claude_model("default"),
-                                     max_tokens=500, temperature=0.1),
-                messages=[{"role": "user", "content": prompt}]
+            from app.services.llm.factory import provider_for_client
+
+            model = ModelConfig.get_tier_model("default")
+            provider = provider_for_client(self.llm_client, model)
+            response = provider.complete(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500, temperature=0.1, model=model,
             )
 
             # Parse weights from response
-            weights = self._parse_weight_response(text_from_message(response))
+            weights = self._parse_weight_response(response.text)
             return weights
 
         except Exception as e:
