@@ -9,7 +9,7 @@ from the package __init__.
 
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
-from dataclasses import dataclass, field, asdict
+from dataclasses import MISSING, dataclass, field, fields, asdict
 
 from app.services.entity_analysis import EntityGroundedDecisionPoint
 
@@ -133,6 +133,39 @@ class CanonicalDecisionPoint:
         if self.toulmin:
             result['toulmin'] = asdict(self.toulmin)
         return result
+
+    @classmethod
+    def from_storage(cls, data: Dict[str, Any], **overrides) -> "CanonicalDecisionPoint":
+        """Rebuild a decision point from its stored ``rdf_json_ld`` (the
+        ``to_dict`` payload of the Phase 3 run).
+
+        Every dataclass field the dict carries is restored, so the alignment
+        fields (aligned_question_uri, aligned_conclusion_uri, board_resolution,
+        synthesis_method) and the competition fields (competing_obligation_*,
+        additional_obligation_*) survive the reload. The phase-4 narrative
+        reads them to decide whether a Board conclusion resolves the point and
+        which obligations compete (case 8 review, lessons L4 and L7); the two
+        loaders used to rebuild a fixed subset and lost them. ``overrides``
+        replace stored values. A stored None for a field with a non-None
+        default keeps the default, unknown keys are ignored, and the Toulmin
+        structure stays None as before (the stored dict is not rehydrated).
+        """
+        payload = dict(data or {})
+        payload.update(overrides)
+        kwargs: Dict[str, Any] = {}
+        for f in fields(cls):
+            if f.name == 'toulmin' or f.name not in payload:
+                continue
+            value = payload[f.name]
+            has_default = f.default is not MISSING or f.default_factory is not MISSING
+            if value is None and has_default and f.default is not None:
+                continue
+            kwargs[f.name] = value
+        for name, default in (('focus_id', ''), ('focus_number', 0), ('description', ''),
+                              ('decision_question', ''), ('role_uri', ''), ('role_label', '')):
+            if kwargs.get(name) is None:
+                kwargs[name] = default
+        return cls(**kwargs)
 
 
 @dataclass

@@ -670,30 +670,12 @@ class CaseSynthesizer(NarrativeConstructionMixin, Phase2ExtractionMixin):
             for entity in entities:
                 json_ld = entity.rdf_json_ld or {}
 
-                canonical = CanonicalDecisionPoint(
-                    focus_id=json_ld.get('focus_id', ''),
-                    focus_number=json_ld.get('focus_number', 0),
-                    description=entity.entity_label,
-                    decision_question=json_ld.get('decision_question', ''),
-                    role_uri=json_ld.get('role_uri', ''),
-                    role_label=json_ld.get('role_label', ''),
-                    obligation_uri=json_ld.get('obligation_uri'),
-                    obligation_label=json_ld.get('obligation_label'),
-                    constraint_uri=json_ld.get('constraint_uri'),
-                    constraint_label=json_ld.get('constraint_label'),
-                    involved_action_uris=json_ld.get('involved_action_uris', []),
-                    provision_uris=json_ld.get('provision_uris', []),
-                    provision_labels=json_ld.get('provision_labels', []),
-                    aligned_question_uri=json_ld.get('aligned_question_uri'),
-                    aligned_question_text=json_ld.get('aligned_question_text'),
-                    aligned_conclusion_uri=json_ld.get('aligned_conclusion_uri'),
-                    aligned_conclusion_text=json_ld.get('aligned_conclusion_text'),
-                    options=json_ld.get('options', []),
-                    intensity_score=json_ld.get('intensity_score', 0.0),
-                    qc_alignment_score=json_ld.get('qc_alignment_score', 0.0),
-                    source=json_ld.get('source', 'unified'),
-                    algorithmic_focus_id=json_ld.get('algorithmic_focus_id')
-                )
+                # Every stored field is restored (the former fixed subset lost
+                # synthesis_method, board_resolution and the competing-obligation
+                # fields the phase-4 narrative reads; case 8 review, lessons L4
+                # and L7). The row label stays the description, as before.
+                canonical = CanonicalDecisionPoint.from_storage(
+                    json_ld, description=entity.entity_label)
                 canonical_points.append(canonical)
 
             return canonical_points

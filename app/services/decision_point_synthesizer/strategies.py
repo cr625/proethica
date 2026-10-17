@@ -866,11 +866,18 @@ C{i}:{tag} {c.get('text', c.get('label', ''))}
                 logger.info(f"Case-graph lookup unavailable for case {case_id}: {exc}")
         if ctx is None:
             ctx = DPGroundingContext(case_id=case_id)
-            if case_id is not None:
-                try:
-                    add_temporal_rows(ctx, self._load_temporal_rows(case_id), case_id)
-                except Exception as exc:  # noqa: BLE001
-                    logger.info(f"Temporal rows unavailable for case {case_id}: {exc}")
+        if case_id is not None:
+            # The stored Step-3 rows are read beside the committed graph, not
+            # only in its absence: a graph committed before the current Step-3
+            # run (or without its temporal rows) knows none of the new actions,
+            # and the model may echo the extraction-time @id form
+            # (cases/N#Action_X) that only the rows carry. Either case dropped
+            # every such action, the symptom lesson L1 removes. Registration
+            # keeps the graph's category for a URI both sources know.
+            try:
+                add_temporal_rows(ctx, self._load_temporal_rows(case_id), case_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.info(f"Temporal rows unavailable for case {case_id}: {exc}")
         add_candidates(ctx, top_candidates)
         codes = []
         if case_id is not None:
