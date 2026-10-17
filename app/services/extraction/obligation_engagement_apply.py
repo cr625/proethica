@@ -223,10 +223,13 @@ def apply_obligation_engagement(
                 fulfills=list(fulfills_raw),
                 violates=list(violates_raw),
                 raises=list(raises_raw),
+                # The stored proeth:modality (parse time) decides when present; the
+                # phrase rule covers rows that carry none.
                 modality=derive_action_modality(
                     description,
                     rdf.get("proeth:temporalMarker", "") or "",
-                    rdf.get("proeth:discoveredInSection", "") or ""),
+                    rdf.get("proeth:discoveredInSection", "") or "",
+                    explicit=rdf.get("proeth:modality")),
             )
         )
         iri_to_row[iri] = r

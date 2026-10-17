@@ -554,6 +554,10 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
         reject_labels: set = set()
         for cat in pred.reject_label_in:
             reject_labels.update(_norm(_label(g, ind)) for ind in _individuals_in_category(g, cat))
+        # A label a pool member carries names a target of this family even when a
+        # happening shares it (a State and an Action both labelled "Work
+        # Suspension"); the rejection applies to labels no target carries.
+        reject_labels -= {_norm(lbl) for lbl in pool_labels.values()}
 
         items: List[Dict[str, Any]] = []
         next_id = 1
@@ -1238,15 +1242,17 @@ def _temporal_relation_extra_emit(g: Graph, spec: EdgeSpec, subj, prop, tgt, row
 # --- case 24-1 review hooks: obligation row adjust, Allen validation, reconstruct ----
 
 def _demote_prescribed_fulfills(rdf: Dict[str, Any], fields: Dict[str, List[str]]) -> None:
-    """fulfillsObligation only for performed actions: an action whose record derives
-    the prescribed modality (the Board's conclusion restated as an action, "must
-    not continue", "unresolved endpoint") has its fulfills labels moved to raises
-    before resolution (case 8: Refusal_to_Acquiesce carried fulfillsObligation
-    edges although the facts end with the client insisting)."""
+    """fulfillsObligation only for performed actions: an action whose record carries
+    or derives the prescribed modality (the stored proeth:modality first, else the
+    Board's conclusion restated as an action, "must not continue", "unresolved
+    endpoint") has its fulfills labels moved to raises before resolution (case 8:
+    Refusal_to_Acquiesce carried fulfillsObligation edges although the facts end
+    with the client insisting)."""
     modality = derive_action_modality(
         str(rdf.get("proeth:description") or rdf.get("description") or ""),
         str(rdf.get("proeth:temporalMarker") or rdf.get("temporalMarker") or ""),
-        str(rdf.get("proeth:discoveredInSection") or rdf.get("discoveredInSection") or ""))
+        str(rdf.get("proeth:discoveredInSection") or rdf.get("discoveredInSection") or ""),
+        explicit=rdf.get("proeth:modality") or rdf.get("modality"))
     if modality != MODALITY_PRESCRIBED:
         return
     moved = fields.get("fulfillsObligation") or []
