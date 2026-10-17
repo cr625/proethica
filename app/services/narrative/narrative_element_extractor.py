@@ -674,14 +674,24 @@ class NarrativeElementExtractor:
             obligation_label = getattr(dp, 'obligation_label', None)
             competing_label = getattr(dp, 'competing_obligation_label', None)
             if obligation_label and competing_label:
+                # The pair dedup of the constraint-slot branch applies here as
+                # well: case 24-1 DP2 and DP3 share the Watershed Safety Duty /
+                # Faithful Agent Duty pair, and this branch repeated the tension
+                # (D-41, conflict_3) when the pair came from the committed edges.
+                uri1 = getattr(dp, 'obligation_uri', '') or ''
+                uri2 = getattr(dp, 'competing_obligation_uri', '') or ''
+                pair = self._pair_key(uri1, obligation_label, uri2, competing_label)
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
                 conflicts.append(NarrativeConflict(
                     conflict_id=f"conflict_{conflict_id}",
                     description=f"Tension between {obligation_label} and {competing_label}",
                     conflict_type='obligation_vs_obligation',
-                    entity1_uri=getattr(dp, 'obligation_uri', '') or '',
+                    entity1_uri=uri1,
                     entity1_label=obligation_label,
                     entity1_type='obligation',
-                    entity2_uri=getattr(dp, 'competing_obligation_uri', '') or '',
+                    entity2_uri=uri2,
                     entity2_label=competing_label,
                     entity2_type='obligation',
                     affected_role_uris=[getattr(dp, 'role_uri', '')] if hasattr(dp, 'role_uri') else []

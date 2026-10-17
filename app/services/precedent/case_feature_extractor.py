@@ -80,6 +80,12 @@ OUTCOME_TYPES = {
 ETHICAL_BOARD_CONCLUSION_TYPES = frozenset({'no_violation', 'compliance'})
 UNETHICAL_BOARD_CONCLUSION_TYPES = frozenset({'violation'})
 MIXED_BOARD_CONCLUSION_TYPES = frozenset({'mixed'})
+# The values that carry a verdict on the conduct. The other values of the
+# detector (unknown, interpretation, recommendation) do not, so a case whose
+# board conclusions carry only those keeps its conclusion-text classification.
+POLAR_BOARD_CONCLUSION_TYPES = (ETHICAL_BOARD_CONCLUSION_TYPES
+                                | UNETHICAL_BOARD_CONCLUSION_TYPES
+                                | MIXED_BOARD_CONCLUSION_TYPES)
 BOARD_DERIVED_CONFIDENCE = 0.95
 
 # extraction_prompts row written for a feature-writing model call. Step 0 marks
@@ -135,12 +141,16 @@ def board_conclusion_types_from_rows(rows) -> List[str]:
 
 def board_outcome_for_case(case_id: int) -> Optional[Tuple[str, float, str]]:
     """Outcome derived from the stored board conclusions of a case, or None
-    when no board_explicit conclusion carries a boardConclusionType (Step 4
-    not run yet), in which case the caller falls back to the text path."""
+    when no board_explicit conclusion carries a polar boardConclusionType
+    (Step 4 not run yet, or every holding typed unknown, interpretation or
+    recommendation), in which case the caller falls back to the text path.
+    A derivation over non-polar values alone would write 'unclear' at
+    confidence 0.0 over the text classification of a case the rule does not
+    name."""
     rows = TemporaryRDFStorage.query.filter_by(
         case_id=case_id, extraction_type='ethical_conclusion').all()
     types = board_conclusion_types_from_rows(rows)
-    if not types:
+    if not any(str(t).strip().lower() in POLAR_BOARD_CONCLUSION_TYPES for t in types):
         return None
     return derive_outcome_from_board_conclusions(types)
 
