@@ -178,7 +178,7 @@ class BaseLLMProvider:
 
 def _parse_json_text(text: str) -> Dict[str, Any]:
     """Parse JSON text tolerantly (markdown fences, surrounding prose)."""
-    from app.utils.llm_utils import extract_json_from_response
+    from app.utils.llm_json_utils import extract_json_from_response
 
     parsed = extract_json_from_response(text or "")
     if not isinstance(parsed, dict):

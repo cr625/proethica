@@ -103,61 +103,14 @@ def direct_call_params(model: str, max_tokens: int,
 
 
 def extract_json_from_response(response_text: str) -> Dict[str, Any]:
+    """Legacy shim for the canonical extractor in llm_json_utils.
+
+    Retained under this name for its existing call sites; parsing,
+    markdown-fence handling, and truncation repair live in one place.
     """
-    Extract and parse JSON from an LLM response.
+    from app.utils.llm_json_utils import extract_json_from_response as _extract
 
-    Handles common LLM response formats:
-    - Raw JSON
-    - JSON wrapped in markdown code blocks (```json ... ``` or ``` ... ```)
-    - JSON with surrounding text
-
-    Args:
-        response_text: The raw text response from an LLM
-
-    Returns:
-        Parsed JSON as a dictionary
-
-    Raises:
-        ValueError: If no valid JSON can be extracted
-    """
-    if not response_text or not response_text.strip():
-        raise ValueError("Empty response text")
-
-    text = response_text.strip()
-
-    # Try 1: Direct JSON parse
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-
-    # Try 2: Strip markdown code fence (```json ... ``` or ``` ... ```)
-    # Match ```json or ``` at start, ``` at end
-    code_block_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', text)
-    if code_block_match:
-        try:
-            return json.loads(code_block_match.group(1).strip())
-        except json.JSONDecodeError:
-            pass
-
-    # Try 3: Find JSON object in text (for responses with surrounding text)
-    # This regex finds the outermost { ... } block
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        try:
-            return json.loads(json_match.group())
-        except json.JSONDecodeError:
-            pass
-
-    # Try 4: Find JSON array in text
-    array_match = re.search(r'\[[\s\S]*\]', text)
-    if array_match:
-        try:
-            return json.loads(array_match.group())
-        except json.JSONDecodeError:
-            pass
-
-    raise ValueError(f"Could not extract valid JSON from response: {text[:500]}")
+    return _extract(response_text)
 
 
 def _get_gemini_client_if_enabled() -> Optional[Any]:

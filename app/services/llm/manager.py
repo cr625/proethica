@@ -356,15 +356,11 @@ class LLMManager:
             Parsed JSON object
 
         Raises:
-            json.JSONDecodeError: If parsing fails
+            ValueError: If parsing fails
         """
-        # Try to extract from markdown code block first
-        code_block_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', text)
-        if code_block_match:
-            text = code_block_match.group(1).strip()
+        from app.utils.llm_json_utils import extract_json_from_response
 
-        # Parse JSON
-        return json.loads(text)
+        return extract_json_from_response(text)
 
     def switch_model(self, model: str):
         """

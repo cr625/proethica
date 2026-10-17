@@ -102,6 +102,33 @@ def parse_json_response(response_text: str, context: str = "unknown",
     return None
 
 
+def extract_json_from_response(response_text: str) -> Any:
+    """Canonical tolerant extractor for an LLM response.
+
+    Single implementation behind the protocol structured tier, the
+    LLMManager helper, and the legacy `llm_utils` shim. Handles raw JSON,
+    markdown fences, and surrounding prose for objects and arrays, with
+    the truncation repair of the parsers below.
+
+    Raises:
+        ValueError: If no valid JSON can be extracted.
+    """
+    if not response_text or not response_text.strip():
+        raise ValueError("Empty response text")
+    text = response_text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    parsed = parse_json_object(text, context="extract_json")
+    if parsed is not None:
+        return parsed
+    parsed = parse_json_response(text, context="extract_json")
+    if parsed is not None:
+        return parsed
+    raise ValueError(f"Could not extract valid JSON from response: {text[:500]}")
+
+
 def parse_json_object(response_text: str, context: str = "unknown") -> Optional[dict]:
     """Parse JSON object from LLM response (same strategies as parse_json_response but for objects).
 
