@@ -55,6 +55,73 @@ _PRECEDENT_HREF = "board-ethical-review-cases"
 # discussion length, abandon the split and use the full discussion.
 _MIN_PRESENT_FRACTION = 0.20
 
+# Bumped whenever the segmentation rules change, so a cached segmentation computed under the old
+# rules (doc_metadata['discussion_segmentation']) is recomputed instead of reused.
+SEGMENTATION_VERSION = 2
+
+# Sentence-level present-case cues inside a RECAP paragraph (case-8 review, lesson L3). NSPE
+# recap paragraphs often close by turning to the present case ("We note a direct parallel between
+# the 1984 case and the facts under consideration."); labeling the whole paragraph recap removed
+# those sentences from the extractors, and with them the only mentions of II.1.a and BER Case
+# 67-10 in case 8. A recap paragraph is split at the first sentence (after its opening sentence)
+# that carries one of these cues; that sentence and the rest of the paragraph are present-case
+# text. Phrases only; the present-case engineer letters are supplied per case (present_actors).
+_PRESENT_TAIL_CUE = re.compile(
+    r"\bwe (?:note|observe|find|conclude|believe|think|see no|do not (?:see|find|believe))\b"
+    r"|\b(?:in|by) contrast\b"
+    r"|\bturning to\b"
+    r"|\bthe (?:present|instant) (?:case|matter|situation|facts)\b"
+    r"|\bin the (?:present|instant) (?:case|matter|situation)\b"
+    r"|\bthe facts (?:under consideration|before (?:us|the board)|at hand|now before)\b"
+    r"|\bthe case (?:at hand|before (?:us|the board))\b"
+    r"|\bhere,",
+    re.IGNORECASE,
+)
+
+# Sentence boundary: terminal punctuation, whitespace, then an upper-case letter, a quote mark or
+# a parenthesis. A period followed by a digit ("Case No. 67-10") or a lower-case letter does not
+# split, so citation forms and abbreviations stay whole.
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'(“])")
+
+# Concept types whose discussion-pass extractor receives the FULL discussion rather than the
+# segmented present-case text. The resources pass lists the codes and precedents the case cites,
+# and the recap paragraphs are where the cited precedents and their code sections are named
+# (case 8: II.1.a and BER Case 67-10 appeared only there), so segmentation starves it.
+SEGMENTATION_EXEMPT_CONCEPTS = frozenset({"resources"})
+
+
+def section_text_for_concept(sections: dict, section_type: str, concept_type: str) -> str:
+    """The text a concept's extractor receives for a section: the segmented present-case
+    discussion for most concepts, the FULL discussion for the segmentation-exempt ones
+    (SEGMENTATION_EXEMPT_CONCEPTS), and the section as stored otherwise. ``sections`` is the
+    dict pipeline_tasks.get_case_sections returns."""
+    if (section_type or "").lower() == "discussion" and (concept_type or "").lower() in SEGMENTATION_EXEMPT_CONCEPTS:
+        return sections.get("discussion_full") or sections.get("discussion") or ""
+    return sections.get(section_type) or ""
+
+
+def _actor_cues(present_actors) -> List[re.Pattern]:
+    return [re.compile(r"\b" + re.escape(str(a).strip()) + r"\b", re.IGNORECASE)
+            for a in (present_actors or ()) if str(a).strip()]
+
+
+def _split_recap_tail(text: str, actor_cues: List[re.Pattern]) -> tuple:
+    """Split a recap paragraph into (recap head, present-case tail). The opening sentence always
+    stays recap (a recap paragraph opens with the precedent). An actor cue is used for a paragraph
+    only when the opening sentence does not itself name that actor: when the cited precedent shares
+    the present case's engineer letter (case 60 and BER Case 19-3 both lead with Engineer A), the
+    letter cannot tell the two apart and the phrase cues alone decide."""
+    sentences = _SENTENCE_SPLIT.split(text)
+    if len(sentences) < 2:
+        return text, ""
+    head = sentences[0]
+    usable = [c for c in actor_cues if not c.search(head)]
+    for i in range(1, len(sentences)):
+        s = sentences[i]
+        if _PRESENT_TAIL_CUE.search(s) or any(c.search(s) for c in usable):
+            return " ".join(sentences[:i]).strip(), " ".join(sentences[i:]).strip()
+    return text, ""
+
 
 @dataclass
 class Paragraph:
@@ -63,6 +130,7 @@ class Paragraph:
     has_link: bool = False
     cited_cases: List[str] = field(default_factory=list)
     label: str = ""  # 'present' | 'recap' (assigned by the classifier)
+    present_tail: str = ""  # for a recap paragraph: its trailing present-case sentences, if any
 
 
 @dataclass
@@ -185,8 +253,11 @@ def _llm_labels(paras: List[Paragraph]) -> Optional[List[str]]:
         return None
 
 
-def segment_discussion(discussion_html: str) -> SegmentationResult:
-    """Segment a discussion (HTML) into present-case text + precedent recaps. See module docstring."""
+def segment_discussion(discussion_html: str, present_actors=None) -> SegmentationResult:
+    """Segment a discussion (HTML) into present-case text + precedent recaps. See module docstring.
+
+    ``present_actors``: the present case's actor names ("Engineer L", ...), used as sentence-level
+    cues when a recap paragraph turns to the present case (see _split_recap_tail)."""
     if not discussion_html or not discussion_html.strip():
         return SegmentationResult(present_case_text="", precedent_recaps=[], method="none")
 
@@ -220,9 +291,21 @@ def segment_discussion(discussion_html: str) -> SegmentationResult:
     for p, lab in zip(paras, labels):
         p.label = lab
 
-    present_text = "\n\n".join(p.text for p in paras if p.label == "present").strip()
-    recaps = [{"cited_case": (p.cited_cases[0] if p.cited_cases else None), "text": p.text}
-              for p in paras if p.label == "recap"]
+    # A recap paragraph that turns to the present case in its trailing sentences keeps those
+    # sentences in the present-case text (in document order); only its head is a recap span.
+    actor_cues = _actor_cues(present_actors)
+    present_parts: List[str] = []
+    recaps: List[dict] = []
+    for p in paras:
+        if p.label == "present":
+            present_parts.append(p.text)
+            continue
+        head, tail = _split_recap_tail(p.text, actor_cues)
+        p.present_tail = tail
+        recaps.append({"cited_case": (p.cited_cases[0] if p.cited_cases else None), "text": head})
+        if tail:
+            present_parts.append(tail)
+    present_text = "\n\n".join(present_parts).strip()
 
     # Fail-safe: never return implausibly little present-case text.
     if not present_text or len(present_text) < _MIN_PRESENT_FRACTION * max(len(full_text), 1):

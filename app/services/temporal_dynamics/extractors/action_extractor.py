@@ -31,7 +31,8 @@ def extract_actions_with_metadata(
     case_id: int,
     llm_trace: List[Dict],
     facts_text: str = '',
-    discussion_text: str = ''
+    discussion_text: str = '',
+    state_labels: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Extract actions (volitional professional decisions) with their core metadata
@@ -44,6 +45,8 @@ def extract_actions_with_metadata(
         llm_trace: List to append LLM interactions to
         facts_text: Raw facts section text (grounding context)
         discussion_text: Raw discussion section text (grounding context)
+        state_labels: The case's State individual labels (the closed list for initiates /
+            terminates; empty disables the closed-list check)
 
     Returns:
         List of action dictionaries with full metadata
@@ -65,7 +68,7 @@ def extract_actions_with_metadata(
 
     actions = _extract_core_actions(
         narrative, temporal_markers, case_id, llm_client, model_name, llm_trace,
-        facts_text=facts_text, discussion_text=discussion_text
+        facts_text=facts_text, discussion_text=discussion_text, state_labels=state_labels,
     )
     logger.info(f"[Stage 3] Extracted {len(actions)} actions")
     return actions
@@ -108,7 +111,8 @@ def _extract_core_actions(
     model_name: str,
     llm_trace: List[Dict],
     facts_text: str = '',
-    discussion_text: str = ''
+    discussion_text: str = '',
+    state_labels: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Phase 1: Extract core action data (no scenario metadata).
@@ -116,7 +120,8 @@ def _extract_core_actions(
     Includes raw case text for grounding when narrative summary is available,
     and as primary source when narrative summary is missing or degraded.
     """
-    prompt = _build_phase1_prompt(narrative, temporal_markers, facts_text, discussion_text)
+    prompt = _build_phase1_prompt(narrative, temporal_markers, facts_text, discussion_text,
+                                  state_labels=state_labels)
     logger.info(f"[Stage 3] Phase 1 prompt length: {len(prompt)} chars")
 
     trace_entry = {
@@ -134,9 +139,14 @@ def _extract_core_actions(
 
         trace_entry['response'] = response_text
 
-        # Parse response
+        # Parse response, then the post-parse checks (lesson L8): a Board normative sentence
+        # routes an action to modality "prescribed"; initiates / terminates are validated
+        # against the case State labels and may not name another happening.
         actions = _parse_action_response(response_text)
-        trace_entry['parsed_output'] = {'action_count': len(actions)}
+        from app.services.temporal_dynamics.utils.happening_checks import finalize_actions
+        actions, check_report = finalize_actions(actions, discussion_text, state_labels)
+        trace_entry['parsed_output'] = {'action_count': len(actions),
+                                        'fluent_links_dropped': check_report}
 
         # Token usage
         if hasattr(response, 'usage'):
@@ -164,8 +174,11 @@ def _extract_core_actions(
 
 
 def _build_phase1_prompt(narrative: Dict, temporal_markers: Dict,
-                         facts_text: str = '', discussion_text: str = '') -> str:
+                         facts_text: str = '', discussion_text: str = '',
+                         state_labels: Optional[List[str]] = None) -> str:
     """Build Phase 1 prompt - core action extraction with source text grounding."""
+    from app.services.temporal_dynamics.utils.happening_checks import state_label_block
+    state_block = state_label_block(state_labels)
 
     temporal_context = ""
     if temporal_markers.get('absolute'):
@@ -234,6 +247,8 @@ EXTRACTION DIRECTIVES (shared across components):
 
 {schema_block}
 
+{state_block}
+
 For each ACTION, extract:
 1. label: A SHORT, GENERAL action name of AT MOST 4 words. Name the KIND of action,
    not the case scenario: write "Advisory Recommendation", NOT "Advising City on
@@ -275,6 +290,12 @@ For each ACTION, extract:
 12. text_references: verbatim quotes from the CASE FACTS / CASE DISCUSSION text grounding
     this action. Each must be an EXACT contiguous span copied from the case text (not the
     narrative summary); never paraphrase, summarize, or stitch fragments together.
+13. modality: "performed" when the case narrates the agent doing (or omitting) the act;
+    "prescribed" when the act is one the Board says the agent must, must not, or cannot
+    ethically do (a holding stated in the discussion, e.g. "cannot ethically acquiesce"),
+    not something the case narrates as done. A prescribed act carries no performed
+    temporal_marker (never "present" or "ongoing"); give it the holding's temporal frame
+    or leave temporal_marker empty.
 
 Return JSON:
 ```json
@@ -284,6 +305,7 @@ Return JSON:
     "description": "Engineer assigned complex task to intern",
     "agent": "John Smith (Senior Engineer)",
     "temporal_marker": "Month 3",
+    "modality": "performed",
     "source_section": "facts",
     "intention": {{
       "mental_state": "deliberate",
