@@ -34,6 +34,8 @@ from app.services.commit.enrichment import (
 )
 from app.services.commit import naming
 from app.services.commit.commit_context import _is_role_individual
+from app.services.commit.definitions import compose_definition
+from app.services.commit.working_store import write_back_definition
 
 logger = logging.getLogger(__name__)
 
@@ -605,11 +607,51 @@ class EmitterMixin:
         if _is_role_individual(entity) and uri not in role_edge_archetyped:
             self._apply_role_category_fallback_archetype(g, uri, rdf_data)
 
+        # Every committed individual carries a definition (case-8 review, L1):
+        # the type-specific handlers above leave States, questions, conclusions,
+        # decision points, causal chains and the timeline without one, so the
+        # case page cannot link them and OntServe shows a bare label.
+        self._ensure_definition(g, uri, entity, rdf_data, extraction_type)
+
+    def _ensure_definition(self, g: Graph, uri: URIRef, entity: Any, rdf_data: Dict,
+                           extraction_type: str) -> None:
+        """Emit a skos:definition for an individual that has neither
+        skos:definition nor rdfs:comment after its type-specific serialization.
+
+        The row's own entity_definition is used when present (the generic
+        emitter skips the synthesis and temporal types, so their rows can carry
+        a definition the TTL never received). Otherwise the definition is
+        composed deterministically from the fields the individual carries
+        (``definitions.compose_definition``) and written back onto the
+        working-store row, so the review pages and the TTL agree. rdfs:comment
+        is added alongside for the types the generic emitter serves; the
+        synthesis and temporal types keep their text in dedicated predicates
+        and receive skos:definition only.
+        """
+        if g.value(uri, SKOS.definition) is not None or g.value(uri, RDFS.comment) is not None:
+            return
+        text = (getattr(entity, 'entity_definition', None) or '').strip()
+        composed = False
+        if not text:
+            label = g.value(uri, RDFS.label)
+            label = str(label) if label is not None else (getattr(entity, 'entity_label', '') or '')
+            text = compose_definition(extraction_type, label, rdf_data)
+            composed = True
+        if not text:
+            return
+        g.add((uri, SKOS.definition, Literal(text)))
+        if extraction_type not in self._DEF_SKIP_TYPES and 'temporal_dynamics' not in extraction_type:
+            g.add((uri, RDFS.comment, Literal(text)))
+        if composed and write_back_definition(entity, text):
+            logger.info("Composed definition for %s (%s) written back to the working store",
+                        str(uri).split('#')[-1], extraction_type or 'individual')
+
     def _apply_role_category_fallback_archetype(self, g: Graph, uri: URIRef, rdf_data: Dict) -> None:
         """Type a role facet to its role_category relational archetype (the fallback when no actor edge
         classified it). role_category is one of the four Kong relational categories; participant /
-        stakeholder were removed (occupational, carried by role_kind). public_responsibility lands here
-        because owesDutyToward is not materialized per instance (R1)."""
+        stakeholder were removed (occupational, carried by role_kind). A public_responsibility facet
+        also receives the defining edge: owesDutyToward toward the case-scoped PublicInterest
+        individual (case-8 review, L6), so the defined class classifies from a committed edge."""
         props = (rdf_data or {}).get('properties', {}) or {}
         rc = (props.get('roleCategory') or props.get('role_category')
               or (rdf_data or {}).get('role_category'))
