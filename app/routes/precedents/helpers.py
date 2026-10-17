@@ -5,9 +5,17 @@ from app.utils.environment_auth import auth_optional
 from app.models import Document
 from app import db
 from sqlalchemy import text
+from app.services.precedent.similarity_service import PrecedentSimilarityService
+from app.utils.provision_codes import normalize_provision_codes
 
 logger = logging.getLogger(__name__)
 
+
+# The weighted components of the component-aware score, in weight order. The
+# Similar Cases page renders every one of them with its weight: until the
+# 2026-10 case 24-1 review it showed three of the five, and outcome alignment
+# plus tension overlap (22.7 of the top match's 62.9 points) were invisible.
+RETRIEVAL_COMPONENTS = list(PrecedentSimilarityService.COMPONENT_AWARE_WEIGHTS)
 
 MATCHING_METHODS = {
     'component_similarity': {
@@ -20,11 +28,21 @@ MATCHING_METHODS = {
         'method': 'Jaccard',
         'description': 'NSPE Code section overlap',
     },
+    'outcome_alignment': {
+        'name': 'Outcome Alignment',
+        'method': 'Match',
+        'description': 'Board outcome agreement: 1.0 same polarity, 0.5 mixed or unclear, 0.0 opposite',
+    },
     'tag_overlap': {
         'name': 'Subject Tags',
         'method': 'Jaccard',
-        'description': 'Topic category overlap',
-    }
+        'description': 'NSPE subject reference overlap',
+    },
+    'principle_overlap': {
+        'name': 'Tension Overlap',
+        'method': 'Cosine',
+        'description': 'Ethical-tension signature similarity',
+    },
 }
 
 # Entity type colours/labels for the D-tuple per-component display
@@ -49,11 +67,16 @@ def _get_case_year(case):
 
 def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
     """
-    Find similar cases using multi-factor similarity.
+    Find similar cases with the component-aware similarity of the Similar
+    Cases page (CBR-RAG weighted combination, Wiratunga et al., 2024):
 
-    Uses weighted combination approach from CBR-RAG (Wiratunga et al., 2024):
-    Score = w1*facts_sim + w2*discussion_sim + w3*provision_overlap +
-            w4*outcome_alignment + w5*tag_overlap + w6*principle_overlap
+    Score = 0.40 * component_similarity + 0.25 * provision_overlap +
+            0.15 * outcome_alignment + 0.10 * tag_overlap + 0.10 * principle_overlap
+
+    (PrecedentSimilarityService.COMPONENT_AWARE_WEIGHTS). Each result carries
+    the five component scores with their weights, the shared provisions and
+    subject tags from the scorer itself, and the latest Step 4 transformation
+    classification of both cases.
 
     Results include is_cited_precedent/is_cited_by flags to distinguish
     explicitly cited precedent relationships from similarity-only matches.
@@ -71,29 +94,18 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
             use_component_embedding=True
         )
 
-        # Get source case's features for overlap calculation
+        # Source case features: citations, outcome, and the transformation
+        # type (the latest Step 4 classification wins over the stored column).
         source_features = _get_case_features(case_id)
         source_cited = set(source_features.get('cited_case_numbers', []) or []) if source_features else set()
         source_cited_ids = set(source_features.get('cited_case_ids', []) or []) if source_features else set()
-        source_transformation = source_features.get('transformation_type') if source_features else None
-
-        # Get source case's subject tags and outcome
-        source_case = Document.query.get(case_id)
-        source_tags = set()
-        source_outcome = None
-        if source_case and source_case.doc_metadata:
-            source_tags = set(source_case.doc_metadata.get('subject_tags', []) or [])
-
-        # Outcome comes from case_precedent_features
-        source_features_for_outcome = _get_case_features(case_id)
-        if source_features_for_outcome:
-            source_outcome = source_features_for_outcome.get('outcome_type')
+        source_outcome = source_features.get('outcome_type') if source_features else None
+        source_transformation = _resolve_transformation_type(
+            case_id, source_features.get('transformation_type') if source_features else None
+        )
 
         results = []
         for match in matches:
-            # Determine primary matching method based on highest component score
-            primary_method = _get_primary_method(match.component_scores)
-
             # Get additional features from database
             cited_case_numbers = []
             features = _get_case_features(match.target_case_id)
@@ -104,17 +116,13 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
             target_cited = set(cited_case_numbers) if cited_case_numbers else set()
             overlapping_citations = list(source_cited & target_cited)
 
-            # Calculate overlapping subject tags
-            target_case = Document.query.get(match.target_case_id)
-            target_tags = set()
-            if target_case and target_case.doc_metadata:
-                target_tags = set(target_case.doc_metadata.get('subject_tags', []) or [])
-            overlapping_tags = list(source_tags & target_tags)
-
-            # Calculate transformation match
-            transformation_match = (
-                source_transformation and match.target_transformation and
-                source_transformation == match.target_transformation
+            # Transformation match on the latest classification of both cases
+            target_transformation = _resolve_transformation_type(
+                match.target_case_id, match.target_transformation
+            )
+            transformation_match = bool(
+                source_transformation and target_transformation and
+                source_transformation == target_transformation
             )
 
             # Check if target is an explicitly cited precedent (or cites the source)
@@ -130,6 +138,9 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
                 'component_scores': {
                     k: round(v, 3) for k, v in match.component_scores.items()
                 },
+                'weights_used': {
+                    k: round(v, 3) for k, v in (match.weights_used or {}).items()
+                },
                 'per_component_scores': {
                     k: round(v, 3) for k, v in (match.per_component_scores or {}).items()
                 },
@@ -139,8 +150,10 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
                 'target_outcome': match.target_outcome,
                 'transformation_match': transformation_match,
                 'source_transformation': source_transformation,
-                'target_transformation': match.target_transformation,
-                'overlapping_tags': overlapping_tags,
+                'target_transformation': target_transformation,
+                # The scorer's own intersection, so the displayed topics are the
+                # set tag_overlap was computed on.
+                'overlapping_tags': list(match.matching_tags or []),
                 'overlapping_citations': overlapping_citations,
                 'is_cited_precedent': is_cited_precedent,
                 'is_cited_by': is_cited_by,
@@ -162,27 +175,28 @@ def _find_precedents_for_case(case_id, limit=10, min_score=0.1):
         }
 
 
-def _get_primary_method(component_scores):
-    """Determine the primary matching method based on highest score."""
-    if not component_scores:
-        return 'provision_overlap'  # Default
-
-    # Find highest non-zero score
-    max_score = 0
-    primary = 'provision_overlap'
-
-    for method, score in component_scores.items():
-        if score > max_score:
-            max_score = score
-            primary = method
-
-    return primary
-
-
+def _resolve_transformation_type(case_id, column_value):
+    """Transformation type for display: the latest Step 4 classification
+    (extraction_prompts, load_latest_transformation) when one exists, else the
+    case_precedent_features column. The column is a denormalized summary and
+    was stale for case 24-1 (column 'stalemate', classification 'phase_lag')."""
+    try:
+        from app.services.case_analysis.transformation_classifier import load_latest_transformation
+        latest = load_latest_transformation(case_id)
+    except Exception as e:
+        logger.warning(f"Could not load the latest transformation for case {case_id}: {e}")
+        return column_value
+    latest_type = latest.get('type') if latest else None
+    if not latest_type:
+        return column_value
+    if column_value and column_value != latest_type:
+        logger.info(f"Stale transformation_type column for case {case_id}: "
+                    f"{column_value} (latest classification {latest_type})")
+    return latest_type
 
 
 def _get_matching_provisions(case_a_id, case_b_id):
-    """Get matching provisions between two cases."""
+    """Get matching provisions between two cases (compared in canonical form)."""
     query = text("""
         SELECT
             a.provisions_cited AS prov_a,
@@ -192,9 +206,9 @@ def _get_matching_provisions(case_a_id, case_b_id):
     """)
     result = db.session.execute(query, {'case_a': case_a_id, 'case_b': case_b_id}).fetchone()
     if result and result[0] and result[1]:
-        set_a = set(result[0])
-        set_b = set(result[1])
-        return sorted(list(set_a & set_b))
+        set_a = set(normalize_provision_codes(result[0]))
+        set_b = set(normalize_provision_codes(result[1]))
+        return sorted(set_a & set_b)
     return []
 
 

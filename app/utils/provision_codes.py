@@ -40,6 +40,38 @@ def is_provision_code(raw) -> bool:
     return normalize_provision_code(raw) is not None
 
 
+_ROMAN_ORDER = {'I': 1, 'II': 2, 'III': 3, 'IV': 4}
+
+
+def provision_sort_key(code: str):
+    """Sort key placing canonical codes in Code order: Preamble first, then
+    section (Roman numeral), clause number, subsection letter."""
+    if code == 'Preamble':
+        return (0, 0, '')
+    parts = code.split('.')
+    roman = _ROMAN_ORDER.get(parts[0], 9)
+    number = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    letter = parts[2] if len(parts) > 2 else ''
+    return (roman, number, letter)
+
+
+def normalize_provision_codes(values) -> list:
+    """Canonical, deduplicated, Code-ordered list from a collection of raw
+    citations. Values that are not modern NSPE codes are dropped.
+
+    Every write of case_precedent_features.provisions_cited passes through
+    this function (the 2026-10 case 24-1 review found two canonical forms in
+    the column, 'II.1.A' from the references parser and 'II.1.a' from the
+    regex extractor, so the exact-set Jaccard scored a shared provision as
+    disjoint)."""
+    codes = set()
+    for value in values or []:
+        code = normalize_provision_code(value)
+        if code:
+            codes.add(code)
+    return sorted(codes, key=provision_sort_key)
+
+
 def nspe_provision_fragment(raw) -> str | None:
     """URI local fragment for a provision code in the OntServe 'NSPE Code of
     Ethics' ontology (nspe# namespace): dots become underscores and the

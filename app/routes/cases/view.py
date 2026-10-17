@@ -124,15 +124,14 @@ def register_view_routes(bp):
                 conclusion_count = len(conclusion_items) if conclusion_items else 0
 
             if pipeline_status.get('step4', {}).get('complete'):
-                from app.models import ExtractionPrompt
-                transform_prompt = ExtractionPrompt.query.filter_by(
-                    case_id=document.id,
-                    concept_type='transformation_classification'
-                ).first()
-                if transform_prompt and transform_prompt.raw_response:
-                    transform_data = transform_prompt.raw_response
-                    if isinstance(transform_data, dict):
-                        transformation_type = transform_data.get('transformation_type') or transform_data.get('type')
+                # raw_response is JSON text, so the record is read through
+                # load_latest_transformation, which parses it (the former dict
+                # check on the raw string never matched and the type was never
+                # shown) and returns the most recent classification.
+                from app.services.case_analysis.transformation_classifier import load_latest_transformation
+                latest_transformation = load_latest_transformation(document.id)
+                if latest_transformation:
+                    transformation_type = latest_transformation.get('type')
         except Exception as e:
             logger.warning(f"Could not get summary counts for case {document.id}: {str(e)}")
 

@@ -45,7 +45,7 @@ Results are presented as ranked cards, one per similar case. Each card shows:
 | Element | Description |
 |---------|-------------|
 | **% Similar** | Overall component-aware similarity |
-| **Retrieval Scores** | Component similarity (the weighted nine-component embedding), provision overlap, and tag overlap |
+| **Retrieval Scores** | The five weighted components of the score, each with its weight and its contribution in points: component similarity (the nine-component embedding, 0.40), provision overlap (0.25), outcome alignment (0.15), subject-tag overlap (0.10), and ethical-tension overlap (0.10), followed by their weighted sum |
 | **Component Breakdown** | Expandable per-component similarity across the nine D-tuple components |
 | **Section Comparison** | Collapsible facts/discussion similarity, shown for reference and not used in scoring |
 
@@ -154,7 +154,7 @@ The network uses six similarity factors:
 | Provision Overlap | Jaccard | NSPE Code section overlap |
 | Outcome Alignment | Categorical | Ethical/unethical match |
 | Tag Overlap | Jaccard | Subject tag overlap |
-| Principle Overlap | Jaccard | Ethical principle conflicts |
+| Principle Overlap | Cosine | Ethical-tension signature similarity |
 
 ## Technical Details
 
@@ -174,9 +174,12 @@ Cosine similarity between embeddings:
 - **0.5-0.8** = Moderately similar
 - **< 0.5** = Dissimilar
 
-The overall score is a component-aware weighted metric over the nine-component
-embeddings, combined with provision and tag overlap. Facts/discussion section
-similarity is displayed for reference and does not contribute to the score.
+The overall score is the weighted sum of five components: nine-component
+embedding similarity (0.40), provision overlap (0.25), outcome alignment (0.15),
+subject-tag overlap (0.10), and ethical-tension overlap (0.10). Subject tags are
+the NSPE subject references stated in the opinion, and provision codes are
+compared in canonical form. Facts/discussion section similarity is displayed for
+reference and does not contribute to the score.
 
 ## Related Pages
 

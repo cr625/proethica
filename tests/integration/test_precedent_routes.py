@@ -851,24 +851,6 @@ class TestApiSimilarityNetworkEntityFilter:
 class TestHelperFunctions:
     """Tests for internal helper functions in precedents module."""
 
-    def test_get_primary_method_highest_score(self, app_context):
-        """_get_primary_method returns key with highest score."""
-        from app.routes.precedents import _get_primary_method
-
-        scores = {
-            'component_similarity': 0.3,
-            'tag_overlap': 0.8,
-            'provision_overlap': 0.5
-        }
-        assert _get_primary_method(scores) == 'tag_overlap'
-
-    def test_get_primary_method_empty(self, app_context):
-        """_get_primary_method returns default for empty scores."""
-        from app.routes.precedents import _get_primary_method
-
-        assert _get_primary_method({}) == 'provision_overlap'
-        assert _get_primary_method(None) == 'provision_overlap'
-
     def test_count_outcomes(self, app_context):
         """_count_outcomes tallies outcome distribution."""
         from app.routes.precedents import _count_outcomes

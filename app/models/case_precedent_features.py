@@ -43,7 +43,7 @@ class CasePrecedentFeatures(db.Model):
     outcome_reasoning = db.Column(db.Text)
 
     # NSPE Code provision references
-    provisions_cited = db.Column(db.ARRAY(db.String))  # ['I.1', 'II.1.a', 'III.2.b']
+    provisions_cited = db.Column(db.ARRAY(db.String))  # canonical codes: ['I.1', 'II.1.A', 'III.2.B'] (normalize_provision_code)
     provision_count = db.Column(db.Integer)
 
     # Subject tags from NSPE website
