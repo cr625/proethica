@@ -224,7 +224,9 @@ class UnifiedEntityResolver:
                             if rank is None or (uri in entities and ranks[uri] >= rank):
                                 continue
                             ranks[uri] = rank
-                            source_ontology = self._ontserve_row_source(item) or 'proethica-intermediate'
+                            source_ontology = (self._ontserve_row_source(item)
+                                               or self._derive_ontology_target(uri)
+                                               or 'proethica-intermediate')
                             entities[uri] = {
                                 'label': item.get('label', item.get('name', '')),
                                 'definition': self._ontserve_row_description(item),
@@ -250,10 +252,17 @@ class UnifiedEntityResolver:
 
         return entities
 
-    @staticmethod
-    def _ontserve_row_source(item: Dict) -> str:
-        """Name of the ontology that declares a category-inventory row."""
-        return str(item.get('source') or item.get('ontology_name') or '').strip()
+    # Values OntServe writes into the source field of an inventory row that
+    # name a table, not an ontology: 'concepts' on a concepts-table row and
+    # 'ontology' on an ontology row without an ontology name. Neither is an
+    # ontology_target; such a row takes the target of its URI namespace.
+    _NON_ONTOLOGY_SOURCES = frozenset({'concepts', 'ontology'})
+
+    @classmethod
+    def _ontserve_row_source(cls, item: Dict) -> str:
+        """Name of the ontology that declares a category-inventory row, or ''."""
+        source = str(item.get('source') or item.get('ontology_name') or '').strip()
+        return '' if source.lower() in cls._NON_ONTOLOGY_SOURCES else source
 
     @staticmethod
     def _ontserve_row_description(item: Dict) -> str:
@@ -267,7 +276,8 @@ class UnifiedEntityResolver:
         Rows declared by a case ontology and rows carrying the OntServe
         placeholder description are skipped. Of the rows left for one URI, a
         definitional ontology outranks the rest, then a row with a description
-        outranks one without.
+        outranks one without, then the ontology whose namespace the URI
+        belongs to outranks another ontology that declares the same URI.
         """
         source = cls._ontserve_row_source(item)
         if source.startswith('proethica-case-'):
@@ -275,7 +285,13 @@ class UnifiedEntityResolver:
         description = cls._ontserve_row_description(item)
         if cls._PLACEHOLDER_DESCRIPTION.match(description):
             return None
-        return (source in cls.DEFINITIONAL_ONTOLOGIES, bool(description.strip()))
+        # Two definitional ontologies can both describe one URI (a class
+        # copied into the extended store before the class commit refused
+        # base copies). The ontology whose namespace the URI belongs to wins
+        # the tie, so the ontology_target does not follow the row order of
+        # the inventory.
+        owns_namespace = bool(source) and source == cls._derive_ontology_target(str(item.get('uri') or ''))
+        return (source in cls.DEFINITIONAL_ONTOLOGIES, bool(description.strip()), owns_namespace)
 
     def _get_case_entities(self) -> Dict[str, Dict]:
         """
