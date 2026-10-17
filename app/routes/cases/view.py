@@ -76,17 +76,6 @@ def register_view_routes(bp):
         except Exception as e:
             flash(f"Warning: Could not retrieve entity triples or related cases: {str(e)}", 'warning')
 
-        term_links_by_section = {}
-        try:
-            from app.models.section_term_link import SectionTermLink
-            document_term_links = SectionTermLink.get_document_term_links(document.id)
-
-            if document_term_links:
-                term_links_by_section = document_term_links
-                logger.info(f"Loaded term links for document {document.id}: {len(document_term_links)} sections")
-        except Exception as e:
-            logger.warning(f"Could not load term links for document {document.id}: {str(e)}")
-
         annotation_count = 0
         try:
             from app.models.document_concept_annotation import DocumentConceptAnnotation
@@ -185,7 +174,6 @@ def register_view_routes(bp):
         return render_template('case_detail.html', case=case, world=world,
                               entity_triples=entity_triples,
                               knowledge_graph_connections=knowledge_graph_connections,
-                              term_links_by_section=term_links_by_section,
                               annotation_count=annotation_count,
                               pipeline_status=pipeline_status,
                               entity_count=entity_count,
