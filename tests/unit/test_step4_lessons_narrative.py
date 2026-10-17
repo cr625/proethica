@@ -155,10 +155,9 @@ def _seeds(has_board_conclusion):
             has_board_conclusion=has_board_conclusion)])
 
 
-def _fake_client(payload):
-    class _Resp:
-        content = [SimpleNamespace(type="text", text=payload)]
-    return SimpleNamespace(messages=SimpleNamespace(create=lambda **kw: _Resp()))
+def _fake_provider(payload):
+    """A provider double for the consequence generator: every completion returns ``payload``."""
+    return SimpleNamespace(model="test-model", complete=lambda **kw: SimpleNamespace(text=payload))
 
 
 def test_board_rationale_authored_only_with_a_board_conclusion():
@@ -172,7 +171,7 @@ def test_board_rationale_authored_only_with_a_board_conclusion():
         prompts.append(request_board_rationale)
         return "prompt"
 
-    with patch.object(cg, "get_llm_client", lambda: _fake_client(payload)), \
+    with patch.object(cg, "get_tier_provider", lambda *a, **kw: _fake_provider(payload)), \
          patch.object(cg, "_build_consequence_prompt", _build):
         seeds = _seeds(False)
         cg.generate_consequences_for_seeds(seeds, [], {}, {})
