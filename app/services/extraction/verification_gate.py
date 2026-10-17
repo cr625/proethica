@@ -26,7 +26,7 @@ from typing import Dict, List, Optional
 from app.services.extraction.extraction_verifier import (
     verify_and_reground, detect_overreach, _verbatim,
 )
-from app.services.extraction.quote_grounding import _tokens
+from app.services.extraction.quote_grounding import _tokens, verbatim_span
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,7 @@ class GateResult:
     dropped: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason)]
     flagged: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason, limiting_quote)]
     repaired_quoteless: set = field(default_factory=set)                      # entity_ids whose quotes are GATE-ATTACHED (model emitted none)
+    snapped_only: set = field(default_factory=set)                            # entity_ids whose quotes were all verbatim and only changed spelling (the L5 snap)
     skipped: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason)] linked rows left unjudged
     report: Dict = field(default_factory=dict)
 
@@ -101,11 +102,13 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     token_string = " ".join(_tokens(case_text))
     skipped_rows: List[Dict] = []
     judged: List[Dict] = []
+    skipped_snaps = 0
     for e in live:
         if _linked_verbatim(e, token_string):
             skipped_rows.append(e)
             res.skipped.append((e.get('id'), e.get('label'),
                                 f"linked at {float(e.get('match_confidence')):.2f} with verbatim quotes"))
+            skipped_snaps += _snap_skipped_quotes(e, case_text, res)
         else:
             judged.append(e)
     live = judged
@@ -137,6 +140,10 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
                 # a quoteless entity gained its grounding span, or a verbatim quote was
                 # snapped to the case's own characters, lesson L5)
                 res.corrected_quotes[e.get('id')] = v.kept_verbatim + v.regrounded
+                if _snapped(v) and not v.regrounded and not v.unsupported and e.get('quotes'):
+                    # every quote was already a verbatim span; only its spelling changed, so
+                    # the audit trail must not call the row re-grounded
+                    res.snapped_only.add(e.get('id'))
                 if not e.get('quotes'):
                     # Gate-attached, not model-extracted: the distinction must
                     # survive into the audit trail (the committed TTL will
@@ -201,7 +208,8 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
         'case_id': case_id,
         'entities': len(entities),
         'requoted': len(res.corrected_quotes),
-        'snapped': sum(len(_snapped(v)) for v in (gverdicts if live else [])),
+        'snapped': sum(len(_snapped(v)) for v in (gverdicts if live else [])) + skipped_snaps,
+        'snapped_ids': sorted(res.snapped_only, key=str),
         'requoted_ids': sorted(res.corrected_quotes, key=str),
         'quoteless_repaired_ids': sorted(res.repaired_quoteless, key=str),
         'dropped': len(res.dropped),
@@ -243,11 +251,38 @@ def _linked_verbatim(e: Dict, token_string: str) -> bool:
     return all(_verbatim(str(q), token_string) for q in quotes)
 
 
+def _snap_skipped_quotes(e: Dict, case_text: str, res: GateResult) -> int:
+    """The linked-row skip spares the model call, not the L5 snap: a quote that passes the token
+    test with the wrong characters (case 8 stored "Engineer L" newline "'s scope of work" for a span
+    the case spells "Engineer L's scope of work") is still rewritten to the span the case text
+    spells and the row recorded as snapped-only. Returns the number of quotes whose spelling
+    changed."""
+    quotes = [str(q) for q in (e.get('quotes') or []) if q and str(q).strip()]
+    snapped = [verbatim_span(q, case_text) or q for q in quotes]
+    changed = sum(1 for before, after in zip(quotes, snapped) if before != after)
+    if changed:
+        res.corrected_quotes[e.get('id')] = snapped
+        res.snapped_only.add(e.get('id'))
+    return changed
+
+
 def _snapped(verdict) -> List[str]:
     """The stored quote spellings the verifier replaced by the case's own span (empty for a
     verdict object without the field, e.g. a test double)."""
     snapped = getattr(verdict, 'snapped', None)
     return snapped if isinstance(snapped, list) else []
+
+
+def gate_quote_marker(gate, entity_id) -> str:
+    """The review_notes marker for a row whose quotes the gate rewrote (GateResult.corrected_quotes):
+    attached when the model emitted no quote, snapped when every quote was already a verbatim span
+    and only its spelling changed (lesson L5), re-grounded when a paraphrase was replaced by a
+    verified span or an unsupported quote was dropped."""
+    if entity_id in (getattr(gate, 'repaired_quoteless', None) or set()):
+        return 'quotes ATTACHED at gate (model emitted none)'
+    if entity_id in (getattr(gate, 'snapped_only', None) or set()):
+        return 'quotes snapped to the case span at gate'
+    return 'quotes re-grounded at gate'
 
 
 def _norm_label(label) -> str:
