@@ -655,16 +655,42 @@ def run_reconcile_task(self, run_id: int):
         canon = service.canonicalize_labels(run.case_id)
         result = service.reconcile_auto(run.case_id)
 
+        # The activity metadata carries the pairs, not only counts (case 8 review, L3): every
+        # relabel (old label, new label), every vetoed relabel with its reason, every fold
+        # (old label, surviving label, ids), every refused fold, and the rule-based review
+        # candidates (L5).
         results = {
             'canonicalized': canon.get('changed', 0),
             'canon_rejected_cross_category': len(canon.get('rejected_cross_category', [])),
+            'canon_rejected': len(canon.get('rejected', [])),
+            'canon_kept_matched': len(canon.get('kept_matched', [])),
+            'canon_individuals_repointed': canon.get('individuals_repointed', 0),
+            'canon_individuals_protected': canon.get('individuals_protected', 0),
+            'canonicalized_pairs': [
+                {'id': c.get('id'), 'type': c.get('type'), 'old': c.get('old'),
+                 'new': c.get('new'), 'action': c.get('action')}
+                for c in canon.get('changes', [])
+            ],
+            'canonicalization_rejections': canon.get('rejected', []),
             'auto_merged': result.auto_merged,
+            'merged_pairs': result.merged_pairs,
+            'merge_refusals': result.merge_refusals,
+            'review_candidates': [
+                {'entity_a_id': c.entity_a_id, 'entity_b_id': c.entity_b_id,
+                 'entity_a_label': c.entity_a_label, 'entity_b_label': c.entity_b_label,
+                 'rule': c.rule, 'reason': c.llm_reason,
+                 'similarity': round(float(c.similarity), 3)}
+                for c in result.review_candidates
+            ],
             'skipped': result.skipped,
             'errors': result.errors
         }
         _record_pass(run, 'reconciliation', 'entity_reconcile', results,
                      plan={'rule': 'merge duplicate individuals across passes/sections '
-                           '(auto + manual-queue)'})
+                           '(auto + manual-queue); class rows linked to an existing class '
+                           'are kept, canonicalization decisions are vetoed on matched-class, '
+                           'specialization, sheet-offer, IRI-collision and role-axis grounds, '
+                           'folds are refused across different matched classes'})
 
         run.mark_step_complete(step_name, results)
         mode = (run.config or {}).get('mode')
