@@ -277,13 +277,28 @@ _DEONTIC = re.compile(
     re.I)
 
 
+def explicit_modality(value: Any) -> Optional[str]:
+    """The stored modality (the ``proeth:modality`` of the action record, set at
+    parse time by happening_checks.classify_action_modality from the verdict of the
+    model and the Board-normative text references) when it is one of the two
+    values, else None."""
+    v = str(value or "").strip().lower()
+    return v if v in (MODALITY_PERFORMED, MODALITY_PRESCRIBED) else None
+
+
 def derive_action_modality(description: Optional[str], temporal_marker: Optional[str] = "",
-                           source_section: Optional[str] = "") -> str:
-    """``performed`` or ``prescribed``. An action is prescribed when its description
-    or temporal marker carries one of the prescription phrases (the Board's
-    conclusion restated as an action: "must not continue", "unresolved endpoint"),
-    or when it was discovered in the discussion section and its text is deontic
-    (must, should, cannot, ought, would). Everything else is performed."""
+                           source_section: Optional[str] = "", explicit: Any = None) -> str:
+    """``performed`` or ``prescribed``. A stored modality (``explicit``) is taken as
+    it stands, so the commit-time resolvers agree with the parse-time verdict.
+    Without one (rows extracted before the field existed), an action is prescribed
+    when its description or temporal marker carries one of the prescription
+    phrases (the Board's conclusion restated as an action: "must not continue",
+    "unresolved endpoint"), or when it was discovered in the discussion section
+    and its text is deontic (must, should, cannot, ought, would). Everything else
+    is performed."""
+    stored = explicit_modality(explicit)
+    if stored is not None:
+        return stored
     text = f"{description or ''} {temporal_marker or ''}".lower()
     if any(p in text for p in PRESCRIBED_PHRASES):
         return MODALITY_PRESCRIBED
@@ -292,15 +307,29 @@ def derive_action_modality(description: Optional[str], temporal_marker: Optional
     return MODALITY_PERFORMED
 
 
+def happening_description(g: Graph, h) -> str:
+    """The description of a committed happening. The commit emitter writes the
+    record's ``proeth:description`` as ``rdfs:comment``
+    (ttl_emitters._add_temporal_fields); the ``proeth:description`` literal is read
+    as well for graphs built another way."""
+    for pred in (RDFS.comment, PROETH.description):
+        v = g.value(h, pred)
+        if v is not None and str(v).strip():
+            return str(v)
+    return ""
+
+
 def happening_occurred(g: Graph, h) -> bool:
     """A happening occurred unless its committed record derives the prescribed
-    modality (events are always occurrences)."""
+    modality (events are always occurrences). The committed ``proeth:modality``
+    literal decides when present."""
     if (h, RDF.type, CORE.Event) in g and (h, RDF.type, CORE.Action) not in g:
         return True
     modality = derive_action_modality(
-        str(g.value(h, PROETH.description) or ""),
+        happening_description(g, h),
         str(g.value(h, PROETH.temporalMarker) or ""),
-        literal_by_local(g, h, "discoveredInSection"))
+        literal_by_local(g, h, "discoveredInSection"),
+        explicit=g.value(h, PROETH.modality))
     return modality == MODALITY_PERFORMED
 
 
@@ -483,7 +512,7 @@ def later_happening_citing_state(g: Graph, state, terminator) -> Optional[URIRef
         s = happening_sequence(g, h)
         if s is None or s <= t:
             continue
-        text = f"{label_of(g, h)} {g.value(h, PROETH.description) or ''}"
+        text = f"{label_of(g, h)} {happening_description(g, h)}"
         if cites_state(text, label):
             return h
     return None

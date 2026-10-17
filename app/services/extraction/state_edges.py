@@ -500,10 +500,15 @@ def apply_state_edges(case_id: int, ttl_path, write_back: bool = True,
 
     def _collect(subj, prop, descs, is_trigger=False):
         nonlocal next_id
-        pool = pools[prop]
         for desc in descs:
             if not desc:
                 continue
+            # The pool is restricted per description (to the obligations citing the
+            # code it names, or to the lexical candidates of a duty name); a
+            # restriction made for one entry of a class row must not carry over to
+            # the next entry, or the second duty a row names is shortlisted against
+            # the candidates of the first duty and resolves to nothing.
+            pool = pools[prop]
             if prop == "activatesObligation":
                 frags = set(extract_provision_fragments(desc))
                 if frags:
