@@ -250,6 +250,26 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 'errors': []
             }
 
+            # Publish guard (case-8 review, L5): an individual typed to a class row
+            # of this case that is unpublished and outside this batch (a class the
+            # verification gate dropped, or one deselected in review) is refused
+            # and stays unpublished, so the case TTL never redeclares a rejected
+            # class. Classes the shared ontology tiers establish are unaffected.
+            rejected_keys = set()
+            if individuals_to_commit:
+                rejected_keys = self._unpublished_class_keys(case_id, [e.id for e in entities])
+                individuals_to_commit, refused = partition_by_unpublished_type(
+                    individuals_to_commit, rejected_keys, self._established_core_category)
+                if refused:
+                    refused_rows = [row for row, _rdf, _cls in refused]
+                    entities = [e for e in entities if not any(e is row for row in refused_rows)]
+                    results['refused_unpublished_type'] = [
+                        {'label': getattr(row, 'entity_label', None), 'type_class': cls}
+                        for row, _rdf, cls in refused]
+                    logger.warning(
+                        "Case %s: refused to publish %d individual(s) typed to unpublished "
+                        "class rows: %s", case_id, len(refused), results['refused_unpublished_type'])
+
             # Commit classes to proethica-intermediate-extended.ttl
             if classes_to_commit:
                 class_result = self._commit_classes_to_intermediate(classes_to_commit)
@@ -259,7 +279,8 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
 
             # Commit individuals to case-specific ontology
             if individuals_to_commit:
-                individual_result = self._commit_individuals_to_case_ontology(case_id, individuals_to_commit)
+                individual_result = self._commit_individuals_to_case_ontology(
+                    case_id, individuals_to_commit, rejected_class_keys=rejected_keys)
                 results['individuals_committed'] = individual_result['count']
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
@@ -448,11 +469,29 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
             logger.warning(f"Failed to record ontology version binding for case {case_id}: {e}")
             # Non-fatal -- the commit itself still succeeds
 
-    def _commit_individuals_to_case_ontology(self, case_id: int, individuals: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
+    def _unpublished_class_keys(self, case_id: int, batch_ids) -> set:
+        """Normalized keys of the case's class rows that are unpublished and not in
+        the batch being committed (publish_guard.unpublished_class_keys over the
+        working store). Empty when the rows cannot be read."""
+        try:
+            rows = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id, storage_type='class', is_published=False).all()
+        except Exception as e:  # noqa: BLE001 - no app context / DB
+            logger.warning("Case %s: publish guard could not read the class rows (%s); "
+                           "guard skipped", case_id, e)
+            return set()
+        return unpublished_class_keys(rows, batch_ids)
+
+    def _commit_individuals_to_case_ontology(self, case_id: int, individuals: List[Tuple[Any, Dict]],
+                                             rejected_class_keys=None) -> Dict[str, Any]:
         """
         Commit individuals to a case-specific ontology file.
 
         Creates proethica-case-N.ttl files that import from proethica-cases.
+
+        ``rejected_class_keys`` (publish_guard.normalize_class_key form) names the
+        case's unpublished class rows: an individual is never typed to one of
+        them, and the class is never declared in the case TTL (case-8 review, L5).
 
         Result counters: 'count' is newly minted individuals (the same value
         the former skip guard produced -- a re-seen row never incremented it);
@@ -624,6 +663,16 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                         # rule keeps the individual's type IRI == the minted class IRI.
                         safe_class = self._category_safe_class_local(safe_class, concept_cat)
                         class_uri = PROETHICA[safe_class]
+                        if (rejected_class_keys
+                                and normalize_class_key(safe_class) in rejected_class_keys
+                                and self._established_core_category(safe_class) is None):
+                            # A rejected (unpublished) class row of this case: the case
+                            # TTL must not redeclare it (case-8 review, L5).
+                            logger.warning(
+                                "Individual %s: type class %s is a rejected class row; "
+                                "not typing to it and not declaring it in the case TTL.",
+                                label, safe_class)
+                            continue
                         g.add((individual_uri, RDF.type, class_uri))
                         # Normalized D15 form: declare the type class IN THE CASE TTL only
                         # when it is genuinely new (not already in core/intermediate/extended).

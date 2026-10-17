@@ -1260,7 +1260,8 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         # the case. Rows already vetted by an earlier sub-task of this commit are excluded from
         # the gate input (the audit tag in review_notes), so the vote panel runs ONCE per row.
         from app.services.extraction.verification_gate import (
-            verify_case_entities, quotes_of, class_ref_of, apply_corrected_quotes)
+            verify_case_entities, quotes_of, class_ref_of, class_refs_of,
+            match_confidence_of, apply_corrected_quotes)
         from sqlalchemy.orm.attributes import flag_modified
         _sec = get_case_sections(run.case_id)
         _case_text = (_sec.get('facts') or '') + '\n\n' + (_sec.get('discussion_full') or _sec.get('discussion') or '')
@@ -1270,7 +1271,9 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         _gate = verify_case_entities(
             [{'id': e.id, 'label': e.entity_label, 'definition': e.entity_definition,
               'component': (e.extraction_type or '').lower(), 'storage_type': e.storage_type,
-              'quotes': quotes_of(e.rdf_json_ld), 'class_ref': class_ref_of(e.rdf_json_ld)}
+              'quotes': quotes_of(e.rdf_json_ld), 'class_ref': class_ref_of(e.rdf_json_ld),
+              'class_refs': class_refs_of(e.rdf_json_ld),
+              'match_confidence': match_confidence_of(e.rdf_json_ld, e.match_confidence)}
              for e in _gate_rows],
             _case_text, run.case_id,
         )
