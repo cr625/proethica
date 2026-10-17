@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 
 from app.services.commit import naming
+from app.services.commit.match_policy import linked_existing_class, match_link_threshold
 from app.services.extraction.schemas import (
     CATEGORY_TO_ONTOLOGY_IRI,
     CONCEPT_EXTRACTION_TYPES,
@@ -292,20 +293,38 @@ def pydantic_to_rdf_data(
 def individual_type_iri(class_ref: str, match_decision) -> str:
     """The rdf:type IRI an individual carries in the working store.
 
-    When the matcher resolved the class reference to an EXISTING ontology class
-    (``matches_existing`` with a full ``matched_uri``), that IRI is the type: it is
-    the class the commit honors, so the store and the committed graph name the same
-    class. Otherwise the IRI is minted from the class reference with the commit
-    path's sanitizer, ``naming.safe_local_name``, so a label such as
-    "Provider-Client Role" yields ``intermediate#ProviderClientRole`` here as at
-    commit, not the ``#Provider-ClientRole`` the former hyphen-keeping sanitizer
-    produced (an IRI that exists in no ontology) while ``match_decision`` held the
-    real one (case 24-1 review, defect D).
+    When the matcher LINKED the class reference to an EXISTING ontology class, that
+    class is the type: it is the class the commit honors, so the store and the
+    committed graph name the same class. Otherwise the IRI is minted from the class
+    reference with the commit path's sanitizer, ``naming.safe_local_name``, so a
+    label such as "Provider-Client Role" yields ``intermediate#ProviderClientRole``
+    here as at commit, not the ``#Provider-ClientRole`` the former hyphen-keeping
+    sanitizer produced (an IRI that exists in no ontology) while ``match_decision``
+    held the real one (case 24-1 review, defect D).
+
+    A decision counts as a link under the conditions the honoring rule of the
+    commit (``_matched_class_override``) checks before it retypes an individual: a
+    confidence at or above the shared link threshold
+    (``match_policy.match_link_threshold``), a ``matched_uri`` in the intermediate
+    namespace the commit writes types in, and a local name the URI sanitizer leaves
+    unchanged. The conditions matter because the commit treats a row whose type
+    already is the matched class as "nothing to honor" and skips its floor and
+    chain checks for it. Adopting every matched IRI here typed a 0.75 match
+    ("matched to parent with medium confidence") at storage time, where the floor
+    keeps the minted type, and stored a core# or concepts# match under that
+    namespace, which the commit re-mints as a new intermediate class named after
+    the matched local name. Such a row now keeps the minted type here and the
+    commit applies its own rule to it, as to every other row.
     """
-    matched_uri = getattr(match_decision, 'matched_uri', None)
-    if getattr(match_decision, 'matches_existing', False) and matched_uri \
-            and str(matched_uri).startswith('http'):
-        return str(matched_uri)
+    md = {
+        'matches_existing': getattr(match_decision, 'matches_existing', False),
+        'matched_uri': getattr(match_decision, 'matched_uri', None),
+        'confidence': getattr(match_decision, 'confidence', None),
+    }
+    local = linked_existing_class({'match_decision': md}, match_link_threshold())
+    iri = str(md['matched_uri'] or '')
+    if local and iri == f'{INTERMEDIATE_NS}{local}' and naming.safe_local_name(local) == local:
+        return iri
     return f'{INTERMEDIATE_NS}{naming.safe_local_name(class_ref)}'
 
 
