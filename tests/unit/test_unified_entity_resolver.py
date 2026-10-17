@@ -480,9 +480,10 @@ class TestOntServeRowSelection:
 
         assert R._ontserve_row_rank({'source': 'proethica-case-8', 'description': 'Real text.'}) is None
         assert R._ontserve_row_rank({'source': 'proethica-core', 'description': 'ontology class for Role.'}) is None
-        assert R._ontserve_row_rank({'source': 'proethica-core', 'description': 'Real text.'}) == (True, True)
-        assert R._ontserve_row_rank({'source': 'engineering-ethics', 'description': 'Real text.'}) == (False, True)
-        assert R._ontserve_row_rank({'source': 'engineering-ethics', 'description': ''}) == (False, False)
+        # third element: the ontology owns the URI namespace (review fix, tests/unit/test_annotation_layer_review.py)
+        assert R._ontserve_row_rank({'source': 'proethica-core', 'description': 'Real text.'}) == (True, True, False)
+        assert R._ontserve_row_rank({'source': 'engineering-ethics', 'description': 'Real text.'}) == (False, True, False)
+        assert R._ontserve_row_rank({'source': 'engineering-ethics', 'description': ''}) == (False, False, False)
 
 
 class TestProvisionAndCitationKeys:
