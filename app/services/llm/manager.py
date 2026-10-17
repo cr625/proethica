@@ -105,6 +105,38 @@ class LLMManager:
             self._provider_cache[provider_name] = get_provider(model, client=client)
         return self._provider_cache[provider_name]
 
+    @staticmethod
+    def _is_transient(exc: BaseException) -> bool:
+        """Whether an LLM call failure is worth retrying.
+
+        Vendor connection/timeout errors are matched by class name so the
+        manager does not import either SDK to classify them.
+        """
+        return isinstance(exc, (ConnectionError, TimeoutError)) or (
+            type(exc).__name__ in ("APIConnectionError", "APITimeoutError")
+        )
+
+    def _with_retry(self, call):
+        """Run one LLM call under the configured tenacity retry policy.
+
+        Only transient connection/timeout failures retry; parse and
+        validation errors propagate on the first attempt.
+        """
+        attempts = max(1, self.config.max_retries)
+        if attempts == 1:
+            return call()
+        from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_exponential
+
+        for attempt in Retrying(
+            stop=stop_after_attempt(attempts),
+            wait=wait_exponential(multiplier=self.config.retry_delay,
+                                  min=self.config.retry_delay, max=30),
+            retry=retry_if_exception(self._is_transient),
+            reraise=True,
+        ):
+            with attempt:
+                return call()
+
     def _initialize_client(self):
         """Initialize the appropriate LLM client."""
         if self.provider == 'anthropic':
@@ -168,13 +200,13 @@ class LLMManager:
         # Dispatch on the per-call model, not the construction-time
         # provider, so a model override reaches its own provider.
         adapter = self._provider_for(use_model)
-        response = adapter.complete(
+        response = self._with_retry(lambda: adapter.complete(
             messages=messages,
             system=system,
             max_tokens=max_tokens,
             temperature=temperature,
             model=use_model,
-        )
+        ))
         response.metadata = {**use_metadata, **response.metadata}
         if response.usage.estimated_cost_usd is None:
             estimator = (

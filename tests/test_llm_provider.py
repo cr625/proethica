@@ -371,6 +371,54 @@ class TestManagerPerCallDispatch:
         assert manager._detect_provider("openai:gpt-4o") == "openai"
         assert manager._detect_provider("claude-sonnet-4-6") == "anthropic"
 
+    def test_complete_retries_transient_failure_once(self):
+        from app.services.llm.config import LLMConfig
+        from app.services.llm.response import LLMResponse, Usage
+
+        class FlakyProvider:
+            name = "anthropic"
+
+            def __init__(self):
+                self.calls = 0
+
+            def complete(self, messages, system=None, max_tokens=2000,
+                         temperature=1.0, model=None):
+                self.calls += 1
+                if self.calls == 1:
+                    raise ConnectionError("reset by peer")
+                return LLMResponse(text="recovered", model=model,
+                                   provider="anthropic",
+                                   usage=Usage(1, 1))
+
+        flaky = FlakyProvider()
+        manager = LLMManager(
+            model="claude-sonnet-5-5", providers={"anthropic": flaky},
+            config=LLMConfig(max_retries=3, retry_delay=0.01))
+        assert manager.complete([{"role": "user", "content": "hi"}]).text == "recovered"
+        assert flaky.calls == 2
+
+    def test_complete_does_not_retry_non_transient_failure(self):
+        from app.services.llm.config import LLMConfig
+
+        class BadProvider:
+            name = "anthropic"
+
+            def __init__(self):
+                self.calls = 0
+
+            def complete(self, messages, system=None, max_tokens=2000,
+                         temperature=1.0, model=None):
+                self.calls += 1
+                raise ValueError("malformed request")
+
+        bad = BadProvider()
+        manager = LLMManager(
+            model="claude-sonnet-5-5", providers={"anthropic": bad},
+            config=LLMConfig(max_retries=3, retry_delay=0.01))
+        with pytest.raises(ValueError, match="malformed"):
+            manager.complete([{"role": "user", "content": "hi"}])
+        assert bad.calls == 1
+
 
 # ----------------------------------------------------------------------
 # Phase 5: capability guards on Anthropic-native call sites
