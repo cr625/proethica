@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
@@ -116,6 +117,10 @@ class UnifiedDualExtractor(
         # -- Response caching for RDF conversion --
         self.last_raw_response: Optional[str] = None
         self.last_prompt: Optional[str] = None
+        # -- Wall-clock bounds (naive UTC) of the last model call; read by
+        # store_extraction_result for the llm_query provenance activity --
+        self.last_llm_started_at: Optional[datetime] = None
+        self.last_llm_ended_at: Optional[datetime] = None
 
         # -- Injection mode (Phase 2 label-only support) --
         self.injection_mode = injection_mode
@@ -164,7 +169,9 @@ class UnifiedDualExtractor(
         self.last_prompt = prompt
 
         # 2. Call LLM
+        self.last_llm_started_at = datetime.utcnow()
         raw_json = self._call_llm(prompt)
+        self.last_llm_ended_at = datetime.utcnow()
         if not raw_json:
             logger.warning(f"No LLM result for {self.concept_type}")
             return [], []

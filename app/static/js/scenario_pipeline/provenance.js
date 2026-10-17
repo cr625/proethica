@@ -322,8 +322,56 @@ const CONSOLIDATION_TYPE_STYLES = {
     guard: { color: '#dc3545', icon: 'bi-shield-check' },
     filter: { color: '#fd7e14', icon: 'bi-funnel' },
     merge: { color: '#6610f2', icon: 'bi-layers' },
-    validation: { color: '#198754', icon: 'bi-patch-check' }
+    validation: { color: '#198754', icon: 'bi-patch-check' },
+    gate: { color: '#0dcaf0', icon: 'bi-door-open' },
+    repair: { color: '#6610f2', icon: 'bi-wrench' }
 };
+
+// Display order of the recorded outcome keys (activity_metadata, served as
+// `result`): drops first, then graph counts, merges, conformance, status.
+const RESULT_KEY_ORDER = [
+    'dropped', 'count', 'dropped_classes', 'dropped_individuals', 'triples_dropped',
+    'total_edges', 'by_family', 'auto_merged', 'canonicalized',
+    'canon_rejected_cross_category', 'skipped', 'conforms', 'residual',
+    'repairs_applied', 'status', 'error', 'errors'
+];
+
+// One-line human summary of an activity's recorded outcome: scalars as key:
+// value, label lists as a count plus the first labels, dicts of scalars inline,
+// dicts of dicts (per-family edge counts) as family=n.
+function summarizeResult(result) {
+    if (!result || typeof result !== 'object' || Array.isArray(result)) return '';
+    const rank = k => { const i = RESULT_KEY_ORDER.indexOf(k); return i === -1 ? RESULT_KEY_ORDER.length : i; };
+    const keys = Object.keys(result).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    const scalar = v => (typeof v === 'number' || typeof v === 'boolean') ? String(v)
+        : (typeof v === 'string' && v.length <= 60 ? v : null);
+    const parts = [];
+    for (const k of keys) {
+        const v = result[k];
+        if (v === null || v === undefined || v === '') continue;
+        if (Array.isArray(v)) {
+            if (!v.length) continue;
+            const labels = v.map(x => (typeof x === 'object' && x !== null) ? (x.label || x.name || null) : String(x)).filter(Boolean);
+            const shown = labels.slice(0, 5).join(', ') + (labels.length > 5 ? `, +${labels.length - 5} more` : '');
+            parts.push(`${k}: ${v.length}${shown ? ` (${shown})` : ''}`);
+        } else if (typeof v === 'object') {
+            const inner = Object.entries(v).slice(0, 8).map(([ik, iv]) => {
+                if (iv && typeof iv === 'object' && !Array.isArray(iv)) {
+                    const n = iv.edges !== undefined ? iv.edges
+                        : (iv.count !== undefined ? iv.count : Object.values(iv).find(x => typeof x === 'number'));
+                    return `${ik}=${(n === undefined || n === null) ? '?' : n}`;
+                }
+                return `${ik}=${Array.isArray(iv) ? iv.length : (scalar(iv) ?? '…')}`;
+            });
+            if (inner.length) parts.push(`${k}: ${inner.join(', ')}`);
+        } else {
+            const s = scalar(v);
+            if (s !== null) parts.push(`${k}: ${s}`);
+        }
+        if (parts.length >= 8) break;
+    }
+    return parts.join(' | ');
+}
 
 // One-line human summary from an activity's execution_plan JSON: show the
 // first few short string-valued fields (the recorders store rule/what text).
@@ -343,29 +391,50 @@ function summarizeExecutionPlan(plan) {
     return parts.join(' | ');
 }
 
-function createConsolidationCard(activities) {
+// Consolidation activities arrive grouped by pipeline run (session id = the
+// PipelineRun id, or the time window of a commit made outside a recorded run),
+// newest run first, each run's activities in chronological order.
+function createConsolidationCard(runs) {
     const div = document.createElement('div');
     div.className = 'pipeline-card';
     div.dataset.step = 'consolidation';
     div.dataset.type = 'consolidation';
 
-    const rows = activities.map(a => {
-        const style = CONSOLIDATION_TYPE_STYLES[a.activity_type] || { color: '#6c757d', icon: 'bi-gear' };
-        const when = a.started_at
-            ? new Date(a.started_at).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
-            : '';
-        const statusBadge = a.status === 'failed'
-            ? '<span class="badge bg-danger">failed</span>'
-            : (a.status === 'completed' ? '' : `<span class="badge bg-secondary">${escapeHtml(a.status || '')}</span>`);
-        const summary = a.error_message
-            ? `<span class="text-danger">${escapeHtml(a.error_message)}</span>`
-            : escapeHtml(summarizeExecutionPlan(a.execution_plan));
-        return `<tr>
-            <td class="text-nowrap"><span class="badge" style="background-color: ${style.color};"><i class="bi ${style.icon} me-1"></i>${escapeHtml(a.activity_type)}</span></td>
-            <td><code>${escapeHtml(a.activity_name)}</code> ${statusBadge}</td>
-            <td class="small text-muted">${summary}</td>
-            <td class="text-nowrap small text-muted">${when}</td>
+    const fmtWhen = iso => iso
+        ? new Date(iso).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+        : '';
+    const total = runs.reduce((n, run) => n + run.activities.length, 0);
+
+    const rows = runs.map(run => {
+        const label = run.session_id
+            ? `Pipeline run <code>${escapeHtml(String(run.session_id))}</code>`
+            : 'Commit outside a recorded pipeline run';
+        const start = fmtWhen(run.started_at), end = fmtWhen(run.ended_at);
+        const window = start === end ? start : `${start} to ${end}`;
+        const header = `<tr class="table-light">
+            <td colspan="4" class="small">
+                <i class="bi bi-play-circle me-1"></i><strong>${label}</strong>
+                <span class="text-muted ms-2">${window} &middot; ${run.activities.length} activit${run.activities.length === 1 ? 'y' : 'ies'}</span>
+            </td>
         </tr>`;
+        const body = run.activities.map(a => {
+            const style = CONSOLIDATION_TYPE_STYLES[a.activity_type] || { color: '#6c757d', icon: 'bi-gear' };
+            const statusBadge = a.status === 'failed'
+                ? '<span class="badge bg-danger">failed</span>'
+                : (a.status === 'completed' ? '' : `<span class="badge bg-secondary">${escapeHtml(a.status || '')}</span>`);
+            const plan = escapeHtml(summarizeExecutionPlan(a.execution_plan));
+            const result = escapeHtml(summarizeResult(a.result));
+            const summary = a.error_message
+                ? `<span class="text-danger">${escapeHtml(a.error_message)}</span>`
+                : `${plan ? `<div>${plan}</div>` : ''}${result ? `<div><span class="badge bg-light text-dark border me-1">result</span>${result}</div>` : ''}`;
+            return `<tr>
+                <td class="text-nowrap"><span class="badge" style="background-color: ${style.color};"><i class="bi ${style.icon} me-1"></i>${escapeHtml(a.activity_type)}</span></td>
+                <td><code>${escapeHtml(a.activity_name)}</code> ${statusBadge}</td>
+                <td class="small text-muted">${summary}</td>
+                <td class="text-nowrap small text-muted">${fmtWhen(a.started_at)}</td>
+            </tr>`;
+        }).join('');
+        return header + body;
     }).join('');
 
     div.innerHTML = `
@@ -375,12 +444,13 @@ function createConsolidationCard(activities) {
                     <h5 class="mb-0" style="color: #6f42c1;">
                         <i class="bi bi-box-seam me-2"></i>Consolidation &amp; Commit
                     </h5>
-                    <span class="text-muted small">${activities.length} recorded activities, newest first</span>
+                    <span class="text-muted small">${total} recorded activities in ${runs.length} run${runs.length === 1 ? '' : 's'}, newest run first</span>
                 </div>
                 <p class="text-muted small mb-2">
                     Post-extraction activities that turn the working store into the committed
-                    ontology: deduplication and merge, enrichment, edge materialization,
-                    guards, and conformance validation.
+                    ontology: extraction filters, deduplication and merge, enrichment, edge
+                    materialization, guards, the verification gate, and conformance validation.
+                    Each row shows the strategy (execution plan) and the recorded result.
                 </p>
                 <div class="table-responsive">
                     <table class="table table-sm mb-0">
@@ -501,14 +571,32 @@ function createPassHeader(step, pass) {
     return div;
 }
 
+// Badge for a stored prompt or response whose length equals a round storage
+// limit (helpers.truncation_limit): the text was sliced at that length when
+// stored and the remainder was never kept.
+function truncationBadge(limit) {
+    if (!limit) return '';
+    return `<span class="badge bg-warning text-dark ms-2" title="The stored text is exactly ${limit} characters long, the length of a storage slice: the original was longer and the remainder was not kept.">stored text truncated at ${limit} characters</span>`;
+}
+
+// Metadata-bar note when no provenance activity was recorded for the prompt's
+// session: the card then has only the prompt's own date and model.
+function durationNote(prov) {
+    return prov ? '' : `<span class="mx-2">|</span><i class="bi bi-stopwatch me-1"></i>duration not recorded`;
+}
+
 function renderEntityFields(fg) {
     // Per-entity triple-vs-literal breakdown (field_classification.group_properties).
     if (!fg) return '';
     const rel = fg.relations || [], lit = fg.literals || [], der = fg.derived || [];
-    if (!rel.length && !lit.length && !der.length) return '';
+    const typed = fg.typed_as || {}, types = typed.types || [], parent = typed.parent;
+    if (!rel.length && !lit.length && !der.length && !types.length && !parent) return '';
     const trunc = s => escapeHtml((s || '').substring(0, 80)) + ((s || '').length > 80 ? '…' : '');
     let html = `<details class="entity-fields"><summary class="small text-muted">`
         + `${rel.length} relation${rel.length != 1 ? 's' : ''} · ${lit.length} literal${lit.length != 1 ? 's' : ''}</summary>`;
+    if (types.length || parent) html += `<div class="small mt-1"><span class="badge bg-info text-dark">Typed as</span> `
+        + `${types.map(t => `<code>${escapeHtml(t)}</code>`).join(', ')}`
+        + `${parent ? `${types.length ? ' · ' : ''}subclass of <code>${escapeHtml(parent)}</code>` : ''}</div>`;
     if (rel.length) html += `<div class="small mt-1"><span class="badge bg-primary">Relations (structural triples)</span>`
         + `<ul class="mb-1 ps-3">${rel.map(f => `<li><code>${escapeHtml(f.p)}</code>: ${trunc(f.v)}</li>`).join('')}</ul></div>`;
     if (lit.length) html += `<div class="small"><span class="badge bg-success">Literal extractions (kept for synthesis)</span>`
@@ -541,6 +629,7 @@ function createExtractionCard(step, pass, extraction) {
 
     const prompt = extraction.prompt;
     const prov = extraction.provenance;
+    const truncation = prompt.truncation || {};
     const entityHtml = extraction.entities.length > 0
         ? `<div class="entity-list">${extraction.entities.map(e => `
             <div class="entity-item" style="--entity-color: ${e.color};">
@@ -590,7 +679,7 @@ function createExtractionCard(step, pass, extraction) {
             <div class="card-body">
                 <div class="prompt-section">
                     <div class="section-header" onclick="toggleSection(this)">
-                        <span><i class="bi bi-cpu me-2"></i>LLM Prompt</span>
+                        <span><i class="bi bi-cpu me-2"></i>LLM Prompt${truncationBadge(truncation.prompt)}</span>
                         <i class="bi bi-chevron-down"></i>
                     </div>
                     <div class="section-content" style="display: none;">
@@ -599,7 +688,7 @@ function createExtractionCard(step, pass, extraction) {
                 </div>
                 <div class="response-section">
                     <div class="section-header" onclick="toggleSection(this)">
-                        <span><i class="bi bi-chat-left-text me-2"></i>LLM Response</span>
+                        <span><i class="bi bi-chat-left-text me-2"></i>LLM Response${truncationBadge(truncation.response)}</span>
                         <i class="bi bi-chevron-down"></i>
                     </div>
                     <div class="section-content" style="display: none;">
@@ -615,6 +704,7 @@ function createExtractionCard(step, pass, extraction) {
                 <i class="bi bi-clock me-1"></i>${prompt.created_at ? new Date(prompt.created_at).toLocaleString() : 'N/A'}
                 <span class="mx-2">|</span>
                 <i class="bi bi-robot me-1"></i>${prompt.model || 'Unknown model'}
+                ${durationNote(prov)}
             </div>
         </div>`;
     return div;
@@ -644,6 +734,7 @@ function createPhaseCard(step, phase) {
 
     const prompt = phase.prompt;
     const prov = phase.provenance;
+    const truncation = (prompt && prompt.truncation) || {};
     const entityHtml = phase.entities.length > 0
         ? `<div class="entity-list">${phase.entities.map(e => `
             <div class="entity-item" style="--entity-color: ${step.color};">
@@ -691,7 +782,7 @@ function createPhaseCard(step, phase) {
                 ${prompt ? `
                 <div class="prompt-section">
                     <div class="section-header" onclick="toggleSection(this)">
-                        <span><i class="bi bi-cpu me-2"></i>LLM Prompt</span>
+                        <span><i class="bi bi-cpu me-2"></i>LLM Prompt${truncationBadge(truncation.prompt)}</span>
                         <i class="bi bi-chevron-down"></i>
                     </div>
                     <div class="section-content" style="display: none;">
@@ -700,7 +791,7 @@ function createPhaseCard(step, phase) {
                 </div>
                 <div class="response-section">
                     <div class="section-header" onclick="toggleSection(this)">
-                        <span><i class="bi bi-chat-left-text me-2"></i>LLM Response</span>
+                        <span><i class="bi bi-chat-left-text me-2"></i>LLM Response${truncationBadge(truncation.response)}</span>
                         <i class="bi bi-chevron-down"></i>
                     </div>
                     <div class="section-content" style="display: none;">
@@ -720,6 +811,7 @@ function createPhaseCard(step, phase) {
                 <i class="bi bi-clock me-1"></i>${prompt.created_at ? new Date(prompt.created_at).toLocaleString() : 'N/A'}
                 <span class="mx-2">|</span>
                 <i class="bi bi-robot me-1"></i>${prompt.model || 'Unknown model'}
+                ${durationNote(prov)}
                 ` : `<i class="bi bi-gear me-1"></i>Algorithmic`}
             </div>
         </div>`;

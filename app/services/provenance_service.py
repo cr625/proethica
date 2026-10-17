@@ -200,6 +200,54 @@ class ProvenanceService:
                            activity_type, activity_name, exc_info=True)
             return None
 
+    def record_llm_query(self, activity_name: str, case_id: Optional[int], session_id: Optional[str],
+                         model_name: str, prompt_text: str, response_text: Optional[str] = None,
+                         started_at: Optional[datetime] = None, ended_at: Optional[datetime] = None,
+                         execution_plan: Optional[Dict] = None,
+                         activity_metadata: Optional[Dict] = None,
+                         prompt_metadata: Optional[Dict] = None,
+                         response_metadata: Optional[Dict] = None) -> ProvenanceActivity:
+        """Record one COMPLETED model call as an ``llm_query`` activity with its prompt and
+        response as provenance entities.
+
+        The single implementation behind the temporal pass (stage7_storage._store_llm_trace)
+        and the step 1 and 2 concept extractions (extraction_graph.store_extraction_result).
+        The agent is the model (agent_type ``llm_model``), the activity carries the caller's
+        session id, the real call timestamps and the duration derived from them, the prompt is
+        recorded as the input entity (prov:used) and the response as an entity derived from
+        the prompt (prov:wasDerivedFrom). The provenance page resolves a card's activity by
+        session id, so ``session_id`` must be the id stored with the extraction prompt or the
+        temporal entities. A response is recorded only when non-empty.
+
+        Flushes, does not commit: the caller owns the transaction (and, where provenance is
+        best-effort, the savepoint)."""
+        agent = self.get_or_create_agent(agent_type='llm_model', agent_name=model_name or 'unknown')
+        ended_at = ended_at or datetime.utcnow()
+        started_at = started_at or ended_at
+        activity = ProvenanceActivity(
+            activity_type='llm_query',
+            activity_name=activity_name,
+            case_id=case_id,
+            session_id=session_id,
+            agent_id=agent.id,
+            execution_plan=execution_plan or {},
+            activity_metadata=activity_metadata or {},
+            started_at=started_at,
+            ended_at=ended_at,
+            duration_ms=int((ended_at - started_at).total_seconds() * 1000),
+            status='completed',
+        )
+        self.session.add(activity)
+        self.session.flush()
+
+        prompt_entity = self.record_prompt(
+            prompt_text=prompt_text or '', activity=activity, metadata=prompt_metadata)
+        if response_text:
+            self.record_response(
+                response_text=response_text, activity=activity,
+                derived_from=prompt_entity, metadata=response_metadata)
+        return activity
+
     def record_prompt(self, prompt_text: str, activity: ProvenanceActivity,
                      entity_name: Optional[str] = None,
                      metadata: Optional[Dict] = None) -> ProvenanceEntity:

@@ -24,6 +24,7 @@ from app.routes.provenance.helpers import (
     _get_extraction_data,
     _get_temporal_extraction_data,
     _get_step4_phase_data,
+    group_consolidation_by_run,
 )
 
 
@@ -62,9 +63,8 @@ def register_pipeline_routes(bp):
                 step_data['passes'].append(pass_data)
             else:
                 for section_type in PIPELINE_STRUCTURE['passes']:
-                    pass_name = 'Pass 1 (Facts)' if section_type == 'facts' else 'Pass 2 (Discussion)'
                     pass_data = {
-                        'name': pass_name,
+                        'name': PIPELINE_STRUCTURE['pass_names'][section_type],
                         'section_type': section_type,
                         'extractions': []
                     }
@@ -139,29 +139,49 @@ def register_pipeline_routes(bp):
         } for r in review_rows]
 
         # Consolidation-and-commit trail: the post-extraction activities
-        # (reconcile, enrichment, edge materialization, guards, SHACL/OWL
-        # conformance) that turn the working store into the committed record.
-        # Recorded in the PROV tables all along but previously not displayed.
+        # (filters, reconcile, enrichment, edge materialization, guards, the
+        # verification gate, SHACL/OWL conformance and its repairs) that turn the
+        # working store into the committed record, grouped by pipeline run
+        # (session id = PipelineRun id, or the time window of the committed run)
+        # and carrying the recorded outcome (activity_metadata, exposed as
+        # `result`: dropped labels, edge counts, merges, canonicalization,
+        # conformance) beside the strategy (execution_plan).
+        def _json(value):
+            if isinstance(value, dict):
+                return value
+            return json.loads(value) if value else None
+
         consolidation_rows = db.session.execute(text("""
         SELECT activity_type, activity_name, started_at, duration_ms, status,
-               execution_plan, error_message
+               execution_plan, error_message, session_id, activity_metadata
         FROM provenance_activities
         WHERE case_id = :case_id
           AND activity_type IN ('reconciliation', 'enrichment', 'materialization',
-                                'guard', 'filter', 'merge', 'validation')
+                                'guard', 'filter', 'merge', 'validation', 'gate', 'repair')
         ORDER BY started_at DESC
-        LIMIT 30
+        LIMIT 150
     """), {'case_id': case_id}).fetchall()
 
-        consolidation = [{
+        consolidation_runs = group_consolidation_by_run([{
             'activity_type': r[0],
             'activity_name': r[1],
-            'started_at': r[2].isoformat() if r[2] else None,
+            'started_at': r[2],
             'duration_ms': r[3],
             'status': r[4],
-            'execution_plan': r[5] if isinstance(r[5], dict) else (json.loads(r[5]) if r[5] else None),
+            'execution_plan': _json(r[5]),
             'error_message': r[6],
-        } for r in consolidation_rows]
+            'session_id': r[7],
+            'result': _json(r[8]),
+        } for r in consolidation_rows])
+
+        consolidation = [{
+            'session_id': run['session_id'],
+            'started_at': run['started_at'].isoformat(),
+            'ended_at': run['ended_at'].isoformat(),
+            'activity_count': run['activity_count'],
+            'activities': [dict(a, started_at=a['started_at'].isoformat())
+                           for a in run['activities']],
+        } for run in consolidation_runs]
 
         return jsonify({
             'case': {

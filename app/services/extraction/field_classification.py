@@ -242,10 +242,20 @@ def partition(predicates: Iterable[str]) -> Dict[str, List[str]]:
     return groups
 
 
-# JSON-LD framing / identity keys that are not extracted predicates.
+# JSON-LD framing / identity keys that are not extracted predicates, plus the storage
+# wrapper keys pydantic_to_rdf_data / rdf_storage_service place beside ``properties`` on
+# a temporary_rdf_storage record: bookkeeping (the definitions list, which also embeds the
+# matched ontology definition; the per-section source_texts map; the matcher's
+# match_decision), the type anchors (types / parent, rendered by the provenance card as
+# its "typed as" line), and the top-level copies of the class category fields kept for
+# the commit-service lookup (the camelCase property, e.g. roleCategory, is the literal
+# that is displayed). None of these is extracted content.
 _STRUCTURAL_KEYS = frozenset({
     "@context", "@id", "@type", "rdfs:label", "rdfs:comment", "label", "id", "uri",
     "type", "name", "identifier", "definition", "rdf_turtle", "section_sources",
+    "definitions", "source_texts", "match_decision", "types", "parent",
+    "role_category", "state_category", "resource_category", "principle_category",
+    "obligation_type", "constraint_type", "action_category", "event_category",
 })
 
 
