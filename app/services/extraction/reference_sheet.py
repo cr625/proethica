@@ -288,6 +288,36 @@ class ReferenceSheet:
         cache[category] = block
         return block
 
+    def offered_targets(self, category: str) -> set:
+        """Normalized names (``norm``) of every class the reuse policy for ``category`` offers as a
+        target: the category's canonical entries (iri and display label, including canonical_parents)
+        plus the synonym and anti-pattern targets ``prompt_block`` renders. The merge-stage
+        canonicalization guard rejects a GENERALIZE that lands outside this set, because such a target
+        was invented by the model rather than offered by the sheet. Memoized per (cached) instance."""
+        cache = getattr(self, "_offered_cache", None)
+        if cache is None:
+            cache = self._offered_cache = {}
+        if category in cache:
+            return cache[category]
+        offered: set = set()
+        for n, (comp, iri) in self.canonical.items():
+            if _FILE_TO_CATEGORY.get(comp) == category:
+                offered.add(n)
+                offered.add(norm(iri))
+                offered.add(norm(self.display.get(n, iri)))
+        for n, (iri, comp) in self.aliases.items():
+            if comp == category and iri:
+                offered.add(norm(iri))
+        for n, (tgt, via, comp) in self.redirects.items():
+            # Only a target that is a class local-name (a do_not_mint note is not one), the
+            # same test alias_targets applies.
+            if (comp == category and isinstance(tgt, str) and tgt and " " not in tgt
+                    and tgt[:1].isupper() and tgt.isidentifier()):
+                offered.add(norm(tgt))
+        offered.discard("")
+        cache[category] = offered
+        return offered
+
     def stats(self) -> dict:
         return {"canonical": len(self.canonical), "aliases": len(self.aliases),
                 "redirects": len(self.redirects), "alias_targets": len(self.alias_targets()),
