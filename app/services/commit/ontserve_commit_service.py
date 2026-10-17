@@ -129,7 +129,11 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
             prov = get_provenance_service()
 
             def _count(r):
-                for k in ('total', 'edges', 'edges_emitted', 'edges_added', 'triples_added'):
+                # Materialized triples only (case-8 review, L2): the defeasibility
+                # result carries edges_emitted (the model output) next to
+                # triples_added (what reached the graph); reading emitted first
+                # recorded four edges materialized when zero triples were written.
+                for k in ('triples_added', 'edges_added', 'edges', 'total'):
                     if isinstance(r.get(k), int):
                         return r[k]
                 return None
@@ -140,6 +144,10 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                     continue
                 n = _count(r)
                 by_family[fam] = {'edges': n, 'unresolved': r.get('unresolved')}
+                if isinstance(r.get('edges_emitted'), int):
+                    by_family[fam]['edges_emitted'] = r['edges_emitted']
+                if isinstance(r.get('triples_added'), int):
+                    by_family[fam]['triples_added'] = r['triples_added']
                 if isinstance(n, int):
                     total += n
             prov.track_pass(
