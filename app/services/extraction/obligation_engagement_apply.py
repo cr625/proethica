@@ -11,12 +11,25 @@ obligation without yet fulfilling or violating it. This pass asks the
 ObligationEngagementExtractor to re-partition each Action's obligations into
 fulfills / violates / raises, seeing the actions in chronological order
 (`proeth:temporalSequence`) so the engagement reads as a narrative chain.
+
+Case 24-1 review (October 2026): each action carries a modality derived from its
+record at parse time (performed or prescribed; edge_coherence.derive_action_modality),
+the extractor is given each obligation's complianceStatus and text references, and the
+deterministic reconciliation enforces two rules the model cannot override: a prescribed
+action fulfils nothing (its fulfills move to raises), and a met obligation whose text
+references cite the action stays fulfilled by it (not raised).
 """
 from __future__ import annotations
 
 import logging
 import re
 from typing import Any, Dict, List, Optional
+
+from app.services.extraction.edge_coherence import (
+    MODALITY_PRESCRIBED,
+    cites_state,
+    derive_action_modality,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +63,56 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).lower()
 
 
-def _reconcile_to_pool(ctx, pa):
+def _load_obligation_statuses(case_id: int) -> Dict[str, Any]:
+    """Normalized obligation label -> ObligationStatusContext (complianceStatus and
+    text references) from the case's obligation individual rows. Best effort: an
+    empty mapping when the rows are unavailable."""
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+    from app.services.extraction.obligation_engagement import ObligationStatusContext
+
+    def _first(props, *keys):
+        for k in keys:
+            v = props.get(k)
+            if v:
+                return str(v[0]) if isinstance(v, list) else str(v)
+        return ""
+
+    def _list(props, *keys):
+        for k in keys:
+            v = props.get(k)
+            if v:
+                vals = v if isinstance(v, list) else [v]
+                return [str(x).strip() for x in vals if str(x).strip()]
+        return []
+
+    out: Dict[str, Any] = {}
+    rows = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type="obligations", storage_type="individual").all()
+    for r in rows:
+        props = ((r.rdf_json_ld or {}).get("properties") or {})
+        label = (r.entity_label or "").strip()
+        if not label:
+            continue
+        out[_norm(label)] = ObligationStatusContext(
+            label=label,
+            compliance_status=_first(props, "complianceStatus", "compliance_status"),
+            text_references=_list(props, "textReferences", "text_references"),
+        )
+    return out
+
+
+def _refs_cite_action(status, ctx) -> bool:
+    """True when the obligation's text references cite the action (its label's
+    content tokens occur in a reference), or when the obligation carries no text
+    references (the stored met judgment then stands on its own)."""
+    refs = list(getattr(status, "text_references", None) or [])
+    if not refs:
+        return True
+    return any(cites_state(ref, ctx.label) for ref in refs)
+
+
+def _reconcile_to_pool(ctx, pa, statuses: Optional[Dict[str, Any]] = None,
+                       stats: Optional[Dict[str, int]] = None):
     """Reconcile the LLM partition to the Action's own input pool (deterministic).
 
     Keeps the LLM's bucket choice for every obligation that is IN the pool
@@ -58,8 +120,14 @@ def _reconcile_to_pool(ctx, pa):
     (e.g. an obligation carried from another Action), and restores any pool
     obligation the LLM dropped to its original bucket. Guarantees the result is
     valid (union == pool, no duplicates), so the case always gets its raises
-    buckets instead of none. Returns (fulfills, violates, raises) of original
-    strings.
+    buckets instead of none.
+
+    Two rules the model cannot override (case 24-1 review): a PRESCRIBED action
+    fulfils nothing, so its fulfills land in raises; and an obligation whose
+    complianceStatus is met and whose text references cite the action stays in
+    fulfills when the model moved it to raises. ``stats`` (optional) accumulates
+    the counts under ``prescribed_fulfills_demoted`` / ``met_fulfills_restored``.
+    Returns (fulfills, violates, raises) of original strings.
     """
     disp = {}          # norm -> original input string (the pool is the input)
     orig_bucket = {}   # norm -> 'fulfills' | 'violates' | 'raises'
@@ -78,9 +146,23 @@ def _reconcile_to_pool(ctx, pa):
     for o in pa.raises:
         llm_bucket.setdefault(_norm(o), "raises")
 
+    prescribed = getattr(ctx, "modality", "performed") == MODALITY_PRESCRIBED
     out = {"fulfills": [], "violates": [], "raises": []}
     for n, original in disp.items():
-        out[llm_bucket.get(n, orig_bucket[n])].append(original)
+        bucket = llm_bucket.get(n, orig_bucket[n])
+        if prescribed and bucket == "fulfills":
+            bucket = "raises"
+            if stats is not None:
+                stats["prescribed_fulfills_demoted"] = stats.get("prescribed_fulfills_demoted", 0) + 1
+        elif bucket == "raises" and orig_bucket[n] == "fulfills" and statuses:
+            st = statuses.get(n)
+            if (st is not None
+                    and (getattr(st, "compliance_status", "") or "").strip().lower() == "met"
+                    and _refs_cite_action(st, ctx)):
+                bucket = "fulfills"
+                if stats is not None:
+                    stats["met_fulfills_restored"] = stats.get("met_fulfills_restored", 0) + 1
+        out[bucket].append(original)
     return out["fulfills"], out["violates"], out["raises"]
 
 
@@ -131,15 +213,20 @@ def apply_obligation_engagement(
             seq_int = int(seq) if seq is not None else None
         except (TypeError, ValueError):
             seq_int = None
+        description = rdf.get("proeth:description", "") or ""
         actions.append(
             ActionEngagementContext(
                 iri=iri,
                 label=r.entity_label or rdf.get("rdfs:label", "") or "",
-                description=rdf.get("proeth:description", "") or "",
+                description=description,
                 sequence=seq_int,
                 fulfills=list(fulfills_raw),
                 violates=list(violates_raw),
                 raises=list(raises_raw),
+                modality=derive_action_modality(
+                    description,
+                    rdf.get("proeth:temporalMarker", "") or "",
+                    rdf.get("proeth:discoveredInSection", "") or ""),
             )
         )
         iri_to_row[iri] = r
@@ -155,11 +242,23 @@ def apply_obligation_engagement(
             "status": "dry_run",
             "actions": len(actions),
             "obligations": sum(len(a.fulfills) + len(a.violates) for a in actions),
+            "prescribed_actions": sum(1 for a in actions if a.modality == MODALITY_PRESCRIBED),
         }
+
+    try:
+        statuses = _load_obligation_statuses(case_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("obligation engagement: could not load obligation statuses for case %s: %s",
+                       case_id, e)
+        statuses = {}
 
     if extractor is None:
         from app.services.extraction.obligation_engagement import ObligationEngagementExtractor
-        extractor = ObligationEngagementExtractor()
+        extractor = ObligationEngagementExtractor(obligations=list(statuses.values()))
+    elif getattr(extractor, "obligation_statuses", "absent") is None:
+        # A caller-supplied real extractor without status context: give it the
+        # case's obligation statuses so its prompt carries them.
+        extractor.obligation_statuses = list(statuses.values())
 
     # Lenient: get the parsed partition even if it does not validate, then
     # reconcile each Action to its own input pool below. This replaces the prior
@@ -178,6 +277,7 @@ def apply_obligation_engagement(
     raises_emitted = 0
     moved_from_fulfills = 0
     moved_from_violates = 0
+    stats: Dict[str, int] = {}
     pa_by_iri = {pa.action_iri: pa for pa in result.actions}
 
     for ctx in actions:
@@ -189,7 +289,7 @@ def apply_obligation_engagement(
 
         # Reconcile the LLM partition to this Action's own input pool so the
         # result is always valid (drops cross-action extras, restores drops).
-        f_out, v_out, r_out = _reconcile_to_pool(ctx, pa)
+        f_out, v_out, r_out = _reconcile_to_pool(ctx, pa, statuses=statuses, stats=stats)
 
         old_fulfills = {_norm(s) for s in ctx.fulfills}
         old_violates = {_norm(s) for s in ctx.violates}
@@ -215,5 +315,7 @@ def apply_obligation_engagement(
         "raises_emitted": raises_emitted,
         "moved_from_fulfills": moved_from_fulfills,
         "moved_from_violates": moved_from_violates,
+        "prescribed_fulfills_demoted": stats.get("prescribed_fulfills_demoted", 0),
+        "met_fulfills_restored": stats.get("met_fulfills_restored", 0),
         "rationale": result.rationale,
     }

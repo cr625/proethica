@@ -1101,7 +1101,10 @@ class ConstraintIndividual(BaseIndividual):
         None, description="Temporal and contextual circumstances under which the prohibition applies (Dennis)"
     )
     source: Optional[str] = Field(
-        None, description="Provision or authority establishing the prohibition; kept as a literal, and dotted NSPE codes also resolve to the establishedBy edge"
+        None, description="Provision or authority establishing the prohibition, as prose; kept as a literal. A lone dotted NSPE code in it resolves to the establishedBy edge only when establishing_provision is absent"
+    )
+    establishing_provision: Optional[str] = Field(
+        None, description="The ONE dotted NSPE code that establishes the prohibition (e.g. 'II.1.a'); the source of the establishedBy edge. A canon the constraint limits or qualifies belongs in source, not here"
     )
     temporal_scope: Optional[str] = None
     severity: Optional[Severity] = None

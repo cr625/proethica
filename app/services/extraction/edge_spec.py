@@ -50,6 +50,19 @@ from app.services.extraction.edge_resolution import (
     _norm,
     _shortlist,
     emit_edge_prov,
+    remove_edge_prov,
+)
+from app.services.extraction.edge_coherence import (
+    MODALITY_PRESCRIBED,
+    agents_named_in,
+    allen_relation_problems,
+    content_tokens,
+    derive_action_modality,
+    lexical_candidates,
+    named_target_bound,
+    owl_time_local,
+    performed_by_other_agent,
+    precedence_graph,
 )
 
 logger = logging.getLogger(__name__)
@@ -134,6 +147,21 @@ class EdgePredicate:
     # Obligation -> Capability (an obligation presupposes the capacity to discharge
     # it, v2.8.0).
     invert: bool = False
+    # Case 24-1 review rules (October 2026).
+    # A label equal to the label of an individual in one of these categories is
+    # rejected before resolution (fluent family: an initiates label equal to the
+    # next Event label names a happening, not a state).
+    reject_label_in: Tuple[str, ...] = ()
+    # A label equal (normalized) to exactly one pool label resolves to it before the
+    # model (affects: exact agent names).
+    exact_label_preresolve: bool = False
+    # A phrase whose content tokens cover a pool label (or are covered by it)
+    # resolves to the unique best such label before the embedding (temporal
+    # relation endpoints against the extracted happening labels).
+    lexical_first: bool = False
+    # A phrase that names exactly one case Agent excludes candidates performed by
+    # another agent (temporal relation endpoints).
+    agent_scope: bool = False
 
 
 @dataclass(frozen=True)
@@ -164,6 +192,17 @@ class EdgeSpec:
     extra_read: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None  # per-row extra fields
     extra_emit: Optional[Callable[[Graph, "EdgeSpec", URIRef, str, URIRef, SubjectRow], None]] = None
     no_data_status: str = "no_data"
+    # Case 24-1 review hooks. row_adjust edits a temporal row's field lists before
+    # resolution (obligation family: a prescribed action fulfils nothing).
+    # post_process validates the family's edges on the graph after every predicate
+    # resolved (temporal relations: Allen validation); its dict lands under
+    # res["post_process"]. case_text_loader supplies the case text for the
+    # verbatim-evidence check. extra_reconstruct_drop removes the family's extra
+    # triples (the time:* assertion) when reconstruct_edge_family drops the family.
+    row_adjust: Optional[Callable[[Dict[str, Any], Dict[str, List[str]]], None]] = None
+    post_process: Optional[Callable[[Graph, "EdgeSpec", int, List[SubjectRow]], Dict[str, Any]]] = None
+    case_text_loader: Optional[Callable[[int], str]] = None
+    extra_reconstruct_drop: Optional[Callable[[Graph, set], int]] = None
 
 
 # --- subject map + candidate pools -----------------------------------------
@@ -415,10 +454,20 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
         if not pool:
             res[pred.prop] = {"edges": 0, "status": f"no_{pred.range_category.lower()}s"}
             continue
+        pool_labels = {iri: _label(g, iri) for iri, _t, _e in pool}
+        agent_labels = ({a: _label(g, a) for a in g.subjects(RDF.type, CORE.Agent)}
+                        if pred.agent_scope else {})
+        reject_labels: set = set()
+        for cat in pred.reject_label_in:
+            reject_labels.update(_norm(_label(g, ind)) for ind in _individuals_in_category(g, cat))
 
         items: List[Dict[str, Any]] = []
         next_id = 1
         unresolved = 0
+        rejected = 0
+        # Deterministic resolutions made before the model: exact label matches
+        # (affects) and lexical endpoint matches (temporal relations).
+        direct: List[Dict[str, Any]] = []
         # (row subject IRI, verbatim Board literal) pairs deferred to the
         # deterministic Board-pattern fallback (invokedBy / citedByAgent only).
         board_refs: List[Tuple[URIRef, str]] = []
@@ -436,15 +485,63 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
                 labels = [lbl for lbl in labels if not _is_board_literal(lbl)]
                 if not labels:
                     continue
+            if reject_labels:
+                kept = []
+                for lbl in labels:
+                    if _norm(lbl) in reject_labels:
+                        rejected += 1
+                        logger.info("%s[%s]: rejected label %r on %r: it is the label of an "
+                                    "extracted happening, not of a state",
+                                    spec.name, pred.prop, lbl[:80], (row.label or "")[:80])
+                    else:
+                        kept.append(lbl)
+                labels = kept
+                if not labels:
+                    continue
+            if pred.exact_label_preresolve:
+                rest = []
+                for lbl in labels:
+                    tgt = _exact_label_target(lbl, pool_labels)
+                    if tgt is not None:
+                        direct.append({"subj": subj, "tgt": tgt, "desc": lbl, "row": row,
+                                       "method": "exact label match (no embedding or LLM)"})
+                    else:
+                        rest.append(lbl)
+                labels = rest
+                if not labels:
+                    continue
+            named_agents = agents_named_in("; ".join(labels), agent_labels) if agent_labels else []
+            named_agent_label = agent_labels[named_agents[0]] if len(named_agents) == 1 else None
+            if pred.lexical_first:
+                rest = []
+                for lbl in labels:
+                    cands = lexical_candidates(lbl, pool_labels)
+                    if named_agent_label is not None:
+                        cands = [c for c in cands
+                                 if not performed_by_other_agent(g, c, named_agent_label)]
+                    tgt = _unique_lexical(lbl, cands, pool_labels)
+                    if tgt is not None:
+                        direct.append({"subj": subj, "tgt": tgt, "desc": lbl, "row": row,
+                                       "method": "lexical match against the extracted happening "
+                                                 "labels (no embedding or LLM)"})
+                    else:
+                        rest.append(lbl)
+                labels = rest
+                if not labels:
+                    continue
             desc = "; ".join(labels)
             sl = _shortlist(svc, desc, pool, SHORTLIST_FLOOR, SHORTLIST_K)
+            if named_agent_label is not None:
+                sl = [c for c in sl if not performed_by_other_agent(g, c[0], named_agent_label)]
             if not sl:
                 unresolved += 1
                 logger.info("%s[%s]: no %s above floor %.2f for %r",
                             spec.name, pred.prop, pred.range_category, SHORTLIST_FLOOR, desc[:80])
                 continue
             item = {"id": next_id, "subj": subj, "desc": desc,
-                    "subj_label": row.label, "row": row, "shortlist": sl}
+                    "subj_label": row.label, "row": row, "shortlist": sl,
+                    # The entities the source field names bound the multi-select.
+                    "bound": named_target_bound(labels)}
             # Surface the family's prompt-label hints (resource_label / state_label /
             # subj_label / evidence) so the per-family prompt builder finds them under
             # the same key the original applier used.
@@ -463,6 +560,51 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
 
         edges = 0
         vetoed = 0
+        bounded = 0
+        single_valued_skipped = 0
+        pred_uri = pred.namespace[pred.prop]
+
+        def _place(subj, tgt, row, desc, comment_suffix=""):
+            """Emit one (subject, target) pair with the family's veto, single-valued,
+            dedupe and PROV semantics. invert swaps the emission direction
+            (requiresCapability: the resolved Obligation is the SUBJECT, the row
+            Capability the OBJECT); dedupe, veto, and PROV all operate on the emitted
+            direction."""
+            nonlocal edges, vetoed, single_valued_skipped
+            s_node, o_node = (tgt, subj) if pred.invert else (subj, tgt)
+            if (pred.veto_if_present is not None
+                    and (s_node, pred.namespace[pred.veto_if_present], o_node) in g):
+                vetoed += 1
+                logger.warning(
+                    "%s[%s]: dropped %s -> %s: the same subject already carries %s to "
+                    "this target (incoherent transition; a happening must not %s a "
+                    "state it %s)",
+                    spec.name, pred.prop, s_node, o_node, pred.veto_if_present,
+                    pred.prop, pred.veto_if_present)
+                return
+            if (s_node, pred_uri, o_node) not in g:
+                if spec.single_valued and (s_node, pred_uri, None) in g:
+                    # Single-valued is enforced at emit, not only within one select:
+                    # a re-run that selects a different target must not add a second
+                    # value (case 8: two fromEntity / toEntity actions on one
+                    # relation). reconstruct_edge_family re-resolves the family.
+                    single_valued_skipped += 1
+                    logger.warning("%s[%s]: %s already carries a %s value; second target %s "
+                                   "skipped (single-valued)", spec.name, pred.prop,
+                                   s_node, pred.prop, o_node)
+                    return
+                g.add((s_node, pred_uri, o_node))
+                prov_desc = row.extra.get("prov_desc") or desc
+                emit_edge_prov(g, case_id, spec.prov_prefix, pred.prop, s_node, o_node,
+                               prov_desc, spec.prov_label(pred.prop),
+                               spec.prov_comment(pred.prop) + comment_suffix)
+                edges += 1
+            if spec.extra_emit is not None:
+                spec.extra_emit(g, spec, subj, pred.prop, tgt, row)
+
+        for d in direct:
+            _place(d["subj"], d["tgt"], d["row"], d["desc"], "; " + d["method"])
+
         for it in items:
             subj, desc, sl, row = it["subj"], it["desc"], it["shortlist"], it["row"]
             if selections is not None:
@@ -471,35 +613,26 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
                 targets = [iri for iri, _lbl, sim in sl if sim >= threshold]
             if spec.single_valued and targets:
                 targets = targets[:1]
+            bound = it.get("bound") or len(targets)
+            if len(targets) > bound:
+                # Bound the multi-select to the entities the source field names: one
+                # description, at most one target unless the text lists several
+                # (case 8: requires_capability added an obligation the field did not
+                # name). The best-ranked shortlist members are kept.
+                rank = {iri: i for i, (iri, _l, _s) in enumerate(sl)}
+                over = len(targets) - bound
+                targets = sorted(targets, key=lambda t: rank.get(t, len(sl)))[:bound]
+                bounded += over
+                logger.info("%s[%s]: select chose %d targets for %d named entit(ies); "
+                            "%d dropped: %r", spec.name, pred.prop, bound + over, bound,
+                            over, desc[:80])
             if not targets:
                 unresolved += 1
                 logger.info("%s[%s]: unresolved (resolver=%s): %r",
                             spec.name, pred.prop, resolver, desc[:80])
                 continue
             for tgt in targets:
-                # invert swaps the emission direction (requiresCapability: the
-                # resolved Obligation is the SUBJECT, the row Capability the OBJECT);
-                # dedupe, veto, and PROV all operate on the emitted direction.
-                s_node, o_node = (tgt, subj) if pred.invert else (subj, tgt)
-                if (pred.veto_if_present is not None
-                        and (s_node, pred.namespace[pred.veto_if_present], o_node) in g):
-                    vetoed += 1
-                    logger.warning(
-                        "%s[%s]: dropped %s -> %s: the same subject already carries %s to "
-                        "this target (incoherent transition; a happening must not %s a "
-                        "state it %s)",
-                        spec.name, pred.prop, s_node, o_node, pred.veto_if_present,
-                        pred.prop, pred.veto_if_present)
-                    continue
-                if (s_node, pred.namespace[pred.prop], o_node) not in g:
-                    g.add((s_node, pred.namespace[pred.prop], o_node))
-                    prov_desc = row.extra.get("prov_desc") or desc
-                    emit_edge_prov(g, case_id, spec.prov_prefix, pred.prop, s_node, o_node,
-                                   prov_desc, spec.prov_label(pred.prop),
-                                   spec.prov_comment(pred.prop))
-                    edges += 1
-                if spec.extra_emit is not None:
-                    spec.extra_emit(g, spec, subj, pred.prop, tgt, row)
+                _place(subj, tgt, row, desc)
 
         # Deterministic Board-pattern fallback: each deferred Board literal becomes an
         # edge to the single case-scoped Board Agent (minted on first use). Additive
@@ -521,15 +654,93 @@ def materialize_edge_family(case_id: int, ttl_path, spec: EdgeSpec, write_back: 
         res[pred.prop] = {"edges": edges, "resolver": resolver, "unresolved": unresolved}
         if vetoed:
             res[pred.prop]["vetoed"] = vetoed
+        if bounded:
+            res[pred.prop]["bounded"] = bounded
+        if rejected:
+            res[pred.prop]["rejected_labels"] = rejected
+        if single_valued_skipped:
+            res[pred.prop]["single_valued_skipped"] = single_valued_skipped
+        if direct:
+            res[pred.prop]["direct"] = len(direct)
         if board_edges:
             res[pred.prop]["board_agent_edges"] = board_edges
         any_pred_emitted = any_pred_emitted or edges > 0
 
-    total = sum(v.get("edges", 0) for v in res.values() if isinstance(v, dict))
+    post: Dict[str, Any] = {}
+    if spec.post_process is not None:
+        post = spec.post_process(g, spec, case_id, rows) or {}
+        res["post_process"] = post
+        # Edges the validation withdrew no longer count as emitted.
+        for prop, n in (post.get("edges_dropped_by_prop") or {}).items():
+            if isinstance(res.get(prop), dict) and n:
+                res[prop]["edges"] = max(0, res[prop].get("edges", 0) - n)
+                res[prop]["withdrawn"] = n
+    total = sum(v.get("edges", 0) for v in res.values()
+                if isinstance(v, dict) and "edges" in v)
     res["total"] = total
-    if write_back and total:
+    if write_back and (total or post.get("relations_dropped")):
         g.serialize(destination=str(ttl_path), format="turtle")
     return res
+
+
+def _exact_label_target(label: str, pool_labels: Dict[URIRef, str]) -> Optional[URIRef]:
+    """The one pool member whose normalized label equals the (role-parenthetical
+    stripped) party label, or None when none or several do."""
+    key = _norm(_strip_role_parenthetical(label))
+    if not key:
+        return None
+    hits = [iri for iri, lbl in pool_labels.items() if _norm(lbl) == key]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _unique_lexical(desc: str, cands: List[URIRef], pool_labels: Dict[URIRef, str]) -> Optional[URIRef]:
+    """The unique best lexical candidate after the agent filter, or None when the
+    best overlap is shared (ambiguous: the embedding + model path decides)."""
+    if not cands:
+        return None
+    if len(cands) == 1:
+        return cands[0]
+    dt = set(content_tokens(desc))
+    scored = sorted(((len(set(content_tokens(pool_labels.get(c, ""))) & dt), str(c), c)
+                     for c in cands), key=lambda x: (-x[0], x[1]))
+    return scored[0][2] if scored[0][0] > scored[1][0] else None
+
+
+def reconstruct_edge_family(case_id: int, ttl_path, spec: EdgeSpec, **kwargs) -> Dict[str, Any]:
+    """Drop the WHOLE family (every edge of its predicates on the family's subjects,
+    the family's extra triples, and every provenance node of its IRI prefix) and
+    re-apply it from the current rows. The refresh that apply() cannot do: an edge
+    whose target a later run resolved differently survives apply() (dedupe keeps
+    the old value and single-valued emission skips the new one), as do orphan
+    provenance nodes (mirrors timeline_edges.reconstruct_timeline_haspart).
+    ``kwargs`` pass through to materialize_edge_family."""
+    ttl_path = Path(ttl_path)
+    g = Graph()
+    g.parse(str(ttl_path), format="turtle")
+    subjects: set = set()
+    for pred in spec.predicates:
+        cat = pred.subject_category
+        subjects.update((_subject_map(g, spec) if cat is None
+                         else _subject_map(g, spec, cat)).values())
+    removed_edges = 0
+    for pred in spec.predicates:
+        pred_uri = pred.namespace[pred.prop]
+        for s, o in list(g.subject_objects(pred_uri)):
+            anchor = o if pred.invert else s
+            if anchor in subjects:
+                g.remove((s, pred_uri, o))
+                removed_edges += 1
+    if spec.extra_reconstruct_drop is not None:
+        removed_edges += spec.extra_reconstruct_drop(g, subjects)
+    removed_prov = 0
+    for s in {s for s in g.subjects() if "#" + spec.prov_prefix in str(s)}:
+        for t in list(g.triples((s, None, None))):
+            g.remove(t)
+        removed_prov += 1
+    g.serialize(destination=str(ttl_path), format="turtle")
+    result = materialize_edge_family(case_id, ttl_path, spec, **kwargs)
+    result["reconstructed"] = {"edges_dropped": removed_edges, "prov_dropped": removed_prov}
+    return result
 
 
 # ===========================================================================
@@ -666,6 +877,8 @@ def _read_temporal(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
             any_field = any_field or bool(labels)
         if not any_field:
             continue
+        if spec.row_adjust is not None:
+            spec.row_adjust(rdf, fields)
         extra: Dict[str, Any] = {}
         if spec.extra_read:
             extra.update(spec.extra_read(rdf))
@@ -928,6 +1141,111 @@ def _temporal_relation_extra_emit(g: Graph, spec: EdgeSpec, subj, prop, tgt, row
         g.add((subj, TIME[local], tgt))
 
 
+# --- case 24-1 review hooks: obligation row adjust, Allen validation, reconstruct ----
+
+def _demote_prescribed_fulfills(rdf: Dict[str, Any], fields: Dict[str, List[str]]) -> None:
+    """fulfillsObligation only for performed actions: an action whose record derives
+    the prescribed modality (the Board's conclusion restated as an action, "must
+    not continue", "unresolved endpoint") has its fulfills labels moved to raises
+    before resolution (case 8: Refusal_to_Acquiesce carried fulfillsObligation
+    edges although the facts end with the client insisting)."""
+    modality = derive_action_modality(
+        str(rdf.get("proeth:description") or rdf.get("description") or ""),
+        str(rdf.get("proeth:temporalMarker") or rdf.get("temporalMarker") or ""),
+        str(rdf.get("proeth:discoveredInSection") or rdf.get("discoveredInSection") or ""))
+    if modality != MODALITY_PRESCRIBED:
+        return
+    moved = fields.get("fulfillsObligation") or []
+    if not moved:
+        return
+    raises = list(fields.get("raisesObligation") or [])
+    for lbl in moved:
+        if lbl not in raises:
+            raises.append(lbl)
+    fields["raisesObligation"] = raises
+    fields["fulfillsObligation"] = []
+    logger.info("obligation_edges: prescribed action %r fulfils nothing; %d label(s) moved "
+                "to raisesObligation", str(rdf.get("rdfs:label") or "")[:80], len(moved))
+
+
+def _load_case_text(case_id: int) -> str:
+    """The case sections' text for the verbatim-evidence check. Best effort: an
+    empty string outside an app context or without a database, which skips the
+    check rather than failing the family."""
+    try:
+        from app.models.document_section import DocumentSection
+        secs = DocumentSection.query.filter_by(document_id=case_id).all()
+        return "\n".join((s.content or "") for s in secs)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _drop_relation_edges(g: Graph, case_id: int, spec: EdgeSpec, rel: URIRef,
+                         owlprop: str) -> Dict[str, int]:
+    """Remove a relation's resolved endpoint edges, the time:* assertion, and the
+    family's provenance nodes for them. Returns the endpoint edges removed per
+    predicate local name."""
+    removed: Dict[str, int] = {}
+    for prop in ("fromEntity", "toEntity"):
+        for tgt in list(g.objects(rel, PROETH[prop])):
+            g.remove((rel, PROETH[prop], tgt))
+            remove_edge_prov(g, case_id, spec.prov_prefix, prop, rel, tgt)
+            removed[prop] = removed.get(prop, 0) + 1
+    local = owl_time_local(owlprop)
+    if local:
+        for tgt in list(g.objects(rel, TIME[local])):
+            g.remove((rel, TIME[local], tgt))
+    return removed
+
+
+def _validate_temporal_relations(g: Graph, spec: EdgeSpec, case_id: int,
+                                 rows: List[SubjectRow]) -> Dict[str, Any]:
+    """Allen validation after both endpoints resolved (edge_coherence
+    .allen_relation_problems): the relation's extent requirements against the
+    endpoints' temporalExtent, both endpoints occurred, the evidence is a verbatim
+    span of the case text when that text is available, and an ordering relation
+    does not contradict temporalSequence or the causal chains. A relation with a
+    problem is withdrawn (both endpoint edges, the time:* triple, provenance)."""
+    subj_map = _subject_map(g, spec)
+    case_text = spec.case_text_loader(case_id) if spec.case_text_loader else ""
+    adj = precedence_graph(g)
+    checked = dropped = 0
+    edges_dropped: Dict[str, int] = {}
+    problems_out: List[Dict[str, Any]] = []
+    for row in rows:
+        rel = subj_map.get(_norm(row.label))
+        if rel is None:
+            continue
+        f = g.value(rel, PROETH.fromEntity)
+        t = g.value(rel, PROETH.toEntity)
+        if f is None or t is None:
+            continue
+        owlprop = row.extra.get("owlprop") or ""
+        problems = allen_relation_problems(g, owlprop, f, t, row.extra.get("evidence") or "",
+                                           case_text, adj)
+        checked += 1
+        if problems:
+            for prop, n in _drop_relation_edges(g, case_id, spec, rel, owlprop).items():
+                edges_dropped[prop] = edges_dropped.get(prop, 0) + n
+            dropped += 1
+            problems_out.append({"relation": str(rel).rsplit("#", 1)[-1], "problems": problems})
+            logger.warning("%s: withdrew %s (%s): %s", spec.name,
+                           str(rel).rsplit("#", 1)[-1], owlprop, "; ".join(problems))
+    return {"relations_checked": checked, "relations_dropped": dropped,
+            "edges_dropped_by_prop": edges_dropped, "problems": problems_out}
+
+
+def _drop_time_triples(g: Graph, subjects: set) -> int:
+    """Reconstruct support: remove the time:* assertions on the relation nodes."""
+    removed = 0
+    for rel in subjects:
+        for p, o in list(g.predicate_objects(rel)):
+            if str(p).startswith(str(TIME)) and isinstance(o, URIRef):
+                g.remove((rel, p, o))
+                removed += 1
+    return removed
+
+
 # ===========================================================================
 # THE REGISTRY -- the six data-driven families
 # ===========================================================================
@@ -956,8 +1274,12 @@ _STATE_AFFECTS_SPEC = EdgeSpec(
     extraction_type="states",
     subject_category="State",
     predicates=(
+        # Exact agent names in the party list resolve before the model (case 8:
+        # the select omitted Engineer L on four states that named it first or
+        # second); the list is also kept as a literal (field_classification).
         EdgePredicate("affects", CORE, ("affectedParties",), "Agent",
-                      prompt_builder_factory=_state_affects_prompt_factory),
+                      prompt_builder_factory=_state_affects_prompt_factory,
+                      exact_label_preresolve=True),
     ),
     prov_prefix="state_affects_provenance_",
     prov_label=lambda p: f"State edge ({p})",
@@ -1038,16 +1360,23 @@ _FLUENT_SPEC = EdgeSpec(
     subject_resolution="union",
     subject_union=("Action", "Event"),
     predicates=(
+        # A label equal to an extracted Action/Event label names a happening, not a
+        # state, and is rejected before resolution; the multi-select is bounded to
+        # one State per non-conjunctive label (case 8: one label fanned out to two
+        # States three times). The cross-happening check (a holding state is not
+        # re-initiated, a fluent not terminated twice) runs in the unified guard.
         EdgePredicate("initiates", CORE, ("proeth:initiates", "initiates"), "State",
                       pool_fields=("stateClass", "caseContext"),
-                      prompt_builder_factory=_fluent_prompt_factory),
+                      prompt_builder_factory=_fluent_prompt_factory,
+                      reject_label_in=("Action", "Event")),
         EdgePredicate("terminates", CORE, ("proeth:terminates", "terminates"), "State",
                       pool_fields=("stateClass", "caseContext"),
                       prompt_builder_factory=_fluent_prompt_factory,
                       # Coherence guard (Stage-2 audit, Fable case-7 Design_Defect_Discovery
                       # initiated AND terminated the same two states): drop terminates when
                       # the same happening initiates the same state; keep initiates.
-                      veto_if_present="initiates"),
+                      veto_if_present="initiates",
+                      reject_label_in=("Action", "Event")),
     ),
     prov_prefix="fluent_edge_provenance_",
     prov_label=lambda p: f"Fluent edge ({p})",
@@ -1092,6 +1421,8 @@ _OBLIGATION_SPEC = EdgeSpec(
                             "Obligation/Principle individual(s) by embedding shortlist + LLM multi-select "
                             "(obligation-engagement grounding)"),
     reader=_read_temporal,
+    # fulfillsObligation only for performed actions (case 24-1 review).
+    row_adjust=_demote_prescribed_fulfills,
     no_data_status="no_normative_engagement",
 )
 
@@ -1134,15 +1465,23 @@ _TEMPORAL_RELATION_SPEC = EdgeSpec(
     subject_resolution="type",
     subject_type=PROETH.TemporalRelation,
     type_filter=("TemporalRelation",),
+    # Case 24-1 review: endpoints resolve lexically against the extracted happening
+    # labels before the embedding (hyphens and spacing normalized), a phrase that
+    # names an agent excludes candidates performed by another agent, single-valued
+    # is enforced at emit, each relation is validated after resolution
+    # (_validate_temporal_relations), and reconstruct_edge_family re-resolves the
+    # family from scratch.
     predicates=(
         EdgePredicate("fromEntity", PROETH, ("proeth:fromEntity", "fromEntity"), "Action",
                       range_union=("Action", "Event"),
                       prompt_builder_factory=_temporal_prompt_factory,
-                      verb="is the SOURCE happening (Entity1 in 'Entity1 [relation] Entity2')"),
+                      verb="is the SOURCE happening (Entity1 in 'Entity1 [relation] Entity2')",
+                      lexical_first=True, agent_scope=True),
         EdgePredicate("toEntity", PROETH, ("proeth:toEntity", "toEntity"), "Action",
                       range_union=("Action", "Event"),
                       prompt_builder_factory=_temporal_prompt_factory,
-                      verb="is the TARGET happening (Entity2 in 'Entity1 [relation] Entity2')"),
+                      verb="is the TARGET happening (Entity2 in 'Entity1 [relation] Entity2')",
+                      lexical_first=True, agent_scope=True),
     ),
     prov_prefix="temporal_relation_edge_provenance_",
     prov_label=lambda p: f"Temporal relation edge ({p})",
@@ -1152,6 +1491,9 @@ _TEMPORAL_RELATION_SPEC = EdgeSpec(
     single_valued=True,
     extra_read=_temporal_relation_extra_read,
     extra_emit=_temporal_relation_extra_emit,
+    post_process=_validate_temporal_relations,
+    case_text_loader=_load_case_text,
+    extra_reconstruct_drop=_drop_time_triples,
     no_data_status="no_temporal_relations",
 )
 
