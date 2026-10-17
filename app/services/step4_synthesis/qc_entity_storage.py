@@ -31,8 +31,20 @@ def _qc_model() -> str:
     return ModelConfig.get_claude_model("default")
 
 
+def _with_optional(payload: dict, **optional) -> dict:
+    """Add the keys whose value is present; the payload shape of rows without
+    them is unchanged (the golden tests pin it)."""
+    for key, value in optional.items():
+        if value:
+            payload[key] = value
+    return payload
+
+
 def make_question_storage(case_id, session_id, question):
-    """Build the ethical_question TemporaryRDFStorage row (not added/committed)."""
+    """Build the ethical_question TemporaryRDFStorage row (not added/committed).
+
+    Implicit questions carry ``groundingFact`` (the verbatim facts sentence the
+    premise rests on, case 8 review lesson L5) when the analyzer supplied one."""
     return TemporaryRDFStorage(
         case_id=case_id,
         extraction_session_id=session_id,
@@ -42,7 +54,7 @@ def make_question_storage(case_id, session_id, question):
         entity_label=f"Question_{question['question_number']}",
         entity_definition=question['question_text'],
         extraction_model=_qc_model(),
-        rdf_json_ld={
+        rdf_json_ld=_with_optional({
             '@type': 'proeth-case:EthicalQuestion',
             'questionNumber': question['question_number'],
             'questionText': question['question_text'],
@@ -56,13 +68,16 @@ def make_question_storage(case_id, session_id, question):
             # forcing the Q&C view onto a number-offset parent heuristic.
             'sourceQuestion': question.get('source_question'),
             'ethicalFramework': question.get('ethical_framework')
-        },
+        }, groundingFact=question.get('grounding_fact')),
         is_selected=True
     )
 
 
 def make_conclusion_storage(case_id, session_id, conclusion):
-    """Build the ethical_conclusion TemporaryRDFStorage row (not added/committed)."""
+    """Build the ethical_conclusion TemporaryRDFStorage row (not added/committed).
+
+    Analytical extensions that report the Board carry ``discussionQuote`` (the
+    verbatim span being reported, case 8 review lesson L5) when supplied."""
     return TemporaryRDFStorage(
         case_id=case_id,
         extraction_session_id=session_id,
@@ -72,7 +87,7 @@ def make_conclusion_storage(case_id, session_id, conclusion):
         entity_label=f"Conclusion_{conclusion['conclusion_number']}",
         entity_definition=conclusion['conclusion_text'],
         extraction_model=_qc_model(),
-        rdf_json_ld={
+        rdf_json_ld=_with_optional({
             '@type': 'proeth-case:EthicalConclusion',
             'conclusionNumber': conclusion['conclusion_number'],
             'conclusionText': conclusion['conclusion_text'],
@@ -87,6 +102,6 @@ def make_conclusion_storage(case_id, session_id, conclusion):
             'citedProvisions': conclusion.get('cited_provisions', []),
             'answersQuestions': conclusion.get('answers_questions', []),
             'extractionReasoning': conclusion.get('extraction_reasoning', '')
-        },
+        }, discussionQuote=conclusion.get('discussion_quote')),
         is_selected=True
     )

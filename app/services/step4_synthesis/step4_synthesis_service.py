@@ -443,11 +443,17 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
                 {
                     'label': e.entity_label,
                     'definition': e.entity_definition or '',
-                    'uri': e.rdf_json_ld.get('@id', '') if e.rdf_json_ld else ''
+                    'uri': e.rdf_json_ld.get('@id', '') if e.rdf_json_ld else '',
+                    # The agent of a Step-3 action (proeth:hasAgent), so the
+                    # linker can tell the engineer's actions from the client's
+                    # (case 8 review, lesson L8).
+                    'agent': agent_of_row(e),
                 }
                 for e in entities
             ]
 
+        from app.services.provision.code_provision_linker import (
+            build_provision_link_context, agent_of_row)
         provisions = linker.link_provisions_to_entities(
             provisions,
             roles=format_entities(all_entities.get('roles', [])),
@@ -459,7 +465,11 @@ def _run_provisions(case_id: int, llm_client, get_all_case_entities) -> dict:
             capabilities=format_entities(all_entities.get('capabilities', [])),
             actions=format_entities(all_entities.get('actions', [])),
             events=format_entities(all_entities.get('events', [])),
-            case_text_summary=f"Case {case_id}: {case.title}"
+            # Title plus the Board conclusions and the Discussion: the linker
+            # received only "Case 8: <title>" and read the first-phase silence
+            # as a violation against the holding (lesson L8).
+            case_text_summary=build_provision_link_context(
+                f"Case {case_id}: {case.title}", sections_dual),
         )
 
         total_links = sum(len(p.get('applies_to', [])) for p in provisions)
@@ -696,6 +706,7 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         questions_text = ""
         conclusions_text = ""
         facts_text = ""
+        discussion_text = ""
         if case.doc_metadata and 'sections_dual' in case.doc_metadata:
             sections = case.doc_metadata['sections_dual']
             if 'question' in sections:
@@ -707,6 +718,9 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             if 'facts' in sections:
                 f_data = sections['facts']
                 facts_text = f_data.get('text', '') if isinstance(f_data, dict) else str(f_data)
+            if 'discussion' in sections:
+                d_data = sections['discussion']
+                discussion_text = d_data.get('text', '') if isinstance(d_data, dict) else str(d_data)
 
         # Clear old Q&C
         TemporaryRDFStorage.query.filter_by(
@@ -754,7 +768,10 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
             board_questions=board_questions,
             analytical_questions=analytical_questions,
             case_facts=facts_text,
-            conclusion_items=(case.doc_metadata or {}).get('conclusion_items')
+            conclusion_items=(case.doc_metadata or {}).get('conclusion_items'),
+            # The Discussion is the source a Board-attributed analytical
+            # extension must quote (case 8 review, lesson L5).
+            case_discussion=discussion_text,
         )
 
         # Flatten all conclusion types
@@ -787,48 +804,18 @@ def _run_qc_unified(case_id: int, llm_client, get_all_case_entities) -> dict:
         db.session.commit()
         logger.info(f"[Step4Synthesis] Stored {len(questions)} questions and {len(conclusions)} conclusions")
 
-        # Save ExtractionPrompts for UI display
+        # Save ExtractionPrompts for UI display: the question analyzer, the
+        # conclusion analyzer AND the question-conclusion linker (concept_type
+        # qc_link), whole text (case 8 review, lesson L6).
         try:
-            q_prompt_text = getattr(question_analyzer, 'last_prompt', None) or f'LLM extraction of {len(questions)} questions'
-            q_response_text = getattr(question_analyzer, 'last_response', None) or ''
-
-            questions_prompt = ExtractionPrompt(
-                case_id=case_id,
-                concept_type='ethical_question',
-                step_number=4,
-                section_type='synthesis',
-                prompt_text=q_prompt_text if q_prompt_text else 'Question extraction',
-                llm_model=ModelConfig.get_claude_model("default"),
-                extraction_session_id=session_id,
-                raw_response=q_response_text if q_response_text else '',
-                results_summary=json.dumps({
-                    'total': len(questions),
-                    'board_explicit': board_q_count,
-                    'analytical': len(questions) - board_q_count
-                })
-            )
-            db.session.add(questions_prompt)
-
-            c_prompt_text = getattr(conclusion_analyzer, 'last_prompt', None) or f'LLM extraction of {len(conclusions)} conclusions'
-            c_response_text = getattr(conclusion_analyzer, 'last_response', None) or ''
-
-            conclusions_prompt = ExtractionPrompt(
-                case_id=case_id,
-                concept_type='ethical_conclusion',
-                step_number=4,
-                section_type='synthesis',
-                prompt_text=c_prompt_text if c_prompt_text else 'Conclusion extraction',
-                llm_model=ModelConfig.get_claude_model("default"),
-                extraction_session_id=session_id,
-                raw_response=c_response_text if c_response_text else '',
-                results_summary=json.dumps({
-                    'total': len(conclusions),
-                    'board_explicit': board_c_count,
-                    'analytical': len(conclusions) - board_c_count,
-                    'qc_links': len(qc_links)
-                })
-            )
-            db.session.add(conclusions_prompt)
+            from app.services.step4_synthesis.qc_prompt_rows import build_qc_prompt_rows
+            for row in build_qc_prompt_rows(
+                    case_id, session_id, question_analyzer, conclusion_analyzer, linker,
+                    questions_total=len(questions), conclusions_total=len(conclusions),
+                    board_q_count=board_q_count, board_c_count=board_c_count,
+                    qc_links_count=len(qc_links),
+                    llm_model=ModelConfig.get_claude_model("default")):
+                db.session.add(row)
             db.session.commit()
             logger.info(f"[Step4Synthesis] Saved Q&C ExtractionPrompts with LLM prompts")
         except Exception as e:
@@ -975,9 +962,18 @@ def _run_rich_analysis(case_id: int, llm_client) -> dict:
         causal_links = analyzer.analyze_causal_normative_links(foundation, llm_traces)
         logger.info(f"[Step4Synthesis] Causal links: {len(causal_links)}")
 
+        # The Facts section rides along with every emergence batch so the
+        # chronology comes from the case, not from labels (lesson L5).
+        facts_text = ""
+        sections = (case.doc_metadata or {}).get('sections_dual', {}) or {}
+        if 'facts' in sections:
+            f_data = sections['facts']
+            facts_text = f_data.get('text', '') if isinstance(f_data, dict) else str(f_data)
+
         question_emergence = []
         for i, q in enumerate(questions):
-            batch_results = analyzer.analyze_question_batch([q], foundation, llm_traces, i)
+            batch_results = analyzer.analyze_question_batch(
+                [q], foundation, llm_traces, i, facts_text=facts_text)
             question_emergence.extend(batch_results)
         logger.info(f"[Step4Synthesis] Question emergence: {len(question_emergence)}")
 

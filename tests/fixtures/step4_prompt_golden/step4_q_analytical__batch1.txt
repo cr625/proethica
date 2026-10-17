@@ -50,6 +50,10 @@ Generate analytical questions that deepen understanding beyond the Board's expli
 1. **IMPLICIT QUESTIONS**: An analytical question the case raises but the Board did not explicitly ask, surfaced from the case facts and extracted entities.
    - What ethical issues lurk beneath the surface?
    - What questions should have been asked?
+   - GROUNDING: every implicit question MUST carry a "grounding_fact" field quoting,
+     verbatim, the sentence or clause of the CASE FACTS its premise rests on. A question
+     whose premise the facts do not state (or contradict) is not an implicit question of
+     this case and must not be emitted; a question without the quote is discarded.
 
 2. **PRINCIPLE TENSIONS**: An analytical question identifying a conflict between extracted principles or asking how such a conflict is to be balanced in the case.
    - "Does [Principle X] conflict with [Principle Y]?"
@@ -82,7 +86,8 @@ Generate analytical questions that deepen understanding beyond the Board's expli
       "question_text": "Should Engineer A have disclosed the conflict earlier?",
       "mentioned_entities": {"roles": ["Engineer A"]},
       "related_provisions": [],
-      "source_question": 1
+      "source_question": 1,
+      "grounding_fact": "verbatim sentence from the case facts that the question rests on"
     }
   ],
   "principle_tension": [

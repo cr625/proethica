@@ -60,6 +60,11 @@ Generate analytical conclusions that deepen understanding beyond the Board's exp
 1. **ANALYTICAL EXTENSIONS**: Extend the Board's reasoning with additional analysis.
    - What additional considerations apply to the Board's conclusions?
    - What nuances did the Board not address?
+   - ATTRIBUTION: an extension is the analyst's reasoning, not the Board's. Do not write
+     "The Board ..." unless the sentence reports something the Board actually said; in that
+     case add a "discussion_quote" field with the verbatim span of the Discussion or
+     Conclusion being reported. A sentence that opens with "The Board" and carries no
+     quote is discarded.
 
 2. **QUESTION RESPONSES**: Respond to analytical questions the Board didn't address.
    - Answer implicit, theoretical, or counterfactual questions
@@ -85,7 +90,8 @@ Generate analytical conclusions that deepen understanding beyond the Board's exp
       "mentioned_entities": {"roles": ["Engineer A"]},
       "cited_provisions": [],
       "source_conclusion": 1,
-      "related_analytical_questions": []
+      "related_analytical_questions": [],
+      "discussion_quote": null
     }
   ],
   "question_response": [

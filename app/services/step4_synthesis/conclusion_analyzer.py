@@ -75,6 +75,17 @@ class EthicalConclusion:
     # For analytical conclusions
     source_conclusion: Optional[int] = None  # Links to board_explicit conclusion number
     related_analytical_questions: List[int] = field(default_factory=list)  # Analytical questions addressed
+    # Analytical extensions that report the Board: the verbatim Discussion or
+    # Conclusion span being reported (case 8 review, lesson L5).
+    discussion_quote: Optional[str] = None
+
+
+_BOARD_OPENING = re.compile(r'^\W*the\s+board\b', re.IGNORECASE)
+
+
+def attributes_to_board(text: str) -> bool:
+    """Whether a generated sentence opens by speaking for the Board."""
+    return bool(_BOARD_OPENING.match(text or ''))
 
 
 class ConclusionAnalyzer:
@@ -115,7 +126,8 @@ class ConclusionAnalyzer:
         board_questions: List[Dict] = None,
         analytical_questions: List[Dict] = None,
         case_facts: str = "",
-        conclusion_items: List[str] = None
+        conclusion_items: List[str] = None,
+        case_discussion: str = "",
     ) -> Dict[str, Any]:
         """
         Full analytical extraction: Board conclusions + generated analytical conclusions.
@@ -127,6 +139,8 @@ class ConclusionAnalyzer:
             board_questions: Board's explicit questions
             analytical_questions: Generated analytical questions (implicit, theoretical, etc.)
             case_facts: Case facts for context
+            case_discussion: Discussion section text; with the conclusions text it is
+                the source a Board-attributed analytical extension must quote
 
         Returns:
             Dict with conclusion types as keys plus metadata:
@@ -162,13 +176,15 @@ class ConclusionAnalyzer:
 
         # Stage 2: Generate analytical conclusions (always LLM)
         if self.llm_client:
+            board_source = "\n".join(t for t in (case_discussion or "", conclusions_text or "") if t)
             analytical = self._generate_analytical_conclusions(
                 board_conclusions,
                 all_entities,
                 code_provisions,
                 board_questions or [],
                 analytical_questions or [],
-                case_facts
+                case_facts,
+                board_source=board_source,
             )
 
             result[ConclusionType.ANALYTICAL_EXTENSION.value] = analytical.get('analytical_extension', [])
@@ -581,7 +597,8 @@ class ConclusionAnalyzer:
         code_provisions: List[Dict],
         board_questions: List[Dict],
         analytical_questions: List[Dict],
-        case_facts: str
+        case_facts: str,
+        board_source: Optional[str] = None,
     ) -> Dict[str, List[EthicalConclusion]]:
         """Generate analytical conclusions in three focused LLM calls (one per category)."""
         if not self.llm_client:
@@ -614,7 +631,8 @@ class ConclusionAnalyzer:
             else:
                 self.last_prompt = prompt
 
-            batch_result = self._call_analytical_batch(prompt, all_entities, desc)
+            batch_result = self._call_analytical_batch(prompt, all_entities, desc,
+                                                       board_source=board_source)
             for cat in categories:
                 result[cat] = batch_result.get(cat, [])
 
@@ -626,7 +644,8 @@ class ConclusionAnalyzer:
         self,
         prompt: str,
         all_entities: Dict[str, List],
-        desc: str
+        desc: str,
+        board_source: Optional[str] = None,
     ) -> Dict[str, List[EthicalConclusion]]:
         """Execute a single analytical conclusion batch with retries."""
         max_retries = 3
@@ -647,7 +666,8 @@ class ConclusionAnalyzer:
                 else:
                     self.last_response = response_text
 
-                analytical = self._parse_analytical_conclusions_response(response_text, all_entities)
+                analytical = self._parse_analytical_conclusions_response(
+                    response_text, all_entities, board_source=board_source)
 
                 total = sum(len(v) for v in analytical.values())
                 logger.info(f"Batch '{desc}': {total} conclusions")
@@ -778,14 +798,20 @@ class ConclusionAnalyzer:
         if 'analytical_extension' in categories:
             category_blocks.append("""**ANALYTICAL EXTENSIONS**: Extend the Board's reasoning with additional analysis.
    - What additional considerations apply to the Board's conclusions?
-   - What nuances did the Board not address?""")
+   - What nuances did the Board not address?
+   - ATTRIBUTION: an extension is the analyst's reasoning, not the Board's. Do not write
+     "The Board ..." unless the sentence reports something the Board actually said; in that
+     case add a "discussion_quote" field with the verbatim span of the Discussion or
+     Conclusion being reported. A sentence that opens with "The Board" and carries no
+     quote is discarded.""")
             example_blocks.append("""  "analytical_extension": [
     {
       "conclusion_text": "Beyond the Board's finding, Engineer A also demonstrated...",
       "mentioned_entities": {"roles": ["Engineer A"]},
       "cited_provisions": [],
       "source_conclusion": 1,
-      "related_analytical_questions": []
+      "related_analytical_questions": [],
+      "discussion_quote": null
     }
   ]""")
 
@@ -875,9 +901,18 @@ class ConclusionAnalyzer:
     def _parse_analytical_conclusions_response(
         self,
         response_text: str,
-        all_entities: Optional[Dict[str, List]] = None
+        all_entities: Optional[Dict[str, List]] = None,
+        board_source: Optional[str] = None,
     ) -> Dict[str, List[EthicalConclusion]]:
-        """Parse analytical conclusions from LLM response."""
+        """Parse analytical conclusions from LLM response.
+
+        Post-parse attribution check (case 8 review, lesson L5): an
+        analytical_extension sentence that opens with "The Board" is kept only
+        when it carries a ``discussion_quote`` that appears in the Discussion or
+        Conclusion text (``board_source``; when that text is unavailable, the
+        quote only has to be present). Rejections are logged with the reason.
+        Numbering stays dense within each category.
+        """
         result = {
             'analytical_extension': [],
             'question_response': [],
@@ -891,14 +926,30 @@ class ConclusionAnalyzer:
         # Number offsets: analytical_extension=101+, question_response=201+, principle_synthesis=301+
         number_bases = {'analytical_extension': 101, 'question_response': 201, 'principle_synthesis': 301}
 
+        from app.services.step4_synthesis.question_analyzer import quote_appears_in
+
         for category in result.keys():
             base = number_bases.get(category, 1)
-            for idx, c_data in enumerate(json_data.get(category, [])):
+            kept = 0
+            for c_data in json_data.get(category, []):
+                if not isinstance(c_data, dict):
+                    continue
+                text = c_data.get('conclusion_text', '') or ''
+                quote = (c_data.get('discussion_quote') or '').strip() or None
+                if category == 'analytical_extension' and attributes_to_board(text):
+                    if not quote:
+                        logger.info("analytical extension rejected (speaks for the Board without "
+                                    "a quoted discussion span): %r", text[:100])
+                        continue
+                    if board_source and not quote_appears_in(quote, board_source):
+                        logger.info("analytical extension rejected (quoted span not found in the "
+                                    "discussion or conclusion): %r / quote %r", text[:100], quote[:80])
+                        continue
                 mentioned = c_data.get('mentioned_entities', {})
                 resolved_uris = resolve_entity_labels_to_uris(mentioned, all_entities) if all_entities else {}
                 conclusion = EthicalConclusion(
-                    conclusion_number=base + idx,
-                    conclusion_text=c_data.get('conclusion_text', ''),
+                    conclusion_number=base + kept,
+                    conclusion_text=text,
                     conclusion_type=category,
                     mentioned_entities=mentioned,
                     mentioned_entity_uris=resolved_uris,
@@ -906,9 +957,11 @@ class ConclusionAnalyzer:
                     extraction_reasoning='',
                     source=ConclusionSource.LLM_GENERATED.value,
                     source_conclusion=c_data.get('source_conclusion'),
-                    related_analytical_questions=c_data.get('related_analytical_questions', [])
+                    related_analytical_questions=c_data.get('related_analytical_questions', []),
+                    discussion_quote=quote,
                 )
                 result[category].append(conclusion)
+                kept += 1
 
         return result
 
@@ -927,6 +980,7 @@ class ConclusionAnalyzer:
             'answers_questions': c.answers_questions,
             'source_conclusion': c.source_conclusion,
             'related_analytical_questions': c.related_analytical_questions,
+            'discussion_quote': c.discussion_quote,
             'label': f"Conclusion_{c.conclusion_number}"
         }
 
