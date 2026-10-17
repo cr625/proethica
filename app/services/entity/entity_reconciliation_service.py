@@ -453,62 +453,107 @@ class EntityReconciliationService:
             return 'matched_ontology_uri_differs'
         return None
 
+    @staticmethod
+    def _fold_keep(rows: List[TemporaryRDFStorage]) -> TemporaryRDFStorage:
+        """The row a fold set survives as: the first row the matcher linked to an existing
+        class, else the first row. The link and the IRI of the matched row are what the
+        commit honors; merge_entities carries neither over from the row it deletes, so a
+        fold that kept an unmatched row ahead of a matched one lost the link."""
+        for row in rows:
+            if getattr(row, 'matched_ontology_uri', None):
+                return row
+        return rows[0]
+
+    def _fold_link(self, row, labels: set, uris: set) -> Optional[str]:
+        """The basis on which ``row`` joins a kept component, or None when it shares neither a
+        normalized label nor an entity_uri with the rows the component already holds."""
+        norm = self._normalize_label(row.entity_label or '')
+        uri = (row.entity_uri or '').strip()
+        same_label = bool(norm) and norm in labels
+        same_uri = bool(uri) and uri in uris
+        if same_label and same_uri:
+            return 'label+entity_uri'
+        if same_uri:
+            return 'entity_uri'
+        if same_label:
+            return 'label'
+        return None
+
     def _auto_merge_exact_matches(
         self, entities: List[TemporaryRDFStorage], result: ReconciliationResult
     ) -> int:
-        """Merge rows that share a normalized label or an entity_uri within a group, keeping the
-        first row of each fold set. A fold whose two rows are matched to different ontology
-        classes is refused and reported. Every merge is reported as a pair (merged id and
-        label, kept id and surviving label, basis) on ``result`` (L3)."""
+        """Merge rows that share a normalized label or an entity_uri within a group. Each fold
+        set survives as its first matched row (else its first row); a row is folded only when
+        its label or IRI is one the kept component already holds, so a row connected to the
+        kept row through a refused bridge only is not folded into it. A fold whose two rows
+        are matched to different ontology classes is refused and reported, and the refused
+        rows and the rows behind them form fold sets of their own. Every merge is reported
+        as a pair (merged id and label, kept id and surviving label, basis) on ``result`` (L3)."""
         merged_count = 0
         for group in self._exact_match_groups(entities):
-            if len(group) < 2:
-                continue
-
-            # Keep first, merge rest into it
-            keep = group[0]
-            keep_norm = self._normalize_label(keep.entity_label or '')
-            keep_uri = (keep.entity_uri or '').strip()
-            for merge_entity in group[1:]:
-                refusal = self._merge_refusal(keep, merge_entity)
-                if refusal:
-                    result.merge_refusals.append({
-                        'kept_id': keep.id, 'kept_label': keep.entity_label,
-                        'kept_matched_uri': getattr(keep, 'matched_ontology_uri', None),
-                        'refused_id': merge_entity.id, 'refused_label': merge_entity.entity_label,
-                        'refused_matched_uri': getattr(merge_entity, 'matched_ontology_uri', None),
-                        'reason': refusal,
-                    })
-                    logger.info(
-                        "Auto-merge refused: '%s' (id=%s) not folded into '%s' (id=%s): %s",
-                        merge_entity.entity_label, merge_entity.id,
-                        keep.entity_label, keep.id, refusal,
-                    )
-                    continue
-                same_label = bool(keep_norm) and (
-                    self._normalize_label(merge_entity.entity_label or '') == keep_norm)
-                same_uri = bool(keep_uri) and (
-                    (merge_entity.entity_uri or '').strip() == keep_uri)
-                basis = ('label+entity_uri' if same_label and same_uri
-                         else 'entity_uri' if same_uri else 'label')
-                old_label = merge_entity.entity_label
-                try:
-                    merge_result = self.merge_entities(keep.id, merge_entity.id)
-                    if merge_result.get('success'):
-                        merged_count += 1
-                        result.merged_pairs.append({
-                            'merged_id': merge_entity.id, 'merged_label': old_label,
-                            'kept_id': keep.id, 'surviving_label': keep.entity_label,
-                            'basis': basis,
-                        })
-                    else:
-                        result.errors.append(
-                            f"Failed to auto-merge '{old_label}' "
-                            f"into '{keep.entity_label}': {merge_result.get('error', '')}"
-                        )
-                except Exception as e:
-                    result.errors.append(str(e))
-                    logger.error(f"Auto-merge error: {e}", exc_info=True)
+            pending = list(group)
+            while len(pending) >= 2:
+                keep = self._fold_keep(pending)
+                pending.remove(keep)
+                labels = {self._normalize_label(keep.entity_label or '')} - {''}
+                uris = {(keep.entity_uri or '').strip()} - {''}
+                remainder: List[TemporaryRDFStorage] = []
+                progress = True
+                while pending and progress:
+                    progress = False
+                    for merge_entity in list(pending):
+                        basis = self._fold_link(merge_entity, labels, uris)
+                        if basis is None:
+                            continue
+                        pending.remove(merge_entity)
+                        refusal = self._merge_refusal(keep, merge_entity)
+                        if refusal:
+                            result.merge_refusals.append({
+                                'kept_id': keep.id, 'kept_label': keep.entity_label,
+                                'kept_matched_uri': getattr(keep, 'matched_ontology_uri', None),
+                                'refused_id': merge_entity.id,
+                                'refused_label': merge_entity.entity_label,
+                                'refused_matched_uri': getattr(
+                                    merge_entity, 'matched_ontology_uri', None),
+                                'reason': refusal,
+                            })
+                            logger.info(
+                                "Auto-merge refused: '%s' (id=%s) not folded into '%s' (id=%s): %s",
+                                merge_entity.entity_label, merge_entity.id,
+                                keep.entity_label, keep.id, refusal,
+                            )
+                            remainder.append(merge_entity)
+                            continue
+                        old_label = merge_entity.entity_label
+                        old_norm = self._normalize_label(old_label or '')
+                        old_uri = (merge_entity.entity_uri or '').strip()
+                        try:
+                            merge_result = self.merge_entities(keep.id, merge_entity.id)
+                            if merge_result.get('success'):
+                                merged_count += 1
+                                result.merged_pairs.append({
+                                    'merged_id': merge_entity.id, 'merged_label': old_label,
+                                    'kept_id': keep.id, 'surviving_label': keep.entity_label,
+                                    'basis': basis,
+                                })
+                                if old_norm:
+                                    labels.add(old_norm)
+                                if old_uri:
+                                    uris.add(old_uri)
+                                progress = True
+                            else:
+                                result.errors.append(
+                                    f"Failed to auto-merge '{old_label}' "
+                                    f"into '{keep.entity_label}': {merge_result.get('error', '')}"
+                                )
+                        except Exception as e:
+                            result.errors.append(str(e))
+                            logger.error(f"Auto-merge error: {e}", exc_info=True)
+                # The refused rows and the rows with no direct link to the kept component are
+                # folded among themselves in the next round (a refused bridge must not carry
+                # the rows behind it into the kept row).
+                remainder.extend(pending)
+                pending = remainder
 
         return merged_count
 
@@ -1062,9 +1107,10 @@ class EntityReconciliationService:
 
         if action == 'generalize':
             # The original class is named by the row's IRI, by its label (minted the same way,
-            # but a merged row may carry another IRI) and by its matched class.
-            from app.services.extraction.domain_config import sanitize
-            bases = (entity.entity_uri, sanitize(entity.entity_label or ''), matched)
+            # with the sanitizer storage mints IRIs with, but a merged row may carry another
+            # IRI) and by its matched class.
+            from app.services.commit import naming
+            bases = (entity.entity_uri, naming.safe_local_name(entity.entity_label or ''), matched)
             for base in bases:
                 if base and _cr.is_strict_subclass(new_uri, base):
                     return ('generalize_to_specialization',
@@ -1160,9 +1206,12 @@ class EntityReconciliationService:
         """Rewrite individual rdf:type references (rdf_json_ld['types']) through a
         class-rename map {old_class_uri -> new_class_uri}, so the committed case TTL types
         each individual to the canonical class rather than the original compound. An
-        individual whose own match decision names an existing class is never repointed: its
-        type is that matched_uri, which the commit honors (L4). Returns (rows changed, rows
-        protected), both computed even when write=False, for dry-run."""
+        individual whose own match decision names an existing class is never repointed away
+        from that class (L4); a rename onto its matched class is applied, since the class row
+        it types to was itself moved onto that class (a below-band match the canonicalizer
+        reused), and leaving the individual on the old IRI would type it to a class no row
+        holds. Returns (rows changed, rows protected), both computed even when write=False,
+        for dry-run."""
         if not rename_map:
             return 0, 0
         changed = 0
@@ -1175,12 +1224,13 @@ class EntityReconciliationService:
             new_types = [rename_map.get(t, t) for t in types]
             if new_types == types:
                 continue
-            if self._individual_names_existing_class(e):
+            matched = self._row_matched_uri(e) if self._individual_names_existing_class(e) else None
+            if matched and any(nt != t and not _same_class(nt, matched)
+                               for t, nt in zip(types, new_types)):
                 protected += 1
                 logger.info(
                     "Rename map not applied to individual '%s' (id=%s): its match decision "
-                    "names existing class %s", e.entity_label, e.id,
-                    self._row_matched_uri(e))
+                    "names existing class %s", e.entity_label, e.id, matched)
                 continue
             changed += 1
             if write:
