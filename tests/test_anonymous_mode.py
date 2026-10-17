@@ -75,6 +75,14 @@ def test_disabled_by_default_in_tests(client):
     assert resp.status_code == 200
 
 
+def test_config_default_is_not_anonymous():
+    """The AAAI-27 requirement concluded; an unconfigured deployment serves
+    content. The flag remains an opt-in for a future review window."""
+    from config import Config
+
+    assert Config.ANONYMOUS_MODE is False
+
+
 def test_flag_restores_content(app):
     """Restoration is a single toggle; the camera-ready path must stay working."""
     app.config['ANONYMOUS_MODE'] = False

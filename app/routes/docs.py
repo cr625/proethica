@@ -18,13 +18,13 @@ ANONYMOUS_WITHHELD_PREFIXES = ('papers',)
 @docs_bp.route('/<path:path>')
 def index(path='index.html'):
     """Serve documentation static files"""
-    if not DOCS_DIR.exists():
-        abort(404, description="Documentation not built. Run 'mkdocs build' first.")
-
-    if current_app.config.get('ANONYMOUS_MODE', True):
+    if current_app.config.get('ANONYMOUS_MODE', False):
         normalized = path.lstrip('/')
         if normalized.startswith(ANONYMOUS_WITHHELD_PREFIXES):
             return render_template('withheld.html'), 404
+
+    if not DOCS_DIR.exists():
+        abort(404, description="Documentation not built. Run 'mkdocs build' first.")
 
     # Handle clean URLs
     if path and not any(path.endswith(ext) for ext in ['.html', '.css', '.js', '.png', '.jpg', '.svg', '.woff', '.woff2', '.ico', '.json', '.xml', '.pdf']):

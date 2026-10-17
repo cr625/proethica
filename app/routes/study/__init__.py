@@ -54,7 +54,7 @@ def _withhold_during_anonymous_review():
     depends on these routes. See config.ANONYMOUS_MODE.
     """
     from flask import current_app, render_template
-    if current_app.config.get('ANONYMOUS_MODE', True):
+    if current_app.config.get('ANONYMOUS_MODE', False):
         return render_template('withheld.html'), 404
 
 

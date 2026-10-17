@@ -71,19 +71,19 @@ class Config:
     # Monitoring settings
     MONITOR_ENABLED = os.environ.get('MONITOR_ENABLED', 'true').lower() == 'true'
 
-    # Double-blind anonymization for the AAAI-27 review window (submission
-    # through final notification 2026-11-30). When true, the surfaces that name
-    # the authors or their institution are withheld: the /demo landing page, the
-    # documentation publications section, the validation-study consent
-    # documents, and the source-repository and contact links in the footer.
-    # System behavior, case content, and the ProEthica name are unaffected.
+    # Double-blind anonymization for the AAAI-27 review window. When true, the
+    # surfaces that name the authors or their institution are withheld: the
+    # /demo landing page, the documentation publications section, the
+    # validation-study consent documents, and the source-repository and
+    # contact links in the footer. System behavior, case content, and the
+    # ProEthica name are unaffected.
     #
-    # Defaults to true so that an unconfigured deployment stays anonymous; the
-    # failure mode of a forgotten environment variable is a withheld page rather
-    # than a broken double-blind. Restoration at camera-ready is a single
-    # toggle: set ANONYMOUS_MODE=false. Items that could not be flag-gated are
-    # listed in docs-internal/anonymization-restore-2026-07.md.
-    ANONYMOUS_MODE = os.environ.get('ANONYMOUS_MODE', 'true').lower() == 'true'
+    # The review concluded in October 2026 and the requirement no longer
+    # applies, so the default is false. The flag is retained as an opt-in for
+    # a future review window: set ANONYMOUS_MODE=true to withhold again.
+    # Static items that could not be flag-gated are listed in
+    # docs-internal/anonymization-restore-2026-07.md and were not restored.
+    ANONYMOUS_MODE = os.environ.get('ANONYMOUS_MODE', 'false').lower() == 'true'
 
 
 class DevelopmentConfig(Config):

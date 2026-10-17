@@ -121,7 +121,7 @@ def demo():
         Rendered demo template with video, docs links, and references, or a
         neutral withheld-content notice under ANONYMOUS_MODE
     """
-    if current_app.config.get('ANONYMOUS_MODE', True):
+    if current_app.config.get('ANONYMOUS_MODE', False):
         return render_template('withheld.html'), 404
     return render_template('demo.html')
 
