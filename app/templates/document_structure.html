@@ -19,7 +19,9 @@
         <ul class="toc-list">
             <li><a href="#document-info" class="toc-link">Document Information</a></li>
             <li><a href="#section-embeddings" class="toc-link">Section Embeddings</a></li>
+            {% if show_term_links %}
             <li><a href="#term-links" class="toc-link">Ontology Term Links</a></li>
+            {% endif %}
             <li><a href="#structure-triples" class="toc-link">Structure Triples</a></li>
         </ul>
     </div>
@@ -197,7 +199,9 @@
 
 
 
-    <!-- Ontology Term Links Information -->
+    <!-- Ontology Term Links Information: legacy layer, superseded by the entity
+         popovers once the case has a committed ontology in OntServe -->
+    {% if show_term_links %}
     <div id="term-links" class="card mb-4">
         <div class="card-header bg-success text-white">
             <h3>Ontology Term Links</h3>
@@ -289,6 +293,7 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 
     {% if structure_triples %}
     <div id="structure-triples" class="card mb-4">

@@ -23,6 +23,44 @@ from app.services.ttl_triple_association.section_triple_association_storage impo
 logger = logging.getLogger(__name__)
 
 
+def term_links_context(document_id):
+    """
+    Template context for the Ontology Term Links card.
+
+    Section term links are the pre-ontology annotation layer (2025 word-level
+    links into engineering-ethics URIs that no current ontology declares).
+    Once a case has a committed ontology in OntServe, the entity popovers of
+    the case page supersede them, so the card renders only while no committed
+    case ontology exists. The rows stay in the table.
+    """
+    from app.services.entity.committed_case_graph import committed_case_exists
+
+    try:
+        show_term_links = not committed_case_exists(document_id)
+    except Exception as e:
+        logger.warning(f"Could not check the committed ontology for document {document_id}: {e}")
+        show_term_links = True
+
+    has_term_links = False
+    section_term_links = None
+    if show_term_links:
+        try:
+            document_term_links = SectionTermLink.get_document_term_links(document_id)
+            if document_term_links:
+                has_term_links = True
+                section_term_links = document_term_links
+                total_term_links = sum(len(links) for links in document_term_links.values())
+                logger.info(f"Loaded {total_term_links} term links across {len(document_term_links)} sections")
+        except Exception as e:
+            logger.warning(f"Error loading term links: {str(e)}")
+
+    return {
+        'show_term_links': show_term_links,
+        'has_term_links': has_term_links,
+        'section_term_links': section_term_links,
+    }
+
+
 def register_view_routes(bp):
     @bp.route('/view/<int:id>', methods=['GET'])
     def view_structure(id):
@@ -242,21 +280,8 @@ def register_view_routes(bp):
             current_app.logger.warning(f"Error loading section-triple associations: {str(e)}")
 
 
-        # Check for ontology term links
-        has_term_links = False
-        section_term_links = None
-    
-        try:
-            # Get term links for this document
-            document_term_links = SectionTermLink.get_document_term_links(id)
-        
-            if document_term_links:
-                has_term_links = True
-                section_term_links = document_term_links
-                total_term_links = sum(len(links) for links in document_term_links.values())
-                current_app.logger.info(f"Loaded {total_term_links} term links across {len(document_term_links)} sections")
-        except Exception as e:
-            current_app.logger.warning(f"Error loading term links: {str(e)}")
+        # Ontology term links: legacy layer, shown only without a committed case ontology
+        term_links = term_links_context(id)
 
         # Format structure triples if available
         structured_triples_data = None
@@ -284,8 +309,9 @@ def register_view_routes(bp):
                               section_guideline_associations=section_guideline_associations,
                               has_triple_associations=has_triple_associations,
                               section_triple_associations=section_triple_associations,
-                              has_term_links=has_term_links,
-                              section_term_links=section_term_links,
+                              show_term_links=term_links['show_term_links'],
+                              has_term_links=term_links['has_term_links'],
+                              section_term_links=term_links['section_term_links'],
                               debug_info=debug_info,
                               no_cache=no_cache)
     @bp.route('/generate_structure/<int:id>', methods=['POST'])
