@@ -119,79 +119,53 @@ def _get_gemini_client_if_enabled() -> Optional[Any]:
 
 
 def get_llm_client():
+    """Return a raw vendor SDK client, constructed through the adapters.
+
+    Retained for its existing call sites, which inject the client into
+    protocol-routed services. Construction (key resolution order aside)
+    delegates to the provider adapters in app/services/llm, so timeout and
+    client setup live in one place. Anthropic is preferred, matching the
+    historical order; the OpenAI fallback no longer verifies the key with
+    a models call at construction time.
     """
-    Get an LLM client based on configuration.
-    
-    Returns:
-        An LLM client (Anthropic or OpenAI)
-    """
-    # First check for Anthropic
+    from model_config import ModelConfig
+
     try:
+        app_config = current_app.config
+    except RuntimeError:
+        app_config = {}
+
+    anthropic_key = app_config.get('ANTHROPIC_API_KEY') or os.getenv('ANTHROPIC_API_KEY')
+    if anthropic_key:
         import anthropic
-        api_key = current_app.config.get('ANTHROPIC_API_KEY') or os.getenv('ANTHROPIC_API_KEY')
-        if api_key:
-            # Determine Anthropic API version using multiple methods for reliability
-            try:
-                try:
-                    anthropic_version = importlib.metadata.version("anthropic")
-                except Exception:
-                    anthropic_version = "unknown"
-                        
-                client = anthropic.Anthropic(api_key=api_key, timeout=180.0)
-                
-                # Add version info to client for easier compatibility checks
-                # Current version structure:
-                # <0.5.0 = very old API
-                # 0.5x.x = newer messages API
-                # >1.0 = likely future unified API
-                if hasattr(client, 'chat') and hasattr(client.chat, 'completions'):
-                    client.api_version = "v2"  # New unified API with chat.completions
-                elif hasattr(client, 'messages') and hasattr(client.messages, 'create'):
-                    client.api_version = "v1.5"  # Messages API (0.5x.x)
-                elif hasattr(client, 'completion'):
-                    client.api_version = "v1"  # Old API
-                else:
-                    client.api_version = "unknown"
-                
-                # Detect available models
-                try:
-                    if client.api_version == "v2" and hasattr(client, 'models'):
-                        models = client.models.list()
-                        available_models = [model.id for model in models.data]
-                        client.available_models = available_models
-                    else:
-                        # Default models
-                        from model_config import ModelConfig
-                        client.available_models = [ModelConfig.CLAUDE_MODELS["sonnet-4.6"], ModelConfig.CLAUDE_MODELS["opus-4.6"], ModelConfig.CLAUDE_MODELS["haiku-4.5"]]
-                except Exception:
-                    # Fallback if models check fails
-                    from model_config import ModelConfig
-                    preferred_model = ModelConfig.get_default_model()
-                    client.available_models = [preferred_model, ModelConfig.CLAUDE_MODELS["sonnet-4.6"], ModelConfig.CLAUDE_MODELS["opus-4.6"]]
-                    
-                model_list = ", ".join(client.available_models[:3]) + ("..." if len(client.available_models) > 3 else "")
-                logger.info("Initialized Anthropic client version %s (%s) with models: %s", anthropic_version, client.api_version, model_list)
-                return client
-            except Exception as e:
-                logger.warning("Error setting up Anthropic client: %s", e)
-                raise
-    except (ImportError, Exception) as e:
-        logger.warning("Failed to initialize Anthropic: %s", e)
-    
-    # If Anthropic failed, try OpenAI
-    try:
+
+        from app.services.llm.factory import get_provider
+
+        raw = anthropic.Anthropic(api_key=anthropic_key, timeout=180.0)
+        client = get_provider(
+            f"anthropic:{ModelConfig.get_tier_model('default')}", client=raw).client
+        client.api_version = "v1.5" if hasattr(client, 'messages') else "unknown"
+        client.available_models = [
+            ModelConfig.get_tier_model('default'),
+            ModelConfig.get_tier_model('powerful'),
+            ModelConfig.get_tier_model('fast'),
+        ]
+        logger.info("Initialized Anthropic client with models: %s",
+                    ", ".join(client.available_models))
+        return client
+
+    openai_key = app_config.get('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEY')
+    if openai_key:
         import openai
-        api_key = current_app.config.get('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEY')
-        if api_key:
-            client = openai.OpenAI(api_key=api_key)
-            # Test with a simple request to make sure it's configured correctly
-            models = client.models.list()
-            return client
-    except (ImportError, Exception) as e:
-        logger.warning("Failed to initialize OpenAI: %s", e)
-    
-    # If both failed, raise an exception
+
+        from app.services.llm.factory import get_provider
+
+        raw = openai.OpenAI(api_key=openai_key)
+        return get_provider(
+            f"openai:{ModelConfig.get_openai_model('chat')}", client=raw).client
+
     raise RuntimeError("No LLM client available. Please set up Anthropic or OpenAI API keys.")
+
 
 def get_embedding_client():
     """
