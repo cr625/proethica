@@ -8,9 +8,9 @@ writes, the clear resets, and the page helper reads the latest
 classification. No database: models and sessions are patched.
 """
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from app.models.case_precedent_features import CasePrecedentFeatures
 from app.services.precedent import phase4_connector
 from app.services.precedent.phase4_connector import update_precedent_features_from_phase4
 from app.routes.precedents.helpers import _resolve_transformation_type
@@ -19,7 +19,10 @@ from app.services.step4_synthesis import step4_synthesis_service
 
 
 def _stale_features():
-    return SimpleNamespace(
+    # A transient ORM instance (never added to a session): the connector flags the
+    # extraction_metadata column modified after its in-place edit, which needs the
+    # instance state a plain namespace lacks.
+    return CasePrecedentFeatures(
         case_id=8, transformation_type='stalemate', transformation_pattern='old pattern',
         principle_tensions=None, obligation_conflicts=None, cited_case_numbers=None,
         cited_case_ids=None, extracted_at=None, extraction_method=None, llm_model_used=None,

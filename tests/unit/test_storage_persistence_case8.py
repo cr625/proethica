@@ -344,7 +344,9 @@ def test_phase4_connector_rewrites_metadata_on_rerun():
 
     with patch.object(p4.CasePrecedentFeatures, "query", query), \
          patch.object(p4, "db") as fake_db, \
-         patch.object(p4.ModelConfig, "get_claude_model", return_value="test-model"):
+         patch.object(p4.ModelConfig, "get_claude_model", return_value="test-model"), \
+         patch("app.services.precedent.case_feature_extractor.board_outcome_for_case",
+               return_value=None):
         assert p4.update_precedent_features_from_phase4(8, narrative_elements=narrative) is True
 
     fake_db.session.commit.assert_called_once()
