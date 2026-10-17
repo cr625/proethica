@@ -10,6 +10,9 @@ References:
 """
 
 from datetime import datetime
+
+from sqlalchemy.ext.mutable import MutableDict
+
 from app.models import db
 
 try:
@@ -63,7 +66,10 @@ class CasePrecedentFeatures(db.Model):
     extracted_at = db.Column(db.DateTime, default=datetime.utcnow)
     extraction_method = db.Column(db.String(50))  # 'automatic', 'manual', 'llm_enhanced'
     llm_model_used = db.Column(db.String(100))
-    extraction_metadata = db.Column(db.JSON)
+    # MutableDict: the Phase 4 connector edits this dict in place and reassigns the same
+    # object, which a plain JSON column never writes back (only the first write from NULL
+    # persisted, leaving phase4_connected_at months behind extracted_at).
+    extraction_metadata = db.Column(MutableDict.as_mutable(db.JSON))
 
     # Relationship to Document
     case = db.relationship('Document', backref=db.backref('precedent_features', uselist=False))

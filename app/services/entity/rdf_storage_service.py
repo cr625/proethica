@@ -15,6 +15,8 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.models import db, ExtractionPrompt
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 
@@ -88,20 +90,29 @@ def store_extraction_results(
             f"for case {case_id} section_type={section_type}"
         )
 
+    # Every storage-time merge and every designator-guard refusal is named in the PROV
+    # tables at the end of the pass (the case 24-1 review found an individual silently
+    # folded into a class row with only a logger line to show for it).
+    merge_records = []
+    guard_refusals = []
+
     # Store new classes with merge detection
     for class_info in rdf_data.get('new_classes', []):
         clean_class_info = _clean_json_data(class_info)
         match_decision = class_info.get('match_decision', {})
 
+        trace = {}
         existing = _find_existing_entity(
             case_id, class_info['label'], extraction_type.capitalize(), extraction_session_id,
-            definition=class_info.get('definition'),
+            definition=class_info.get('definition'), storage_type='class', trace=trace,
         )
+        guard_refusals.extend(trace.get('guard_refusals', []))
 
         if existing:
             _merge_into_existing(existing, clean_class_info, section_type)
             created_entities.append(existing)
             merged_count += 1
+            merge_records.append(_merge_record(class_info['label'], 'class', existing, trace))
             logger.info(f"Merged class '{class_info['label']}' from {section_type} into existing entity")
         else:
             clean_class_info['section_sources'] = [section_type]
@@ -138,15 +149,18 @@ def store_extraction_results(
         clean_indiv_info = _clean_json_data(indiv_info)
         match_decision = indiv_info.get('match_decision', {})
 
+        trace = {}
         existing = _find_existing_entity(
             case_id, indiv_info['label'], extraction_type.capitalize(), extraction_session_id,
-            definition=indiv_info.get('definition'),
+            definition=indiv_info.get('definition'), storage_type='individual', trace=trace,
         )
+        guard_refusals.extend(trace.get('guard_refusals', []))
 
         if existing:
             _merge_into_existing(existing, clean_indiv_info, section_type)
             created_entities.append(existing)
             merged_count += 1
+            merge_records.append(_merge_record(indiv_info['label'], 'individual', existing, trace))
             logger.info(f"Merged individual '{indiv_info['label']}' from {section_type} into existing entity")
         else:
             clean_indiv_info['section_sources'] = [section_type]
@@ -180,7 +194,40 @@ def store_extraction_results(
             created_entities.append(entity)
 
     logger.info(f"Stored {len(created_entities)} {extraction_type} entities ({merged_count} merged from other sections)")
+
+    if merge_records or guard_refusals:
+        _record_storage_provenance(
+            case_id, extraction_session_id, extraction_type, section_type,
+            merge_records, guard_refusals,
+        )
     return created_entities
+
+
+def storage_summary(
+    case_id: int, extraction_session_id: str, extraction_type: str,
+    extracted_classes: int, extracted_individuals: int,
+) -> dict:
+    """The results_summary for an extraction prompt, computed AFTER storage from the rows the
+    session actually stored. ``classes``/``individuals`` are the extracted counts, ``stored_*``
+    the rows created under this session, and ``merged_into_existing`` the difference: entities
+    folded into a row from another pass (exact label or semantic dedup) instead of becoming a
+    row of their own. The provenance card can then explain an extracted-versus-stored gap
+    instead of showing two numbers that disagree."""
+    rows = TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        TemporaryRDFStorage.extraction_session_id == extraction_session_id,
+        TemporaryRDFStorage.extraction_type == extraction_type,
+    ).all()
+    stored_classes = sum(1 for r in rows if r.storage_type == 'class')
+    stored_individuals = sum(1 for r in rows if r.storage_type == 'individual')
+    return {
+        'classes': extracted_classes,
+        'individuals': extracted_individuals,
+        'stored_classes': stored_classes,
+        'stored_individuals': stored_individuals,
+        'merged_into_existing': max(
+            0, extracted_classes + extracted_individuals - stored_classes - stored_individuals),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -236,30 +283,58 @@ def _label_designators(label) -> frozenset:
 def _find_semantic_match(
     case_id: int, label: str, definition, entity_type: str,
     threshold: float = _DEDUP_THRESHOLD,
+    storage_type: Optional[str] = None,
+    trace: Optional[dict] = None,
 ) -> Optional[TemporaryRDFStorage]:
-    """The best existing same-case, same-type, unpublished entity whose (label+definition) embedding
-    cosine to the new entity is >= threshold, else None. Catches the same concept paraphrased across
-    the facts and discussion passes that the exact-label merge misses (the over-split problem). The
-    high threshold plus same-type scoping favors leaving a duplicate over fusing two genuinely
-    distinct concepts; survivors stay deletable in review. Labels whose citation designators
-    differ are NEVER merged (_DESIGNATOR_RE). Best-effort: any embedding failure returns
-    None (no merge) and never blocks storage."""
+    """The best existing same-case, same-type, same-storage-type, unpublished entity whose
+    (label+definition) embedding cosine to the new entity is >= threshold, else None. Catches the
+    same concept paraphrased across the facts and discussion passes that the exact-label merge
+    misses (the over-split problem). The high threshold plus same-type scoping favors leaving a
+    duplicate over fusing two genuinely distinct concepts; survivors stay deletable in review.
+    Labels whose citation designators differ are NEVER merged (_DESIGNATOR_RE).
+
+    ``storage_type`` ('class' | 'individual') scopes the candidates: a class row never absorbs an
+    individual and an individual never absorbs a class row. Without it the role individual
+    "Community Affected Public" (case 24-1, facts pass) matched the CLASS row "Affected Community"
+    at cos 0.893 and vanished into it. ``trace``, when given, receives ``method``/``cosine`` for a
+    match and ``guard_refusals`` (candidates above the threshold kept apart by the designator
+    guard, with the candidate row id) so the caller can record them in provenance.
+
+    Best-effort: any embedding failure returns None (no merge) and never blocks storage."""
     try:
         from app.services.embedding.similarity_utils import cosine_similarity_list
         new_emb = list(_embed_text(_entity_text(label, definition)))
         new_designators = _label_designators(label)
-        candidates = TemporaryRDFStorage.query.filter(
+        clauses = [
             TemporaryRDFStorage.case_id == case_id,
             TemporaryRDFStorage.entity_type == entity_type,
             TemporaryRDFStorage.is_published == False,
-        ).all()
+        ]
+        if storage_type:
+            clauses.append(TemporaryRDFStorage.storage_type == storage_type)
+        candidates = TemporaryRDFStorage.query.filter(*clauses).all()
         best, best_sim = None, threshold
         for cand in candidates:
             if (cand.entity_label or '') == (label or ''):
                 continue  # exact-label is handled before this fallback
+            if storage_type and cand.storage_type != storage_type:
+                continue  # never fuse a class row with an individual (or the reverse)
             cand_designators = _label_designators(cand.entity_label)
             if (new_designators or cand_designators) and new_designators != cand_designators:
-                continue  # different citation identities; never fuse
+                # Different citation identities; never fuse. When tracing, name the pair the
+                # guard kept apart although the cosine would have merged it.
+                if trace is not None:
+                    sim = cosine_similarity_list(
+                        new_emb,
+                        list(_embed_text(_entity_text(cand.entity_label, cand.entity_definition))))
+                    if sim >= threshold:
+                        trace.setdefault('guard_refusals', []).append({
+                            'label': label,
+                            'kept_separate_from': cand.entity_label,
+                            'kept_separate_from_id': cand.id,
+                            'cosine': round(sim, 3),
+                        })
+                continue
             sim = cosine_similarity_list(
                 new_emb, list(_embed_text(_entity_text(cand.entity_label, cand.entity_definition))))
             if sim >= best_sim:
@@ -267,6 +342,9 @@ def _find_semantic_match(
         if best is not None:
             logger.info("semantic dedup: '%s' ~ '%s' (cos=%.3f) -> merge",
                         label, best.entity_label, best_sim)
+            if trace is not None:
+                trace['method'] = 'semantic'
+                trace['cosine'] = round(best_sim, 3)
         return best
     except Exception as e:
         logger.debug("semantic dedup skipped for '%s': %s", label, e)
@@ -276,18 +354,95 @@ def _find_semantic_match(
 def _find_existing_entity(
     case_id: int, entity_label: str, entity_type: str, current_session_id: str,
     definition=None,
+    storage_type: Optional[str] = None,
+    trace: Optional[dict] = None,
 ) -> Optional[TemporaryRDFStorage]:
     """Find an existing uncommitted entity to merge into: exact label first, then a conservative
-    cross-pass semantic match (the same concept paraphrased between the facts and discussion passes)."""
-    exact = TemporaryRDFStorage.query.filter(
+    cross-pass semantic match (the same concept paraphrased between the facts and discussion passes).
+    Both lookups are scoped by ``storage_type`` when given, so a class row and an individual never
+    merge into each other. ``trace`` (see _find_semantic_match) names how the match was made."""
+    clauses = [
         TemporaryRDFStorage.case_id == case_id,
         TemporaryRDFStorage.entity_label == entity_label,
         TemporaryRDFStorage.entity_type == entity_type,
-        TemporaryRDFStorage.is_published == False
-    ).first()
+        TemporaryRDFStorage.is_published == False,
+    ]
+    if storage_type:
+        clauses.append(TemporaryRDFStorage.storage_type == storage_type)
+    exact = TemporaryRDFStorage.query.filter(*clauses).first()
     if exact:
+        if trace is not None:
+            trace['method'] = 'exact_label'
         return exact
-    return _find_semantic_match(case_id, entity_label, definition, entity_type)
+    return _find_semantic_match(
+        case_id, entity_label, definition, entity_type,
+        storage_type=storage_type, trace=trace,
+    )
+
+
+def _merge_record(label: str, storage_type: str, existing: TemporaryRDFStorage, trace: dict) -> dict:
+    """One named storage-time merge: the incoming label, the surviving row, and how they matched."""
+    return {
+        'label': label,
+        'storage_type': storage_type,
+        'into_label': existing.entity_label,
+        'into_row': existing,  # resolved to into_id after the flush that assigns ids
+        'method': trace.get('method', 'exact_label'),
+        'cosine': trace.get('cosine'),
+    }
+
+
+def _record_storage_provenance(
+    case_id: int, extraction_session_id: str, extraction_type: str, section_type: str,
+    merge_records: list, guard_refusals: list,
+) -> None:
+    """Write the storage-time dedup decisions of one pass to the PROV tables, the way the
+    individual-type and precedent filters already record their drops: one ``merge`` activity
+    naming every merged label with the surviving row id, and one ``filter`` activity naming
+    every pair the citation-designator guard kept apart. Best-effort: never fails storage."""
+    try:
+        from app.services.provenance_service import get_provenance_service
+        db.session.flush()  # rows created in this pass need their ids
+        plan_base = {'concept_type': extraction_type, 'section': section_type}
+        prov = get_provenance_service()
+        if merge_records:
+            merges = [{
+                'label': m['label'],
+                'storage_type': m['storage_type'],
+                'into_label': m['into_label'],
+                'into_id': m['into_row'].id,
+                'into_uri': m['into_row'].entity_uri,
+                'method': m['method'],
+                'cosine': m['cosine'],
+            } for m in merge_records]
+            prov.track_pass(
+                activity_type='merge', activity_name='storage_dedup_merge',
+                case_id=case_id, session_id=extraction_session_id,
+                agent_type='extraction_service', agent_name='rdf_storage_service',
+                execution_plan={
+                    **plan_base,
+                    'rule': 'merge an entity into the existing same-case, same-type, '
+                            'same-storage-type row: exact label first, else label+definition '
+                            f'cosine >= {_DEDUP_THRESHOLD} with the citation-designator guard',
+                    'threshold': _DEDUP_THRESHOLD,
+                },
+                result={'merges': merges, 'count': len(merges)},
+            )
+        if guard_refusals:
+            prov.track_pass(
+                activity_type='filter', activity_name='designator_guard',
+                case_id=case_id, session_id=extraction_session_id,
+                agent_type='extraction_service', agent_name='rdf_storage_service',
+                execution_plan={
+                    **plan_base,
+                    'rule': 'labels whose citation designators (case numbers, provision codes) '
+                            'differ are never merged, whatever their cosine',
+                    'threshold': _DEDUP_THRESHOLD,
+                },
+                result={'kept_separate': guard_refusals, 'count': len(guard_refusals)},
+            )
+    except Exception:
+        logger.debug("storage dedup provenance skipped", exc_info=True)
 
 
 def _merge_into_existing(
@@ -383,8 +538,11 @@ def _merge_into_existing(
     new_types = set(new_json_ld.get('types', []))
     existing_json['types'] = list(existing_types | new_types)
 
-    # Update the entity
+    # Update the entity. The dict was edited in place, so flag the column explicitly (the
+    # MutableDict column type does the same; both are kept so the UPDATE is emitted even if
+    # one of them is ever removed).
     existing_entity.rdf_json_ld = existing_json
+    flag_modified(existing_entity, 'rdf_json_ld')
     existing_entity.updated_at = db.func.now()
 
     existing_entity.property_count = sum(

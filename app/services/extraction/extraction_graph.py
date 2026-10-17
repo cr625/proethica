@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
+from app.services.commit import naming
 from app.services.extraction.schemas import (
     CATEGORY_TO_ONTOLOGY_IRI,
     CONCEPT_EXTRACTION_TYPES,
@@ -106,8 +107,12 @@ def pydantic_to_rdf_data(
 
     for cls_obj in classes:
         label = cls_obj.label
-        safe_label = _sanitize_label(label, space_char='')
-        uri = f'{INTERMEDIATE_NS}{safe_label}'
+        # The class IRI is minted with the commit path's sanitizer (naming.safe_local_name)
+        # so the working store carries the IRI the commit will write and the individuals
+        # typed to this class (below) reference the same IRI. The former hyphen-keeping
+        # sanitizer minted intermediate#Provider-ClientRole here while the commit wrote
+        # ProviderClientRole (case 24-1 review, defect D).
+        uri = f'{INTERMEDIATE_NS}{naming.safe_local_name(label)}'
 
         # Resolve parent from category if available
         resolved_parent = parent_uri
@@ -197,8 +202,7 @@ def pydantic_to_rdf_data(
         class_ref = getattr(ind_obj, class_ref_field, None)
         types = []
         if class_ref:
-            safe_class = _sanitize_label(class_ref, space_char='')
-            types.append(f'{INTERMEDIATE_NS}{safe_class}')
+            types.append(individual_type_iri(class_ref, ind_obj.match_decision))
 
         properties = _extract_properties(
             ind_obj, concept_type, timestamp, case_id, section_type, pass_number,
@@ -285,6 +289,26 @@ def pydantic_to_rdf_data(
     }
 
 
+def individual_type_iri(class_ref: str, match_decision) -> str:
+    """The rdf:type IRI an individual carries in the working store.
+
+    When the matcher resolved the class reference to an EXISTING ontology class
+    (``matches_existing`` with a full ``matched_uri``), that IRI is the type: it is
+    the class the commit honors, so the store and the committed graph name the same
+    class. Otherwise the IRI is minted from the class reference with the commit
+    path's sanitizer, ``naming.safe_local_name``, so a label such as
+    "Provider-Client Role" yields ``intermediate#ProviderClientRole`` here as at
+    commit, not the ``#Provider-ClientRole`` the former hyphen-keeping sanitizer
+    produced (an IRI that exists in no ontology) while ``match_decision`` held the
+    real one (case 24-1 review, defect D).
+    """
+    matched_uri = getattr(match_decision, 'matched_uri', None)
+    if getattr(match_decision, 'matches_existing', False) and matched_uri \
+            and str(matched_uri).startswith('http'):
+        return str(matched_uri)
+    return f'{INTERMEDIATE_NS}{naming.safe_local_name(class_ref)}'
+
+
 def store_extraction_result(
     case_id: int,
     concept_type: str,
@@ -300,11 +324,12 @@ def store_extraction_result(
     """
     Persist extraction results to the database.
 
-    Consolidates the 3-call storage pattern used by both streaming and
+    Consolidates the storage pattern used by both streaming and
     non-streaming extraction paths:
-      1. ExtractionPrompt.save_prompt()
+      1. ExtractionPrompt.save_prompt() (prompt, raw response, extracted counts)
       2. pydantic_to_rdf_data()
       3. TemporaryRDFStorage.store_extraction_results()
+      4. results_summary rewritten from the stored rows (stored and merged counts)
 
     Args:
         case_id: Case database ID.
@@ -324,12 +349,16 @@ def store_extraction_result(
     from app.models import db
     from app.models.extraction_prompt import ExtractionPrompt
     from app.models.temporary_rdf_storage import TemporaryRDFStorage
+    from app.services.entity.rdf_storage_service import storage_summary
 
     model_name = extractor.model_name
 
-    # 1. Save prompt + raw response
+    # 1. Save prompt + raw response. The extracted counts go in now so the prompt
+    #    record is complete even if storage fails; step 4 replaces them with the
+    #    stored and merged counts once the rows exist.
+    prompt = None
     try:
-        ExtractionPrompt.save_prompt(
+        prompt = ExtractionPrompt.save_prompt(
             case_id=case_id,
             concept_type=concept_type,
             prompt_text=extractor.last_prompt or f'[streaming] {concept_type}',
@@ -381,6 +410,16 @@ def store_extraction_result(
             extraction_model=model_name,
             provenance_data=provenance_data,
         )
+
+        # 4. The summary the provenance card shows is written AFTER storage, from the
+        #    stored rows, so an extracted-versus-stored difference carries its own
+        #    explanation (merged_into_existing). Written before storage it read
+        #    "individuals 4" beside 3 stored rows (case 24-1 review, defect C).
+        if prompt is not None:
+            prompt.results_summary = storage_summary(
+                case_id, session_id, concept_type,
+                extracted_classes=len(classes), extracted_individuals=len(individuals),
+            )
 
         db.session.commit()
         logger.info(

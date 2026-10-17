@@ -13,6 +13,9 @@ Draft/Publish Workflow (2025-12-10):
 import hashlib
 import logging
 from datetime import datetime, timezone
+
+from sqlalchemy.ext.mutable import MutableDict
+
 from app.models import db
 
 logger = logging.getLogger(__name__)
@@ -41,7 +44,12 @@ class TemporaryRDFStorage(db.Model):
 
     # RDF content
     rdf_turtle = db.Column(db.Text)  # Turtle serialization of the RDF graph
-    rdf_json_ld = db.Column(db.JSON)  # JSON-LD representation for easier manipulation
+    # JSON-LD representation for easier manipulation. MutableDict so that an in-place
+    # edit of the dict (the cross-section merge appends to properties/definitions and
+    # reassigns the same object) marks the column for UPDATE. On a plain JSON column the
+    # same object compares equal to its committed value and the edit is never written
+    # (case 24-1 review: property_count rose while the merged quotes were lost).
+    rdf_json_ld = db.Column(MutableDict.as_mutable(db.JSON))
 
     # Extracted entity information for display
     entity_label = db.Column(db.String(255), index=True)
@@ -73,8 +81,8 @@ class TemporaryRDFStorage(db.Model):
     cited_by_role = db.Column(db.String(200))  # Which role cited this (for References section)
     available_to_role = db.Column(db.String(200))  # Which role has access (for case context)
 
-    # PROV-O Provenance Metadata (Added 2025-10-12)
-    provenance_metadata = db.Column(db.JSON)  # Provenance tracking (activity_id, section_type, match_reasoning, etc.)
+    # PROV-O Provenance Metadata (Added 2025-10-12). MutableDict for the same reason as rdf_json_ld.
+    provenance_metadata = db.Column(MutableDict.as_mutable(db.JSON))  # activity_id, section_type, match_reasoning, etc.
 
     # OntServe Class Matching (Added 2025-12-01 for Entity-Ontology Linking)
     matched_ontology_uri = db.Column(db.String(500))  # URI of matched OntServe class

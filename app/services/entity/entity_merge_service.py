@@ -13,6 +13,9 @@ Transaction policy: does NOT commit. Callers own the transaction boundary.
 
 import logging
 from typing import Dict, List, Optional, Any, Tuple
+
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.models import db
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.models.extraction_prompt import ExtractionPrompt
@@ -186,8 +189,12 @@ class EntityMergeService:
         new_types = set(new_json_ld.get('types', []))
         existing_json['types'] = list(existing_types | new_types)
 
-        # Update the entity
+        # Update the entity. The dict was edited in place and the same object is reassigned,
+        # which a plain JSON column never writes back (row 95584 of the case 24-1 review:
+        # property_count 24 beside 17 stored values). Flag the column explicitly; the
+        # MutableDict column type on the model does the same.
         existing_entity.rdf_json_ld = existing_json
+        flag_modified(existing_entity, 'rdf_json_ld')
         existing_entity.updated_at = db.func.now()
 
         # Update counts
