@@ -144,9 +144,6 @@
         }
     });
 
-    // Disable old term links highlighting (will be replaced with annotation-based highlighting)
-    window.termLinksData = {};
-
     // Entity lookup data for popovers
     if (window.CASE_DETAIL.entityLookup) {
     var ENTITY_LOOKUP_BY_LABEL = window.CASE_DETAIL.entityLookup;
@@ -160,6 +157,8 @@
 
         // Scan text for entity labels and wrap in .onto-label spans
         scanTextForEntities(caseDetailsCard, ENTITY_LOOKUP_BY_LABEL, {
+            // Cited Board cases sit inside nspe.org anchors in the case text
+            decorateAnchors: true,
             skipSectionTest: function(cardBody) {
                 var parentCard = cardBody.closest('.card');
                 if (parentCard) {
