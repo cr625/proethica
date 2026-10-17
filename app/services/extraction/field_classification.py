@@ -66,6 +66,10 @@ _RELATION = {
     "attributes",
     # R -> P -> O dependency chain
     "hasObligation", "adheresToPrinciple", "derivedFromPrinciple",
+    # the role individual's generates_obligations routing input (lesson L9): the duties a
+    # professional role names; the R->P->O pass derives the hasObligation edges, so the
+    # literal is never emitted on its own.
+    "generatesObligations",
     # obligation-capability presupposition: the capability rows' requiredForObligations
     # labels resolve (inverted) to Obligation requiresCapability Capability edges;
     # the bare requiresCapability is that edge. The Action-level requiresCapability
