@@ -1336,7 +1336,7 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         # the gate input (the audit tag in review_notes), so the vote panel runs ONCE per row.
         from app.services.extraction.verification_gate import (
             verify_case_entities, quotes_of, class_ref_of, class_refs_of,
-            match_confidence_of, apply_corrected_quotes)
+            match_confidence_of, apply_corrected_quotes, gate_quote_marker)
         from sqlalchemy.orm.attributes import flag_modified
         _sec = get_case_sections(run.case_id)
         _case_text = (_sec.get('facts') or '') + '\n\n' + (_sec.get('discussion_full') or _sec.get('discussion') or '')
@@ -1389,10 +1389,10 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
                     # Mark WHICH committed quotes are gate work: the committed
                     # TTL attributes sourceText to the extraction model, so
                     # without the marker a gate-supplied span is
-                    # indistinguishable from model output.
-                    _marker = ('quotes ATTACHED at gate (model emitted none)'
-                               if _eid in getattr(_gate, 'repaired_quoteless', set())
-                               else 'quotes re-grounded at gate')
+                    # indistinguishable from model output. A row whose quotes
+                    # were verbatim and only snapped to the spelling of the
+                    # case text (lesson L5) is marked snapped, not re-grounded.
+                    _marker = gate_quote_marker(_gate, _eid)
                     _note = _row.review_notes or f"{_GATE_VETTED} run {run_id}"
                     if _marker not in _note:
                         _row.review_notes = f"{_note}; {_marker}"[:1000]

@@ -33,6 +33,8 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from app.services.extraction.text_patterns import _ENGINEER_LETTER_RE
+
 logger = logging.getLogger(__name__)
 
 # A high-precision present-case transition cue. Kept deliberately small and unambiguous: when one
@@ -104,17 +106,35 @@ def _actor_cues(present_actors) -> List[re.Pattern]:
             for a in (present_actors or ()) if str(a).strip()]
 
 
+def _usable_actor_cues(head: str, actor_cues: List[re.Pattern]) -> List[re.Pattern]:
+    """The actor cues that can tell the precedent of this recap paragraph apart from the present case.
+
+    None when the opening sentence names a present-case actor itself (case 60 and BER Case 19-3
+    both lead with Engineer A), and none when the opening sentence names no engineer foreign to
+    the present case: a precedent whose own engineer first appears in a later sentence would
+    otherwise be split at that sentence whenever it shares the letter of the present case, and the
+    rest of its recap would reach the extractors as present-case text (the contamination the
+    segmenter exists to remove). With a foreign engineer in the opening sentence, the present
+    letters not named there are usable cues (review of the case-8 lessons)."""
+    head_letters = {m.group(1) for m in _ENGINEER_LETTER_RE.finditer(head)}
+    foreign = [letter for letter in head_letters
+               if not any(c.search(f"Engineer {letter}") for c in actor_cues)]
+    if not foreign:
+        return []
+    return [c for c in actor_cues if not c.search(head)]
+
+
 def _split_recap_tail(text: str, actor_cues: List[re.Pattern]) -> tuple:
     """Split a recap paragraph into (recap head, present-case tail). The opening sentence always
     stays recap (a recap paragraph opens with the precedent). An actor cue is used for a paragraph
-    only when the opening sentence does not itself name that actor: when the cited precedent shares
-    the present case's engineer letter (case 60 and BER Case 19-3 both lead with Engineer A), the
-    letter cannot tell the two apart and the phrase cues alone decide."""
+    only when the opening sentence names a foreign engineer and does not itself name that actor
+    (see _usable_actor_cues): when the cited precedent shares the engineer letter of the present
+    case, the letter cannot tell the two apart and the phrase cues alone decide."""
     sentences = _SENTENCE_SPLIT.split(text)
     if len(sentences) < 2:
         return text, ""
     head = sentences[0]
-    usable = [c for c in actor_cues if not c.search(head)]
+    usable = _usable_actor_cues(head, actor_cues)
     for i in range(1, len(sentences)):
         s = sentences[i]
         if _PRESENT_TAIL_CUE.search(s) or any(c.search(s) for c in usable):

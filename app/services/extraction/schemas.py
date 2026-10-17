@@ -408,6 +408,15 @@ class RoleIndividual(BaseIndividual):
         """
         if isinstance(data, dict) and isinstance(data.get('attributes'), list):
             data['attributes'] = fold_key_value_pairs(data['attributes'])
+        if isinstance(data, dict) and 'generates_obligations' in data:
+            # A bare string (the one-duty case on the free-form fallback path, where no grammar
+            # enforces the array) is one entry and a null is no entry; neither is a validation
+            # error that drops the whole role individual (review of the case-8 lessons).
+            value = data['generates_obligations']
+            if value is None:
+                data['generates_obligations'] = []
+            elif isinstance(value, str):
+                data['generates_obligations'] = [value] if value.strip() else []
         return data
 
 
