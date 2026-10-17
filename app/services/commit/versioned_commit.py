@@ -26,6 +26,8 @@ from app.services.ontserve.ontserve_config import get_ontserve_db_config
 from app.services.commit import naming
 from app.services.commit.commit_context import _is_role_individual
 from app.services.commit.case_header import add_case_ontology_header
+from app.services.commit.working_store import write_back_types
+from app.services.commit.publish_guard import normalize_class_key, partition_by_unpublished_type
 
 logger = logging.getLogger(__name__)
 
@@ -488,6 +490,8 @@ class VersionedCommitMixin:
                     _honored = self._matched_class_override(rdf_data, concept_cat, type_uris)
                     if _honored is not None:
                         type_uris = [str(PROETHICA[_honored])]
+                        # Written back to the working-store row (case-8 review, L4).
+                        write_back_types(entity, rdf_data, type_uris)
                     for type_uri in type_uris:
                         if '#' in type_uri:
                             class_name = type_uri.split('#')[-1]

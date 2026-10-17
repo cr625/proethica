@@ -169,6 +169,14 @@ class CategoryResolutionMixin:
             matched_uri = md.get('matched_uri')
             if not matched_uri or not concept_cat:
                 return None
+            floor = self._match_link_threshold()
+            confidence = match_confidence(md)
+            if confidence is None or confidence < floor:
+                logger.info(
+                    "Matched-class honoring fallback: match confidence %s for %s is below "
+                    "the link threshold %.2f; keeping minted type(s).",
+                    confidence, matched_uri, floor)
+                return None
             matched_local = str(matched_uri).rsplit('#', 1)[-1].rsplit('/', 1)[-1]
             if not matched_local:
                 return None

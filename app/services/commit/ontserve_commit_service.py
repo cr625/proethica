@@ -42,6 +42,10 @@ from app.services.ontserve.ontserve_config import (
 from app.services.commit import naming
 from app.services.commit.commit_context import build_commit_context, _is_role_individual
 from app.services.commit.case_header import add_case_ontology_header
+from app.services.commit.working_store import write_back_types
+from app.services.commit.publish_guard import (
+    normalize_class_key, partition_by_unpublished_type, unpublished_class_keys,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -603,6 +607,9 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                     _honored = self._matched_class_override(rdf_data, concept_cat, type_uris)
                     if _honored is not None:
                         type_uris = [str(PROETHICA[_honored])]
+                        # The honored type goes back onto the working-store row so the
+                        # review pages and the TTL show one type (case-8 review, L4).
+                        write_back_types(entity, rdf_data, type_uris)
                     for type_uri in type_uris:
                         # Extract class name from URI
                         if '#' in type_uri:
