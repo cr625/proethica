@@ -10,6 +10,7 @@ exercised end-to-end by the backfill script.
 from unittest.mock import patch, MagicMock
 
 import pytest
+from rdflib import Graph
 
 from app.services import defeasibility_view_service as svc
 
@@ -69,9 +70,13 @@ def _run(rows, anchor_featured=_ANCHOR, vocab=None):
     document.query.get.side_effect = lambda cid: _Doc(cid)
 
     case_data = {"conflicts": [anchor_featured]}
+    # The type-level comparison walks the shared ontology tiers (L7); an empty
+    # graph keeps these fixtures on exact type equality and off the OntServe
+    # checkout (tests/test_defeasibility_type_chain.py covers the chain).
     with patch('app.services.embedding.embedding_service.EmbeddingService', embedding_service), \
             patch('app.models.defeasibility_band_index.DefeasibilityBandIndex', band_index), \
-            patch('app.models.Document', document):
+            patch('app.models.Document', document), \
+            patch.object(svc, '_intermediate_graph', lambda: Graph()):
         return svc.get_cross_case_band_dynamic(7, case_data)
 
 
