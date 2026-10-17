@@ -218,7 +218,8 @@ _INDIVIDUAL_ALLOWLIST = {
     'possessed_by', 'required_for_obligations', 'capability_category',
     'skill_level', 'demonstrated_through',
     'constrained_entity', 'constraint_statement', 'applicability_condition',
-    'source', 'constraint_type', 'flexibility', 'severity', 'exceptions',
+    'source', 'establishing_provision', 'constraint_type', 'flexibility',
+    'severity', 'exceptions',
     'interpretation', 'concrete_expression', 'applied_to', 'balancing_with',
     'tension_resolution', 'invoked_by', 'principle_category',
 }

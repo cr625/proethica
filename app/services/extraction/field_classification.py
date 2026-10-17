@@ -55,7 +55,7 @@ _RELATION = {
     # actor-anchored (participant + role/resource/state actor edges)
     "hasRole", "actor",
     "obligatedParty", "constrainedEntity", "possessedBy", "invokedBy", "hasCapability",
-    "affects", "affectedParties", "availableTo", "usedBy", "citedBy",
+    "affects", "availableTo", "usedBy", "citedBy",
     # generic per-individual relationship list (a temp_rdf field the serializer resolves into
     # peer / symmetric-property edges); structural, not a kept synthesis literal.
     "relationships", "relatedTo",
@@ -147,7 +147,10 @@ _TRAILING_DIGITS = re.compile(r"\d+$")
 # into the activatedByEvent / terminatedByEvent edges, while the committed literal keeps
 # the verbatim description (the intermediate ontology declares both as datatype properties
 # intended on State). They take the demoted-text treatment: content, not the edge.
-_DEMOTED_LITERALS = {"triggeringEvent", "terminatedBy"}
+# affectedParties joined them in the case 24-1 review: the state_affects family
+# resolves the party list into affects edges, and the verbatim list is kept as a
+# literal so an omitted party (Engineer L on four case-8 states) stays auditable.
+_DEMOTED_LITERALS = {"triggeringEvent", "terminatedBy", "affectedParties"}
 
 
 def _normalize(predicate: str) -> str:
