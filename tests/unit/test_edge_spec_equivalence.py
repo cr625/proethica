@@ -210,18 +210,22 @@ def test_state_affects_edges_golden(monkeypatch):
 
     out = _run_family(monkeypatch, g, es._STATE_AFFECTS_SPEC, reader, sel)
 
+    # Case 24-1 review (L8): a party label equal to an agent label resolves
+    # deterministically before the model, so each edge derives from its own label
+    # and the provenance comment records the exact-match method.
     comment = ("property=affects; state affectedParties text resolved to the case Agent(s) "
-               "by embedding shortlist + LLM multi-select")
+               "by embedding shortlist + LLM multi-select; exact label match "
+               "(no embedding or LLM)")
     expected_edges = {
         (CASE["State_Risk"], CORE.affects, CASE["Agent_Owner"]),
         (CASE["State_Risk"], CORE.affects, CASE["Agent_Engineer_A"]),
     }
     expected_prov = {}
-    for obj_local, obj in (("Agent_Owner", CASE["Agent_Owner"]),
-                           ("Agent_Engineer_A", CASE["Agent_Engineer_A"])):
+    for obj_local, obj, party in (("Agent_Owner", CASE["Agent_Owner"], "Owner"),
+                                  ("Agent_Engineer_A", CASE["Agent_Engineer_A"], "Engineer A")):
         expected_prov.update(_prov(
             "state_affects_provenance_", "affects", "State_Risk", obj_local,
-            CASE["State_Risk"], obj, "State edge (affects)", desc, comment))
+            CASE["State_Risk"], obj, "State edge (affects)", party, comment))
     _assert_golden(out, expected_edges, expected_prov)
 
 
@@ -479,10 +483,15 @@ def test_temporal_relation_edges_golden(monkeypatch):
         "temporal_relation_edge_provenance_", "fromEntity", "TemporalRelation_1",
         "Action_Memo", rel, CASE["Action_Memo"], "Temporal relation edge (fromEntity)",
         prov_value, _tr_comment("fromEntity")))
+    # Case 24-1 review (L5): the toEntity phrasing covers the label "Recommendation
+    # Request" lexically, so it resolves before the embedding and the provenance
+    # comment records the lexical method; the fromEntity phrasing does not cover
+    # "Advisory Memo Preparation" and still goes through the model.
     expected_prov.update(_prov(
         "temporal_relation_edge_provenance_", "toEntity", "TemporalRelation_1",
         "Event_Request", rel, CASE["Event_Request"], "Temporal relation edge (toEntity)",
-        prov_value, _tr_comment("toEntity")))
+        prov_value, _tr_comment("toEntity") + "; lexical match against the extracted "
+        "happening labels (no embedding or LLM)"))
     _assert_golden(out, expected_edges, expected_prov)
     # Explicitly assert the OWL-Time triple landed on the relation node.
     assert (rel, TIME.intervalBefore, CASE["Event_Request"]) in out
