@@ -75,6 +75,7 @@ class ReferenceSheet:
     redirects: dict = field(default_factory=dict)   # norm -> (target, via, component)  [should_decompose]
     recipes: dict = field(default_factory=dict)     # norm -> the full do_not_mint decompose dict (role/state/obligation)
     display: dict = field(default_factory=dict)     # norm -> original human label (for prompt rendering)
+    definitions: dict = field(default_factory=dict) # norm(iri|label) -> the sheet's own definition text
     global_rules: list = field(default_factory=list)  # cross-component hygiene rules {id, rule, scope}
     sheet_dir: str = ""
 
@@ -126,11 +127,14 @@ class ReferenceSheet:
                         continue
                     iri = e.get("iri") or e.get("label")
                     label = e.get("label") or e.get("iri")
+                    definition = " ".join(str(e.get("definition") or "").split())
                     for key in (e.get("iri"), e.get("label")):
                         nk = norm(key)
                         if nk and nk not in suppressed:
                             rs.canonical[nk] = (comp, iri)
                             rs.display[nk] = label
+                            if definition:
+                                rs.definitions[nk] = definition
                     for a in (e.get("alt_labels") or []):
                         na = norm(a)
                         if na and na not in rs.canonical:
@@ -156,6 +160,12 @@ class ReferenceSheet:
     def recipe_for(self, label: str) -> dict | None:
         """The full do_not_mint decompose recipe for a compound label (role/state/obligation), or None."""
         return self.recipes.get(norm(label))
+
+    def definition_for(self, label_or_iri: str) -> str | None:
+        """The sheet's own definition of a canonical class, keyed by IRI local-name or label, or None.
+        The commit uses it when it mints a class under a reference-sheet IRI (case-8 review, L3): the
+        sheet text defines the reusable kind, a row's text describes one case."""
+        return self.definitions.get(norm(label_or_iri))
 
     def resolve(self, label: str) -> Verdict:
         n = norm(label)
