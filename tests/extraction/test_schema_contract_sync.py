@@ -204,6 +204,9 @@ _INDIVIDUAL_ALLOWLIST = {
     'attributes', 'relationships', 'additional_relationships',
     # actor identity (routing to the Agent layer, not a literal)
     'actor',
+    # the duties a professional role names (case-8 lesson L9): routing input of the
+    # R->P->O pass, which derives the hasObligation edges; never emitted as a literal
+    'generates_obligations',
     # per-case annotation fields covered by CaseAnnotationShape under
     # different names or routed into rdfs:comment
     'case_involvement', 'case_context',
