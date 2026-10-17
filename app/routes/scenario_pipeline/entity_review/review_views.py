@@ -30,7 +30,7 @@ def register_review_view_routes(bp):
                 return redirect(url_for('index.index'))
 
             # Get entity counts from Step 4 helper
-            from app.routes.scenario_pipeline.step4.helpers import get_entities_summary
+            from app.services.step4_synthesis.step4_data_helpers import get_entities_summary
             entities_summary = get_entities_summary(case_id)
 
             return render_template(

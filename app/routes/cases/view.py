@@ -113,7 +113,7 @@ def register_view_routes(bp):
             # raw storage row count (which also counts links, markers, and other
             # extraction artifacts and so overstates the entity inventory).
             if entity_count > 0:
-                from app.routes.scenario_pipeline.step4.helpers import get_entities_summary
+                from app.services.step4_synthesis.step4_data_helpers import get_entities_summary
                 entities_typed_total = get_entities_summary(document.id).get('total', 0)
 
             if metadata:

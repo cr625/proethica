@@ -24,6 +24,7 @@ from app.routes.scenario_pipeline.step4.config import STEP4_SECTION_TYPE
 # are re-exported here so existing route-layer consumers keep working.
 from app.services.step4_synthesis.step4_data_helpers import (  # noqa: F401
     get_all_case_entities,
+    get_entities_summary,
     _classify_conclusion_type,
     _count_conclusion_types,
     _count_conclusion_types_from_list,
@@ -31,43 +32,6 @@ from app.services.step4_synthesis.step4_data_helpers import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
-
-
-def get_entities_summary(case_id: int) -> Dict:
-    """Get summary of all extracted entities from Steps 1-3.
-
-    Counts by extraction_type (classes + individuals) so totals match
-    the commit counts on the entities page.
-    """
-    summary = {}
-
-    # Steps 1-2 concepts: count all entities per extraction_type
-    for concept in ['roles', 'states', 'resources', 'principles',
-                    'obligations', 'constraints', 'capabilities']:
-        summary[concept] = TemporaryRDFStorage.query.filter_by(
-            case_id=case_id, extraction_type=concept
-        ).count()
-
-    # Step 3: temporal_dynamics_enhanced covers all sub-types
-    # (actions, events, allen_relations, causal_chains, timeline)
-    summary['temporal_dynamics'] = TemporaryRDFStorage.query.filter_by(
-        case_id=case_id, extraction_type='temporal_dynamics_enhanced'
-    ).count()
-
-    # Calculate totals
-    summary['pass1_total'] = (
-        summary['roles'] + summary['states'] + summary['resources']
-    )
-    summary['pass2_total'] = (
-        summary['principles'] + summary['obligations']
-        + summary['constraints'] + summary['capabilities']
-    )
-    summary['pass3_total'] = summary['temporal_dynamics']
-    summary['total'] = (
-        summary['pass1_total'] + summary['pass2_total'] + summary['pass3_total']
-    )
-
-    return summary
 
 
 def get_synthesis_status(case_id: int) -> Dict:

@@ -221,3 +221,42 @@ def _store_synthesis_results(case_id: int, synthesis) -> None:
     db.session.add(extraction_prompt)
 
     logger.info(f"Stored synthesis results for case {case_id}")
+
+
+def get_entities_summary(case_id: int) -> Dict:
+    """Get summary of all extracted entities from Steps 1-3.
+
+    Counts by extraction_type (classes + individuals) so totals match
+    the commit counts on the entities page.
+    """
+    summary = {}
+
+    # Steps 1-2 concepts: count all entities per extraction_type
+    for concept in ['roles', 'states', 'resources', 'principles',
+                    'obligations', 'constraints', 'capabilities']:
+        summary[concept] = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type=concept
+        ).count()
+
+    # Step 3: temporal_dynamics_enhanced covers all sub-types
+    # (actions, events, allen_relations, causal_chains, timeline)
+    summary['temporal_dynamics'] = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='temporal_dynamics_enhanced'
+    ).count()
+
+    # Calculate totals
+    summary['pass1_total'] = (
+        summary['roles'] + summary['states'] + summary['resources']
+    )
+    summary['pass2_total'] = (
+        summary['principles'] + summary['obligations']
+        + summary['constraints'] + summary['capabilities']
+    )
+    summary['pass3_total'] = summary['temporal_dynamics']
+    summary['total'] = (
+        summary['pass1_total'] + summary['pass2_total'] + summary['pass3_total']
+    )
+
+    return summary
+
+
