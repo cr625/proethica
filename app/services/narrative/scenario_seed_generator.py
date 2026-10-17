@@ -61,6 +61,10 @@ class ScenarioBranch:
     # Consequence data (populated by consequence generator, Stage 4.3b)
     board_rationale: str = ""
     competing_obligation_labels: List[str] = field(default_factory=list)
+    # Whether a Board conclusion resolves the decision point; the generator
+    # authors board_rationale only then (case 8 review, lesson L7). True by
+    # default so a branch built outside _build_branches keeps the old path.
+    has_board_conclusion: bool = True
 
     def to_dict(self) -> Dict:
         return {
@@ -300,7 +304,8 @@ class ScenarioSeedGenerator:
                 decision_maker_uri=decision.decision_maker_uri if hasattr(decision, 'decision_maker_uri') else "",
                 decision_maker_label=decision.decision_maker_label if hasattr(decision, 'decision_maker_label') else "",
                 involved_obligation_uris=competing_obls,
-                options=options
+                options=options,
+                has_board_conclusion=bool(getattr(decision, 'has_board_conclusion', True)),
             ))
 
         return branches

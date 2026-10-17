@@ -14,6 +14,11 @@ from model_config import ModelConfig
 logger = logging.getLogger(__name__)
 
 
+def _excerpt_key(excerpt: str) -> str:
+    """Whitespace-collapsed, case-folded excerpt: one key per sentence."""
+    return " ".join((excerpt or "").split()).strip().lower()
+
+
 @dataclass
 class ValidatedMention:
     """A provision mention that has been validated by LLM."""
@@ -45,6 +50,8 @@ class ProvisionGroupValidator:
         self.llm_client = llm_client
         self.last_validation_prompt = None
         self.last_validation_response = None
+        # normalized excerpt -> the first ValidatedMention verdict for it
+        self._excerpt_verdicts: Dict[str, ValidatedMention] = {}
 
     def validate_group(
         self,
@@ -88,13 +95,31 @@ class ProvisionGroupValidator:
             f"Validating {len(mentions)} mentions for provision {provision_code}"
         )
 
-        # Process in batches
+        # One verdict per sentence (case 8 review, lesson L8): a sentence that
+        # cites several codes is grouped under each of them, and validating it
+        # once per code produced an excerpt on two of five codes. The first
+        # verdict for an excerpt is reused for the same excerpt under the
+        # other codes it cites (no second LLM call).
         all_validated = []
-        for i in range(0, len(mentions), batch_size):
-            batch = mentions[i:i + batch_size]
+        pending = []
+        for m in mentions:
+            prior = self._excerpt_verdicts.get(_excerpt_key(m.excerpt))
+            if prior is not None:
+                all_validated.append(ValidatedMention(
+                    section=m.section, excerpt=m.excerpt, citation_text=m.citation_text,
+                    is_relevant=prior.is_relevant, confidence=prior.confidence,
+                    reasoning=prior.reasoning, content_type=prior.content_type))
+            else:
+                pending.append(m)
+
+        # Process in batches
+        for i in range(0, len(pending), batch_size):
+            batch = pending[i:i + batch_size]
             validated_batch = self._validate_batch(
                 provision_code, provision_text, batch
             )
+            for v in validated_batch:
+                self._excerpt_verdicts.setdefault(_excerpt_key(v.excerpt), v)
             all_validated.extend(validated_batch)
 
         # Filter to only relevant mentions with confidence > 0.5

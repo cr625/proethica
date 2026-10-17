@@ -22,6 +22,12 @@ class EntitySummary:
     label: str
     definition: str = ""
     entity_type: str = ""
+    # Step-3 timeline rows only: the stored proeth:temporalSequence position
+    # and the acting agent (proeth:hasAgent), so the Phase-4 narrative orders
+    # actions by the committed chronology, not by storage order (case 8
+    # review, lesson L7). None for the other seven categories.
+    temporal_sequence: Optional[int] = None
+    agent_label: Optional[str] = None
 
 
 @dataclass

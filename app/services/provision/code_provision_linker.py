@@ -6,12 +6,75 @@ using LLM-based semantic matching.
 """
 
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple
+from typing import List, Dict, Optional, Tuple
 
 from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
+
+# Characters of the Discussion carried into the linking context (cut at a
+# sentence or word boundary).
+DISCUSSION_CONTEXT_LIMIT = 4000
+
+
+def agent_of_row(row) -> str:
+    """The agent of a stored Step-3 action/event row (proeth:hasAgent), '' when
+    the row carries none."""
+    rdf = getattr(row, 'rdf_json_ld', None) or {}
+    agent = rdf.get('proeth:hasAgent') or rdf.get('proeth:agent') or ''
+    if isinstance(agent, list):
+        agent = agent[0] if agent else ''
+    return str(agent).strip()
+
+
+def build_provision_link_context(case_title: str, sections_dual: Optional[Dict],
+                                 discussion_limit: int = DISCUSSION_CONTEXT_LIMIT) -> str:
+    """The case context block of the linking prompt: title, the Board
+    conclusions (Conclusion section verbatim) and the Discussion (bounded).
+    The linker used to receive only "Case N: <title>" and read the Board's
+    silence on the first phase as a violation (case 8 review, lesson L8)."""
+    from app.services.case_analysis.transformation_classifier import truncate_at_boundary
+
+    def _text(key):
+        data = (sections_dual or {}).get(key, '')
+        return (data.get('text', '') if isinstance(data, dict) else str(data or '')).strip()
+
+    parts = [case_title.strip()] if case_title else []
+    conclusion = _text('conclusion')
+    if conclusion:
+        parts.append(f"BOARD CONCLUSIONS:\n{conclusion}")
+    discussion = _text('discussion')
+    if discussion:
+        parts.append(f"DISCUSSION:\n{truncate_at_boundary(discussion, discussion_limit)}")
+    return "\n\n".join(parts)
+
+
+def _mentions(text: str, actor: str) -> bool:
+    if not text or not actor:
+        return False
+    return re.search(r'(?<!\w)' + re.escape(actor.strip()) + r'(?!\w)', text, re.IGNORECASE) is not None
+
+
+def reasoning_names_other_actor(reasoning: str, target_agent: str, known_actors) -> Optional[str]:
+    """The known actor a link's reasoning names INSTEAD of the target's agent,
+    or None when the reasoning is consistent with the agent. The target's agent
+    being named anywhere makes the reasoning consistent; an actor whose name
+    is part of the target agent's name (or vice versa) is not a different
+    actor."""
+    if not reasoning or not target_agent:
+        return None
+    if _mentions(reasoning, target_agent):
+        return None
+    tgt = target_agent.strip().lower()
+    for actor in sorted({a for a in (known_actors or []) if a}, key=len, reverse=True):
+        a = actor.strip().lower()
+        if a == tgt or a in tgt or tgt in a:
+            continue
+        if _mentions(reasoning, actor):
+            return actor
+    return None
 
 
 class CodeProvisionLinker:
@@ -95,7 +158,7 @@ class CodeProvisionLinker:
         all_prompts = []
         all_responses = []
 
-        def _link_one_type(entity_type, type_label, prompt):
+        def _link_one_type(entity_type, type_label, prompt, entities):
             """Call LLM for one entity type and return parsed links.
 
             Receives the ALREADY-RENDERED prompt: prompt building runs on the
@@ -113,7 +176,7 @@ class CodeProvisionLinker:
                 prompt=prompt,
                 temperature=0.1,
             )
-            batch_links = self._parse_batch_response(response_text, entity_type)
+            batch_links = self._parse_batch_response(response_text, entity_type, entities)
             link_count = sum(len(v) for v in batch_links.values())
             logger.info(f"Linked {type_label}: {link_count} links")
             return entity_type, type_label, prompt, response_text, batch_links
@@ -121,15 +184,15 @@ class CodeProvisionLinker:
         # Render all prompts on the main thread (app context available here).
         active_groups = [
             (et, tl, self._create_batch_linking_prompt(
-                provisions, et, tl, ents, case_text_summary))
+                provisions, et, tl, ents, case_text_summary), ents)
             for et, tl, ents in entity_groups if ents
         ]
 
         failed_groups = 0
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
-                executor.submit(_link_one_type, et, tl, prompt): (et, tl)
-                for et, tl, prompt in active_groups
+                executor.submit(_link_one_type, et, tl, prompt, ents): (et, tl)
+                for et, tl, prompt, ents in active_groups
             }
             for future in as_completed(futures):
                 et, tl = futures[future]
@@ -197,7 +260,8 @@ class CodeProvisionLinker:
             case_summary=case_summary,
         )
 
-    def _parse_batch_response(self, response_text: str, entity_type: str) -> Dict[str, List[Dict]]:
+    def _parse_batch_response(self, response_text: str, entity_type: str,
+                              entities: Optional[List[Dict]] = None) -> Dict[str, List[Dict]]:
         """Parse batch linking response, returning {provision_code: [links]}."""
         from app.utils.llm_json_utils import parse_json_response
 
@@ -206,26 +270,49 @@ class CodeProvisionLinker:
             logger.warning(f"No JSON in {entity_type} linking response")
             return {}
 
-        return self._extract_links_from_parsed(linkings, entity_type)
+        return self._extract_links_from_parsed(linkings, entity_type, entities)
 
-    def _extract_links_from_parsed(self, linkings: list, entity_type: str) -> Dict[str, List[Dict]]:
-        """Convert parsed JSON linkings list to result dict."""
+    def _extract_links_from_parsed(self, linkings: list, entity_type: str,
+                                   entities: Optional[List[Dict]] = None) -> Dict[str, List[Dict]]:
+        """Convert parsed JSON linkings list to result dict.
+
+        For actions whose agent is known, a link whose reasoning names a
+        different known actor than the target's agent is rejected and logged
+        (case 8 review, lesson L8: provisions were linked to the client's
+        actions with reasoning about the engineer)."""
+        agent_by_label: Dict[str, str] = {}
+        for e in entities or []:
+            lbl = (e.get('label') or e.get('entity_label') or '').strip().lower()
+            if lbl and e.get('agent'):
+                agent_by_label[lbl] = str(e['agent']).strip()
+        known_actors = set(agent_by_label.values())
+
         result = {}
         for link in linkings:
             code = link.get('code_provision', '').rstrip('.')
             applies_to = []
             for item in link.get('applies_to', []):
+                label = item.get('entity_label', '')
+                reasoning = item.get('reasoning', '')
+                target_agent = agent_by_label.get((label or '').strip().lower(), '')
+                other = reasoning_names_other_actor(reasoning, target_agent, known_actors)
+                if other:
+                    logger.info("provision %s -> %s %r rejected: the reasoning names %r, the "
+                                "action's agent is %r (%s)", code, entity_type, label, other,
+                                target_agent, reasoning[:120])
+                    continue
                 applies_to.append({
                     'entity_type': entity_type,
-                    'entity_label': item.get('entity_label', ''),
-                    'reasoning': item.get('reasoning', ''),
+                    'entity_label': label,
+                    'reasoning': reasoning,
                 })
             if applies_to:
                 result[code] = applies_to
         return result
 
     def _format_entities_for_prompt(self, entities: List[Dict], entity_type: str) -> str:
-        """Format entity list for inclusion in prompt."""
+        """Format entity list for inclusion in prompt. An action's agent is
+        shown so the model links provisions to the right actor's conduct."""
         if not entities:
             return f"**{entity_type}:** (none extracted)"
 
@@ -233,8 +320,11 @@ class CodeProvisionLinker:
         for entity in entities:
             label = entity.get('label', entity.get('entity_label', 'Unknown'))
             definition = entity.get('definition', entity.get('entity_definition', ''))
+            agent = entity.get('agent')
 
             formatted += f"- {label}"
+            if agent:
+                formatted += f" (agent: {agent})"
             if definition:
                 # Truncate long definitions
                 if len(definition) > 150:
