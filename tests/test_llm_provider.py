@@ -65,7 +65,34 @@ class TestTierRefs:
 
     def test_legacy_claude_model_still_wins_without_ref(self, monkeypatch):
         monkeypatch.delenv("LLM_DEFAULT_REF", raising=False)
+        monkeypatch.delenv("CLAUDE_DEFAULT_MODEL", raising=False)
         assert ModelConfig.get_tier_model("default") == ModelConfig.CLAUDE_MODELS["default"]
+
+    def test_legacy_model_env_is_read_at_call_time(self, monkeypatch):
+        monkeypatch.delenv("LLM_DEFAULT_REF", raising=False)
+        monkeypatch.setenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-5-20250929")
+        assert ModelConfig.get_claude_model("default") == "claude-sonnet-4-5-20250929"
+        assert ModelConfig.get_tier_model("default") == "claude-sonnet-4-5-20250929"
+
+    def test_latest_claude_defaults_per_family(self, monkeypatch):
+        for var in ("LLM_FAST_REF", "LLM_DEFAULT_REF", "LLM_POWERFUL_REF", "LLM_GATE_REF",
+                    "CLAUDE_FAST_MODEL", "CLAUDE_DEFAULT_MODEL", "CLAUDE_POWERFUL_MODEL",
+                    "CLAUDE_GATE_MODEL"):
+            monkeypatch.delenv(var, raising=False)
+        assert ModelConfig.get_tier_model("fast") == "claude-haiku-5-5"
+        assert ModelConfig.get_tier_model("default") == "claude-sonnet-5-5"
+        assert ModelConfig.get_tier_model("powerful") == "claude-fable-5-1"
+        assert ModelConfig.get_tier_model("gate") == "claude-opus-5-5"
+        for model in ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-opus-5-5"):
+            assert ModelConfig.supports_temperature(model) is False
+        for model in ("claude-sonnet-5-5", "claude-fable-5-1", "claude-opus-5-5"):
+            assert ModelConfig.thinking_on_by_default(model) is True
+
+    def test_llm_config_powerful_default_matches_model_config(self, monkeypatch):
+        from app.services.llm.config import LLMConfig
+
+        monkeypatch.delenv("CLAUDE_POWERFUL_MODEL", raising=False)
+        assert LLMConfig().powerful_model == ModelConfig.get_claude_model("powerful")
 
 
 class TestCapabilities:

@@ -23,7 +23,7 @@ class TestLLMConfig:
         """Test default configuration values."""
         config = LLMConfig()
 
-        assert config.default_model == "claude-sonnet-4-6"
+        assert config.default_model == "claude-sonnet-5-5"
         assert config.read_timeout == 180.0
         assert config.max_retries == 3
         assert config.track_usage is True

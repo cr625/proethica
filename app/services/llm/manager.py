@@ -245,16 +245,20 @@ class LLMManager:
         """
         Estimate cost for Anthropic API call.
 
-        Pricing (as of Nov 2025):
-        - Claude Sonnet 4: $3 per MTok input, $15 per MTok output
-        - Claude Opus 4.1: $15 per MTok input, $75 per MTok output
+        Pricing (as of Oct 2026, platform.claude.com/docs/en/models/overview):
+        - Claude Sonnet 5.5: $2 per MTok input, $10 per MTok output
+        - Claude Opus 5.5: $4 per MTok input, $20 per MTok output
+        - Claude Fable 5.1: $10 per MTok input, $50 per MTok output
         """
         pricing = {
+            'claude-sonnet-5-5': (2.0, 10.0),
+            'claude-opus-5-5': (4.0, 20.0),
+            'claude-fable-5-1': (10.0, 50.0),
             'claude-sonnet-4-6': (3.0, 15.0),
             'claude-opus-4-6': (15.0, 75.0),
         }
 
-        input_price, output_price = pricing.get(model, (3.0, 15.0))  # Default to Sonnet 4
+        input_price, output_price = pricing.get(model, (2.0, 10.0))  # Default to Sonnet 5.5
 
         cost = (input_tokens / 1_000_000 * input_price) + (output_tokens / 1_000_000 * output_price)
         return round(cost, 6)

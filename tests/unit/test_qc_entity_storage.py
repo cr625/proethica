@@ -18,7 +18,10 @@ from app.services.step4_synthesis.qc_entity_storage import (
     make_conclusion_storage,
 )
 
-DEFAULT_MODEL = ModelConfig.get_claude_model("default")
+def _default_model():
+    # Call-time, matching the factories: the tier may be repointed by the
+    # environment (.env load) after this module is imported.
+    return ModelConfig.get_claude_model("default")
 
 
 def test_make_question_storage_golden():
@@ -41,7 +44,7 @@ def test_make_question_storage_golden():
     assert row.is_selected is True
     # The attribution the commit service turns into prov:wasAttributedTo; a
     # NULL here silently suppressed the triple for every Q/C individual.
-    assert row.extraction_model == DEFAULT_MODEL
+    assert row.extraction_model == _default_model()
     assert row.rdf_json_ld == {
         '@type': 'proeth-case:EthicalQuestion',
         'questionNumber': 2,
@@ -87,7 +90,7 @@ def test_make_conclusion_storage_golden():
     assert row.entity_label == 'Conclusion_3'
     assert row.entity_definition == 'The engineer must disclose.'
     assert row.is_selected is True
-    assert row.extraction_model == DEFAULT_MODEL
+    assert row.extraction_model == _default_model()
     assert row.rdf_json_ld == {
         '@type': 'proeth-case:EthicalConclusion',
         'conclusionNumber': 3,

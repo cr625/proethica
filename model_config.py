@@ -8,24 +8,27 @@ import os
 class ModelConfig:
     """Centralized configuration for AI models."""
     
-    # Anthropic/Claude Models (as of February 2026)
-    # See: https://platform.claude.com/docs/en/docs/about-claude/models
+    # Anthropic/Claude Models (as of October 2026)
+    # See: https://platform.claude.com/docs/en/models/overview
     CLAUDE_MODELS = {
-        # Primary models for different use cases
-        "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001"),
-        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-8"),
-        "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-6"),
+        # Primary models for different use cases: latest model per family.
+        "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-5-5"),
+        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-fable-5-1"),
+        "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-5-5"),
         # The verification/commit-gate judge. Deliberately a DIFFERENT model from the
         # powerful extraction tier (judge-extractor diversity: with Fable extracting, an
-        # Opus judge audits work it did not produce) and the model the 4/5-5/5 vote
-        # thresholds were calibrated on. Change deliberately via CLAUDE_GATE_MODEL, and
-        # only after an offline report-only judge A/B against the labeled drop outcomes
-        # (parked 2026-07-02 until there is a reason to doubt the judge).
-        "gate": os.getenv("CLAUDE_GATE_MODEL", "claude-opus-4-8"),
+        # Opus judge audits work it did not produce). Vote thresholds were calibrated
+        # on Opus 4.8; the Opus 5.5 default requires an offline report-only judge A/B
+        # before production repointing. Pin the prior judge with CLAUDE_GATE_MODEL.
+        "gate": os.getenv("CLAUDE_GATE_MODEL", "claude-opus-5-5"),
 
         # Specific versions (for testing/compatibility)
-        "sonnet-4.6": "claude-sonnet-4-6",  # Latest Sonnet 4.6 (Feb 2026)
-        "opus-4.8": "claude-opus-4-8",  # Latest Opus 4.8
+        "sonnet-5.5": "claude-sonnet-5-5",
+        "opus-5.5": "claude-opus-5-5",
+        "fable-5.1": "claude-fable-5-1",
+        "haiku-5.5": "claude-haiku-5-5",
+        "sonnet-4.6": "claude-sonnet-4-6",
+        "opus-4.8": "claude-opus-4-8",
         "opus-4.7": "claude-opus-4-7",  # Opus 4.7
         "opus-4.6": "claude-opus-4-6",  # Opus 4.6 (Feb 2026)
         "opus-4.5": "claude-opus-4-5-20251101",  # Legacy Opus 4.5 (Nov 2025)
@@ -55,6 +58,10 @@ class ModelConfig:
         "claude-opus-4-8",
         "claude-sonnet-5",
         "claude-fable-5",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "claude-haiku-5-5",
+        "claude-fable-5-1",
     }
 
     # Models that run extended thinking when the `thinking` param is omitted (Fable 5:
@@ -65,12 +72,33 @@ class ModelConfig:
     THINKING_ON_BY_DEFAULT = {
         "claude-sonnet-5",
         "claude-fable-5",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "claude-fable-5-1",
+    }
+
+    _TIER_LEGACY_ENV = {
+        "fast": "CLAUDE_FAST_MODEL",
+        "powerful": "CLAUDE_POWERFUL_MODEL",
+        "default": "CLAUDE_DEFAULT_MODEL",
+        "gate": "CLAUDE_GATE_MODEL",
     }
 
     # Model selection based on use case
     @classmethod
     def get_claude_model(cls, use_case="default"):
-        """Get the appropriate Claude model for a use case."""
+        """Get the appropriate Claude model for a use case.
+
+        Tier values are read from the legacy CLAUDE_<TIER>_MODEL variable at
+        call time, so a repoint after import is observed; the CLAUDE_MODELS
+        entry remains the fallback. Single resolution authority for tiers is
+        get_tier_ref, which prefers LLM_<TIER>_REF over this legacy path.
+        """
+        env_name = cls._TIER_LEGACY_ENV.get(use_case)
+        if env_name:
+            override = os.getenv(env_name)
+            if override and override.strip():
+                return override.strip()
         return cls.CLAUDE_MODELS.get(use_case, cls.CLAUDE_MODELS["default"])
 
     # ------------------------------------------------------------------
@@ -124,7 +152,7 @@ class ModelConfig:
             if override and override.strip():
                 provider, model = cls.parse_model_ref(override)
                 return f"{provider}:{model}"
-        model = cls.CLAUDE_MODELS.get(tier, cls.CLAUDE_MODELS["default"])
+        model = cls.get_claude_model(tier)
         provider, model_id = cls.parse_model_ref(model)
         return f"{provider}:{model_id}"
 
@@ -169,15 +197,15 @@ class ModelConfig:
         if old_model:
             # Map old model names to new ones
             model_mapping = {
-                "claude-3-7-sonnet-20250219": "claude-sonnet-4-6",
-                "claude-3-sonnet-20240229": "claude-sonnet-4-6",
-                "claude-3-opus-20240229": "claude-opus-4-6",
-                "claude-3.5-sonnet-latest": "claude-sonnet-4-6",
-                "claude-3.5-opus-latest": "claude-opus-4-6",
-                "claude-opus-4-20250514": "claude-opus-4-6",
-                "claude-sonnet-4-20250514": "claude-sonnet-4-6",
-                "claude-opus-4-1-20250805": "claude-opus-4-6",
-                "claude-sonnet-4-5-20250929": "claude-sonnet-4-6",
+                "claude-3-7-sonnet-20250219": "claude-sonnet-5-5",
+                "claude-3-sonnet-20240229": "claude-sonnet-5-5",
+                "claude-3-opus-20240229": "claude-opus-5-5",
+                "claude-3.5-sonnet-latest": "claude-sonnet-5-5",
+                "claude-3.5-opus-latest": "claude-opus-5-5",
+                "claude-opus-4-20250514": "claude-opus-5-5",
+                "claude-sonnet-4-20250514": "claude-sonnet-5-5",
+                "claude-opus-4-1-20250805": "claude-opus-5-5",
+                "claude-sonnet-4-5-20250929": "claude-sonnet-5-5",
             }
             return model_mapping.get(old_model, old_model)
         return cls.get_claude_model("default")
