@@ -1100,6 +1100,11 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
     # passive forms precede their generic stems so substring matching neither
     # mis-routes nor mis-orients them.
     _REL_TYPE_TO_PROP = (
+        # Public duty (case-8 review, L6): the public_responsibility archetype edge, Role ->
+        # PublicInterest. The counterparty is the case-scoped PublicInterest individual minted at
+        # commit (ttl_emitters._ensure_public_interest), not a role facet.
+        ('owes_duty_toward', 'owesDutyToward', False),
+        ('duty_toward', 'owesDutyToward', False),
         ('has_provider', 'hasClient', True),
         ('has provider', 'hasClient', True),
         ('is_client_of', 'hasClient', True),
@@ -1133,13 +1138,14 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
     # type a reasoner would infer from the intermediate equivalentClass definitions: ProviderClientRole
     # equivalentClass Role and (hasClient some Role), etc.). The archetype attaches to the proeth-core
     # property's SUBJECT side (the provider for hasClient, the employee for employedBy). owesDutyToward /
-    # PublicResponsibilityRole is intentionally absent: per the spec it is not materialized per instance
-    # (the equivalentClass existential plus the reasoner supply it), so a public-responsibility role lands
-    # via the role_category fallback only.
+    # PublicResponsibilityRole joined the map with the case-8 review (L6): the edge is materialized per
+    # instance toward the case-scoped PublicInterest individual, so the defined class classifies from a
+    # committed edge like the other three; the role_category fallback mints the same counterparty.
     _REL_PROP_TO_RELATIONAL_ARCHETYPE = {
         'hasClient': 'ProviderClientRole',
         'employedBy': 'EmployerRelationshipRole',
         'professionalPeerOf': 'ProfessionalPeerRole',
+        'owesDutyToward': 'PublicResponsibilityRole',
     }
     # Symmetric relations classify BOTH endpoints (professionalPeerOf is owl:SymmetricProperty).
     _SYMMETRIC_REL_PROPS = frozenset({'professionalPeerOf'})

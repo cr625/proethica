@@ -693,6 +693,17 @@ def _role_relationships_block() -> str:
         cue = (next((str(d) for d in g.objects(CORE[n], SKOS.definition)), '')
                or next((str(c) for c in g.objects(CORE[n], rdflib.RDFS.comment)), ''))
         out.append(f"- {n}: {cue}")
+    # owesDutyToward is the public_responsibility archetype edge (Role -> PublicInterest). It is declared
+    # in proethica-intermediate and is NOT a subproperty of relatedTo (its range is the public, not a
+    # role), so the derivation above never listed it and the model staged it as an overflow literal
+    # (case-8 review, L6). Listed explicitly, with its target convention.
+    PROETH = rdflib.Namespace('http://proethica.org/ontology/intermediate#')
+    odt = PROETH.owesDutyToward
+    if (odt, rdflib.RDF.type, rdflib.OWL.ObjectProperty) in g:
+        cue = (next((str(d) for d in g.objects(odt, SKOS.definition)), '')
+               or next((str(c) for c in g.objects(odt, rdflib.RDFS.comment)), ''))
+        out.append(f"- owesDutyToward: {cue} Target: the general public (PublicInterest), not another "
+                   "role; the edge of the public_responsibility category.")
     out.append("- relatedTo: any other professional relationship between two roles that none of the above "
                "fits (e.g. supervision, a reporting line).")
     out.append("Each relationship needs a verbatim `quote` from the case. If the case states a relationship "

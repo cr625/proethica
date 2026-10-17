@@ -47,6 +47,10 @@ TIME = Namespace("http://www.w3.org/2006/time#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 PROETHICA_PROV = Namespace("http://proethica.org/provenance#")
 
+# Local name of the case-scoped PublicInterest individual, the owesDutyToward
+# counterparty of every public-responsibility role facet (case-8 review, L6).
+PUBLIC_INTEREST_LOCAL = 'PublicInterest'
+
 
 class EmitterMixin:
     """Per-individual TTL property emission: the shared class/individual
@@ -511,6 +515,15 @@ class EmitterMixin:
                         if not rtype:
                             logger.warning(f"relationship missing type, dropped: target={tgt!r}")
                             continue
+                        relprop, swap = self._rel_property_for(str(rtype))
+                        if relprop == 'owesDutyToward':
+                            # Public duty (case-8 review, L6): the counterparty is the general
+                            # public, not a role facet, so the edge runs to the case-scoped
+                            # PublicInterest individual (minted on first use) and classifies
+                            # the facet PublicResponsibilityRole edge-primary.
+                            self._emit_public_duty_edge(g, case_ns, subj, str(tgt), rtype,
+                                                        r.get('quote'), role_edge_archetyped)
+                            continue
                         tgt_uri = self._resolve_rel_target(str(tgt), ctx=ctx)
                         if tgt_uri is None:
                             logger.info(f"relationship target unresolved, skipped: type={rtype!r} target={tgt!r}")
@@ -525,7 +538,6 @@ class EmitterMixin:
                                 f"type={rtype!r} target={tgt!r} resolved={str(tgt_uri).split('#')[-1]}")
                             continue
                         obj = tgt_uri  # the target role facet (was the bearer Agent)
-                        relprop, swap = self._rel_property_for(str(rtype))
                         if relprop == 'relatedTo':
                             logger.info(
                                 f"relationship type {rtype!r} not in the actor-relation "
@@ -575,6 +587,13 @@ class EmitterMixin:
                         rtype = str(r.get('type') or r.get('relation') or '').strip()
                         tgt = str(r.get('target') or r.get('to') or '').strip()
                         if not rtype or not tgt:
+                            continue
+                        if self._rel_property_for(rtype)[0] == 'owesDutyToward':
+                            # The public duty is a controlled relationship (L6): an overflow
+                            # entry naming it becomes the edge, not a staged literal (case 8
+                            # staged "rel:owesDutyToward -> Community" with no counterparty).
+                            self._emit_public_duty_edge(g, case_ns, uri, tgt, rtype,
+                                                        r.get('quote'), role_edge_archetyped)
                             continue
                         g.add((uri, PROETHICA['otherAttribute'], Literal(f"rel:{rtype} -> {tgt}")))
                         logger.info("additional_relationships: staged overflow rel:%s -> %s on %s",
@@ -663,6 +682,40 @@ class EmitterMixin:
         iri = CATEGORY_TO_ONTOLOGY_IRI.get('roles', {}).get(norm)
         if iri:
             g.add((uri, RDF.type, URIRef(iri)))
+        if norm == 'public_responsibility' and '#' in str(uri):
+            case_ns = Namespace(str(uri).split('#')[0] + '#')
+            public = self._ensure_public_interest(g, case_ns)
+            g.add((uri, PROETHICA['owesDutyToward'], public))
+
+    def _ensure_public_interest(self, g: Graph, case_ns: Namespace, target_label: str = None) -> URIRef:
+        """Get-or-create the case-scoped PublicInterest individual: the general public as the
+        collective party public-protection duties are owed to (proeth:PublicInterest, subClassOf
+        core:Agent in the intermediate ontology). Typed to the class rather than to core:Agent
+        directly, so the one-hop actor pools of the edge appliers are unchanged. A relationship
+        target literal ("Community", "the public") is kept as skos:altLabel."""
+        public = case_ns[PUBLIC_INTEREST_LOCAL]
+        if (public, RDF.type, PROETHICA['PublicInterest']) not in g:
+            g.add((public, RDF.type, OWL.NamedIndividual))
+            g.add((public, RDF.type, PROETHICA['PublicInterest']))
+            g.add((public, RDFS.label, Literal('General public')))
+            g.add((public, SKOS.definition, Literal(
+                'The general public as the collective party toward which the public-protection '
+                'duties of this case are owed (the owesDutyToward counterparty of its '
+                'public-responsibility roles).')))
+        alt = (target_label or '').strip()
+        if alt and alt.lower() not in ('general public', 'the general public', 'the public', 'public'):
+            g.add((public, SKOS.altLabel, Literal(alt)))
+        return public
+
+    def _emit_public_duty_edge(self, g: Graph, case_ns: Namespace, facet: URIRef, target: str,
+                               rtype, quote, role_edge_archetyped: set) -> None:
+        """Materialize owesDutyToward from a role facet to the PublicInterest individual, type the
+        facet PublicResponsibilityRole edge-primary (R1) and record the derivation."""
+        public = self._ensure_public_interest(g, case_ns, target)
+        g.add((facet, PROETHICA['owesDutyToward'], public))
+        g.add((facet, RDF.type, PROETHICA['PublicResponsibilityRole']))
+        role_edge_archetyped.add(facet)
+        self._emit_relationship_provenance(g, case_ns, facet, 'owesDutyToward', public, rtype, quote)
 
     def _object_property_locals(self) -> set:
         """Local names of every owl:ObjectProperty declared in core / intermediate.
