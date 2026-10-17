@@ -36,6 +36,21 @@ logger = logging.getLogger(__name__)
 # synthesis_view_builder display layer.
 from app.services.extraction.precedent_filter import is_precedent_reference
 
+# Committed conclusion keys are case-<id>#Conclusion_<conclusionNumber>; board
+# conclusions are numbered below 100 and analytical conclusion families use
+# 100-offset numbering (commit/enrichment._readable_conclusion_label).
+_CONCLUSION_NUMBER_IN_URI = re.compile(r'Conclusion_(\d+)$')
+
+
+def is_board_explicit_conclusion_uri(uri: Optional[str]) -> bool:
+    """True when a conclusion URI names a board_explicit conclusion (its
+    conclusionNumber is below 100). None, positional legacy keys and
+    analytical (100-offset) conclusions are not board holdings."""
+    if not uri:
+        return False
+    match = _CONCLUSION_NUMBER_IN_URI.search(str(uri).strip())
+    return bool(match) and int(match.group(1)) < 100
+
 
 # =============================================================================
 # DATA CLASSES
@@ -589,24 +604,43 @@ class NarrativeElementExtractor:
         foundation,
         canonical_points: List
     ) -> List[NarrativeConflict]:
-        """Extract ethical conflicts from obligation tensions."""
+        """Extract ethical conflicts from obligation tensions.
+
+        Endpoints are typed from the stored entity the URI resolves to, not
+        from the decision-point slot: the DP "constraint" slot can carry an
+        Obligation (case 24-1, "Engineer L Faithful Agent Duty"), which the
+        slot typing recorded as a constraint in an obligation_vs_constraint
+        tension. Conflicts are deduplicated by unordered entity pair, as the
+        LLM branch already does, so two decision points over the same pair
+        yield one tension.
+        """
         conflicts = []
         conflict_id = 1
+        types_by_uri = self._entity_types_by_uri(foundation)
+        seen_pairs = set()
 
         # Extract conflicts from canonical decision points
         for dp in canonical_points:
             if hasattr(dp, 'obligation_label') and hasattr(dp, 'constraint_label'):
                 if dp.obligation_label and dp.constraint_label:
+                    uri1 = getattr(dp, 'obligation_uri', '') or ''
+                    uri2 = getattr(dp, 'constraint_uri', '') or ''
+                    pair = self._pair_key(uri1, dp.obligation_label, uri2, dp.constraint_label)
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+                    type1 = types_by_uri.get(uri1, 'obligation')
+                    type2 = types_by_uri.get(uri2, 'constraint')
                     conflicts.append(NarrativeConflict(
                         conflict_id=f"conflict_{conflict_id}",
                         description=f"Tension between {dp.obligation_label} and {dp.constraint_label}",
-                        conflict_type='obligation_vs_constraint',
-                        entity1_uri=getattr(dp, 'obligation_uri', '') or '',
+                        conflict_type=self._conflict_type_for(type1, type2),
+                        entity1_uri=uri1,
                         entity1_label=dp.obligation_label,
-                        entity1_type='obligation',
-                        entity2_uri=getattr(dp, 'constraint_uri', '') or '',
+                        entity1_type=type1,
+                        entity2_uri=uri2,
                         entity2_label=dp.constraint_label,
-                        entity2_type='constraint',
+                        entity2_type=type2,
                         affected_role_uris=[getattr(dp, 'role_uri', '')] if hasattr(dp, 'role_uri') else []
                     ))
                     conflict_id += 1
@@ -619,6 +653,10 @@ class NarrativeElementExtractor:
                 for obl2 in obligations[i+1:]:
                     # Simple heuristic: obligations with opposite-sounding terms
                     if self._potentially_conflicting(obl1.label, obl2.label):
+                        pair = self._pair_key(obl1.uri, obl1.label, obl2.uri, obl2.label)
+                        if pair in seen_pairs:
+                            continue
+                        seen_pairs.add(pair)
                         conflicts.append(NarrativeConflict(
                             conflict_id=f"conflict_{conflict_id}",
                             description=f"Potential tension between {obl1.label} and {obl2.label}",
@@ -637,6 +675,44 @@ class NarrativeElementExtractor:
                     break
 
         return conflicts
+
+    # Singular entity type per EntityFoundation list, for typing conflict
+    # endpoints from the stored entity rather than from the decision-point slot.
+    _FOUNDATION_TYPES = (
+        ('roles', 'role'), ('states', 'state'), ('resources', 'resource'),
+        ('principles', 'principle'), ('obligations', 'obligation'),
+        ('constraints', 'constraint'), ('capabilities', 'capability'),
+        ('actions', 'action'), ('events', 'event'),
+    )
+
+    def _entity_types_by_uri(self, foundation) -> Dict[str, str]:
+        """URI -> singular entity type over every foundation list."""
+        types = {}
+        for attr, singular in self._FOUNDATION_TYPES:
+            for entity in getattr(foundation, attr, None) or []:
+                uri = getattr(entity, 'uri', None)
+                if uri and uri not in types:
+                    types[uri] = singular
+        return types
+
+    @staticmethod
+    def _conflict_type_for(type1: str, type2: str) -> str:
+        """Conflict type from the endpoint types (not from the DP slots)."""
+        kinds = {type1, type2}
+        if kinds == {'obligation'}:
+            return 'obligation_vs_obligation'
+        if kinds == {'obligation', 'constraint'}:
+            return 'obligation_vs_constraint'
+        if 'role' in kinds:
+            return 'role_conflict'
+        return f'{type1}_vs_{type2}'
+
+    @staticmethod
+    def _pair_key(uri1: str, label1: str, uri2: str, label2: str):
+        """Unordered endpoint pair, keyed by URI when present, else by label."""
+        key1 = uri1 or (label1 or '').lower()
+        key2 = uri2 or (label2 or '').lower()
+        return tuple(sorted((key1, key2)))
 
     def _potentially_conflicting(self, label1: str, label2: str) -> bool:
         """Heuristic check for potentially conflicting obligations."""
@@ -683,12 +759,16 @@ class NarrativeElementExtractor:
                         'is_board_choice': opt.get('is_board_choice', False)
                     })
 
-            # Find board's choice
+            # The Board's choice is asserted only when the decision point is
+            # aligned to a board_explicit conclusion (conclusionNumber below
+            # 100). A model-generated analytical conclusion (100-offset) does
+            # not carry the Board's holding (case 24-1 DP5).
             board_choice = None
-            for opt in options:
-                if opt.get('is_board_choice'):
-                    board_choice = opt['label']
-                    break
+            if is_board_explicit_conclusion_uri(getattr(dp, 'aligned_conclusion_uri', None)):
+                for opt in options:
+                    if opt.get('is_board_choice'):
+                        board_choice = opt['label']
+                        break
 
             moments.append(DecisionMoment(
                 uri=getattr(dp, 'uri', f"decision_{i}"),
@@ -698,9 +778,13 @@ class NarrativeElementExtractor:
                 decision_maker_uri=getattr(dp, 'role_uri', ''),
                 decision_maker_label=getattr(dp, 'role_label', ''),
                 options=options,
+                # Empty slots are dropped: a decision point without a
+                # constraint carried a null competing obligation (case 24-1 DP4).
                 competing_obligations=[
-                    getattr(dp, 'obligation_label', ''),
-                    getattr(dp, 'constraint_label', '')
+                    label for label in (
+                        getattr(dp, 'obligation_label', None),
+                        getattr(dp, 'constraint_label', None),
+                    ) if label
                 ],
                 board_choice=board_choice
             ))

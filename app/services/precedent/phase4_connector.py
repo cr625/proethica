@@ -4,7 +4,8 @@ Phase 4 to Precedent Features Connector
 Updates case_precedent_features with Phase 4 analysis results:
 - Principle tensions from narrative conflicts
 - Obligation conflicts from decision moments
-- Transformation type (if not already set by transformation classifier)
+- Transformation type (the latest Step 4 classification, always written)
+- Outcome polarity from the typed board_explicit conclusions
 
 This connects Step 4 synthesis to precedent discovery, enabling:
 - Matching cases by conflict patterns
@@ -63,10 +64,19 @@ def update_precedent_features_from_phase4(
             narrative_elements = narrative_result.narrative_elements
             insights = getattr(narrative_result, 'insights', None)
 
-        # Update transformation type (if provided and not already set)
-        if transformation_type and not features.transformation_type:
+        # The Step 4 classification always wins: the column is a denormalized
+        # summary, and an only-if-empty write left it stale after a re-run
+        # (case 24-1: column 'stalemate', classification 'phase_lag').
+        if transformation_type:
+            if features.transformation_type and features.transformation_type != transformation_type:
+                logger.info(f"Replacing stale transformation_type {features.transformation_type} "
+                            f"with {transformation_type} for case {case_id}")
             features.transformation_type = transformation_type
             logger.debug(f"Set transformation_type: {transformation_type}")
+
+        # Outcome polarity from the typed board_explicit conclusions (Step 4
+        # Q&C), replacing the ingestion-time text classification.
+        _refresh_outcome_from_board_conclusions(case_id, features)
 
         # Extract principle tensions from narrative conflicts
         if narrative_elements is not None and hasattr(narrative_elements, 'conflicts'):
@@ -107,6 +117,27 @@ def update_precedent_features_from_phase4(
         logger.error(f"Failed to update precedent features for case {case_id}: {e}")
         db.session.rollback()
         return False
+
+
+def _refresh_outcome_from_board_conclusions(case_id: int, features) -> None:
+    """Write the board-conclusion-derived outcome onto the features row when
+    the case has typed board_explicit conclusions. Without them the stored
+    (text or model) classification stands."""
+    try:
+        from app.services.precedent.case_feature_extractor import board_outcome_for_case
+        derived = board_outcome_for_case(case_id)
+    except Exception as e:
+        logger.warning(f"Case {case_id}: outcome refresh from board conclusions skipped: {e}")
+        return
+    if derived is None:
+        return
+    outcome_type, confidence, reasoning = derived
+    if features.outcome_type != outcome_type:
+        logger.info(f"Case {case_id}: outcome_type {features.outcome_type} -> {outcome_type} "
+                    f"(board conclusions)")
+    features.outcome_type = outcome_type
+    features.outcome_confidence = confidence
+    features.outcome_reasoning = reasoning
 
 
 def _extract_principle_tensions(conflicts: List) -> List[Dict]:
@@ -180,9 +211,11 @@ def _extract_obligation_conflicts(decision_moments: List) -> List[Dict]:
 
     for dm in decision_moments:
         try:
-            # Handle both dataclass and dict representations
+            # Handle both dataclass and dict representations. Empty slots
+            # (a decision point without a constraint) are dropped rather than
+            # stored as a null competing obligation.
             if hasattr(dm, 'competing_obligations'):
-                competing = dm.competing_obligations or []
+                competing = [o for o in (dm.competing_obligations or []) if o]
                 if competing:
                     conflict = {
                         'decision_id': dm.decision_id,
@@ -197,7 +230,7 @@ def _extract_obligation_conflicts(decision_moments: List) -> List[Dict]:
                     conflicts.append(conflict)
 
             elif isinstance(dm, dict):
-                competing = dm.get('competing_obligations', [])
+                competing = [o for o in (dm.get('competing_obligations') or []) if o]
                 if competing:
                     conflict = {
                         'decision_id': dm.get('decision_id', ''),

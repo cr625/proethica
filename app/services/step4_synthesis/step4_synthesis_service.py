@@ -355,6 +355,13 @@ def _clear_step4_data(case_id: int) -> dict:
         step_number=4
     ).delete(synchronize_session=False)
 
+    # Reset the case_precedent_features columns Step 4 writes (transformation
+    # type and pattern, tensions, conflicts, citations), as the route-level
+    # clear does. Leaving them let the retrieval row keep a classification the
+    # re-run no longer produced (case 24-1 'stalemate').
+    from app.routes.scenario_pipeline.step4.config import reset_step4_case_features
+    reset_step4_case_features(case_id)
+
     db.session.commit()
     return {'deleted_entities': deleted_count}
 
