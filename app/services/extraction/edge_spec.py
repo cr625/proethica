@@ -59,6 +59,7 @@ from app.services.extraction.edge_coherence import (
     content_tokens,
     derive_action_modality,
     lexical_candidates,
+    literal_by_local,
     named_target_bound,
     owl_time_local,
     performed_by_other_agent,
@@ -355,25 +356,29 @@ _LEGACY_SCAFFOLD_DEFINITION = (
 # fixed cap of three hid the prevailing duty behind "and 1 more".
 FACET_CLAUSE_BUDGET = 300
 
-# Action modality (L6): "performs" names only actions the agent performed. An
-# explicit proeth:actionModality literal wins; otherwise an action whose
-# description (rdfs:comment / proeth:description) or temporal marker carries one
-# of these markers is a PRESCRIBED action, not a performed one (case 8 listed
-# the refusal to acquiesce, an unresolved endpoint, as performed).
-_PRESCRIBED_MARKERS = ("must not", "cannot ethically", "would not be ethical", "unresolved endpoint")
+# Action modality (L6): "performs" names only actions the agent performed. The
+# stored modality literal wins: proeth:modality, which the temporal converter
+# writes from the model's own call and the emitter copies verbatim
+# (proeth:actionModality is read as well for graphs that carry it). Without a
+# literal the classification is edge_coherence.derive_action_modality, the rule
+# the obligation-engagement pass applies to the same actions, so one action is
+# never performed to one pass and prescribed to the other (case 8 listed the
+# refusal to acquiesce, an unresolved endpoint, as performed).
+_MODALITY_PREDICATES = (PROETH.modality, PROETH.actionModality)
 _PRESCRIBED_VERB = "is prescribed to perform"
 
 
 def _action_modality(g: Graph, action) -> str:
-    """'performed', 'prescribed', or the explicit proeth:actionModality value."""
-    explicit = g.value(action, PROETH.actionModality)
-    if explicit is not None and str(explicit).strip():
-        return str(explicit).strip().lower()
-    text = " ".join(
-        str(o) for pred in (RDFS.comment, PROETH.description, PROETH.temporalMarker)
-        for o in g.objects(action, pred)
-    ).lower()
-    return "prescribed" if any(marker in text for marker in _PRESCRIBED_MARKERS) else "performed"
+    """'performed', 'prescribed', or the explicit modality literal."""
+    for pred in _MODALITY_PREDICATES:
+        explicit = g.value(action, pred)
+        if explicit is not None and str(explicit).strip():
+            return str(explicit).strip().lower()
+    description = " ".join(
+        str(o) for pred in (RDFS.comment, PROETH.description) for o in g.objects(action, pred))
+    marker = " ".join(str(o) for o in g.objects(action, PROETH.temporalMarker))
+    return derive_action_modality(description, marker,
+                                  literal_by_local(g, action, "discoveredInSection"))
 
 
 def _node_label(g: Graph, node) -> str:

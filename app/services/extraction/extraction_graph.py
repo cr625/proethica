@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 
 from app.services.commit import naming
+from app.services.commit.match_policy import match_link_threshold
 from app.services.extraction.schemas import (
     CATEGORY_TO_ONTOLOGY_IRI,
     CONCEPT_EXTRACTION_TYPES,
@@ -292,11 +293,15 @@ def pydantic_to_rdf_data(
 def individual_type_iri(class_ref: str, match_decision) -> str:
     """The rdf:type IRI an individual carries in the working store.
 
-    When the matcher resolved the class reference to an EXISTING ontology class
-    (``matches_existing`` with a full ``matched_uri``), that IRI is the type: it is
-    the class the commit honors, so the store and the committed graph name the same
-    class. Otherwise the IRI is minted from the class reference with the commit
-    path's sanitizer, ``naming.safe_local_name``, so a label such as
+    When the matcher LINKED the class reference to an EXISTING ontology class
+    (``matches_existing`` with a full ``matched_uri`` at a confidence at or above
+    the match-link threshold, ``match_policy.match_link_threshold``), that IRI is
+    the type: it is the class the commit honors, so the store and the committed
+    graph name the same class. A match below the threshold (a specialization
+    "matched to parent with medium confidence") keeps the minted class, as the
+    honoring floor of the commit does (case-8 review, L4), so the two stores
+    agree either way. Otherwise the IRI is minted from the class reference with
+    the commit path's sanitizer, ``naming.safe_local_name``, so a label such as
     "Provider-Client Role" yields ``intermediate#ProviderClientRole`` here as at
     commit, not the ``#Provider-ClientRole`` the former hyphen-keeping sanitizer
     produced (an IRI that exists in no ontology) while ``match_decision`` held the
@@ -305,7 +310,12 @@ def individual_type_iri(class_ref: str, match_decision) -> str:
     matched_uri = getattr(match_decision, 'matched_uri', None)
     if getattr(match_decision, 'matches_existing', False) and matched_uri \
             and str(matched_uri).startswith('http'):
-        return str(matched_uri)
+        try:
+            confidence = float(getattr(match_decision, 'confidence', None))
+        except (TypeError, ValueError):
+            confidence = None
+        if confidence is not None and confidence >= match_link_threshold():
+            return str(matched_uri)
     return f'{INTERMEDIATE_NS}{naming.safe_local_name(class_ref)}'
 
 

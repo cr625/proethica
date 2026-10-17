@@ -1136,9 +1136,10 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
     _REL_TYPE_TO_PROP = (
         # Public duty (case-8 review, L6): the public_responsibility archetype edge, Role ->
         # PublicInterest. The counterparty is the case-scoped PublicInterest individual minted at
-        # commit (ttl_emitters._ensure_public_interest), not a role facet.
+        # commit (ttl_emitters._ensure_public_interest), not a role facet. Only the property name
+        # routes here: the generic "duty_toward" stem rerouted a duty owed to a named party (a
+        # client) to the public counterparty (merge review).
         ('owes_duty_toward', 'owesDutyToward', False),
-        ('duty_toward', 'owesDutyToward', False),
         ('has_provider', 'hasClient', True),
         ('has provider', 'hasClient', True),
         ('is_client_of', 'hasClient', True),
