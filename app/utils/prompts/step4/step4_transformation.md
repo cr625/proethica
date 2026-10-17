@@ -27,8 +27,16 @@
       "source": "caller or Document lookup"
     },
     "case_facts": {
-      "description": "Facts section text truncated to 2000 chars; empty string selects the facts-unavailable fallback line",
+      "description": "Facts section text cut to at most 2000 chars at a sentence or word boundary (truncate_at_boundary); empty string selects the facts-unavailable fallback line",
       "source": "caller or doc_metadata sections_dual.facts (truncation in builder)"
+    },
+    "generated_questions_text": {
+      "description": "Step-4 generated questions as 'Qn: [GENERATED <type> question, not posed to the Board] text' lines (n = position in the full list); '' when none",
+      "source": "code-built loop in _llm_classification (case 8 review lesson L5)"
+    },
+    "generated_conclusions_text": {
+      "description": "Step-4 generated conclusions as 'Cn: [GENERATED <type> conclusion, not a Board determination] text' lines (n = position in the full list); '' when none",
+      "source": "code-built loop in _llm_classification (case 8 review lesson L5)"
     },
     "entities_context": {
       "description": "ROLES/OBLIGATIONS/KEY ACTIONS/CONSTRAINTS label lines; empty string omits the block",
@@ -64,7 +72,14 @@ ETHICAL QUESTIONS POSED TO THE BOARD:
 
 BOARD'S CONCLUSIONS:
 {{ conclusions_text }}
-
+{% if generated_questions_text or generated_conclusions_text %}
+GENERATED ANALYSIS (Step 4 analytical questions and conclusions; NOT posed to or decided by the Board):
+{% if generated_questions_text %}{{ generated_questions_text }}
+{% endif %}{% if generated_conclusions_text %}{{ generated_conclusions_text }}
+{% endif %}Classify the transformation from the Board's own questions and conclusions above. The
+generated analysis is context only; do not treat it as a Board determination or as a shift
+the Board effected.
+{% endif %}
 {% if patterns_text %}RESOLUTION PATTERNS:
 {{ patterns_text }}{% endif %}
 

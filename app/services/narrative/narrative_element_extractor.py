@@ -52,6 +52,17 @@ def is_board_explicit_conclusion_uri(uri: Optional[str]) -> bool:
     return bool(match) and int(match.group(1)) < 100
 
 
+def _is_board_conclusion_uri(uri: str) -> bool:
+    """A committed-URI conclusion reference (``...#Conclusion_<n>``) is the
+    Board's when n is below the generated offset; the legacy positional form
+    (``#C<k>``) cannot be classified and counts as the Board's, as before."""
+    from app.services.step4_synthesis.qc_refs import GENERATED_NUMBER_BASE
+    m = re.search(r'#Conclusion_(\d+)$', str(uri or ''))
+    if not m:
+        return True
+    return int(m.group(1)) < GENERATED_NUMBER_BASE
+
+
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
@@ -189,6 +200,10 @@ class DecisionMoment:
     # What's at stake
     competing_obligations: List[str] = field(default_factory=list)
     board_choice: Optional[str] = None
+    # Whether a Board conclusion resolves this point (case 8 review, lesson
+    # L7): the scenario generator authors a board_rationale only then.
+    has_board_conclusion: bool = False
+    board_conclusion_uri: Optional[str] = None
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -556,46 +571,78 @@ class NarrativeElementExtractor:
             resources_involved=resources
         )
 
+    def _committed_temporal_order(self, case_id) -> Dict[str, Dict]:
+        """{local fragment: {'sequence', 'agent_uri', 'agent_label'}} of the
+        committed Action/Event individuals, from proeth:temporalSequence and
+        proeth:performedBy in the case TTL. Empty when no committed graph
+        exists (the stored rows then supply the order). Never raises."""
+        if not case_id:
+            return {}
+        try:
+            from rdflib import RDFS, URIRef
+            from app.services.entity.committed_case_graph import load_case_graph
+            g = load_case_graph(case_id)
+        except Exception as exc:  # noqa: BLE001 - no committed TTL yet
+            logger.info(f"Committed timeline unavailable for case {case_id}: {exc}")
+            return {}
+        seq_pred = URIRef("http://proethica.org/ontology/intermediate#temporalSequence")
+        agent_pred = URIRef("http://proethica.org/ontology/intermediate#performedBy")
+        out: Dict[str, Dict] = {}
+        for s, o in g.subject_objects(seq_pred):
+            try:
+                seq = int(str(o))
+            except (TypeError, ValueError):
+                continue
+            frag = str(s).rsplit('#', 1)[-1]
+            out.setdefault(frag, {})['sequence'] = seq
+        for s, o in g.subject_objects(agent_pred):
+            frag = str(s).rsplit('#', 1)[-1]
+            entry = out.setdefault(frag, {})
+            entry['agent_uri'] = str(o)
+            label = next((str(l) for l in g.objects(o, RDFS.label)), None)
+            entry['agent_label'] = label or str(o).rsplit('#', 1)[-1].replace('_', ' ')
+        return out
+
     def _extract_events(self, foundation) -> List[NarrativeEvent]:
-        """Extract events from Actions and Events with Event Calculus attributes."""
+        """Extract events from Actions and Events with Event Calculus attributes.
+
+        Order: the committed proeth:temporalSequence (fallback: the sequence
+        stored on the Step-3 rows), then storage order for unsequenced items.
+        Agents come from the committed proeth:performedBy edge (fallback: the
+        row's proeth:hasAgent). Case 8's phase-4 timeline put the engineer's
+        suspension request before the contract that was accepted after the
+        refusal because it followed storage order (lesson L7)."""
+        committed = self._committed_temporal_order(getattr(foundation, 'case_id', None))
+
+        def _frag(uri):
+            return str(uri or '').rsplit('#', 1)[-1]
+
+        items = []
+        for idx, (summary, kind) in enumerate(
+                [(a, 'action') for a in foundation.actions] + [(e, 'automatic') for e in foundation.events]):
+            committed_entry = committed.get(_frag(summary.uri), {})
+            seq = committed_entry.get('sequence')
+            if seq is None:
+                seq = getattr(summary, 'temporal_sequence', None)
+            items.append((seq is None, seq if seq is not None else 0, idx, summary, kind, committed_entry))
+        items.sort(key=lambda t: t[:3])
+
         narrative_events = []
-        time_point = 1
-
-        # First, add actions
-        for action in foundation.actions:
-            # Parse agent from action if available
-            agent_uri = None
-            agent_label = None
-
-            # Try to extract agent from RDF or definition
-            if hasattr(action, 'entity_type') and action.entity_type:
-                # Check if we have agent info
-                pass
-
+        for time_point, (_, _, _, summary, kind, committed_entry) in enumerate(items, 1):
+            agent_uri = committed_entry.get('agent_uri')
+            agent_label = committed_entry.get('agent_label') or getattr(summary, 'agent_label', None)
             narrative_events.append(NarrativeEvent(
-                uri=action.uri,
-                label=action.label,
-                event_type='action',
-                agent_uri=agent_uri,
-                agent_label=agent_label,
+                uri=summary.uri,
+                label=summary.label,
+                event_type=kind,
+                agent_uri=agent_uri if kind == 'action' else None,
+                agent_label=agent_label if kind == 'action' else None,
                 time_point=time_point,
                 preconditions=[],  # To be enriched from causal analysis
                 initiates=[],
                 terminates=[],
-                description=action.definition or action.label
+                description=summary.definition or summary.label
             ))
-            time_point += 1
-
-        # Then add events (automatic occurrences)
-        for event in foundation.events:
-            narrative_events.append(NarrativeEvent(
-                uri=event.uri,
-                label=event.label,
-                event_type='automatic',
-                time_point=time_point,
-                description=event.definition or event.label
-            ))
-            time_point += 1
 
         return narrative_events
 
@@ -619,9 +666,28 @@ class NarrativeElementExtractor:
         types_by_uri = self._entity_types_by_uri(foundation)
         seen_pairs = set()
 
-        # Extract conflicts from canonical decision points
+        # Extract conflicts from canonical decision points. A point whose
+        # competition is between two obligations (the committed competesWith /
+        # prevailsOver pair, lesson L4) is an obligation-vs-obligation tension;
+        # the constraint slot is read only when it holds a Constraint.
         for dp in canonical_points:
-            if hasattr(dp, 'obligation_label') and hasattr(dp, 'constraint_label'):
+            obligation_label = getattr(dp, 'obligation_label', None)
+            competing_label = getattr(dp, 'competing_obligation_label', None)
+            if obligation_label and competing_label:
+                conflicts.append(NarrativeConflict(
+                    conflict_id=f"conflict_{conflict_id}",
+                    description=f"Tension between {obligation_label} and {competing_label}",
+                    conflict_type='obligation_vs_obligation',
+                    entity1_uri=getattr(dp, 'obligation_uri', '') or '',
+                    entity1_label=obligation_label,
+                    entity1_type='obligation',
+                    entity2_uri=getattr(dp, 'competing_obligation_uri', '') or '',
+                    entity2_label=competing_label,
+                    entity2_type='obligation',
+                    affected_role_uris=[getattr(dp, 'role_uri', '')] if hasattr(dp, 'role_uri') else []
+                ))
+                conflict_id += 1
+            elif hasattr(dp, 'obligation_label') and hasattr(dp, 'constraint_label'):
                 if dp.obligation_label and dp.constraint_label:
                     uri1 = getattr(dp, 'obligation_uri', '') or ''
                     uri2 = getattr(dp, 'constraint_uri', '') or ''
@@ -770,6 +836,18 @@ class NarrativeElementExtractor:
                         board_choice = opt['label']
                         break
 
+            # A Board conclusion resolves the point only when the aligned
+            # conclusion is board_explicit and the point is not an analytical
+            # extension (lesson L7): board_rationale is authored only then.
+            aligned_c = getattr(dp, 'aligned_conclusion_uri', None)
+            has_board_conclusion = bool(
+                aligned_c
+                and getattr(dp, 'synthesis_method', '') != 'analytical_extension'
+                and _is_board_conclusion_uri(aligned_c)
+            )
+            competing = getattr(dp, 'competing_obligation_label', None) \
+                or getattr(dp, 'constraint_label', '')
+
             moments.append(DecisionMoment(
                 uri=getattr(dp, 'uri', f"decision_{i}"),
                 decision_id=getattr(dp, 'focus_id', f"DP{i}"),
@@ -783,10 +861,12 @@ class NarrativeElementExtractor:
                 competing_obligations=[
                     label for label in (
                         getattr(dp, 'obligation_label', None),
-                        getattr(dp, 'constraint_label', None),
+                        competing,
                     ) if label
                 ],
-                board_choice=board_choice
+                board_choice=board_choice if has_board_conclusion else None,
+                has_board_conclusion=has_board_conclusion,
+                board_conclusion_uri=aligned_c if has_board_conclusion else None,
             ))
 
         return moments

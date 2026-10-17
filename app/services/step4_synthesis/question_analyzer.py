@@ -83,6 +83,30 @@ class EthicalQuestion:
     # For analytical questions
     source_question: Optional[int] = None  # Links to board_explicit question number
     ethical_framework: Optional[str] = None  # deontological, consequentialist, virtue
+    # Implicit questions: the verbatim facts sentence the premise rests on
+    # (case 8 review, lesson L5; Question_103 rested on a premise the facts
+    # contradict). Required by the parser for the implicit category.
+    grounding_fact: Optional[str] = None
+
+
+def _normalize_for_quote_match(text: str) -> str:
+    """Whitespace-collapsed, lowercase, quote-mark-insensitive form for
+    checking that a model-supplied quote appears in a source section."""
+    text = (text or '').replace('“', '"').replace('”', '"') \
+        .replace('‘', "'").replace('’', "'")
+    return re.sub(r'\s+', ' ', text).strip().lower()
+
+
+def quote_appears_in(quote: str, source: str) -> bool:
+    """True when the normalized quote is a substring of the normalized source.
+    An empty quote never matches; an empty source cannot be checked and
+    returns True (the caller decides whether a check was possible)."""
+    q = _normalize_for_quote_match(quote)
+    if not q:
+        return False
+    if not source:
+        return True
+    return q in _normalize_for_quote_match(source)
 
 
 class QuestionAnalyzer:
@@ -437,7 +461,8 @@ class QuestionAnalyzer:
             else:
                 self.last_prompt = prompt
 
-            batch_result = self._call_analytical_batch(prompt, all_entities, desc)
+            batch_result = self._call_analytical_batch(prompt, all_entities, desc,
+                                                       case_facts=case_facts)
             for cat in categories:
                 result[cat] = batch_result.get(cat, [])
 
@@ -449,7 +474,8 @@ class QuestionAnalyzer:
         self,
         prompt: str,
         all_entities: Dict[str, List],
-        desc: str
+        desc: str,
+        case_facts: Optional[str] = None,
     ) -> Dict[str, List[EthicalQuestion]]:
         """Execute a single analytical question batch with retries."""
         max_retries = 3
@@ -469,7 +495,8 @@ class QuestionAnalyzer:
                 else:
                     self.last_response = response_text
 
-                analytical = self._parse_analytical_questions_response(response_text, all_entities)
+                analytical = self._parse_analytical_questions_response(
+                    response_text, all_entities, case_facts=case_facts)
 
                 total = sum(len(v) for v in analytical.values())
                 logger.info(f"Batch '{desc}': {total} questions")
@@ -577,13 +604,18 @@ class QuestionAnalyzer:
         if 'implicit' in categories:
             category_blocks.append(f"""**IMPLICIT QUESTIONS**: {QUESTION_TYPES['implicit']}
    - What ethical issues lurk beneath the surface?
-   - What questions should have been asked?""")
+   - What questions should have been asked?
+   - GROUNDING: every implicit question MUST carry a "grounding_fact" field quoting,
+     verbatim, the sentence or clause of the CASE FACTS its premise rests on. A question
+     whose premise the facts do not state (or contradict) is not an implicit question of
+     this case and must not be emitted; a question without the quote is discarded.""")
             example_blocks.append("""  "implicit": [
     {
       "question_text": "Should Engineer A have disclosed the conflict earlier?",
       "mentioned_entities": {"roles": ["Engineer A"]},
       "related_provisions": [],
-      "source_question": 1
+      "source_question": 1,
+      "grounding_fact": "verbatim sentence from the case facts that the question rests on"
     }
   ]""")
 
@@ -704,9 +736,16 @@ class QuestionAnalyzer:
     def _parse_analytical_questions_response(
         self,
         response_text: str,
-        all_entities: Dict[str, List]
+        all_entities: Dict[str, List],
+        case_facts: Optional[str] = None,
     ) -> Dict[str, List[EthicalQuestion]]:
-        """Parse analytical questions from LLM response."""
+        """Parse analytical questions from LLM response.
+
+        Implicit questions must carry a ``grounding_fact`` quote that appears
+        in the case facts (when the facts are available for checking); an
+        ungrounded implicit question is dropped with a logged reason (case 8
+        review, lesson L5). Numbering stays dense within each category.
+        """
         result = {
             'implicit': [],
             'principle_tension': [],
@@ -723,10 +762,24 @@ class QuestionAnalyzer:
 
         for category in result.keys():
             base = number_bases.get(category, 1)
-            for idx, q_data in enumerate(json_data.get(category, [])):
+            kept = 0
+            for q_data in json_data.get(category, []):
+                if not isinstance(q_data, dict):
+                    continue
+                grounding = (q_data.get('grounding_fact') or '').strip() or None
+                if category == 'implicit':
+                    text_preview = (q_data.get('question_text') or '')[:80]
+                    if not grounding:
+                        logger.info("implicit question dropped (no grounding_fact quote): %r",
+                                    text_preview)
+                        continue
+                    if case_facts and not quote_appears_in(grounding, case_facts):
+                        logger.info("implicit question dropped (grounding_fact not found in the "
+                                    "case facts): %r / quote %r", text_preview, grounding[:80])
+                        continue
                 mentioned = q_data.get('mentioned_entities', {})
                 question = EthicalQuestion(
-                    question_number=base + idx,
+                    question_number=base + kept,
                     question_text=q_data.get('question_text', ''),
                     question_type=category,
                     mentioned_entities=mentioned,
@@ -735,9 +788,11 @@ class QuestionAnalyzer:
                     extraction_reasoning='',
                     source=QuestionSource.LLM_GENERATED.value,
                     source_question=q_data.get('source_question'),
-                    ethical_framework=q_data.get('ethical_framework')
+                    ethical_framework=q_data.get('ethical_framework'),
+                    grounding_fact=grounding if category == 'implicit' else None,
                 )
                 result[category].append(question)
+                kept += 1
 
         return result
 
@@ -754,6 +809,7 @@ class QuestionAnalyzer:
             'source': q.source,
             'source_question': q.source_question,
             'ethical_framework': q.ethical_framework,
+            'grounding_fact': q.grounding_fact,
             'label': f"Question_{q.question_number}"
         }
 

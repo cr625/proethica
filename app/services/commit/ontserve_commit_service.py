@@ -46,6 +46,9 @@ from app.services.commit.working_store import write_back_types
 from app.services.commit.publish_guard import (
     normalize_class_key, partition_by_unpublished_type, unpublished_class_keys,
 )
+from app.services.commit.analysis_literals import (
+    is_step4_analysis_type, strip_analysis_literals, stale_analysis_rows,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -333,9 +336,32 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 results['error'] = '; '.join(str(e) for e in results['errors'])
                 return results
 
+            # Stale-row gate (lesson L8): a Step-4 analysis row whose defining
+            # literals are not in the written graph is NOT stamped committed_at
+            # (nor marked published). Case 8's recompute stamped new precedent
+            # rows while the TTL still carried a superseded run's literals.
+            stale_ids: Dict[int, str] = {}
+            if individuals_to_commit:
+                try:
+                    case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+                    if case_file.exists():
+                        g_check = Graph()
+                        g_check.parse(case_file, format='turtle')
+                        for ent, reason in stale_analysis_rows(
+                                g_check, case_id, [e for e, _ in individuals_to_commit]):
+                            stale_ids[ent.id] = reason
+                            logger.warning(f"case {case_id}: committed_at withheld for row "
+                                           f"{ent.id} ({ent.extraction_type}): {reason}")
+                except Exception as e:  # noqa: BLE001 - the gate never fails a commit
+                    logger.warning(f"stale-row gate skipped for case {case_id}: {e}")
+            if stale_ids:
+                results['stale_rows'] = [{'id': i, 'reason': r} for i, r in stale_ids.items()]
+
             # Mark entities as published and record content hashes
             now = datetime.now(timezone.utc)
             for entity in entities:
+                if entity.id in stale_ids:
+                    continue
                 entity.is_published = True
                 entity.committed_at = now
                 entity.content_hash = TemporaryRDFStorage.compute_content_hash(
@@ -612,6 +638,14 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                     else:
                         logger.info(f"Individual {label} already exists, merging additively")
                         is_merge = True
+                        # Step-4 analysis literals are REPLACED, not unioned: the
+                        # additive merge kept a superseded run's citationType /
+                        # citationContext on case 8's PrecedentCaseReference
+                        # individuals (lesson L8). Object edges and provenance
+                        # nodes are untouched; the row's literals follow below.
+                        if is_step4_analysis_type(extraction_type):
+                            _n = strip_analysis_literals(g, individual_uri)
+                            logger.info(f"Replaced {_n} literal triples on {label} ({extraction_type})")
 
                 # Add individual as NamedIndividual
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))

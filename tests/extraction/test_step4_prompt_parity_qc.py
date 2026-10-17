@@ -6,10 +6,16 @@ step4_qc_fixtures. Each test rebuilds the template variables through the
 live variable builders, renders the sidecar body directly (no DB, no
 seeded template row), and asserts byte equality with the golden.
 
-No deliberate deviations exist in this batch: the goldens are exact
-pre-migration outputs, including the doubled-brace wrapper around the
-analytical output-JSON examples (a pre-existing artifact of the old
-string assembly, preserved verbatim).
+Deliberate deviations (case 8 review, lesson L5, 2026-10-17): the
+step4_q_analytical__batch1 golden carries the implicit-question GROUNDING
+bullet and the grounding_fact example field, and the two step4_c_analytical
+goldens carry the analytical-extension ATTRIBUTION bullet and the
+discussion_quote example field. Both blocks are code-built category text
+(question_analyzer / conclusion_analyzer _analytical_prompt_variables), so
+the goldens were re-captured from the live builders; the sidecar frames are
+unchanged. The doubled-brace wrapper around the analytical output-JSON
+examples (a pre-existing artifact of the old string assembly) is preserved
+verbatim.
 """
 
 from pathlib import Path

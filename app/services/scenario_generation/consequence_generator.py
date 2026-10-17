@@ -53,11 +53,17 @@ def generate_consequences_for_seeds(
             if uri is not None
         ]
 
+        # A board_rationale is authored only for a decision point a Board
+        # conclusion resolves (case 8 review, lesson L7): the prompt does not
+        # ask for one otherwise, and the field stays empty.
+        wants_rationale = bool(getattr(branch, 'has_board_conclusion', True))
+
         # Build prompt and call LLM
         prompt = _build_consequence_prompt(
             branch=branch,
             causal_links=causal_links,
             resolution=resolution,
+            request_board_rationale=wants_rationale,
         )
 
         try:
@@ -71,7 +77,7 @@ def generate_consequences_for_seeds(
             parsed = _parse_consequence_response("", num_options=len(branch.options))
 
         # Apply parsed data to branch and options
-        branch.board_rationale = parsed["board_rationale"]
+        branch.board_rationale = parsed["board_rationale"] if wants_rationale else ""
 
         for i, opt in enumerate(branch.options):
             if i < len(parsed["options"]):
@@ -91,8 +97,13 @@ def _build_consequence_prompt(
     branch: ScenarioBranch,
     causal_links: List[Dict],
     resolution: Dict,
+    request_board_rationale: bool = True,
 ) -> str:
-    """Build the LLM prompt for consequence generation for one decision point."""
+    """Build the LLM prompt for consequence generation for one decision point.
+
+    ``request_board_rationale`` is False for a point no Board conclusion
+    resolves: the prompt then asks for no board_rationale and states that the
+    Board did not rule on the point."""
 
     # Filter causal links relevant to this branch's options
     option_action_uris = set()
@@ -123,10 +134,19 @@ def _build_consequence_prompt(
 
     options_text = ""
     for i, opt in enumerate(branch.options):
-        board_marker = " [BOARD'S CHOICE]" if opt.is_board_choice else ""
+        board_marker = " [BOARD'S CHOICE]" if (opt.is_board_choice and request_board_rationale) else ""
         options_text += f"{i+1}. {opt.label}{board_marker}\n"
         if opt.description:
             options_text += f"   {opt.description}\n"
+
+    if request_board_rationale:
+        rationale_task = "Also generate a board_rationale (2-3 sentences explaining why the board chose as they did)."
+        rationale_json = ',\n    "board_rationale": "..."'
+    else:
+        rationale_task = ("The Board did not rule on this decision point (it is an analytical extension "
+                          "of the case). Do NOT generate a board_rationale and do not attribute a choice "
+                          "to the Board.")
+        rationale_json = ""
 
     return f"""Generate consequence narratives for each option at this decision point in a professional engineering ethics case.
 
@@ -148,7 +168,7 @@ For each option, generate:
 2. A list of obligation labels that this choice activates or implicates
 3. Fluent changes: what conditions are initiated (become true) and terminated (become false)
 
-Also generate a board_rationale (2-3 sentences explaining why the board chose as they did).
+{rationale_task}
 
 Respond in JSON:
 {{
@@ -162,8 +182,7 @@ Respond in JSON:
                 "terminated": ["condition_2"]
             }}
         }}
-    ],
-    "board_rationale": "..."
+    ]{rationale_json}
 }}
 
 Return one entry per option, in the same order as listed above."""

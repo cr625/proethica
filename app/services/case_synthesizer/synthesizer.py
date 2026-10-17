@@ -359,11 +359,22 @@ class CaseSynthesizer(NarrativeConstructionMixin, Phase2ExtractionMixin):
 
         for e in temporal:
             etype = e.entity_type or ''
+            rdf = e.rdf_json_ld or {}
+            seq = rdf.get('proeth:temporalSequence')
+            try:
+                seq = int(seq) if seq is not None else None
+            except (TypeError, ValueError):
+                seq = None
+            agent = rdf.get('proeth:hasAgent') or rdf.get('proeth:agent') or None
+            if isinstance(agent, list):
+                agent = agent[0] if agent else None
             summary = EntitySummary(
                 uri=e.entity_uri or f"case-{case_id}#{e.entity_label.replace(' ', '_')}",
                 label=e.entity_label,
                 definition=e.entity_definition or '',
-                entity_type=etype
+                entity_type=etype,
+                temporal_sequence=seq,
+                agent_label=str(agent).strip() if agent else None,
             )
             if 'action' in etype.lower():
                 foundation.actions.append(summary)

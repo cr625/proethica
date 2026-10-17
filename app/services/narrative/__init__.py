@@ -185,7 +185,8 @@ def construct_phase4_narrative(
     if hasattr(narrative_elements, 'llm_traces') and narrative_elements.llm_traces:
         all_llm_traces.extend(narrative_elements.llm_traces)
 
-    # Stage 4.2: Timeline Construction
+    # Stage 4.2: Timeline Construction. The 'enables' links come from the
+    # Step-3 causal chains (loaded inside construct_timeline when not given).
     timeline = construct_timeline(
         case_id=case_id,
         narrative_elements=narrative_elements,
