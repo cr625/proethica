@@ -408,7 +408,7 @@ function createConsolidationCard(runs) {
     const rows = runs.map(run => {
         const label = run.session_id
             ? `Pipeline run <code>${escapeHtml(String(run.session_id))}</code>`
-            : 'Commit outside a recorded pipeline run';
+            : 'Activities outside a recorded pipeline run';
         const start = fmtWhen(run.started_at), end = fmtWhen(run.ended_at);
         const window = start === end ? start : `${start} to ${end}`;
         const header = `<tr class="table-light">
@@ -571,12 +571,12 @@ function createPassHeader(step, pass) {
     return div;
 }
 
-// Badge for a stored prompt or response whose length equals a round storage
-// limit (helpers.truncation_limit): the text was sliced at that length when
-// stored and the remainder was never kept.
+// Badge for a stored prompt or response that a storage slice cut
+// (helpers.truncation_limit: a length equal to a round limit, or the
+// "... [truncated]" marker): the remainder was never kept.
 function truncationBadge(limit) {
     if (!limit) return '';
-    return `<span class="badge bg-warning text-dark ms-2" title="The stored text is exactly ${limit} characters long, the length of a storage slice: the original was longer and the remainder was not kept.">stored text truncated at ${limit} characters</span>`;
+    return `<span class="badge bg-warning text-dark ms-2" title="The stored text was cut at ${limit} characters by a storage slice. The original was longer and the remainder was not kept.">stored text truncated at ${limit} characters</span>`;
 }
 
 // Metadata-bar note when no provenance activity was recorded for the prompt's

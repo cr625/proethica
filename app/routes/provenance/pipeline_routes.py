@@ -162,6 +162,14 @@ def register_pipeline_routes(bp):
         LIMIT 150
     """), {'case_id': case_id}).fetchall()
 
+        # The pipeline runs of the case. Only their ids are run-scoped session ids on
+        # the activities above (pipeline_tasks._record_pass); the storage dedup passes
+        # carry the extraction session id of one concept pass instead and attach to a
+        # run by time.
+        run_ids = {str(r[0]) for r in db.session.execute(text("""
+        SELECT id FROM pipeline_runs WHERE case_id = :case_id
+    """), {'case_id': case_id}).fetchall()}
+
         consolidation_runs = group_consolidation_by_run([{
             'activity_type': r[0],
             'activity_name': r[1],
@@ -172,7 +180,7 @@ def register_pipeline_routes(bp):
             'error_message': r[6],
             'session_id': r[7],
             'result': _json(r[8]),
-        } for r in consolidation_rows])
+        } for r in consolidation_rows], run_ids=run_ids)
 
         consolidation = [{
             'session_id': run['session_id'],
