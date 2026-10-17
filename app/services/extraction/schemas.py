@@ -30,12 +30,15 @@ Cross-references:
 from __future__ import annotations
 
 import copy
+import logging
 from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import (
     AliasChoices, BaseModel, ConfigDict, Field, WithJsonSchema, model_validator,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +385,16 @@ class RoleIndividual(BaseIndividual):
     # obligation-layer defeasibility edges, materialized as first-class edges rather than stored as
     # per-individual role literals (spec "Remove" / "Not stored").
     case_involvement: Optional[str] = None
+    # Routing input for the D-TELEO rule (lesson L9): the obligation(s) a PROFESSIONAL role
+    # generates, named as the case states them. role_kind professional with none named is
+    # rejected by role_checks.reject_unsupported_professional. Not stored as a literal (classified
+    # RELATION in field_classification, so the commit emitter skips it); the hasObligation edges
+    # themselves are derived by the R->P->O pass.
+    generates_obligations: List[str] = Field(
+        default_factory=list,
+        description="Obligation(s) this professional role generates, as the case states them; "
+                    "required for role_kind professional (a routing input, not stored)",
+    )
 
     @model_validator(mode='before')
     @classmethod
@@ -468,6 +481,33 @@ class PrincipleIndividual(BaseIndividual):
     tension_resolution: Optional[str] = Field(
         None, description="How the tension was resolved"
     )
+
+    @model_validator(mode='before')
+    @classmethod
+    def _reject_orphan_tension_resolution(cls, data: Any) -> Any:
+        """Reject a populated tension_resolution whose balancing_with is empty (lesson L2).
+
+        The prompt's BALANCING CHECK calls the pair incomplete: a resolution names a tension
+        whose other side went unrecorded. Case 8's facts pass emitted tension_resolution
+        "Unresolved in the facts ..." with no balancing_with. The incomplete value is dropped
+        (set to None) and logged; the individual itself is kept, since the value record of the
+        principle is sound and the facts pass is meant to leave the resolution empty.
+        """
+        if not isinstance(data, dict):
+            return data
+        resolution = data.get('tension_resolution')
+        balancing = data.get('balancing_with')
+        if isinstance(balancing, str):
+            # a single competing value emitted as a bare string is one entry, not a type error
+            balancing = [balancing] if balancing.strip() else []
+            data['balancing_with'] = balancing
+        populated = isinstance(resolution, str) and resolution.strip()
+        if populated and not balancing:
+            logger.warning(
+                "PrincipleIndividual %r: tension_resolution %r rejected (balancing_with is empty)",
+                data.get('identifier') or data.get('name') or data.get('label'), resolution)
+            data['tension_resolution'] = None
+        return data
 
 
 class PrincipleExtractionResult(BaseModel):
@@ -817,6 +857,12 @@ class ActionIndividual(BaseModel):
     has_agent: Optional[str] = Field(None, alias="proeth:hasAgent")
     event_role_context: Optional[str] = Field(None, alias="proeth:eventRoleContext")
     temporal_marker: Optional[str] = Field(None, alias="proeth:temporalMarker")
+    # Modality (lesson L8): "performed" when the case narrates the agent doing or omitting the
+    # act; "prescribed" when the act is one the Board says the agent must, must not, or cannot
+    # ethically do (a holding stated in the discussion). Case 8 stored the Board's "cannot
+    # ethically acquiesce" as a performed Action with temporal_marker "Present, unresolved
+    # endpoint". Set by the model and confirmed by happening_checks.classify_action_modality.
+    modality: Optional[Literal['performed', 'prescribed']] = Field(None, alias="proeth:modality")
 
     # Intention block
     has_mental_state: Optional[str] = Field(None, alias="proeth:hasMentalState")

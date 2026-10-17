@@ -171,6 +171,9 @@ _ROLE_INDIVIDUAL_DEFAULTS = {
     "relationships": [],
     "additional_relationships": [],
     "case_involvement": None,
+    # Routing input added by the case-8 review (lesson L9): the obligations a professional
+    # role names; empty when the model states none.
+    "generates_obligations": [],
 }
 
 

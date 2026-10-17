@@ -8,6 +8,7 @@ Uses LLM for extraction with optional dateutil validation.
 from typing import Dict, List
 import logging
 import os
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -151,6 +152,12 @@ JSON Response:"""
         # same precedent pattern the rest of the pipeline uses to drop phantom precedents.
         markers = _drop_precedent_dates(markers)
 
+        # Allen evidence must be a verbatim span of the case (lesson L5): the evidence field of a
+        # committed relation carried a parenthetical hedge inside the quote. A hedge is stripped
+        # and the span snapped to the case's characters; a relation whose evidence cannot be
+        # located in the case at all is dropped (logged).
+        markers = _ground_allen_evidence(markers, f"{facts}\n\n{discussion}")
+
         trace_entry['parsed_output'] = {
             'explicit_dates': len(markers.get('explicit_dates', [])),
             'temporal_phrases': len(markers.get('temporal_phrases', [])),
@@ -193,6 +200,49 @@ def _drop_precedent_dates(markers: Dict) -> Dict:
         markers['explicit_dates'] = kept
         logger.info("[Temporal Extractor] Dropped %d case-citation 'date(s)' (precedent refs, "
                     "not dates): %s", len(dropped), ", ".join(dropped))
+    return markers
+
+
+_PARENTHETICAL_RE = re.compile(r"\s*\([^()]*\)")
+
+
+def _ground_allen_evidence(markers: Dict, case_text: str) -> Dict:
+    """Require each allen_relations[].evidence to be a verbatim span of the case text.
+
+    The evidence is snapped to the case's own characters when its tokens match (the token test
+    ignores punctuation and whitespace). When it does not match as written, a parenthetical the
+    model inserted into the quote (a hedge such as "(apparently)") is removed and the test
+    repeated. A relation whose evidence still matches nothing is dropped, since the evidence is
+    the relation's only grounding. Logs every repair and drop; returns the same markers dict."""
+    from app.services.extraction.quote_grounding import verbatim_span
+
+    rels = markers.get('allen_relations') or []
+    if not isinstance(rels, list) or not rels:
+        return markers
+    kept, dropped, repaired = [], [], 0
+    for rel in rels:
+        if not isinstance(rel, dict):
+            continue
+        evidence = str(rel.get('evidence') or '').strip()
+        span = verbatim_span(evidence, case_text) if evidence else None
+        if span is None and evidence:
+            stripped = _PARENTHETICAL_RE.sub('', evidence).strip()
+            if stripped and stripped != evidence:
+                span = verbatim_span(stripped, case_text)
+        if span is None:
+            dropped.append(rel)
+            continue
+        if span != evidence:
+            repaired += 1
+        rel['evidence'] = span
+        kept.append(rel)
+    if dropped or repaired:
+        markers['allen_relations'] = kept
+        logger.info("[Temporal Extractor] Allen evidence grounding: %d relation(s) snapped to the "
+                    "case text, %d dropped for evidence absent from the case: %s",
+                    repaired, len(dropped),
+                    "; ".join(f"{r.get('entity1')} {r.get('relation')} {r.get('entity2')}"
+                              for r in dropped) or "none")
     return markers
 
 

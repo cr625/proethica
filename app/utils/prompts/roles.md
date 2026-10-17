@@ -20,6 +20,7 @@ For each role, evaluate ONLY against the EXISTING ROLES IN ONTOLOGY list above. 
 - If the extracted role is a SPECIALIZATION of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
 - If RELATED but distinct: do NOT match, it is a new concept
 - If genuinely NEW with no close equivalent: match_decision.matches_existing = false
+- When a CANONICAL class and a PREVIOUSLY EXTRACTED class both fit a role, match the canonical class: read the canonical definitions first (the NSPE Board of Ethical Review is a Regulatory Authority Role, whose definition names an ethics review board), and choose a previously extracted class only when no canonical class covers the role.
 
 OUTPUT FORMAT:
 Return a JSON object with TWO arrays: new_role_classes (reusable types/categories of roles) and role_individuals (specific persons/entities filling those roles). A Role Class is a general reusable type (e.g. "Design Engineer"); a Role Individual is a specific named actor in the case (e.g. "Engineer A Design Engineer"). Each individual MUST reference a class via the role_class field.
@@ -64,6 +65,7 @@ INDIVIDUAL SCHEMA (role_individuals array) -- each individual is a JSON object:
     "role_class": "Design Engineer",
     "role_category": "provider_client",
     "role_kind": "professional",
+    "generates_obligations": ["Duty to hold paramount the safety, health, and welfare of the public in the tower design"],
     "case_involvement": "Created original tower designs containing significant errors",
     "license": "Professional Engineer",
     "specialty": "Structural design",
@@ -78,9 +80,12 @@ Keep each individual's identifier short (the case actor plus the short concept, 
 ROLE TYPING FIELDS (role_category and role_kind are routing inputs, never stored as literals):
 - role_category is the RELATIONAL category, one of the four Kong values (provider_client, professional_peer, employer_relationship, public_responsibility) or omitted when the role bears none. It is a FALLBACK: when the role bears an actor relationship (the relationships[] field), that edge determines the relational archetype and wins on conflict, so set role_category to agree with the directed edge you emit.
 - role_kind is the OCCUPATIONAL backstop, professional or participant. Set it when the case states the judgment; omit it when unstated (do not guess). It types a role that matches no known occupational class onto the professional/participant axis. The do-not-establish-professional-obligations test: a party with no professional obligations is participant.
+- role_kind professional REQUIRES at least one obligation the role generates, named in generates_obligations as the case states it (a routing input, not stored). An individual that names none is participant, or leaves role_kind unset; a professional typing with no obligation named is rejected at parse time. A reviewing or oversight body (an ethics review board, a licensure board) bears statutory oversight, not profession-generated obligations, and is participant.
 
 {{ role_relationships }}
 
 ACTOR IDENTITY (cross-section): each role individual names a role FACET that some underlying actor plays. Set `actor` to that actor's stable identity (e.g. "Engineer A", "Owner", "City of X"), kept separate from the role facet in `identifier`. The SAME actor seen in a different section under a different role facet MUST reuse the SAME `actor` value. When an "ACTORS ALREADY IDENTIFIED IN PRIOR SECTIONS" block appears above the case text, reuse those actor identities exactly. One Agent is minted per distinct actor and bears each facet, so consistent actor naming is what keeps a person from being fragmented across sections.
+
+ONE FACET PER COUNTERPARTY: a relational standing toward a counterparty the actor is ALREADY linked to by an actor edge (a faithful-agent, fiduciary, or trustee standing toward an existing client, employer, or peer) is a relationships[] entry or a role_category on the EXISTING facet, never a new role facet. Mint a second facet for the same actor only for a genuinely different occupational role; a duplicate relational facet is folded into the existing facet at parse time.
 
 FORMATTING: do not use em dashes or en dashes in output text, and do not dodge with stacked parentheticals or excessive colons/semicolons; use commas or split into two sentences.

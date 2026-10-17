@@ -114,6 +114,33 @@ def quote_semantic_similarity(quote: str | None, index: GroundingIndex) -> float
     return max(cosine_similarity_list(qe, list(se)) for se in index.sentence_embeddings)
 
 
+_WORD_SPAN = re.compile(r"[A-Za-z0-9]+")
+
+
+def verbatim_span(quote: str | None, case_text: str | None) -> str | None:
+    """The case's OWN substring that the quote matches token for token, or None.
+
+    The token-level verbatim test ignores punctuation and whitespace, so a stored quote that
+    passes it can still differ from the case in exactly those characters: case 8 committed
+    "Engineer L" newline "'s scope of work" as a two-line literal where the case text reads
+    "Engineer L's scope of work" with a curly apostrophe (lesson L5). After the token test
+    passes, callers snap the stored string to this span so the committed literal is the case's
+    characters. Token-boundary anchored (the same alignment as the verifier's _verbatim test):
+    the first occurrence wins."""
+    q = _tokens(quote)
+    if not q or not case_text:
+        return None
+    spans = [(m.start(), m.end(), m.group().lower()) for m in _WORD_SPAN.finditer(case_text)]
+    n = len(q)
+    first = q[0]
+    for i, (_s, _e, tok) in enumerate(spans):
+        if tok != first or i + n > len(spans):
+            continue
+        if all(spans[i + k][2] == q[k] for k in range(1, n)):
+            return case_text[spans[i][0]:spans[i + n - 1][1]]
+    return None
+
+
 def is_grounded(quote: str | None, index: GroundingIndex, threshold: float = _GROUNDED_COVERAGE) -> bool:
     """True if the quote is attested in the case: a verbatim normalized substring (any length), a longer
     quote whose shingle coverage clears ``threshold``, or a paraphrase whose embedding is within
