@@ -271,7 +271,8 @@ class TimelineConstructor:
         case_id: int,
         narrative_elements,  # NarrativeElements from Stage 4.1
         foundation=None,  # EntityFoundation for additional context
-        causal_normative_links: List[Dict] = None
+        causal_normative_links: List[Dict] = None,
+        causal_chains: List[Dict] = None,
     ) -> EntityGroundedTimeline:
         """
         Construct entity-grounded timeline from narrative elements.
@@ -281,11 +282,14 @@ class TimelineConstructor:
             narrative_elements: NarrativeElements from Stage 4.1
             foundation: EntityFoundation for additional context
             causal_normative_links: Causal links from Phase 2B
+            causal_chains: Step-3 CausalChain rows as {cause, effect} label
+                dicts; the only source of 'enables' links (lesson L7)
 
         Returns:
             EntityGroundedTimeline with Event Calculus representation
         """
         causal_normative_links = causal_normative_links or []
+        causal_chains = causal_chains or []
 
         # Build initial fluents from setting
         initial_fluents = self._build_initial_fluents(narrative_elements.setting)
@@ -295,7 +299,7 @@ class TimelineConstructor:
 
         # Build causal links
         causal_links = self._build_causal_links(
-            events, narrative_elements, causal_normative_links
+            events, narrative_elements, causal_normative_links, causal_chains
         )
 
         # Track decision points
@@ -460,10 +464,12 @@ class TimelineConstructor:
         self,
         events: List[TimelineEvent],
         narrative_elements,
-        causal_normative_links: List[Dict]
+        causal_normative_links: List[Dict],
+        causal_chains: List[Dict] = None,
     ) -> List[CausalLink]:
         """Build causal links between events."""
         links = []
+        causal_chains = causal_chains or []
 
         # First, add links from causal_normative_links
         for cnl in causal_normative_links:
@@ -520,22 +526,40 @@ class TimelineConstructor:
                         confidence=cnl.get('confidence', 0.5)
                     ))
 
-        # Build sequential links between timeline events
-        for i, event in enumerate(events[:-1]):
-            next_event = events[i + 1]
-
-            # Link actions to following events
-            if event.event_type == 'action':
-                links.append(CausalLink(
-                    source_uri=event.event_uri,
-                    source_label=event.event_label,
-                    source_type='action',
-                    target_uri=next_event.event_uri,
-                    target_label=next_event.event_label,
-                    target_type=next_event.event_type,
-                    link_type='enables',
-                    confidence=0.6
-                ))
+        # 'enables' links come ONLY from the Step-3 causal chains (cause ->
+        # effect), resolved to timeline events by label. The former rule
+        # linked every action to whatever event happened to follow it in
+        # storage order, which on case 8 made the suspension request "enable"
+        # the contract acceptance that preceded it (lesson L7). A chain whose
+        # endpoints are not on the timeline is skipped and logged.
+        by_label = {}
+        for e in events:
+            if e.event_label:
+                by_label.setdefault(_norm(e.event_label), e)
+            frag = str(e.event_uri or '').rsplit('#', 1)[-1]
+            if frag:
+                by_label.setdefault(_norm(frag), e)
+        for chain in causal_chains:
+            if not isinstance(chain, dict):
+                continue
+            cause = chain.get('cause') or chain.get('proeth:cause') or chain.get('proeth:causeText') or ''
+            effect = chain.get('effect') or chain.get('proeth:effect') or chain.get('proeth:effectText') or ''
+            src = by_label.get(_norm(cause))
+            tgt = by_label.get(_norm(effect))
+            if src is None or tgt is None or src is tgt:
+                logger.info("timeline: causal chain %r -> %r does not resolve to two timeline "
+                            "events; no enables link", cause, effect)
+                continue
+            links.append(CausalLink(
+                source_uri=src.event_uri,
+                source_label=src.event_label,
+                source_type=src.event_type,
+                target_uri=tgt.event_uri,
+                target_label=tgt.event_label,
+                target_type=tgt.event_type,
+                link_type='enables',
+                confidence=float(chain.get('confidence', 0.8) or 0.8)
+            ))
 
         # Link conflicts to decision points
         conflict_events = [e for e in events if e.phase == TimelinePhase.CONFLICT]
@@ -655,12 +679,50 @@ class TimelineConstructor:
 # CONVENIENCE FUNCTION
 # =============================================================================
 
+def _norm(label: str) -> str:
+    """Case- and separator-insensitive label key for chain/event matching."""
+    import re
+    return re.sub(r'[\s_]+', ' ', str(label or '').strip().lower())
+
+
+def _temporal_rows(case_id: int):
+    from app.models import TemporaryRDFStorage
+    return TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='temporal_dynamics_enhanced',
+        storage_type='individual').all()
+
+
+def load_step3_causal_chains(case_id: int) -> List[Dict]:
+    """The Step-3 CausalChain rows of a case as {cause, effect, agent,
+    confidence} dicts (labels). Empty on any failure (no DB, no rows)."""
+    if not case_id:
+        return []
+    try:
+        rows = _temporal_rows(case_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.info(f"Step-3 causal chains unavailable for case {case_id}: {exc}")
+        return []
+    chains = []
+    for r in rows:
+        rdf = r.rdf_json_ld or {}
+        if 'CausalChain' not in str(rdf.get('@type', '') or ''):
+            continue
+        chains.append({
+            'cause': rdf.get('proeth:cause') or rdf.get('proeth:causeText') or '',
+            'effect': rdf.get('proeth:effect') or rdf.get('proeth:effectText') or '',
+            'agent': rdf.get('proeth:responsibleAgent') or rdf.get('proeth:responsibleAgentText') or '',
+            'confidence': rdf.get('proeth:confidence', 0.8),
+        })
+    return chains
+
+
 def construct_timeline(
     case_id: int,
     narrative_elements,
     foundation=None,
     causal_normative_links: List[Dict] = None,
-    use_llm: bool = True
+    use_llm: bool = True,
+    causal_chains: List[Dict] = None,
 ) -> EntityGroundedTimeline:
     """
     Convenience function to construct entity-grounded timeline.
@@ -671,14 +733,19 @@ def construct_timeline(
         foundation: EntityFoundation for additional context
         causal_normative_links: Causal links from Phase 2B
         use_llm: Whether to use LLM for enhancement
+        causal_chains: Step-3 CausalChain dicts; loaded from the stored rows
+            when None
 
     Returns:
         EntityGroundedTimeline with Event Calculus representation
     """
+    if causal_chains is None:
+        causal_chains = load_step3_causal_chains(case_id)
     constructor = TimelineConstructor(use_llm=use_llm)
     return constructor.construct(
         case_id=case_id,
         narrative_elements=narrative_elements,
         foundation=foundation,
-        causal_normative_links=causal_normative_links
+        causal_normative_links=causal_normative_links,
+        causal_chains=causal_chains,
     )

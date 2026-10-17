@@ -25,6 +25,7 @@ from app.models import Document
 from app.models.document_section import DocumentSection
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
 from app.services.embedding.embedding_service import EmbeddingService
+from app.utils.provision_codes import normalize_provision_codes
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,87 @@ OUTCOME_TYPES = {
     'mixed': 'The conclusion carries both a conformance finding and a violation finding, typically across distinct questions or aspects of the conduct.',
     'unclear': 'The conclusion text yields no clear conformance or violation finding; the outcome polarity is not classified.',
 }
+
+# boardConclusionType values of the Step 4 board_explicit conclusions, by
+# polarity (vocabulary: ConclusionAnalyzer, audited by qc/semantic_audit S4).
+# A single conclusion typed 'mixed' bundles verdicts of both polarities.
+ETHICAL_BOARD_CONCLUSION_TYPES = frozenset({'no_violation', 'compliance'})
+UNETHICAL_BOARD_CONCLUSION_TYPES = frozenset({'violation'})
+MIXED_BOARD_CONCLUSION_TYPES = frozenset({'mixed'})
+# The values that carry a verdict on the conduct. The other values of the
+# detector (unknown, interpretation, recommendation) do not, so a case whose
+# board conclusions carry only those keeps its conclusion-text classification.
+POLAR_BOARD_CONCLUSION_TYPES = (ETHICAL_BOARD_CONCLUSION_TYPES
+                                | UNETHICAL_BOARD_CONCLUSION_TYPES
+                                | MIXED_BOARD_CONCLUSION_TYPES)
+BOARD_DERIVED_CONFIDENCE = 0.95
+
+# extraction_prompts row written for a feature-writing model call. Step 0 marks
+# provenance outside the pipeline steps, so a Step 4 clear does not remove it.
+FEATURE_PROMPT_CONCEPT_TYPE = 'precedent_features'
+
+
+def derive_outcome_from_board_conclusions(board_conclusion_types) -> Tuple[str, float, str]:
+    """Deterministic outcome polarity from the boardConclusionType values of a
+    case's board_explicit conclusions.
+
+    All no_violation or compliance values -> ethical, all violation -> unethical,
+    both kinds (or a 'mixed' value) -> mixed, no polar value -> unclear. Case
+    24-1 (case 8) carries one no_violation and one violation conclusion and is
+    therefore mixed, which the conclusion-text regex and the model prompt both
+    missed.
+    """
+    values = [str(v).strip().lower() for v in (board_conclusion_types or []) if v]
+    ethical = sum(1 for v in values if v in ETHICAL_BOARD_CONCLUSION_TYPES)
+    unethical = sum(1 for v in values if v in UNETHICAL_BOARD_CONCLUSION_TYPES)
+    mixed = sum(1 for v in values if v in MIXED_BOARD_CONCLUSION_TYPES)
+    counts = ', '.join(f'{v}={values.count(v)}' for v in sorted(set(values)))
+
+    if mixed or (ethical and unethical):
+        return ('mixed', BOARD_DERIVED_CONFIDENCE,
+                f'Board conclusions of both polarities ({counts})')
+    if ethical:
+        return ('ethical', BOARD_DERIVED_CONFIDENCE,
+                f'All board conclusions find no violation or compliance ({counts})')
+    if unethical:
+        return ('unethical', BOARD_DERIVED_CONFIDENCE,
+                f'All board conclusions find a violation ({counts})')
+    if values:
+        return ('unclear', 0.0,
+                f'No board conclusion carries a polar boardConclusionType ({counts})')
+    return 'unclear', 0.0, 'No board conclusions available'
+
+
+def board_conclusion_types_from_rows(rows) -> List[str]:
+    """Non-empty boardConclusionType values of the board_explicit
+    ethical_conclusion rows (TemporaryRDFStorage, rdf_json_ld as written by
+    qc_entity_storage.make_conclusion_storage)."""
+    types = []
+    for row in rows or []:
+        data = getattr(row, 'rdf_json_ld', None) or {}
+        if data.get('conclusionType') != 'board_explicit':
+            continue
+        value = data.get('boardConclusionType')
+        if value:
+            types.append(str(value))
+    return types
+
+
+def board_outcome_for_case(case_id: int) -> Optional[Tuple[str, float, str]]:
+    """Outcome derived from the stored board conclusions of a case, or None
+    when no board_explicit conclusion carries a polar boardConclusionType
+    (Step 4 not run yet, or every holding typed unknown, interpretation or
+    recommendation), in which case the caller falls back to the text path.
+    A derivation over non-polar values alone would write 'unclear' at
+    confidence 0.0 over the text classification of a case the rule does not
+    name."""
+    rows = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type='ethical_conclusion').all()
+    types = board_conclusion_types_from_rows(rows)
+    if not any(str(t).strip().lower() in POLAR_BOARD_CONCLUSION_TYPES for t in types):
+        return None
+    return derive_outcome_from_board_conclusions(types)
+
 
 COMPONENT_WEIGHTS = {
     'R': 0.12,   # Roles - professional positions determine applicable norms
@@ -179,10 +261,11 @@ class CaseFeatureExtractor:
         doc_structure = metadata.get('document_structure', {})
         doc_sections = doc_structure.get('sections', {})
 
-        # Extract outcome from conclusion
+        # Outcome: deterministic from the board_explicit conclusions once Step 4
+        # has stored them, otherwise the conclusion-text regex.
         conclusion_text = self._get_section_text(sections, doc_sections, 'conclusion')
-        outcome_type, outcome_confidence, outcome_reasoning = self.extract_outcome(
-            conclusion_text
+        outcome_type, outcome_confidence, outcome_reasoning = self.extract_outcome_for_case(
+            case_id, conclusion_text
         )
 
         # Extract provisions from references section
@@ -267,8 +350,14 @@ class CaseFeatureExtractor:
                      conclusion_lower):
             ethical_indicators.append('consistent with code')
 
-        # Pattern: "unethical" explicitly
-        if re.search(r'\bunethical\b', conclusion_lower):
+        # Pattern: "unethical" explicitly. The negated form ("was not
+        # unethical", "would not be unethical") is a clearance and scores the
+        # ethical side (case 24-1: "It was not unethical for Engineer L to
+        # cease work"); it is removed before the bare-word search.
+        negated_unethical = re.compile(r'\bnot\s+(?:be\s+)?unethical\b')
+        if negated_unethical.search(conclusion_lower):
+            ethical_indicators.append('not unethical statement')
+        if re.search(r'\bunethical\b', negated_unethical.sub(' ', conclusion_lower)):
             unethical_indicators.append('explicit unethical statement')
 
         # Pattern: "partly ethical" / "ethical in part" -- a split verdict's
@@ -348,6 +437,20 @@ class CaseFeatureExtractor:
 
         return outcome_type, confidence, reasoning
 
+    def extract_outcome_for_case(self, case_id: int, conclusion_text: str) -> Tuple[str, float, str]:
+        """
+        Outcome for a case: the board-conclusion derivation when the case has
+        typed board_explicit conclusions, otherwise the conclusion-text regex.
+        """
+        try:
+            derived = board_outcome_for_case(case_id)
+        except Exception as e:
+            logger.warning(f"Case {case_id}: board conclusions unavailable for outcome derivation: {e}")
+            derived = None
+        if derived is not None:
+            return derived
+        return self.extract_outcome(conclusion_text)
+
     def extract_provisions(self, references_text: str) -> List[str]:
         """
         Extract NSPE Code provision references from text.
@@ -356,7 +459,7 @@ class CaseFeatureExtractor:
             references_text: The references section text
 
         Returns:
-            List of provision identifiers (e.g., ['I.1', 'II.1.a'])
+            List of canonical provision codes (e.g., ['I.1', 'II.1.A'])
         """
         if not references_text:
             return []
@@ -367,7 +470,7 @@ class CaseFeatureExtractor:
         for match in self.PROVISION_PATTERN.finditer(references_text):
             roman = match.group(1).upper()
             number = match.group(2)
-            letter = match.group(3).lower() if match.group(3) else None
+            letter = match.group(3)
 
             if letter:
                 provision = f"{roman}.{number}.{letter}"
@@ -376,27 +479,29 @@ class CaseFeatureExtractor:
 
             provisions.add(provision)
 
-        # Sort provisions in a logical order
-        def provision_sort_key(p):
-            parts = p.split('.')
-            roman_order = {'I': 1, 'II': 2, 'III': 3, 'IV': 4}
-            roman = roman_order.get(parts[0], 0)
-            number = int(parts[1]) if len(parts) > 1 else 0
-            letter = ord(parts[2]) - ord('a') if len(parts) > 2 else 0
-            return (roman, number, letter)
+        # Canonical form at the write boundary (uppercase subsection letter,
+        # Code order): the same rule update_provisions_cited applies.
+        return normalize_provision_codes(provisions)
 
-        return sorted(list(provisions), key=provision_sort_key)
-
-    def llm_extract_features(self, discussion_text: str, conclusion_text: str) -> dict:
+    def llm_extract_features(self, discussion_text: str, conclusion_text: str,
+                             case_id: Optional[int] = None) -> dict:
         """
         Extract provisions, outcome, and subject tags using Claude API.
 
         Uses Haiku for cost-efficient structured extraction from case text.
         Identifies NSPE Code provisions even when not explicitly cited by number.
 
+        The model outcome is a fallback only: when ``case_id`` is given and the
+        case has typed board_explicit conclusions, the deterministic derivation
+        (derive_outcome_from_board_conclusions) replaces it. With a ``case_id``
+        the prompt and response are stored as an extraction_prompts row
+        (concept_type 'precedent_features', step 0).
+
         Args:
             discussion_text: The discussion section text
             conclusion_text: The conclusion section text
+            case_id: Case the features are written for (provenance and the
+                board-conclusion override); None keeps the call stateless.
 
         Returns:
             Dict with keys: provisions_cited, outcome_type, outcome_reasoning, subject_tags
@@ -407,7 +512,8 @@ class CaseFeatureExtractor:
 
         from model_config import ModelConfig
 
-        llm = LLMManager(model=ModelConfig.get_tier_model("fast"))
+        model_id = ModelConfig.get_tier_model("fast")
+        llm = LLMManager(model=model_id)
 
         tag_list = '\n'.join(f'- {t}' for t in NSPE_TAG_VOCABULARY)
 
@@ -453,13 +559,13 @@ Return ONLY valid JSON in this format:
 
         result = extract_json_from_response(response.text)
 
-        # Validate and normalize provisions
-        valid_provisions = []
-        provision_pattern = re.compile(r'^(I{1,3}|IV)\.\d+(\.[a-z])?$')
-        for p in result.get('provisions_cited', []):
-            if provision_pattern.match(p):
-                valid_provisions.append(p)
-        result['provisions_cited'] = valid_provisions
+        # Validate and normalize provisions: either subsection-letter case is
+        # accepted, and the stored value is the canonical form ('II.1.A').
+        provision_pattern = re.compile(r'^(I{1,3}|IV)\.\d+(\.[A-Z])?$')
+        candidates = [p for p in result.get('provisions_cited', []) if isinstance(p, str)]
+        result['provisions_cited'] = [
+            p for p in normalize_provision_codes(candidates) if provision_pattern.match(p)
+        ]
 
         # Validate outcome
         if result.get('outcome_type') not in ('ethical', 'unethical', 'mixed'):
@@ -469,7 +575,41 @@ Return ONLY valid JSON in this format:
         tag_set = set(NSPE_TAG_VOCABULARY)
         result['subject_tags'] = [t for t in result.get('subject_tags', []) if t in tag_set]
 
+        if case_id is not None:
+            # Board conclusions, when typed, decide the outcome polarity.
+            try:
+                derived = board_outcome_for_case(case_id)
+            except Exception as e:
+                logger.warning(f"Case {case_id}: board conclusions unavailable for outcome override: {e}")
+                derived = None
+            if derived is not None:
+                result['outcome_type'], _, result['outcome_reasoning'] = derived
+
+            self._record_feature_prompt(
+                case_id, system_prompt, user_msg, response.text, result, model_id
+            )
+
         return result
+
+    def _record_feature_prompt(self, case_id: int, system_prompt: str, user_msg: str,
+                               response_text: str, result: dict, model_id: str) -> None:
+        """Store a feature-writing model call as an extraction_prompts row.
+        Provenance must not fail the extraction, so failures are logged."""
+        try:
+            from app.models import ExtractionPrompt
+            ExtractionPrompt.save_prompt(
+                case_id=case_id,
+                concept_type=FEATURE_PROMPT_CONCEPT_TYPE,
+                prompt_text=f"[system]\n{system_prompt}\n\n[user]\n{user_msg}",
+                step_number=0,
+                section_type='synthesis',
+                llm_model=model_id,
+                raw_response=response_text,
+                results_summary=result,
+            )
+        except Exception as e:
+            logger.warning(f"Case {case_id}: could not store the precedent feature prompt: {e}")
+            db.session.rollback()
 
     def generate_hierarchical_embeddings(
         self,
@@ -591,13 +731,16 @@ Return ONLY valid JSON in this format:
         # The EmbeddingService returns 1536-dim (OpenAI) but DB expects 384-dim (local)
         # TODO: Fix embedding dimension consistency across services
 
+        # Canonical provision codes at the write boundary.
+        provisions_cited = normalize_provision_codes(features.provisions_cited)
+
         result = db.session.execute(query, {
             'case_id': features.case_id,
             'outcome_type': features.outcome_type,
             'outcome_confidence': features.outcome_confidence,
             'outcome_reasoning': features.outcome_reasoning,
-            'provisions_cited': features.provisions_cited,
-            'provision_count': len(features.provisions_cited),
+            'provisions_cited': provisions_cited,
+            'provision_count': len(provisions_cited),
             'subject_tags': features.subject_tags,
             'principle_tensions': json.dumps(features.principle_tensions) if features.principle_tensions else None,
             'obligation_conflicts': json.dumps(features.obligation_conflicts) if features.obligation_conflicts else None,

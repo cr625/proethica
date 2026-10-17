@@ -333,13 +333,31 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
         from app.services.extraction.rpo_edges import (
             drop_domain_range_violations, ALL_EDGE_RANGE,
         )
+        from app.services.extraction.edge_coherence import (
+            drop_activation_defeasibility_conflicts,
+            drop_fluent_reinitiation,
+            drop_scope_postdating_activations,
+        )
         g = Graph()
         g.parse(str(ttl_path), format="turtle")
         incoherent = drop_fluent_incoherence(g, case_id)
+        # Case 24-1 review guards: a holding state is not re-initiated and a fluent
+        # not terminated twice (cross-happening, by temporalSequence); no activation
+        # coexists with a defeasibleUnder on the same (state, obligation); no
+        # activation targets a duty whose temporalScope begins after the state ended.
+        reinitiated = drop_fluent_reinitiation(g, case_id)
+        conflicts = drop_activation_defeasibility_conflicts(g, case_id)
+        postdated = drop_scope_postdating_activations(g, case_id)
         dropped = drop_domain_range_violations(g, case_id, edge_range=ALL_EDGE_RANGE)
-        if dropped or incoherent:
+        if dropped or incoherent or reinitiated or conflicts or postdated:
             g.serialize(destination=str(ttl_path), format="turtle")
-        results["unified_guard"] = {"triples_dropped": dropped}
+        results["unified_guard"] = {
+            "triples_dropped": dropped,
+            "fluent_incoherent": incoherent,
+            "fluent_reinitiation": reinitiated,
+            "activation_defeasibility_conflicts": conflicts,
+            "scope_postdating_activations": postdated,
+        }
     except Exception as e:
         logger.exception("materialize: unified domain/range guard failed for case %s", case_id)
         results["unified_guard"] = {"error": str(e)}

@@ -13,6 +13,7 @@ LLMCallMixin via MRO.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Dict, List, Tuple
 
 from pydantic import BaseModel, ValidationError
@@ -24,6 +25,57 @@ from app.services.extraction.unified_dual_extractor.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+# --- Quote / literal hygiene (case-8 review, lesson L5) --------------------------------------
+# A committed sourceText carried the six-character sequence ’ instead of the curly
+# apostrophe: the model double-escaped the character, json.loads left the literal backslash
+# sequence in the string, and validation accepted it. Decode such sequences in every string
+# field before validation. Surrogate pairs are decoded together; a lone surrogate is left as
+# written (it has no character to decode to).
+_SURROGATE_PAIR_RE = re.compile(r'\\u([dD][89abAB][0-9a-fA-F]{2})\\u([dD][c-fC-F][0-9a-fA-F]{2})')
+_UNICODE_ESCAPE_RE = re.compile(r'\\u(?![dD][89a-fA-F])([0-9a-fA-F]{4})')
+
+# A caseContext literal ended with "insistence.on": a stray token glued to the sentence-final
+# period, carried over from the raw output. A trailing run of one to three lowercase letters
+# directly after sentence-final punctuation that itself follows a word is such a fragment.
+# A top-level-domain tail ("proethica.org") is not touched.
+_STRAY_TAIL_RE = re.compile(r'(?<=[A-Za-z]{3}[.!?])([a-z]{1,3})$')
+_TLD_TAILS = frozenset({'org', 'com', 'edu', 'gov', 'net', 'io', 'us', 'uk'})
+
+# The narrative literal fields the stray-fragment strip applies to (never the quotes, which the
+# verbatim snap keeps as the case's own characters).
+_NARRATIVE_FIELDS = (
+    'case_context', 'obligation_statement', 'constraint_statement', 'concrete_expression',
+    'interpretation', 'tension_resolution', 'applicability_condition', 'case_involvement',
+    'temporal_scope', 'definition', 'description',
+)
+
+
+def decode_unicode_escapes(value: Any) -> Any:
+    """Replace literal ``\\uXXXX`` escape sequences in a string (or in the strings of a list)
+    with the characters they denote. Other values pass through unchanged."""
+    if isinstance(value, str):
+        if '\\u' not in value:
+            return value
+        out = _SURROGATE_PAIR_RE.sub(
+            lambda m: chr(((int(m.group(1), 16) - 0xD800) << 10) + (int(m.group(2), 16) - 0xDC00)
+                          + 0x10000),
+            value)
+        return _UNICODE_ESCAPE_RE.sub(lambda m: chr(int(m.group(1), 16)), out)
+    if isinstance(value, list):
+        return [decode_unicode_escapes(v) for v in value]
+    return value
+
+
+def strip_stray_tail(text: Any) -> Any:
+    """Drop a stray lowercase fragment glued to the sentence-final punctuation of a narrative
+    literal (``"...insistence.on"`` -> ``"...insistence."``). Non-strings pass through."""
+    if not isinstance(text, str):
+        return text
+    m = _STRAY_TAIL_RE.search(text)
+    if not m or m.group(1) in _TLD_TAILS:
+        return text
+    return text[:m.start(1)]
 
 
 class ParsingMixin:
@@ -163,6 +215,24 @@ class ParsingMixin:
         """
         # definition/description: handled by Pydantic AliasChoices on BaseCandidate
         # text_references/examples_from_case: handled by Pydantic AliasChoices
+
+        # --- literal hygiene (lesson L5): decode \uXXXX escape sequences the model left in
+        # any string field, then drop a stray token glued to the final punctuation of a
+        # narrative literal. Quotes are decoded but otherwise untouched here (the commit-time
+        # verbatim snap replaces them with the case's own characters).
+        for key, value in list(item.items()):
+            if isinstance(value, (str, list)):
+                decoded = decode_unicode_escapes(value)
+                if decoded is not value:
+                    item[key] = decoded
+        for key in _NARRATIVE_FIELDS:
+            value = item.get(key)
+            if isinstance(value, str):
+                stripped = strip_stray_tail(value)
+                if stripped != value:
+                    logger.info("Stripped stray tail %r from %s of %r", value[len(stripped):], key,
+                                item.get('identifier') or item.get('label') or item.get('name'))
+                    item[key] = stripped
 
         # Bidirectional fallback between source_text and text_references
         refs = item.get('text_references') or item.get('examples_from_case')
@@ -320,6 +390,19 @@ class ParsingMixin:
                     item['compliance_status'] = 'met'
                 else:
                     item['compliance_status'] = 'unclear'
+
+        # Lesson L2 (case 8): the facts pass set complianceStatus "partial" on a duty before the
+        # holding was visible, and the discussion pass never revised it. The Facts establish
+        # duties, not their discharge, so a facts-pass obligation individual is always "unclear";
+        # the holding-aware discussion pass sets the status (the per-pass directive asks it to
+        # confirm or revise every facts-pass status).
+        if (self.concept_type == 'obligations'
+                and (getattr(self, '_current_section_type', None) or '').lower() == 'facts'):
+            cs = item.get('compliance_status')
+            if cs and cs != 'unclear':
+                logger.info("Facts pass: compliance_status %r on %r reset to 'unclear' (the holding "
+                            "sets it)", cs, item.get('identifier') or item.get('label'))
+                item['compliance_status'] = 'unclear'
 
         return item
 

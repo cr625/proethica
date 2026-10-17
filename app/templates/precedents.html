@@ -12,7 +12,9 @@
         <div>
             <h1 class="mb-2">Similar Cases</h1>
             <p class="text-muted mb-4">
-                Component-aware retrieval using 9-component D-tuple embeddings, provision overlap, and topic matching.
+                Component-aware retrieval: nine-component D-tuple embedding similarity, provision overlap,
+                outcome alignment, subject-tag overlap, and ethical-tension overlap, combined with the fixed
+                weights shown on each card.
             </p>
         </div>
         <div class="d-flex gap-2">
@@ -99,10 +101,13 @@
                         <strong class="small">Retrieval Components:</strong>
                     </div>
                     <div class="col">
-                        <span class="badge bg-primary method-badge me-2">D-tuple</span>
-                        <span class="small text-muted me-3">9-component weighted embedding</span>
+                        <span class="badge bg-primary method-badge me-2">Cosine</span>
+                        <span class="small text-muted me-3">Embedding similarity (D-tuple, tension signature)</span>
                         <span class="badge bg-success method-badge me-2">Jaccard</span>
-                        <span class="small text-muted">Set intersection / union</span>
+                        <span class="small text-muted me-3">Set intersection / union</span>
+                        <span class="badge bg-secondary method-badge me-2">Match</span>
+                        <span class="small text-muted me-3">Categorical agreement</span>
+                        <span class="small text-muted">w = weight, pts = score x weight x 100</span>
                     </div>
                 </div>
             </div>
@@ -140,19 +145,26 @@
                     <div class="col-md-7">
                         <h6 class="text-muted mb-2">Retrieval Scores</h6>
 
-                        {% for comp_key in ['component_similarity', 'provision_overlap', 'tag_overlap'] %}
+                        {# Every weighted component of the score, with its weight and
+                           its contribution in points, so the rows add up to the
+                           overall score. #}
+                        {% set weights = precedent.weights_used or {} %}
+                        {% for comp_key in retrieval_components %}
                         {% set comp_score = precedent.component_scores.get(comp_key, 0) %}
+                        {% set comp_weight = weights.get(comp_key, 0) %}
                         {% set method_info = matching_methods.get(comp_key, {}) %}
-                        <div class="component-row">
+                        <div class="component-row" title="{{ method_info.get('description', '') }}">
                             <div class="component-label">
                                 {{ method_info.get('name', comp_key) }}
                                 <span class="badge
                                     {% if method_info.get('method') == 'Cosine' %}bg-primary
-                                    {% else %}bg-success{% endif %}"
+                                    {% elif method_info.get('method') == 'Jaccard' %}bg-success
+                                    {% else %}bg-secondary{% endif %}"
                                     style="font-size: 0.6rem; padding: 0.1rem 0.3rem;">
                                     {{ method_info.get('method', '') }}
                                 </span>
                             </div>
+                            <div class="component-weight">w {{ '%.2f'|format(comp_weight) }}</div>
                             <div class="component-bar">
                                 <div class="score-bar">
                                     <div class="score-fill
@@ -166,8 +178,16 @@
                             <div class="component-value">
                                 {{ (comp_score * 100)|round|int }}%
                             </div>
+                            <div class="component-points">{{ '%.1f'|format(comp_score * comp_weight * 100) }} pts</div>
                         </div>
                         {% endfor %}
+                        <div class="component-row component-total">
+                            <div class="component-label">Weighted sum</div>
+                            <div class="component-weight"></div>
+                            <div class="component-bar"></div>
+                            <div class="component-value">{{ (precedent.overall_score * 100)|round|int }}%</div>
+                            <div class="component-points">{{ '%.1f'|format(precedent.overall_score * 100) }} pts</div>
+                        </div>
 
                         {% if precedent.per_component_scores %}
                         <details class="mt-2">

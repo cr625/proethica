@@ -22,11 +22,11 @@ register_lineage_routes(precedents_bp)
 # import these helpers/constants from `app.routes.precedents` directly.
 from app.routes.precedents.helpers import (  # noqa: E402,F401
     MATCHING_METHODS,
+    RETRIEVAL_COMPONENTS,
     COMPONENT_COLORS,
     COMPONENT_LABELS,
     _get_case_year,
     _find_precedents_for_case,
-    _get_primary_method,
     _get_matching_provisions,
     _count_outcomes,
     _get_case_features,

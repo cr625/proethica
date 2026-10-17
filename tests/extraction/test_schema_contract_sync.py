@@ -204,6 +204,9 @@ _INDIVIDUAL_ALLOWLIST = {
     'attributes', 'relationships', 'additional_relationships',
     # actor identity (routing to the Agent layer, not a literal)
     'actor',
+    # the duties a professional role names (case-8 lesson L9): routing input of the
+    # R->P->O pass, which derives the hasObligation edges; never emitted as a literal
+    'generates_obligations',
     # per-case annotation fields covered by CaseAnnotationShape under
     # different names or routed into rdfs:comment
     'case_involvement', 'case_context',
@@ -218,7 +221,8 @@ _INDIVIDUAL_ALLOWLIST = {
     'possessed_by', 'required_for_obligations', 'capability_category',
     'skill_level', 'demonstrated_through',
     'constrained_entity', 'constraint_statement', 'applicability_condition',
-    'source', 'constraint_type', 'flexibility', 'severity', 'exceptions',
+    'source', 'establishing_provision', 'constraint_type', 'flexibility',
+    'severity', 'exceptions',
     'interpretation', 'concrete_expression', 'applied_to', 'balancing_with',
     'tension_resolution', 'invoked_by', 'principle_category',
 }

@@ -37,6 +37,24 @@
         font-size: 0.8rem;
         font-family: monospace;
     }
+    .component-weight {
+        width: 52px;
+        font-size: 0.7rem;
+        font-family: monospace;
+        color: #6c757d;
+    }
+    .component-points {
+        width: 62px;
+        text-align: right;
+        font-size: 0.7rem;
+        font-family: monospace;
+        color: #6c757d;
+    }
+    .component-total {
+        border-top: 1px solid #e9ecef;
+        padding-top: 0.25rem;
+        font-weight: 600;
+    }
     .dtuple-row .component-label {
         width: 80px;
     }

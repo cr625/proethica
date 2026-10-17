@@ -314,6 +314,23 @@ def build_expectations(case_id: int, g: Graph) -> Tuple[List[Tuple], List[str]]:
                 misses.append(f"DP {fid}: {pred}: {raw!r} not a committed {cat}")
                 continue
             edges.append((subj, pred, tgt, raw))
+        # Further obligations the point involves (lesson L4): the parser moves
+        # an Obligation the model put in the constraint slot here, and adds
+        # the competitor named by the committed competesWith / prevailsOver
+        # edges, so both sides of the competition reach the graph as
+        # involvesObligation instead of one side being dropped as a
+        # mistyped involvesConstraint.
+        seen_obl = {d.get("obligation_uri") or ""}
+        for oref in list(d.get("additional_obligation_uris") or []) + \
+                [d.get("competing_obligation_uri") or ""]:
+            if not oref or oref in seen_obl:
+                continue
+            seen_obl.add(oref)
+            tgt = _frag_uri(case_ns, oref)
+            if tgt is None or tgt not in core_sets["Obligation"]:
+                misses.append(f"DP {fid}: involvesObligation: {oref!r} not a committed Obligation")
+                continue
+            edges.append((subj, "involvesObligation", tgt, oref))
         for aref in (d.get("involved_action_uris") or []):
             tgt = _frag_uri(case_ns, aref)
             if tgt is None or tgt not in core_sets["Action"]:

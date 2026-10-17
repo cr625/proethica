@@ -89,29 +89,38 @@ def get_case_sections(case_id: int, segment_precedents: bool = True) -> dict:
         'precedent_recaps': [],
     }
     if segment_precedents and discussion_html:
-        seg = _present_case_discussion(case, discussion_html)
+        seg = _present_case_discussion(case, discussion_html, facts_text=facts)
         if seg and seg.get('present_case_text'):
             result['discussion'] = seg['present_case_text']
             result['precedent_recaps'] = seg.get('precedent_recaps', [])
     return result
 
 
-def _present_case_discussion(case, discussion_html: str) -> Optional[dict]:
+def _present_case_discussion(case, discussion_html: str, facts_text: str = '') -> Optional[dict]:
     """Segment the discussion (cached per case in doc_metadata, keyed on the discussion HTML
-    hash). Returns {'present_case_text', 'precedent_recaps', 'method'} or None on failure.
+    hash and the segmenter version). Returns {'present_case_text', 'precedent_recaps', 'method'}
+    or None on failure.
 
-    The cache lives in a doc_metadata key SEPARATE from sections_dual (which must never be
-    mutated by the pipeline). Best-effort: a write failure just means recomputation next call."""
+    The present case's engineer letters (from the facts) are handed to the segmenter as
+    sentence-level cues, so a recap paragraph that turns to "Engineer L" keeps that tail as
+    present-case text (lesson L3). The cache lives in a doc_metadata key SEPARATE from
+    sections_dual (which must never be mutated by the pipeline). Best-effort: a write failure
+    just means recomputation next call."""
     import hashlib
+    from app.services.extraction.discussion_segmenter import SEGMENTATION_VERSION
     src_hash = hashlib.md5(discussion_html.encode('utf-8')).hexdigest()[:16]
     meta = case.doc_metadata or {}
     cached = meta.get('discussion_segmentation')
-    if isinstance(cached, dict) and cached.get('source_hash') == src_hash:
+    if (isinstance(cached, dict) and cached.get('source_hash') == src_hash
+            and cached.get('segmenter_version') == SEGMENTATION_VERSION):
         return cached
 
     try:
         from app.services.extraction.discussion_segmenter import segment_discussion
-        r = segment_discussion(discussion_html)
+        from app.services.extraction.precedent_filter import present_case_actor_letters
+        present_actors = [f"Engineer {letter}"
+                          for letter in sorted(present_case_actor_letters(facts_text))]
+        r = segment_discussion(discussion_html, present_actors=present_actors)
     except Exception:
         logger.warning("discussion segmentation failed for case %s; using full discussion",
                        getattr(case, 'id', '?'), exc_info=True)
@@ -119,6 +128,7 @@ def _present_case_discussion(case, discussion_html: str) -> Optional[dict]:
 
     entry = {
         'source_hash': src_hash,
+        'segmenter_version': SEGMENTATION_VERSION,
         'method': r.method,
         'present_case_text': r.present_case_text,
         'precedent_recaps': r.precedent_recaps,
@@ -137,6 +147,29 @@ def _present_case_discussion(case, discussion_html: str) -> Optional[dict]:
         logger.debug("could not cache discussion segmentation for case %s",
                      getattr(case, 'id', '?'), exc_info=True)
     return entry
+
+
+def _case_state_labels(case_id: int) -> list:
+    """Labels of the case's extracted State individuals (Steps 1-2), the closed list the Step-3
+    happenings may initiate or terminate. Best-effort: an empty list disables the closed-list
+    check (the prompts then fall back to free state naming)."""
+    try:
+        from app.models.temporary_rdf_storage import TemporaryRDFStorage
+        rows = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            TemporaryRDFStorage.extraction_type == 'states',
+            TemporaryRDFStorage.storage_type == 'individual',
+        ).all()
+        labels = []
+        for r in rows:
+            label = (r.entity_label or '').strip()
+            if label and label not in labels:
+                labels.append(label)
+        return labels
+    except Exception:
+        logger.warning("could not load state labels for case %s; closed-list check disabled",
+                       case_id, exc_info=True)
+        return []
 
 
 def run_extraction(case_text: str, case_id: int,
@@ -167,6 +200,9 @@ def run_extraction(case_text: str, case_id: int,
         concept_type=entity_type,
         section_type=section_type,
         step_number=step_number,
+        # The model call is recorded as an llm_query activity of the prompt's
+        # session; the pipeline declares itself as the origin.
+        origin='automated_pipeline',
     )
 
     return {
@@ -176,7 +212,7 @@ def run_extraction(case_text: str, case_id: int,
 
 
 def run_extraction_parallel(entity_types, case_text, case_id, section_type,
-                            step_number, max_workers=3):
+                            step_number, max_workers=3, text_by_type=None):
     """
     Run multiple entity type extractions in parallel using ThreadPoolExecutor.
 
@@ -190,16 +226,21 @@ def run_extraction_parallel(entity_types, case_text, case_id, section_type,
         section_type: 'facts' or 'discussion'
         step_number: Pipeline step number (1 or 2)
         max_workers: Number of parallel threads
+        text_by_type: Optional {entity_type: text} overriding case_text for that type (the
+            resources pass receives the full discussion, see
+            discussion_segmenter.section_text_for_concept)
 
     Returns:
         dict mapping entity_type -> extraction result dict
     """
     from flask import current_app
     app = current_app._get_current_object()
+    text_by_type = text_by_type or {}
 
     def _extract_in_context(et):
         with app.app_context():
-            return et, run_extraction(case_text, case_id, section_type, et, step_number)
+            return et, run_extraction(text_by_type.get(et, case_text), case_id, section_type,
+                                      et, step_number)
 
     results = {}
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -291,9 +332,14 @@ def run_step1_task(self, run_id: int, section_type: str = 'facts'):
         db.session.commit()
         logger.info(f"[Task {self.request.id}] Extracting R||S||Rs from {section_type} in parallel")
 
+        # The resources pass is exempt from precedent segmentation (lesson L3): it lists the
+        # codes and precedents the case cites, which the recap paragraphs name.
+        from app.services.extraction.discussion_segmenter import section_text_for_concept
         results = run_extraction_parallel(
             STEP1_ENTITY_TYPES, case_text, run.case_id, section_type,
-            step_number=1, max_workers=3
+            step_number=1, max_workers=3,
+            text_by_type={et: section_text_for_concept(sections, section_type, et)
+                          for et in STEP1_ENTITY_TYPES},
         )
 
         # Check for extraction errors
@@ -482,12 +528,15 @@ def run_step3_task(self, run_id: int):
         else:
             logger.warning(f"[Task {self.request.id}] Auto-clear failed: {clear_result.get('error', 'Unknown')}")
 
-        # Initialize state for LangGraph (same as step3_enhanced.py)
+        # Initialize state for LangGraph (same as step3_enhanced.py). state_labels is the
+        # closed list of this case's State individuals the action/event prompts offer for
+        # initiates / terminates and the post-parse check validates against (lesson L8).
         from datetime import datetime as dt
         initial_state = {
             'case_id': run.case_id,
             'facts_text': facts_text,
             'discussion_text': discussion_text,
+            'state_labels': _case_state_labels(run.case_id),
             'extraction_session_id': str(uuid.uuid4()),
             'unified_narrative': {},
             'temporal_markers': {},
@@ -655,16 +704,42 @@ def run_reconcile_task(self, run_id: int):
         canon = service.canonicalize_labels(run.case_id)
         result = service.reconcile_auto(run.case_id)
 
+        # The activity metadata carries the pairs, not only counts (case 8 review, L3): every
+        # relabel (old label, new label), every vetoed relabel with its reason, every fold
+        # (old label, surviving label, ids), every refused fold, and the rule-based review
+        # candidates (L5).
         results = {
             'canonicalized': canon.get('changed', 0),
             'canon_rejected_cross_category': len(canon.get('rejected_cross_category', [])),
+            'canon_rejected': len(canon.get('rejected', [])),
+            'canon_kept_matched': len(canon.get('kept_matched', [])),
+            'canon_individuals_repointed': canon.get('individuals_repointed', 0),
+            'canon_individuals_protected': canon.get('individuals_protected', 0),
+            'canonicalized_pairs': [
+                {'id': c.get('id'), 'type': c.get('type'), 'old': c.get('old'),
+                 'new': c.get('new'), 'action': c.get('action')}
+                for c in canon.get('changes', [])
+            ],
+            'canonicalization_rejections': canon.get('rejected', []),
             'auto_merged': result.auto_merged,
+            'merged_pairs': result.merged_pairs,
+            'merge_refusals': result.merge_refusals,
+            'review_candidates': [
+                {'entity_a_id': c.entity_a_id, 'entity_b_id': c.entity_b_id,
+                 'entity_a_label': c.entity_a_label, 'entity_b_label': c.entity_b_label,
+                 'rule': c.rule, 'reason': c.llm_reason,
+                 'similarity': round(float(c.similarity), 3)}
+                for c in result.review_candidates
+            ],
             'skipped': result.skipped,
             'errors': result.errors
         }
         _record_pass(run, 'reconciliation', 'entity_reconcile', results,
                      plan={'rule': 'merge duplicate individuals across passes/sections '
-                           '(auto + manual-queue)'})
+                           '(auto + manual-queue); class rows linked to an existing class '
+                           'are kept, canonicalization decisions are vetoed on matched-class, '
+                           'specialization, sheet-offer, IRI-collision and role-axis grounds, '
+                           'folds are refused across different matched classes'})
 
         run.mark_step_complete(step_name, results)
         mode = (run.config or {}).get('mode')
@@ -1260,7 +1335,8 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         # the case. Rows already vetted by an earlier sub-task of this commit are excluded from
         # the gate input (the audit tag in review_notes), so the vote panel runs ONCE per row.
         from app.services.extraction.verification_gate import (
-            verify_case_entities, quotes_of, class_ref_of, apply_corrected_quotes)
+            verify_case_entities, quotes_of, class_ref_of, class_refs_of,
+            match_confidence_of, apply_corrected_quotes, gate_quote_marker)
         from sqlalchemy.orm.attributes import flag_modified
         _sec = get_case_sections(run.case_id)
         _case_text = (_sec.get('facts') or '') + '\n\n' + (_sec.get('discussion_full') or _sec.get('discussion') or '')
@@ -1270,7 +1346,9 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
         _gate = verify_case_entities(
             [{'id': e.id, 'label': e.entity_label, 'definition': e.entity_definition,
               'component': (e.extraction_type or '').lower(), 'storage_type': e.storage_type,
-              'quotes': quotes_of(e.rdf_json_ld), 'class_ref': class_ref_of(e.rdf_json_ld)}
+              'quotes': quotes_of(e.rdf_json_ld), 'class_ref': class_ref_of(e.rdf_json_ld),
+              'class_refs': class_refs_of(e.rdf_json_ld),
+              'match_confidence': match_confidence_of(e.rdf_json_ld, e.match_confidence)}
              for e in _gate_rows],
             _case_text, run.case_id,
         )
@@ -1311,10 +1389,10 @@ def run_commit_task(self, run_id: int, step_name: str = "commit_extraction"):
                     # Mark WHICH committed quotes are gate work: the committed
                     # TTL attributes sourceText to the extraction model, so
                     # without the marker a gate-supplied span is
-                    # indistinguishable from model output.
-                    _marker = ('quotes ATTACHED at gate (model emitted none)'
-                               if _eid in getattr(_gate, 'repaired_quoteless', set())
-                               else 'quotes re-grounded at gate')
+                    # indistinguishable from model output. A row whose quotes
+                    # were verbatim and only snapped to the spelling of the
+                    # case text (lesson L5) is marked snapped, not re-grounded.
+                    _marker = gate_quote_marker(_gate, _eid)
                     _note = _row.review_notes or f"{_GATE_VETTED} run {run_id}"
                     if _marker not in _note:
                         _row.review_notes = f"{_note}; {_marker}"[:1000]

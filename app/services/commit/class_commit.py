@@ -29,6 +29,8 @@ from rdflib import Graph, Namespace, URIRef, Literal, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS, DCTERMS
 
 from app.services.commit import naming
+from app.services.commit.match_policy import linked_existing_class, matched_local_name
+from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +75,8 @@ class ClassCommitMixin:
             g.bind("proeth-prov", PROETHICA_PROV)
 
             count = 0
+            linked_existing = 0
+            declined_accumulations = 0
             for entity, rdf_data in classes:
                 # Use entity attributes directly
                 label = entity.entity_label or 'UnknownClass'
@@ -100,8 +104,42 @@ class ClassCommitMixin:
                         "not copying to the extended store.", safe_label)
                     continue
 
+                # A row the matcher LINKED to an existing class (base or extended)
+                # at or above the link threshold is reuse, not a mint (case-8
+                # review, L3): PublicSafetyObligation was minted as a subclass of
+                # SafetyObligation although its row had matched SafetyObligation
+                # at 0.95 ("the same concept"), and UnbuildableDesignState
+                # although it had matched ProjectFailureRiskState at 0.85. The
+                # case individuals reach the matched class through honoring; the
+                # class channel adds nothing. A row matched to ITS OWN IRI is a
+                # re-discovery and takes the accumulate path below.
+                linked = linked_existing_class(rdf_data, self._match_link_threshold())
+                if linked is not None and naming.safe_local_name(linked).lower() != safe_label.lower():
+                    logger.info(
+                        "Class %s: row linked to existing class %s at or above the "
+                        "link threshold %.2f; not minting.",
+                        safe_label, linked, self._match_link_threshold())
+                    linked_existing += 1
+                    continue
+
                 # Check if class already exists
                 if (class_uri, RDF.type, OWL.Class) in g:
+                    # A row whose match decision CONSIDERED this very class and
+                    # declined it (matches_existing false, matched_uri = this IRI)
+                    # must not accumulate case context onto it: the extraction
+                    # said the concepts differ, and the IRI collision is a label
+                    # collision (case 8 appended a scopeNote and discoveredInCase
+                    # onto RegulatoryComplianceObligation, a procurement class
+                    # the model had declined to match).
+                    md = (rdf_data or {}).get('match_decision')
+                    if (isinstance(md, dict) and md.get('matches_existing') is False
+                            and naming.safe_local_name(
+                                matched_local_name(md.get('matched_uri'))).lower() == safe_label.lower()):
+                        logger.warning(
+                            "Class %s: the extraction declined to match this existing "
+                            "class; not accumulating case context onto it.", safe_label)
+                        declined_accumulations += 1
+                        continue
                     # Accumulate: add new case's discoveredInCase and context
                     self._accumulate_class_context(g, class_uri, entity, rdf_data, PROETHICA_PROV)
                     # Reconcile subClassOf parents a prior commit may be missing --
@@ -116,6 +154,7 @@ class ClassCommitMixin:
                     # KI2026 endpoint-chain repair: trust the chain, not the
                     # incoming category claim.
                     existing_cat = self._graph_core_category(g, class_uri)
+                    existing_parents = set(g.objects(class_uri, RDFS.subClassOf))
                     for sc_uri in self._resolve_subclass_uris(entity, rdf_data):
                         parent_cat = self._core_category_of_iri(sc_uri)
                         if existing_cat and parent_cat and parent_cat != existing_cat:
@@ -125,8 +164,22 @@ class ClassCommitMixin:
                                 "(re-discovery under a different category)",
                                 class_uri, existing_cat, sc_uri, parent_cat)
                             continue
+                        # Archetype-axis gate (case-8 review, L3): one archetype
+                        # parent per class on a single-archetype axis. The core-
+                        # category veto above cannot see this (every state
+                        # archetype chains to core:State), so RegulatoryViolationState
+                        # had accumulated four archetype parents.
+                        blocking = self._archetype_axis_conflict(sc_uri, existing_parents)
+                        if blocking is not None:
+                            logger.warning(
+                                "archetype-axis subClassOf VETOED on %s: already "
+                                "parented under %s, incoming archetype %s "
+                                "(one archetype parent per class on this axis)",
+                                class_uri, blocking, sc_uri)
+                            continue
                         if (class_uri, RDFS.subClassOf, URIRef(sc_uri)) not in g:
                             g.add((class_uri, RDFS.subClassOf, URIRef(sc_uri)))
+                            existing_parents.add(URIRef(sc_uri))
                     continue
 
                 # Add class triple. Normalize an extractor-vintage CamelCase label to
@@ -147,8 +200,25 @@ class ClassCommitMixin:
 
                 # Definitions: rdfs:comment + skos:definition (primary) and
                 # skos:scopeNote (alternates), via the shared serializer that the
-                # individual path also calls (single source of truth).
-                self._emit_definitions(g, class_uri, entity, rdf_data)
+                # individual path also calls (single source of truth). A class
+                # minted under a reference-sheet IRI takes the SHEET definition
+                # (case-8 review, L3): the sheet text defines the reusable kind,
+                # the row's text describes one case and becomes a case-tagged
+                # scope note (UnbuildableDesignState carried the case-8
+                # project-failure text as its definition).
+                sheet_definition = self._reference_sheet_definition(safe_label, label)
+                if sheet_definition:
+                    g.add((class_uri, RDFS.comment, Literal(sheet_definition)))
+                    g.add((class_uri, SKOS.definition, Literal(sheet_definition)))
+                    row_definition = self._row_primary_definition(entity, rdf_data)
+                    if row_definition and ' '.join(row_definition.split()) != sheet_definition:
+                        case_tag = self._first_case_tag(rdf_data)
+                        tagged = f"[Case {case_tag}] {row_definition}" if case_tag is not None else row_definition
+                        g.add((class_uri, SKOS.scopeNote, Literal(tagged)))
+                    logger.info("Class %s minted under a reference-sheet IRI; sheet definition used.",
+                                safe_label)
+                else:
+                    self._emit_definitions(g, class_uri, entity, rdf_data)
 
                 # XAI: persist the matcher's type/match decision as annotation
                 # provenance (which canonical class, confidence, rationale).
@@ -237,11 +307,72 @@ class ClassCommitMixin:
             # Update proethica-intermediate.ttl to import this file if not already
             self._ensure_import_statement()
 
-            return {'count': count, 'file': str(extracted_file)}
+            return {'count': count, 'file': str(extracted_file),
+                    'linked_existing': linked_existing,
+                    'declined_accumulations': declined_accumulations}
 
         except Exception as e:
             logger.error(f"Error committing classes: {e}")
             return {'count': 0, 'error': str(e)}
+
+    # Archetype axes on which an extended-store class carries ONE parent (case-8
+    # review, L3). Keyed by the CATEGORY_TO_ONTOLOGY_IRI map whose values form
+    # the axis; the state archetypes are the nine content kinds (RiskState,
+    # EpistemicState, ...), all subClassOf core:State, so only this gate keeps a
+    # re-discovery under a different kind from stacking a second parent.
+    _SINGLE_ARCHETYPE_AXES = ('states',)
+
+    def _archetype_axis_conflict(self, incoming_parent, existing_parents) -> "str | None":
+        """The existing parent that blocks ``incoming_parent`` on a single-
+        archetype axis, or None when the incoming parent is admissible (not on
+        a gated axis, already present, or the first archetype on its axis)."""
+        incoming = str(incoming_parent)
+        existing = {str(p) for p in existing_parents}
+        if incoming in existing:
+            return None
+        for axis in self._SINGLE_ARCHETYPE_AXES:
+            members = set(CATEGORY_TO_ONTOLOGY_IRI.get(axis, {}).values())
+            if incoming in members:
+                prior = sorted(existing & members)
+                if prior:
+                    return prior[0]
+        return None
+
+    # Per-instance override of the reference-sheet directory (tests); None uses
+    # the active domain's sheet (REFERENCE_SHEET_DIR or the domain config).
+    reference_sheet_dir = None
+
+    def _reference_sheet_definition(self, local_name: str, label: str) -> "str | None":
+        """The reference sheet's definition for a class minted under one of its
+        canonical IRIs (keyed by IRI local-name or label), or None when the sheet
+        is unavailable or does not list the class."""
+        try:
+            from app.services.extraction.reference_sheet import get_sheet
+            sheet = get_sheet(getattr(self, 'reference_sheet_dir', None))
+        except Exception as e:  # noqa: BLE001 - no sheet configured on this host
+            logger.info("Reference sheet unavailable (%s); minted classes keep the row definition.", e)
+            return None
+        return sheet.definition_for(local_name) or sheet.definition_for(label)
+
+    @staticmethod
+    def _row_primary_definition(entity, rdf_data: Dict) -> str:
+        """The row's own primary definition text ('' when none), mirroring the
+        precedence _emit_definitions applies."""
+        definitions = (rdf_data or {}).get('definitions') or []
+        if definitions:
+            primary = next((d for d in definitions if d.get('is_primary')), definitions[0])
+            text = (primary.get('text') or '').strip()
+            if text:
+                return text
+        return (getattr(entity, 'entity_definition', None) or '').strip()
+
+    @staticmethod
+    def _first_case_tag(rdf_data: Dict):
+        props = (rdf_data or {}).get('properties') or {}
+        case_ids = props.get('discoveredInCase') or props.get('firstDiscoveredInCase') or []
+        if not isinstance(case_ids, list):
+            case_ids = [case_ids]
+        return case_ids[0] if case_ids else None
 
     def _cite_discovering_cases(self, g: Graph, class_uri: URIRef, props: Dict) -> None:
         """Emit one dcterms:source case citation per discoveredInCase value

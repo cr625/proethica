@@ -20,6 +20,10 @@ class TemporalDynamicsState(TypedDict):
     facts_text: str
     discussion_text: str
     extraction_session_id: str
+    # The case's State individual labels (Steps 1-2): the closed list the action / event
+    # prompts offer for initiates / terminates and the post-parse check validates against.
+    # Optional in the initial state; empty disables the closed-list check.
+    state_labels: List[str]
 
     # === STAGE OUTPUTS ===
     # Stage 1: Unified narrative from combined sections

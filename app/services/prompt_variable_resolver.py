@@ -56,9 +56,11 @@ class PromptVariableResolver:
         variables['case_text'] = case_text
         variables['section_type'] = section_type
 
-        # Get existing entities from MCP
+        # Get existing entities from MCP. The current case id lets the inventory set apart
+        # the extended-store classes an earlier run of THIS case minted (lesson L6).
         existing_entities = self.get_existing_entities(concept_type)
-        existing_text = self.format_existing_entities(existing_entities, concept_type)
+        existing_text = format_existing_entities(
+            existing_entities, concept_type, current_case_id=case_id)
 
         # For non-facts sections, append classes extracted from prior sections
         if section_type != 'facts':
@@ -67,6 +69,13 @@ class PromptVariableResolver:
             )
             if prior_text:
                 existing_text += prior_text
+            # Prior-section INDIVIDUALS (every component; the case-8 lesson L1), mirrored from
+            # the live extractor so the preview shows the same reuse-or-refine block.
+            prior_individuals = self._format_prior_section_individuals(
+                case_id, section_type, concept_type
+            )
+            if prior_individuals:
+                existing_text += prior_individuals
 
         # Set concept-specific variable names
         var_name = f'existing_{concept_type}_text'
@@ -163,6 +172,22 @@ class PromptVariableResolver:
 
         except Exception as e:
             logger.warning(f"Could not load prior-section classes: {e}")
+            return ''
+
+    def _format_prior_section_individuals(
+        self, case_id: int, current_section: str, concept_type: str,
+    ) -> str:
+        """Mirror of PromptBuildingMixin._format_prior_section_individuals for the editor
+        preview: the prior-section individuals block (every component) rendered by the shared
+        formatter, so preview == live."""
+        try:
+            from app.services.extraction.unified_dual_extractor.prompt_building import (
+                format_prior_individuals_block, load_prior_section_rows,
+            )
+            rows = load_prior_section_rows(case_id, concept_type, current_section, 'individual')
+            return format_prior_individuals_block(concept_type, rows)
+        except Exception as e:
+            logger.warning(f"Could not load prior-section individuals: {e}")
             return ''
 
     def get_case_section_text(self, case_id: int, section_type: str) -> str:
@@ -409,7 +434,8 @@ def _dedup_entities_by_uri(entities: List[Dict[str, Any]]) -> List[Dict[str, Any
 
 def format_existing_entities(entities: List[Dict[str, Any]],
                              concept_type: str,
-                             label_only_tier2: bool = False) -> str:
+                             label_only_tier2: bool = False,
+                             current_case_id: Optional[int] = None) -> str:
     """
     Format existing ontology entities (plus the canonical reuse-bias guidance) for a prompt.
 
@@ -432,12 +458,17 @@ def format_existing_entities(entities: List[Dict[str, Any]],
         label_only_tier2: If True, Tier 2 entities emit labels only (no definitions).
             Used in Phase 2 extraction where definitions are retrieved on demand
             via the get_class_definition tool.
+        current_case_id: The case being extracted. Extended-store classes whose
+            discoveredInCase provenance names ONLY this case were minted by an earlier
+            run of the same case; they are listed under their own heading instead of
+            the "from other cases" block (lesson L6).
 
     Returns:
         Formatted string for prompt inclusion
     """
     guidance = reuse_block_for_concept(concept_type)
-    inventory = _format_entity_inventory(entities, concept_type, label_only_tier2)
+    inventory = _format_entity_inventory(entities, concept_type, label_only_tier2,
+                                         current_case_id=current_case_id)
     return "\n\n".join(p for p in (guidance, inventory) if p)
 
 
@@ -608,6 +639,24 @@ def _role_directives_block() -> str:
     # D-LABEL  <- canonical head-noun + archetype reuse (proethica-intermediate occupational archetypes)
     D.append("- Use a canonical head-noun role label (e.g. 'Structural Engineer Role') and REUSE an existing "
              "role class from the list above rather than minting a near-duplicate compound.")
+    # D-CANON  <- the reuse policy's tier order (case-8 lesson L9: the Board role matched a previously
+    # extracted class over the canonical RegulatoryAuthorityRole whose definition names an ethics
+    # review board)
+    D.append("- When a CANONICAL class and a PREVIOUSLY EXTRACTED class both fit a role, match the canonical "
+             "class: read the canonical definitions first, and choose a previously extracted class only "
+             "when no canonical class covers the role.")
+    # D-OBLIGATION-NAMED  <- D-TELEO made checkable: the obligation a professional role generates is
+    # named in generates_obligations on the individual; role_kind professional with none named is
+    # rejected at parse time (role_checks)
+    D.append("- For every individual typed role_kind professional, name at least one obligation the role "
+             "generates in `generates_obligations` (the duty as the case states it). An individual that "
+             "names none is not professional: leave role_kind unset or set participant.")
+    # D-FACET  <- one facet per actor and counterparty (case-8 lesson L9: a faithful-agent facet was
+    # minted beside the design-engineer facet that already carried hasClient to the same client)
+    D.append("- A relational standing toward a counterparty the actor is ALREADY linked to by an actor edge "
+             "(a faithful-agent, fiduciary, or trustee standing toward an existing client, employer, or "
+             "peer) is a `relationships[]` entry or a role_category on the EXISTING facet, never a new role "
+             "facet. Mint a second facet for the same actor only for a genuinely different occupational role.")
     return "\n".join(D)
 
 
@@ -668,11 +717,22 @@ def _role_category_block() -> str:
     return "\n".join(rows)
 
 
+# Explicit allow-list beside the derived relatedTo family (case-8 lesson L7). owesDutyToward is the
+# defining edge of PublicResponsibilityRole and is named in the role_category vocabulary as the
+# public_responsibility archetype edge, but it is declared in proethica-intermediate with domain
+# ProfessionalRole and range PublicInterest, not as a subproperty of proeth-core:relatedTo, so the
+# derivation alone never offered it and the model could only place it in additional_relationships.
+# Each entry is a property local name looked up in the core, then the intermediate, namespace.
+_ROLE_RELATIONSHIP_ALLOW_LIST = ('owesDutyToward',)
+
+
 def _role_relationships_block() -> str:
     """The canonical role-to-role relationship `type` vocabulary for the relationships[] field, DERIVED from
     the ontology: the NON-DEPRECATED subproperties of proeth-core:relatedTo (hasClient, professionalPeerOf,
     employedBy, reviewsWorkOf, workReviewedBy) -- the actor-relationship family the pipeline emits, the commit
-    path maps, and the defining edges of the relational archetype classes. The older domain-Role spellings
+    path maps, and the defining edges of the relational archetype classes -- plus the explicit
+    _ROLE_RELATIONSHIP_ALLOW_LIST (owesDutyToward, the public_responsibility archetype edge, declared outside
+    the relatedTo family). The older domain-Role spellings
     (retainedBy, mentoredBy, reportsTo, supervisedBy, collaboratesWith, ...) are owl:deprecated as duplicates
     of this family and are EXCLUDED; relatedTo is the controlled fallback for an organizational link (e.g.
     supervision, reporting) with no dedicated archetype. Same single-source pattern as _role_schema_block.
@@ -680,6 +740,7 @@ def _role_relationships_block() -> str:
     import rdflib
     from rdflib.namespace import SKOS
     CORE = rdflib.Namespace('http://proethica.org/ontology/core#')
+    PROETH = rdflib.Namespace('http://proethica.org/ontology/intermediate#')
     g = rdflib.Graph()
     g.parse(_ontology_ttl('proethica-core.ttl'), format='turtle')
     g.parse(_ontology_ttl('proethica-intermediate.ttl'), format='turtle')
@@ -687,12 +748,25 @@ def _role_relationships_block() -> str:
                    if (p, rdflib.OWL.deprecated, rdflib.Literal(True)) not in g)
     out = ["=== ROLE RELATIONSHIPS (controlled `type` for the relationships[] field, from the ontology -- "
            "state each from THIS role-bearer's perspective) ==="]
-    for n in names:
+
+    def _cue(prop) -> str:
         # cue = the ontology's own skos:definition (single source; same text the entity page shows), with
         # rdfs:comment as a fallback. No authored cue map -- the description cannot drift from the ontology.
-        cue = (next((str(d) for d in g.objects(CORE[n], SKOS.definition)), '')
-               or next((str(c) for c in g.objects(CORE[n], rdflib.RDFS.comment)), ''))
-        out.append(f"- {n}: {cue}")
+        return (next((str(d) for d in g.objects(prop, SKOS.definition)), '')
+                or next((str(c) for c in g.objects(prop, rdflib.RDFS.comment)), ''))
+
+    for n in names:
+        out.append(f"- {n}: {_cue(CORE[n])}")
+    for n in _ROLE_RELATIONSHIP_ALLOW_LIST:
+        if n in names:
+            continue
+        prop = next((p for p in (CORE[n], PROETH[n]) if (p, rdflib.RDF.type, rdflib.OWL.ObjectProperty) in g),
+                    None)
+        if prop is None:
+            logger.warning("role relationships allow-list property %s is not declared in the ontology", n)
+            continue
+        out.append(f"- {n}: {_cue(prop)} Target: the public (PublicInterest). A role bearing this edge also "
+                   f"sets role_category public_responsibility, the archetype this edge defines.")
     out.append("- relatedTo: any other professional relationship between two roles that none of the above "
                "fits (e.g. supervision, a reporting line).")
     out.append("Each relationship needs a verbatim `quote` from the case. If the case states a relationship "
@@ -710,22 +784,41 @@ _PASS_DIRECTIVES = {
                               "REUSE or refine them via match_decision; extract only genuinely NEW roles the "
                               "discussion introduces. A near-duplicate of a facts-pass role is an error."),
     ('obligations', 'facts'): ("THIS PASS (facts): extract the obligation classes and individuals the case FACTS "
-                               "establish (the duties in force as the situation unfolds)."),
+                               "establish (the duties in force as the situation unfolds). The Facts establish "
+                               "duties, not their discharge: emit compliance_status \"unclear\" on every "
+                               "obligation individual in this pass (the holding-aware discussion pass sets it). "
+                               "Word each obligation_statement in the Code's own wording plus the Board's "
+                               "application of it to the actor; do not widen a duty beyond what the Code states."),
     ('obligations', 'discussion'): ("THIS PASS (discussion): the facts-pass obligations are already in EXISTING "
                                     "OBLIGATIONS above. REUSE or refine them via match_decision; extract only "
                                     "genuinely NEW obligations the discussion introduces (e.g. duties the Board "
-                                    "names in its analysis). A near-duplicate of a facts-pass obligation is an error."),
+                                    "names in its analysis). A near-duplicate of a facts-pass obligation is an error. "
+                                    "Every facts-pass compliance_status is provisional (\"unclear\"): confirm or "
+                                    "revise each one from the Board's holding by re-emitting that individual with "
+                                    "the SAME identifier and class, and set the status of every duty this pass "
+                                    "adds. Word each obligation_statement in the Code's wording plus the Board's "
+                                    "application of it."),
     ('principles', 'facts'): ("THIS PASS (facts): extract the principle classes and individuals the case FACTS "
-                              "put in play (the values the parties act on as the situation unfolds)."),
+                              "put in play (the values the parties act on as the situation unfolds). The Facts "
+                              "narrate a tension, the Board resolves it: record balancing_with when the facts "
+                              "show competing values and leave tension_resolution EMPTY when the facts resolve "
+                              "nothing (never write \"unresolved in the facts\" into it)."),
     ('principles', 'discussion'): ("THIS PASS (discussion): the facts-pass principles are already in EXISTING "
                                    "PRINCIPLES above. REUSE or refine them via match_decision; extract only "
                                    "genuinely NEW principles the discussion introduces (e.g. values the Board "
-                                   "invokes in its analysis). A near-duplicate of a facts-pass principle is an error."),
+                                   "invokes in its analysis). A near-duplicate of a facts-pass principle is an error. "
+                                   "A facts-pass individual whose balancing_with is set and whose "
+                                   "tension_resolution is empty is re-emitted here with the SAME identifier and "
+                                   "the Board's resolution."),
     ('states', 'facts'): ("THIS PASS (facts): extract the state classes and individuals the case FACTS "
-                          "establish (the conditions that hold as the situation unfolds)."),
+                          "establish (the conditions that hold as the situation unfolds). Write active_period in "
+                          "narrative order, from the triggering happening to the terminating one (start first, "
+                          "end last)."),
     ('states', 'discussion'): ("THIS PASS (discussion): the facts-pass states are already in EXISTING STATES "
                                "above. REUSE or refine them via match_decision; extract only genuinely NEW "
-                               "states the discussion introduces. A near-duplicate of a facts-pass state is an error."),
+                               "states the discussion introduces. A near-duplicate of a facts-pass state is an error. "
+                               "Write active_period in narrative order, from the triggering happening to the "
+                               "terminating one (start first, end last)."),
     ('resources', 'facts'): ("THIS PASS (facts): extract the resource classes and individuals the case FACTS "
                              "name (the codes, standards, and precedents the parties relied on; set used_by)."),
     ('resources', 'discussion'): ("THIS PASS (discussion): the facts-pass resources are already in EXISTING "
@@ -739,7 +832,10 @@ _PASS_DIRECTIVES = {
                                      "genuinely NEW capabilities the discussion introduces. A near-duplicate of a "
                                      "facts-pass capability is an error."),
     ('constraints', 'facts'): ("THIS PASS (facts): extract the constraint classes and individuals the case FACTS "
-                               "establish (the prohibitions and hard boundaries in force as the situation unfolds)."),
+                               "establish (the prohibitions and hard boundaries in force as the situation unfolds). "
+                               "A prohibition on the engineer that the Facts do not state in words is a HOLDING, "
+                               "not a fact: it belongs to the discussion pass. When the Facts state no prohibition, "
+                               "return empty arrays."),
     ('constraints', 'discussion'): ("THIS PASS (discussion): the facts-pass constraints are already in EXISTING "
                                     "CONSTRAINTS above. REUSE or refine them via match_decision; extract only "
                                     "genuinely NEW constraints the discussion introduces. A near-duplicate of a "
@@ -955,9 +1051,40 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
     return {}
 
 
+def discovered_in_cases(entity: Dict[str, Any]) -> set:
+    """The set of case ids (as strings) an extended-store class carries as its
+    proeth-prov:discoveredInCase provenance. OntServe serves entity properties as a JSON
+    object whose keys may be camelCase or lowercased, and whose values may be a list, a
+    scalar, or a comma-joined string; all forms normalize here. Empty when the entity
+    carries no such provenance (a curated class, or an older row)."""
+    props = entity.get('properties') or {}
+    vals = None
+    for key in ('discoveredInCase', 'discoveredincase'):
+        if isinstance(props, dict) and key in props:
+            vals = props[key]
+            break
+    if vals is None:
+        vals = entity.get('discoveredInCase') or (entity.get('metadata') or {}).get('discoveredInCase')
+    if vals is None or vals == '':
+        return set()
+    if isinstance(vals, (list, tuple, set)):
+        items = vals
+    else:
+        items = str(vals).split(',')
+    out = set()
+    for v in items:
+        s = str(v).strip()
+        if not s:
+            continue
+        m = re.search(r'(\d+)\s*$', s)
+        out.add(m.group(1) if m else s)
+    return out
+
+
 def _format_entity_inventory(entities: List[Dict[str, Any]],
                              concept_type: str,
-                             label_only_tier2: bool = False) -> str:
+                             label_only_tier2: bool = False,
+                             current_case_id: Optional[int] = None) -> str:
     """The live existing-class inventory (tiered by source ontology), without the reuse guidance.
     Split out from format_existing_entities so the reuse block can be composed in front of it."""
     if not entities:
@@ -1038,6 +1165,20 @@ def _format_entity_inventory(entities: List[Dict[str, Any]],
         for e in canonical:
             lines.append(_format_entity_line(e))
 
+    # Lesson L6 (case 8, run 35 of 2026-07-05): a re-extraction saw the classes its own
+    # earlier run had minted under the "from other cases" heading and matched its prior
+    # output at 0.97 as if it were cross-case recurrence. An extended-store class whose
+    # discoveredInCase provenance names ONLY the current case is set apart under its own
+    # heading; a class with any other case in its provenance stays cross-case evidence.
+    prior_runs: List[Dict[str, Any]] = []
+    if current_case_id is not None and extracted:
+        own = {str(current_case_id)}
+        cross_case = []
+        for e in extracted:
+            cases = discovered_in_cases(e)
+            (prior_runs if cases and cases <= own else cross_case).append(e)
+        extracted = cross_case
+
     if extracted:
         if lines:
             lines.append('')
@@ -1051,6 +1192,17 @@ def _format_entity_inventory(entities: List[Dict[str, Any]],
         else:
             lines.append("Auto-extracted from prior case analyses and approved. Match if the same concept appears.")
         for e in extracted:
+            lines.append(_format_entity_line(e, label_only=label_only_tier2))
+
+    if prior_runs:
+        if lines:
+            lines.append('')
+        lines.append("=== CLASSES MINTED BY AN EARLIER RUN OF THIS SAME CASE ===")
+        lines.append(
+            "These classes were discovered only in this case by a previous extraction run. They "
+            "are NOT evidence of cross-case recurrence: match one only when the case text states "
+            "the same concept, and prefer a CANONICAL class above whenever one fits.")
+        for e in prior_runs:
             lines.append(_format_entity_line(e, label_only=label_only_tier2))
 
     if external:

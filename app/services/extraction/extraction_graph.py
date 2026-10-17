@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
+from app.services.commit import naming
+from app.services.commit.match_policy import linked_existing_class, match_link_threshold
 from app.services.extraction.schemas import (
     CATEGORY_TO_ONTOLOGY_IRI,
     CONCEPT_EXTRACTION_TYPES,
@@ -106,8 +108,12 @@ def pydantic_to_rdf_data(
 
     for cls_obj in classes:
         label = cls_obj.label
-        safe_label = _sanitize_label(label, space_char='')
-        uri = f'{INTERMEDIATE_NS}{safe_label}'
+        # The class IRI is minted with the commit path's sanitizer (naming.safe_local_name)
+        # so the working store carries the IRI the commit will write and the individuals
+        # typed to this class (below) reference the same IRI. The former hyphen-keeping
+        # sanitizer minted intermediate#Provider-ClientRole here while the commit wrote
+        # ProviderClientRole (case 24-1 review, defect D).
+        uri = f'{INTERMEDIATE_NS}{naming.safe_local_name(label)}'
 
         # Resolve parent from category if available
         resolved_parent = parent_uri
@@ -197,8 +203,7 @@ def pydantic_to_rdf_data(
         class_ref = getattr(ind_obj, class_ref_field, None)
         types = []
         if class_ref:
-            safe_class = _sanitize_label(class_ref, space_char='')
-            types.append(f'{INTERMEDIATE_NS}{safe_class}')
+            types.append(individual_type_iri(class_ref, ind_obj.match_decision))
 
         properties = _extract_properties(
             ind_obj, concept_type, timestamp, case_id, section_type, pass_number,
@@ -285,6 +290,102 @@ def pydantic_to_rdf_data(
     }
 
 
+def individual_type_iri(class_ref: str, match_decision) -> str:
+    """The rdf:type IRI an individual carries in the working store.
+
+    When the matcher LINKED the class reference to an EXISTING ontology class, that
+    class is the type: it is the class the commit honors, so the store and the
+    committed graph name the same class. Otherwise the IRI is minted from the class
+    reference with the commit path's sanitizer, ``naming.safe_local_name``, so a
+    label such as "Provider-Client Role" yields ``intermediate#ProviderClientRole``
+    here as at commit, not the ``#Provider-ClientRole`` the former hyphen-keeping
+    sanitizer produced (an IRI that exists in no ontology) while ``match_decision``
+    held the real one (case 24-1 review, defect D).
+
+    A decision counts as a link under the conditions the honoring rule of the
+    commit (``_matched_class_override``) checks before it retypes an individual: a
+    confidence at or above the shared link threshold
+    (``match_policy.match_link_threshold``), a ``matched_uri`` in the intermediate
+    namespace the commit writes types in, and a local name the URI sanitizer leaves
+    unchanged. The conditions matter because the commit treats a row whose type
+    already is the matched class as "nothing to honor" and skips its floor and
+    chain checks for it. Adopting every matched IRI here typed a 0.75 match
+    ("matched to parent with medium confidence") at storage time, where the floor
+    keeps the minted type, and stored a core# or concepts# match under that
+    namespace, which the commit re-mints as a new intermediate class named after
+    the matched local name. Such a row now keeps the minted type here and the
+    commit applies its own rule to it, as to every other row.
+    """
+    md = {
+        'matches_existing': getattr(match_decision, 'matches_existing', False),
+        'matched_uri': getattr(match_decision, 'matched_uri', None),
+        'confidence': getattr(match_decision, 'confidence', None),
+    }
+    local = linked_existing_class({'match_decision': md}, match_link_threshold())
+    iri = str(md['matched_uri'] or '')
+    if local and iri == f'{INTERMEDIATE_NS}{local}' and naming.safe_local_name(local) == local:
+        return iri
+    return f'{INTERMEDIATE_NS}{naming.safe_local_name(class_ref)}'
+
+
+def extraction_activity_name(concept_type: str) -> str:
+    """Provenance activity name of a step 1 or 2 concept extraction
+    (``dual_<concept>_extraction``): the name the provenance page resolves, together
+    with the prompt's session id, through its CONCEPT_ACTIVITY_MAP."""
+    return f'dual_{concept_type}_extraction'
+
+
+def _record_llm_query_provenance(prompt_row, extractor, classes: list, individuals: list,
+                                 origin: Optional[str]) -> None:
+    """Record the model call behind a saved extraction prompt as one ``llm_query``
+    activity (the row's session id, agent = the model, the extractor's call timestamps
+    and the derived duration, case id, concept type and section) with the prompt and
+    response as provenance entities, the way the temporal pass records its calls.
+
+    Best-effort inside a savepoint: a failure here never costs the extraction its
+    entities, and the activity is committed on its own because the model call did
+    happen whatever the later storage steps do.
+    """
+    from app.models import db
+    from app.services.provenance_service import get_provenance_service
+
+    try:
+        ended_at = getattr(extractor, 'last_llm_ended_at', None) or datetime.utcnow()
+        started_at = getattr(extractor, 'last_llm_started_at', None) or ended_at
+        metadata = {
+            'concept_type': prompt_row.concept_type,
+            'section_type': prompt_row.section_type,
+            'step_number': prompt_row.step_number,
+            'extraction_prompt_id': prompt_row.id,
+            'classes': len(classes),
+            'individuals': len(individuals),
+        }
+        if origin:
+            metadata['origin'] = origin
+        with db.session.begin_nested():
+            get_provenance_service().record_llm_query(
+                activity_name=extraction_activity_name(prompt_row.concept_type),
+                case_id=prompt_row.case_id,
+                session_id=prompt_row.extraction_session_id,
+                model_name=prompt_row.llm_model or getattr(extractor, 'model_name', None),
+                prompt_text=prompt_row.prompt_text,
+                response_text=prompt_row.raw_response,
+                started_at=started_at,
+                ended_at=ended_at,
+                execution_plan={
+                    'concept_type': prompt_row.concept_type,
+                    'section': prompt_row.section_type,
+                    'step': prompt_row.step_number,
+                    'injection_mode': getattr(prompt_row, 'injection_mode', None),
+                },
+                activity_metadata=metadata,
+            )
+        db.session.commit()
+    except Exception:
+        logger.warning("llm_query provenance skipped for %s (best-effort)",
+                       getattr(prompt_row, 'concept_type', '?'), exc_info=True)
+
+
 def store_extraction_result(
     case_id: int,
     concept_type: str,
@@ -296,15 +397,19 @@ def store_extraction_result(
     individuals: list,
     pass_number: int = None,
     extraction_pass: str = None,
+    origin: Optional[str] = None,
 ) -> None:
     """
     Persist extraction results to the database.
 
-    Consolidates the 3-call storage pattern used by both streaming and
+    Consolidates the storage pattern used by both streaming and
     non-streaming extraction paths:
-      1. ExtractionPrompt.save_prompt()
-      2. pydantic_to_rdf_data()
-      3. TemporaryRDFStorage.store_extraction_results()
+      1. ExtractionPrompt.save_prompt() (prompt, raw response, extracted counts)
+      2. one llm_query provenance activity for the model call, keyed by the
+         saved prompt's session id (_record_llm_query_provenance)
+      3. pydantic_to_rdf_data()
+      4. TemporaryRDFStorage.store_extraction_results()
+      5. results_summary rewritten from the stored rows (stored and merged counts)
 
     Args:
         case_id: Case database ID.
@@ -314,22 +419,30 @@ def store_extraction_result(
         section_type: Source section (facts, discussion, etc.).
         session_id: UUID extraction session identifier.
         extractor: UnifiedDualExtractor instance (provides last_prompt,
-                   last_raw_response, model_name).
+                   last_raw_response, model_name, and the call bounds
+                   last_llm_started_at / last_llm_ended_at).
         classes: Pydantic candidate class model instances.
         individuals: Pydantic individual model instances.
         pass_number: Extraction pass number (1 or 2).
         extraction_pass: Provenance label ('contextual_framework' or
                          'normative_requirements').
+        origin: Provenance origin stored on the activity
+                ('automated_pipeline' for the Celery pipeline). None leaves
+                the origin to the display heuristics.
     """
     from app.models import db
     from app.models.extraction_prompt import ExtractionPrompt
     from app.models.temporary_rdf_storage import TemporaryRDFStorage
+    from app.services.entity.rdf_storage_service import storage_summary
 
     model_name = extractor.model_name
 
-    # 1. Save prompt + raw response
+    # 1. Save prompt + raw response. The extracted counts go in now so the prompt
+    #    record is complete even if storage fails; step 5 replaces them with the
+    #    stored and merged counts once the rows exist.
+    prompt_row = None
     try:
-        ExtractionPrompt.save_prompt(
+        prompt_row = ExtractionPrompt.save_prompt(
             case_id=case_id,
             concept_type=concept_type,
             prompt_text=extractor.last_prompt or f'[streaming] {concept_type}',
@@ -348,7 +461,11 @@ def store_extraction_result(
     except Exception as e:
         logger.warning(f"Could not save extraction prompt for {concept_type}: {e}")
 
-    # 2 + 3. Convert Pydantic models to rdf_data, then store
+    # 2. The model call as an llm_query activity of the prompt's session
+    if prompt_row is not None:
+        _record_llm_query_provenance(prompt_row, extractor, classes, individuals, origin)
+
+    # 3 + 4. Convert Pydantic models to rdf_data, then store
     try:
         # Collect ontology definitions from the extractor if available
         ont_defs = getattr(extractor, 'ontology_definitions', None)
@@ -381,6 +498,16 @@ def store_extraction_result(
             extraction_model=model_name,
             provenance_data=provenance_data,
         )
+
+        # 5. The summary the provenance card shows is written AFTER storage, from the
+        #    stored rows, so an extracted-versus-stored difference carries its own
+        #    explanation (merged_into_existing). Written before storage it read
+        #    "individuals 4" beside 3 stored rows (case 24-1 review, defect C).
+        if prompt_row is not None:
+            prompt_row.results_summary = storage_summary(
+                case_id, session_id, concept_type,
+                extracted_classes=len(classes), extracted_individuals=len(individuals),
+            )
 
         db.session.commit()
         logger.info(

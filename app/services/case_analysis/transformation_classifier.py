@@ -31,6 +31,48 @@ from model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 
+# Facts budget of the classification prompt (characters).
+FACTS_LIMIT = 2000
+
+
+def truncate_at_boundary(text: str, limit: int) -> str:
+    """Cut ``text`` to at most ``limit`` characters at a sentence end when one
+    lies in the second half of the budget, else at a word boundary, never in
+    the middle of a word. Short text is returned unchanged."""
+    if not text or len(text) <= limit:
+        return text or ''
+    head = text[:limit]
+    for mark in ('. ', '.\n', '! ', '? '):
+        cut = head.rfind(mark)
+        if cut >= limit // 2:
+            return head[:cut + 1].rstrip()
+    cut = head.rfind(' ')
+    if cut > 0:
+        return head[:cut].rstrip()
+    return head
+
+
+def _is_generated(record: Dict, kind: str) -> bool:
+    """Positive identification of a Step-4 generated question ('Q') or
+    conclusion ('C'): a generated category type, or a number at or above the
+    generated offset. Untyped, unnumbered legacy rows stay Board-attributed
+    here (this classifier reads many dict shapes)."""
+    from app.services.step4_synthesis.qc_refs import (
+        GENERATED_NUMBER_BASE, _GENERATED_TYPES, _number_of)
+    if not isinstance(record, dict):
+        return False
+    rdf = record.get('rdf_json_ld') or {}
+    type_keys = (('question_type', 'questionType', 'type') if kind == 'Q'
+                 else ('conclusion_type', 'conclusionType', 'type'))
+    for key in type_keys:
+        t = record.get(key) or rdf.get(key)
+        if t and str(t).strip().lower() in _GENERATED_TYPES:
+            return True
+    n = _number_of(record, kind)
+    if n is None:
+        n = _number_of(rdf, kind)
+    return n is not None and n >= GENERATED_NUMBER_BASE
+
 
 @dataclass
 class TransformationResult:
@@ -267,31 +309,49 @@ class TransformationClassifier:
             # Fall back to built-in definitions
             framework_context = self._get_builtin_framework_context()
 
-        # Format questions - handle both data structures
+        # Format questions - handle both data structures. Step-4 generated
+        # questions and conclusions leave the Board headings and go to tagged
+        # blocks of their own (case 8 review, lesson L5: the prompt labelled
+        # generated conclusions "BOARD'S CONCLUSIONS"). A record is moved only
+        # when positively identified as generated (category type or number
+        # offset), so legacy untyped rows keep their place.
         questions_text = ""
+        generated_questions_text = ""
         if questions:
-            q_lines = []
+            q_lines, gq_lines = [], []
             for i, q in enumerate(questions):
                 # Try multiple possible keys for the text
                 q_text = (q.get('text') or q.get('entity_definition') or
                          q.get('question_text') or q.get('label') or 'No text')
                 q_type = q.get('type', q.get('question_type', ''))
-                q_lines.append(f"Q{i+1}: {q_text}" + (f" [{q_type}]" if q_type else ""))
-            questions_text = "\n".join(q_lines)
+                line = f"Q{i+1}: {q_text}" + (f" [{q_type}]" if q_type else "")
+                if _is_generated(q, 'Q'):
+                    gq_lines.append(f"Q{i+1}: [GENERATED {q_type or 'analytical'} question, "
+                                    f"not posed to the Board] {q_text}")
+                else:
+                    q_lines.append(line)
+            questions_text = "\n".join(q_lines) if q_lines else "(No Board questions extracted)"
+            generated_questions_text = "\n".join(gq_lines)
         else:
             questions_text = "(No questions extracted)"
 
         # Format conclusions - handle both data structures
         conclusions_text = ""
+        generated_conclusions_text = ""
         if conclusions:
-            c_lines = []
+            c_lines, gc_lines = [], []
             for i, c in enumerate(conclusions):
                 # Try multiple possible keys for the text
                 c_text = (c.get('text') or c.get('entity_definition') or
                          c.get('conclusion_text') or c.get('label') or 'No text')
                 c_type = c.get('rdf_json_ld', {}).get('conclusionType', '') or c.get('type', '')
-                c_lines.append(f"C{i+1}: {c_text}" + (f" [{c_type}]" if c_type else ""))
-            conclusions_text = "\n".join(c_lines)
+                if _is_generated(c, 'C'):
+                    gc_lines.append(f"C{i+1}: [GENERATED {c.get('conclusion_type') or c_type or 'analytical'} "
+                                    f"conclusion, not a Board determination] {c_text}")
+                else:
+                    c_lines.append(f"C{i+1}: {c_text}" + (f" [{c_type}]" if c_type else ""))
+            conclusions_text = "\n".join(c_lines) if c_lines else "(No Board conclusions extracted)"
+            generated_conclusions_text = "\n".join(gc_lines)
         else:
             conclusions_text = "(No conclusions extracted)"
 
@@ -340,10 +400,14 @@ class TransformationClassifier:
         prompt = get_step4_template('step4_transformation').render(
             framework_context=framework_context,
             case_title=case_title,
-            case_facts=case_facts[:2000] if case_facts else '',
+            # Facts cut at a sentence or word boundary, never mid-word (the
+            # case-8 prompt 8618 truncated the facts mid-word -- lesson L5).
+            case_facts=truncate_at_boundary(case_facts, FACTS_LIMIT) if case_facts else '',
             entities_context=entities_context,
             questions_text=questions_text,
+            generated_questions_text=generated_questions_text,
             conclusions_text=conclusions_text,
+            generated_conclusions_text=generated_conclusions_text,
             patterns_text=patterns_text,
         )
 

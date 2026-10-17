@@ -36,6 +36,32 @@ logger = logging.getLogger(__name__)
 # synthesis_view_builder display layer.
 from app.services.extraction.precedent_filter import is_precedent_reference
 
+# Committed conclusion keys are case-<id>#Conclusion_<conclusionNumber>; board
+# conclusions are numbered below 100 and analytical conclusion families use
+# 100-offset numbering (commit/enrichment._readable_conclusion_label).
+_CONCLUSION_NUMBER_IN_URI = re.compile(r'Conclusion_(\d+)$')
+
+
+def is_board_explicit_conclusion_uri(uri: Optional[str]) -> bool:
+    """True when a conclusion URI names a board_explicit conclusion (its
+    conclusionNumber is below 100). None, positional legacy keys and
+    analytical (100-offset) conclusions are not board holdings."""
+    if not uri:
+        return False
+    match = _CONCLUSION_NUMBER_IN_URI.search(str(uri).strip())
+    return bool(match) and int(match.group(1)) < 100
+
+
+def _is_board_conclusion_uri(uri: str) -> bool:
+    """A committed-URI conclusion reference (``...#Conclusion_<n>``) is the
+    Board's when n is below the generated offset; the legacy positional form
+    (``#C<k>``) cannot be classified and counts as the Board's, as before."""
+    from app.services.step4_synthesis.qc_refs import GENERATED_NUMBER_BASE
+    m = re.search(r'#Conclusion_(\d+)$', str(uri or ''))
+    if not m:
+        return True
+    return int(m.group(1)) < GENERATED_NUMBER_BASE
+
 
 # =============================================================================
 # DATA CLASSES
@@ -174,6 +200,10 @@ class DecisionMoment:
     # What's at stake
     competing_obligations: List[str] = field(default_factory=list)
     board_choice: Optional[str] = None
+    # Whether a Board conclusion resolves this point (case 8 review, lesson
+    # L7): the scenario generator authors a board_rationale only then.
+    has_board_conclusion: bool = False
+    board_conclusion_uri: Optional[str] = None
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -541,46 +571,78 @@ class NarrativeElementExtractor:
             resources_involved=resources
         )
 
+    def _committed_temporal_order(self, case_id) -> Dict[str, Dict]:
+        """{local fragment: {'sequence', 'agent_uri', 'agent_label'}} of the
+        committed Action/Event individuals, from proeth:temporalSequence and
+        proeth:performedBy in the case TTL. Empty when no committed graph
+        exists (the stored rows then supply the order). Never raises."""
+        if not case_id:
+            return {}
+        try:
+            from rdflib import RDFS, URIRef
+            from app.services.entity.committed_case_graph import load_case_graph
+            g = load_case_graph(case_id)
+        except Exception as exc:  # noqa: BLE001 - no committed TTL yet
+            logger.info(f"Committed timeline unavailable for case {case_id}: {exc}")
+            return {}
+        seq_pred = URIRef("http://proethica.org/ontology/intermediate#temporalSequence")
+        agent_pred = URIRef("http://proethica.org/ontology/intermediate#performedBy")
+        out: Dict[str, Dict] = {}
+        for s, o in g.subject_objects(seq_pred):
+            try:
+                seq = int(str(o))
+            except (TypeError, ValueError):
+                continue
+            frag = str(s).rsplit('#', 1)[-1]
+            out.setdefault(frag, {})['sequence'] = seq
+        for s, o in g.subject_objects(agent_pred):
+            frag = str(s).rsplit('#', 1)[-1]
+            entry = out.setdefault(frag, {})
+            entry['agent_uri'] = str(o)
+            label = next((str(l) for l in g.objects(o, RDFS.label)), None)
+            entry['agent_label'] = label or str(o).rsplit('#', 1)[-1].replace('_', ' ')
+        return out
+
     def _extract_events(self, foundation) -> List[NarrativeEvent]:
-        """Extract events from Actions and Events with Event Calculus attributes."""
+        """Extract events from Actions and Events with Event Calculus attributes.
+
+        Order: the committed proeth:temporalSequence (fallback: the sequence
+        stored on the Step-3 rows), then storage order for unsequenced items.
+        Agents come from the committed proeth:performedBy edge (fallback: the
+        row's proeth:hasAgent). Case 8's phase-4 timeline put the engineer's
+        suspension request before the contract that was accepted after the
+        refusal because it followed storage order (lesson L7)."""
+        committed = self._committed_temporal_order(getattr(foundation, 'case_id', None))
+
+        def _frag(uri):
+            return str(uri or '').rsplit('#', 1)[-1]
+
+        items = []
+        for idx, (summary, kind) in enumerate(
+                [(a, 'action') for a in foundation.actions] + [(e, 'automatic') for e in foundation.events]):
+            committed_entry = committed.get(_frag(summary.uri), {})
+            seq = committed_entry.get('sequence')
+            if seq is None:
+                seq = getattr(summary, 'temporal_sequence', None)
+            items.append((seq is None, seq if seq is not None else 0, idx, summary, kind, committed_entry))
+        items.sort(key=lambda t: t[:3])
+
         narrative_events = []
-        time_point = 1
-
-        # First, add actions
-        for action in foundation.actions:
-            # Parse agent from action if available
-            agent_uri = None
-            agent_label = None
-
-            # Try to extract agent from RDF or definition
-            if hasattr(action, 'entity_type') and action.entity_type:
-                # Check if we have agent info
-                pass
-
+        for time_point, (_, _, _, summary, kind, committed_entry) in enumerate(items, 1):
+            agent_uri = committed_entry.get('agent_uri')
+            agent_label = committed_entry.get('agent_label') or getattr(summary, 'agent_label', None)
             narrative_events.append(NarrativeEvent(
-                uri=action.uri,
-                label=action.label,
-                event_type='action',
-                agent_uri=agent_uri,
-                agent_label=agent_label,
+                uri=summary.uri,
+                label=summary.label,
+                event_type=kind,
+                agent_uri=agent_uri if kind == 'action' else None,
+                agent_label=agent_label if kind == 'action' else None,
                 time_point=time_point,
                 preconditions=[],  # To be enriched from causal analysis
                 initiates=[],
                 terminates=[],
-                description=action.definition or action.label
+                description=summary.definition or summary.label
             ))
-            time_point += 1
-
-        # Then add events (automatic occurrences)
-        for event in foundation.events:
-            narrative_events.append(NarrativeEvent(
-                uri=event.uri,
-                label=event.label,
-                event_type='automatic',
-                time_point=time_point,
-                description=event.definition or event.label
-            ))
-            time_point += 1
 
         return narrative_events
 
@@ -589,24 +651,72 @@ class NarrativeElementExtractor:
         foundation,
         canonical_points: List
     ) -> List[NarrativeConflict]:
-        """Extract ethical conflicts from obligation tensions."""
+        """Extract ethical conflicts from obligation tensions.
+
+        Endpoints are typed from the stored entity the URI resolves to, not
+        from the decision-point slot: the DP "constraint" slot can carry an
+        Obligation (case 24-1, "Engineer L Faithful Agent Duty"), which the
+        slot typing recorded as a constraint in an obligation_vs_constraint
+        tension. Conflicts are deduplicated by unordered entity pair, as the
+        LLM branch already does, so two decision points over the same pair
+        yield one tension.
+        """
         conflicts = []
         conflict_id = 1
+        types_by_uri = self._entity_types_by_uri(foundation)
+        seen_pairs = set()
 
-        # Extract conflicts from canonical decision points
+        # Extract conflicts from canonical decision points. A point whose
+        # competition is between two obligations (the committed competesWith /
+        # prevailsOver pair, lesson L4) is an obligation-vs-obligation tension;
+        # the constraint slot is read only when it holds a Constraint.
         for dp in canonical_points:
-            if hasattr(dp, 'obligation_label') and hasattr(dp, 'constraint_label'):
+            obligation_label = getattr(dp, 'obligation_label', None)
+            competing_label = getattr(dp, 'competing_obligation_label', None)
+            if obligation_label and competing_label:
+                # The pair dedup of the constraint-slot branch applies here as
+                # well: case 24-1 DP2 and DP3 share the Watershed Safety Duty /
+                # Faithful Agent Duty pair, and this branch repeated the tension
+                # (D-41, conflict_3) when the pair came from the committed edges.
+                uri1 = getattr(dp, 'obligation_uri', '') or ''
+                uri2 = getattr(dp, 'competing_obligation_uri', '') or ''
+                pair = self._pair_key(uri1, obligation_label, uri2, competing_label)
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+                conflicts.append(NarrativeConflict(
+                    conflict_id=f"conflict_{conflict_id}",
+                    description=f"Tension between {obligation_label} and {competing_label}",
+                    conflict_type='obligation_vs_obligation',
+                    entity1_uri=uri1,
+                    entity1_label=obligation_label,
+                    entity1_type='obligation',
+                    entity2_uri=uri2,
+                    entity2_label=competing_label,
+                    entity2_type='obligation',
+                    affected_role_uris=[getattr(dp, 'role_uri', '')] if hasattr(dp, 'role_uri') else []
+                ))
+                conflict_id += 1
+            elif hasattr(dp, 'obligation_label') and hasattr(dp, 'constraint_label'):
                 if dp.obligation_label and dp.constraint_label:
+                    uri1 = getattr(dp, 'obligation_uri', '') or ''
+                    uri2 = getattr(dp, 'constraint_uri', '') or ''
+                    pair = self._pair_key(uri1, dp.obligation_label, uri2, dp.constraint_label)
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+                    type1 = types_by_uri.get(uri1, 'obligation')
+                    type2 = types_by_uri.get(uri2, 'constraint')
                     conflicts.append(NarrativeConflict(
                         conflict_id=f"conflict_{conflict_id}",
                         description=f"Tension between {dp.obligation_label} and {dp.constraint_label}",
-                        conflict_type='obligation_vs_constraint',
-                        entity1_uri=getattr(dp, 'obligation_uri', '') or '',
+                        conflict_type=self._conflict_type_for(type1, type2),
+                        entity1_uri=uri1,
                         entity1_label=dp.obligation_label,
-                        entity1_type='obligation',
-                        entity2_uri=getattr(dp, 'constraint_uri', '') or '',
+                        entity1_type=type1,
+                        entity2_uri=uri2,
                         entity2_label=dp.constraint_label,
-                        entity2_type='constraint',
+                        entity2_type=type2,
                         affected_role_uris=[getattr(dp, 'role_uri', '')] if hasattr(dp, 'role_uri') else []
                     ))
                     conflict_id += 1
@@ -619,6 +729,10 @@ class NarrativeElementExtractor:
                 for obl2 in obligations[i+1:]:
                     # Simple heuristic: obligations with opposite-sounding terms
                     if self._potentially_conflicting(obl1.label, obl2.label):
+                        pair = self._pair_key(obl1.uri, obl1.label, obl2.uri, obl2.label)
+                        if pair in seen_pairs:
+                            continue
+                        seen_pairs.add(pair)
                         conflicts.append(NarrativeConflict(
                             conflict_id=f"conflict_{conflict_id}",
                             description=f"Potential tension between {obl1.label} and {obl2.label}",
@@ -637,6 +751,44 @@ class NarrativeElementExtractor:
                     break
 
         return conflicts
+
+    # Singular entity type per EntityFoundation list, for typing conflict
+    # endpoints from the stored entity rather than from the decision-point slot.
+    _FOUNDATION_TYPES = (
+        ('roles', 'role'), ('states', 'state'), ('resources', 'resource'),
+        ('principles', 'principle'), ('obligations', 'obligation'),
+        ('constraints', 'constraint'), ('capabilities', 'capability'),
+        ('actions', 'action'), ('events', 'event'),
+    )
+
+    def _entity_types_by_uri(self, foundation) -> Dict[str, str]:
+        """URI -> singular entity type over every foundation list."""
+        types = {}
+        for attr, singular in self._FOUNDATION_TYPES:
+            for entity in getattr(foundation, attr, None) or []:
+                uri = getattr(entity, 'uri', None)
+                if uri and uri not in types:
+                    types[uri] = singular
+        return types
+
+    @staticmethod
+    def _conflict_type_for(type1: str, type2: str) -> str:
+        """Conflict type from the endpoint types (not from the DP slots)."""
+        kinds = {type1, type2}
+        if kinds == {'obligation'}:
+            return 'obligation_vs_obligation'
+        if kinds == {'obligation', 'constraint'}:
+            return 'obligation_vs_constraint'
+        if 'role' in kinds:
+            return 'role_conflict'
+        return f'{type1}_vs_{type2}'
+
+    @staticmethod
+    def _pair_key(uri1: str, label1: str, uri2: str, label2: str):
+        """Unordered endpoint pair, keyed by URI when present, else by label."""
+        key1 = uri1 or (label1 or '').lower()
+        key2 = uri2 or (label2 or '').lower()
+        return tuple(sorted((key1, key2)))
 
     def _potentially_conflicting(self, label1: str, label2: str) -> bool:
         """Heuristic check for potentially conflicting obligations."""
@@ -683,12 +835,28 @@ class NarrativeElementExtractor:
                         'is_board_choice': opt.get('is_board_choice', False)
                     })
 
-            # Find board's choice
+            # The Board's choice is asserted only when the decision point is
+            # aligned to a board_explicit conclusion (conclusionNumber below
+            # 100). A model-generated analytical conclusion (100-offset) does
+            # not carry the Board's holding (case 24-1 DP5).
             board_choice = None
-            for opt in options:
-                if opt.get('is_board_choice'):
-                    board_choice = opt['label']
-                    break
+            if is_board_explicit_conclusion_uri(getattr(dp, 'aligned_conclusion_uri', None)):
+                for opt in options:
+                    if opt.get('is_board_choice'):
+                        board_choice = opt['label']
+                        break
+
+            # A Board conclusion resolves the point only when the aligned
+            # conclusion is board_explicit and the point is not an analytical
+            # extension (lesson L7): board_rationale is authored only then.
+            aligned_c = getattr(dp, 'aligned_conclusion_uri', None)
+            has_board_conclusion = bool(
+                aligned_c
+                and getattr(dp, 'synthesis_method', '') != 'analytical_extension'
+                and _is_board_conclusion_uri(aligned_c)
+            )
+            competing = getattr(dp, 'competing_obligation_label', None) \
+                or getattr(dp, 'constraint_label', '')
 
             moments.append(DecisionMoment(
                 uri=getattr(dp, 'uri', f"decision_{i}"),
@@ -698,11 +866,17 @@ class NarrativeElementExtractor:
                 decision_maker_uri=getattr(dp, 'role_uri', ''),
                 decision_maker_label=getattr(dp, 'role_label', ''),
                 options=options,
+                # Empty slots are dropped: a decision point without a
+                # constraint carried a null competing obligation (case 24-1 DP4).
                 competing_obligations=[
-                    getattr(dp, 'obligation_label', ''),
-                    getattr(dp, 'constraint_label', '')
+                    label for label in (
+                        getattr(dp, 'obligation_label', None),
+                        competing,
+                    ) if label
                 ],
-                board_choice=board_choice
+                board_choice=board_choice if has_board_conclusion else None,
+                has_board_conclusion=has_board_conclusion,
+                board_conclusion_uri=aligned_c if has_board_conclusion else None,
             ))
 
         return moments

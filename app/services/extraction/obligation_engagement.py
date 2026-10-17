@@ -58,6 +58,21 @@ class ActionEngagementContext:
     # Included in the validation pool so a re-run is idempotent (does not flag a
     # previously-raised obligation as an extra).
     raises: List[str] = field(default_factory=list)
+    # "performed" or "prescribed" (edge_coherence.derive_action_modality, from the
+    # action record's description, temporal marker and source section). A
+    # prescribed action (the Board's conclusion restated as an action) fulfils
+    # nothing; its obligations are raised.
+    modality: str = "performed"
+
+
+@dataclass
+class ObligationStatusContext:
+    """An obligation's extraction-time compliance judgment and the case text it
+    quotes, shown to the engagement classifier so a raises or fulfills bucket
+    cannot contradict a met status."""
+    label: str
+    compliance_status: str = ""
+    text_references: List[str] = field(default_factory=list)
 
 
 def _load_obligation_engagement_template():
@@ -78,13 +93,19 @@ def build_user_prompt(
     case_title: str,
     actions: List[ActionEngagementContext],
     discussion_excerpt: str = "",
+    obligations: Optional[List[ObligationStatusContext]] = None,
 ) -> str:
-    """Assemble the per-action blocks in code, then render the editable DB template."""
+    """Assemble the per-action blocks in code, then render the editable DB template.
+    Each action carries its modality, and when the obligations' status contexts are
+    supplied an OBLIGATION STATUS block (complianceStatus + text references) is
+    appended to the actions block, with the rule that a met obligation cited by an
+    action is fulfilled by it and that a prescribed action fulfils nothing."""
     block_lines: List[str] = []
     for a in actions:
         block_lines.append(f"IRI: {a.iri}")
         block_lines.append(f"Sequence: {a.sequence if a.sequence is not None else '?'}")
         block_lines.append(f"Label: {a.label}")
+        block_lines.append(f"Modality: {a.modality or 'performed'}")
         if a.description:
             block_lines.append(f"Description: {a.description}")
         block_lines.append("Fulfills (input):")
@@ -97,6 +118,20 @@ def build_user_prompt(
             block_lines.append("Raises (input, already at stake):")
             for o in a.raises:
                 block_lines.append(f"  - {o}")
+        block_lines.append("")
+    if obligations:
+        block_lines.append("OBLIGATION STATUS (input; the extraction's compliance judgment "
+                           "and the case text each obligation quotes):")
+        for ob in obligations:
+            block_lines.append(f"  - {ob.label}: complianceStatus="
+                               f"{ob.compliance_status or 'unknown'}")
+            for ref in (ob.text_references or [])[:3]:
+                block_lines.append(f"      text reference: {ref[:200]}")
+        block_lines.append(
+            "An obligation whose complianceStatus is met and whose text references cite an "
+            "action is FULFILLED by that action, not raised. A PRESCRIBED action (the "
+            "Board's conclusion restated as an action; not performed in the case) fulfils "
+            "nothing: its obligations are raised.")
         block_lines.append("")
     return _load_obligation_engagement_template().render(
         case_id=case_id, case_title=case_title, action_count=len(actions),
@@ -113,6 +148,7 @@ class ObligationEngagementExtractor:
         model: Optional[str] = None,
         temperature: float = 0.1,
         max_tokens: int = 16384,
+        obligations: Optional[List[ObligationStatusContext]] = None,
     ):
         self._llm_client = llm_client
         self.model = model
@@ -120,6 +156,9 @@ class ObligationEngagementExtractor:
         self.max_tokens = max_tokens
         self.last_prompt: Optional[str] = None
         self.last_raw_response: Optional[str] = None
+        # The case's obligation status contexts (complianceStatus + text
+        # references), shown in the prompt; the apply hook supplies them.
+        self.obligation_statuses: Optional[List[ObligationStatusContext]] = obligations
 
     # ------------------------------------------------------------------
     # Public API
@@ -144,7 +183,8 @@ class ObligationEngagementExtractor:
         if not actions:
             return ObligationEngagementResult(actions=[], rationale=None)
 
-        user_prompt = build_user_prompt(case_id, case_title, actions, discussion_excerpt)
+        user_prompt = build_user_prompt(case_id, case_title, actions, discussion_excerpt,
+                                        obligations=self.obligation_statuses)
         self.last_prompt = user_prompt
 
         raw = self._call_llm(user_prompt)

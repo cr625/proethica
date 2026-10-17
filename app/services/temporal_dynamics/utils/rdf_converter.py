@@ -201,6 +201,12 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
     _add_text_references(rdf_entity, action)
     _add_source_section(rdf_entity, action)
 
+    # Modality (lesson L8): performed vs prescribed, set by the model and confirmed by
+    # happening_checks. Emitted only when present and valid.
+    modality = str(action.get('modality') or '').strip().lower()
+    if modality in ('performed', 'prescribed'):
+        rdf_entity['proeth:modality'] = modality
+
     _add_fluent_and_time(rdf_entity, action)
     _stamp_generated(rdf_entity)
     return rdf_entity

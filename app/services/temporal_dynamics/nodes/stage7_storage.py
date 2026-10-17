@@ -284,63 +284,38 @@ def _store_llm_trace(case_id: int, session_id: str, llm_trace: list) -> int:
     Returns:
         Number of trace entries stored
     """
-    from app.models.provenance import ProvenanceActivity
-
     prov_service = ProvenanceService()
 
     stored_count = 0
 
     for trace_entry in llm_trace:
         try:
-            # Get or create agent
-            agent = prov_service.get_or_create_agent(
-                agent_type='llm_model',
-                agent_name=trace_entry.get('model', 'unknown')
-            )
-
             # Use actual LLM call timestamps from trace entry
             start_ts = trace_entry.get('timestamp')
             end_ts = trace_entry.get('end_timestamp')
             started_at = datetime.fromisoformat(start_ts) if start_ts else datetime.utcnow()
             ended_at = datetime.fromisoformat(end_ts) if end_ts else datetime.utcnow()
-            duration_ms = int((ended_at - started_at).total_seconds() * 1000)
 
-            activity = ProvenanceActivity(
-                activity_type='llm_query',
+            # One llm_query activity per call with the prompt and response as
+            # entities: the shared recorder the step 1 and 2 extractions use too.
+            prov_service.record_llm_query(
                 activity_name=f"temporal_{trace_entry.get('stage', 'unknown')}",
                 case_id=case_id,
                 session_id=session_id,
-                agent_id=agent.id,
-                execution_plan={},
+                model_name=trace_entry.get('model', 'unknown'),
+                prompt_text=trace_entry.get('prompt', ''),
+                response_text=trace_entry.get('response'),
                 started_at=started_at,
                 ended_at=ended_at,
-                duration_ms=duration_ms,
-                status='completed'
-            )
-            db.session.add(activity)
-            db.session.flush()
-
-            # Record prompt entity
-            prompt_entity = prov_service.record_prompt(
-                prompt_text=trace_entry.get('prompt', ''),
-                activity=activity,
-                metadata={
+                prompt_metadata={
                     'stage': trace_entry.get('stage'),
                     'timestamp': trace_entry.get('timestamp')
-                }
+                },
+                response_metadata={
+                    'parsed_output': trace_entry.get('parsed_output', {}),
+                    'tokens': trace_entry.get('tokens', {})
+                },
             )
-
-            # Record response entity
-            if trace_entry.get('response'):
-                prov_service.record_response(
-                    response_text=trace_entry.get('response', ''),
-                    activity=activity,
-                    derived_from=prompt_entity,
-                    metadata={
-                        'parsed_output': trace_entry.get('parsed_output', {}),
-                        'tokens': trace_entry.get('tokens', {})
-                    }
-                )
 
             stored_count += 1
 

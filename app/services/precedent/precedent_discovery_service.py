@@ -43,6 +43,8 @@ class PrecedentMatch:
     target_outcome: Optional[str] = None
     target_transformation: Optional[str] = None
     per_component_scores: Optional[Dict[str, float]] = None
+    matching_tags: List[str] = field(default_factory=list)  # the scorer's shared subject tags
+    weights_used: Optional[Dict[str, float]] = None  # weights behind overall_score
 
 
 @dataclass
@@ -430,7 +432,9 @@ class PrecedentDiscoveryService:
             outcome_match=similarity.outcome_match,
             target_outcome=features[0] if features else None,
             target_transformation=features[1] if features else None,
-            per_component_scores=similarity.per_component_scores
+            per_component_scores=similarity.per_component_scores,
+            matching_tags=list(similarity.matching_tags or []),
+            weights_used=dict(similarity.weights_used or {}),
         )
 
     def _get_case_sections(self, case_id: int) -> Dict[str, str]:

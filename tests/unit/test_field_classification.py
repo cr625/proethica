@@ -24,7 +24,6 @@ from app.services.extraction.field_classification import (
     ("proeth:effect", FieldKind.RELATION),
     ("proeth:responsibleAgent", FieldKind.RELATION),
     ("proeth:guidedByPrinciple", FieldKind.RELATION),
-    ("affectedParties", FieldKind.RELATION),
     ("citedBy", FieldKind.RELATION),                  # resolved to the citedByAgent edge
     ("requiredForObligations", FieldKind.RELATION),   # resolved to requiresCapability edges
     ("proeth-core:requiresCapability", FieldKind.RELATION),  # the edge itself
@@ -42,6 +41,8 @@ from app.services.extraction.field_classification import (
     ("proeth:fulfillsObligationText", FieldKind.CONTENT),   # demoted literal of a relation
     ("proeth:triggeringEvent", FieldKind.CONTENT),    # irregular shadow of activatedByEvent
     ("terminatedBy", FieldKind.CONTENT),              # irregular shadow of terminatedByEvent
+    ("affectedParties", FieldKind.CONTENT),           # kept literal beside the affects edge (case 24-1 review)
+    ("proeth-core:affects", FieldKind.RELATION),      # the edge itself
     # ASSESSMENT: LLM judgments
     ("proeth:confidence", FieldKind.ASSESSMENT),
     ("proeth:severity", FieldKind.ASSESSMENT),

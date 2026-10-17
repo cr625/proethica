@@ -24,6 +24,7 @@ STATE EXTRACTION DIRECTIVES (rules the ontology enforces):
 - urgency_level records the salience or acuteness of the state (Jones moral intensity): low, medium, high, or critical. It is an attribute of the state, not its kind.
 - Edge-only linkage fields, converted to edges at commit and not stored as literals: obligation_activation names the obligations the state makes applicable (the activatesObligation edge); action_constraints names the constraints it activates; activation_conditions and termination_conditions are the class-level Event-Calculus fields; affected_parties names the agents the state affects (the affects edge).
 - Kept-literal fields: triggering_event and terminated_by are stored verbatim on the individual AND resolved to the activatedByEvent/terminatedByEvent edges, and subject (what is in the state) is stored as a literal; all three later feed the defeasibility prompt as state context, so write full, readable phrases, not terse edge fodder. Provide every field where the text supports it.
+- active_period is written in NARRATIVE ORDER, from the triggering happening to the terminating one (start first, end last), as in "From the second retention until withdrawal"; never the end first.
 - Do not assert obligation competition, defeat, or precedence here. The defeasibility relations are produced by a separate pass.
 
 MATCH DECISION RULES:

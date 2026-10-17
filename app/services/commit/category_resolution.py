@@ -26,6 +26,7 @@ from rdflib import Graph, Namespace, URIRef, RDF, RDFS, OWL
 
 from app.services.extraction.schemas import CATEGORY_TO_ONTOLOGY_IRI
 from app.services.commit import naming
+from app.services.commit.match_policy import match_confidence, match_link_threshold
 
 logger = logging.getLogger(__name__)
 
@@ -129,11 +130,26 @@ class CategoryResolutionMixin:
             return disambiguated
         return class_local_name
 
+    # Per-instance override of the match-link threshold (None: the match_policy
+    # default, the matcher's auto-link band minimum, or
+    # PROETHICA_MATCH_LINK_THRESHOLD). Shared by the honoring floor (L4) and the
+    # class channel's no-mint rule (L3) so the two paths cannot disagree.
+    match_link_threshold = None
+
+    def _match_link_threshold(self) -> float:
+        return match_link_threshold(getattr(self, 'match_link_threshold', None))
+
     def _matched_class_override(self, rdf_data: Dict, concept_cat: Optional[str],
                                 minted_type_uris) -> Optional[str]:
         """Matched-class honoring (definition-prompt audit Stage 2): the local name of the
         EXISTING ontology class to type this individual to instead of the minted
         near-duplicate, or None to keep the minted types exactly as today.
+
+        Confidence floor (case-8 review, L4): the match is honored only at or above
+        the link threshold (``_match_link_threshold``). The decision was previously
+        honored at any confidence, so a 0.75 "matched to parent with medium
+        confidence" retyped the individual while the review pages kept the minted
+        type. The caller writes the honored type back onto the working-store row.
 
         The matcher's decision (matchesExisting + matchedOntologyClass) previously reached
         the case TTL only as XAI annotation provenance while the rdf:type still came from
@@ -152,6 +168,14 @@ class CategoryResolutionMixin:
                 return None
             matched_uri = md.get('matched_uri')
             if not matched_uri or not concept_cat:
+                return None
+            floor = self._match_link_threshold()
+            confidence = match_confidence(md)
+            if confidence is None or confidence < floor:
+                logger.info(
+                    "Matched-class honoring fallback: match confidence %s for %s is below "
+                    "the link threshold %.2f; keeping minted type(s).",
+                    confidence, matched_uri, floor)
                 return None
             matched_local = str(matched_uri).rsplit('#', 1)[-1].rsplit('/', 1)[-1]
             if not matched_local:

@@ -20,7 +20,7 @@ import logging
 import re
 from typing import List, Optional
 
-from app.utils.provision_codes import normalize_provision_code
+from app.utils.provision_codes import normalize_provision_code, normalize_provision_codes
 
 logger = logging.getLogger(__name__)
 
@@ -119,10 +119,12 @@ def harmonized_provision_codes(case_id: int,
 
 def update_provisions_cited(case_id: int) -> List[str]:
     """Write the harmonized set to case_precedent_features.provisions_cited
-    (creating no row if none exists; features rows are made at ingestion)."""
+    (creating no row if none exists; features rows are made at ingestion).
+    The write passes through normalize_provision_codes, the one canonical
+    form every writer of the column uses."""
     from app.models import db
     from sqlalchemy import text as sql_text
-    codes = harmonized_provision_codes(case_id)
+    codes = normalize_provision_codes(harmonized_provision_codes(case_id))
     db.session.execute(
         sql_text("UPDATE case_precedent_features SET provisions_cited = :codes "
                  "WHERE case_id = :cid"),
