@@ -67,7 +67,7 @@ run_test "Can query existing RDF entities" \
 
 # Test 10: Python model imports successfully
 run_test "TemporaryRDFStorage model imports" \
-    "cd /home/chris/onto/proethica && python -c 'from app.models.temporary_rdf_storage import TemporaryRDFStorage; print(\"OK\")' | grep -q OK"
+    "cd \"\$(dirname \"\$0\")/..\" && python -c 'from app.models.temporary_rdf_storage import TemporaryRDFStorage; print(\"OK\")' | grep -q OK"
 
 # Test 11: OntServe MCP is running
 run_test "OntServe MCP server is running" \

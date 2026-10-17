@@ -90,7 +90,10 @@ def create_test_state_entities():
         print("Checking cumulative result...")
 
         # Read the TTL file
-        ttl_file = "/home/chris/onto/OntServe/ontologies/proethica-intermediate-extended.ttl"
+        from app.services.ontserve.ontserve_config import get_ontserve_ontologies_path
+
+        ttl_file = str(get_ontserve_ontologies_path()
+                       / "proethica-intermediate-extended.ttl")
         with open(ttl_file) as f:
             content = f.read()
 

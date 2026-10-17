@@ -130,7 +130,9 @@ def register_step4(bp):
 
         # Get the source file
         source_file = prompt_info.get('file', phase_info['service_file'])
-        full_path = os.path.join('/home/chris/onto/proethica', source_file)
+        from pathlib import Path
+
+        full_path = str(Path(__file__).resolve().parents[3] / source_file)
 
         try:
             with open(full_path, 'r') as f:

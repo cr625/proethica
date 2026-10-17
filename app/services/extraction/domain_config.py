@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 try:  # works both as a package member (live extractor) and as a standalone file (tooling/judge)
     from .core_vocab import COMPONENTS
@@ -82,7 +83,9 @@ ENGINEERING = DomainConfig(
     },
     ontserve_domain_name="engineering-ethics",
     reference_sheet_dir=os.environ.get(
-        "REFERENCE_SHEET_DIR", "/home/chris/onto/OntServe/ontologies/reference-sheet"
+        "REFERENCE_SHEET_DIR",
+        str(Path(__file__).resolve().parents[3].parent
+            / "OntServe" / "ontologies" / "reference-sheet"),
     ),
     embedding_model=os.environ.get("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
     match_thresholds={"HIGH": 0.85, "MEDIUM": 0.70, "EXACT": 1.0, "SUBSTRING": 0.87},

@@ -60,7 +60,15 @@ from typing import Any, Dict, List, Optional
 from rdflib import Graph, Namespace, RDF, RDFS
 
 PROTOCOL_VERSION = "semantic-1.0"
-ONT_DIR = "/home/chris/onto/OntServe/ontologies"
+
+
+def _ont_dir() -> str:
+    from app.services.ontserve.ontserve_config import get_ontserve_ontologies_path
+
+    return str(get_ontserve_ontologies_path())
+
+
+ONT_DIR = _ont_dir()
 
 CORE = Namespace("http://proethica.org/ontology/core#")
 CASES = Namespace("http://proethica.org/ontology/cases#")
