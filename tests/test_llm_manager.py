@@ -121,7 +121,7 @@ class TestLLMManager:
 
         manager = LLMManager()
 
-        assert manager.model == "claude-sonnet-4-6"
+        assert manager.model == "claude-sonnet-5-5"
         assert manager.provider == "anthropic"
         assert manager.client is not None
 
