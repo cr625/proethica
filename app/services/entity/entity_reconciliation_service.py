@@ -680,6 +680,7 @@ class EntityReconciliationService:
         type_label = extraction_type.replace('_', ' ').title()
 
         lines = []
+        matched_lines = []
         for e in entities:
             rdf = e.rdf_json_ld or {}
             defn = (e.entity_definition or rdf.get('definition', '') or '')[:200]
@@ -687,7 +688,25 @@ class EntityReconciliationService:
             if defn:
                 line += f' -- {defn}'
             lines.append(line)
+            # The classes the matcher already bound to an existing ontology class (canonical
+            # or extended-store). The sheet-derived reuse block never lists extended-store
+            # classes, so without this a "generalize" landed on a sheet class with a different
+            # definition (case-8 review, lesson L6).
+            matched = getattr(e, 'matched_ontology_label', None)
+            if matched:
+                uri = getattr(e, 'matched_ontology_uri', None)
+                matched_lines.append(
+                    f'[ID: {e.id}] "{e.entity_label or ""}" -> already matched to existing class '
+                    f'"{matched}"' + (f' ({uri})' if uri else ''))
         entities_text = '\n'.join(lines)
+        if matched_lines:
+            reuse_block = (
+                f"{reuse_block}\n\n=== ALREADY-MATCHED CLASSES (reuse these targets as-is) ===\n"
+                "The matcher has already bound these labels to an existing ontology class "
+                "(canonical, or previously extracted into the extended store). For each of them the "
+                "only valid action is REUSE with canonical_label set to the matched class label; "
+                "never GENERALIZE one onto a different sheet class, whose definition may differ.\n"
+                + '\n'.join(matched_lines))
 
         return _load_merge_canonicalize_template().render(
             type_label=type_label,
