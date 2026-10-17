@@ -321,6 +321,7 @@ const CONSOLIDATION_TYPE_STYLES = {
     materialization: { color: '#6f42c1', icon: 'bi-diagram-3' },
     guard: { color: '#dc3545', icon: 'bi-shield-check' },
     filter: { color: '#fd7e14', icon: 'bi-funnel' },
+    merge: { color: '#6610f2', icon: 'bi-layers' },
     validation: { color: '#198754', icon: 'bi-patch-check' }
 };
 

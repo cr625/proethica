@@ -20,6 +20,8 @@ import logging
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from model_config import ModelConfig
 from app.models import db
 from app.models.case_precedent_features import CasePrecedentFeatures
@@ -87,7 +89,11 @@ def update_precedent_features_from_phase4(
         features.extraction_method = 'phase4_narrative'
         features.llm_model_used = ModelConfig.get_claude_model("default")
 
-        # Build extraction metadata
+        # Build extraction metadata. The dict is edited in place and the same object
+        # reassigned, which a plain JSON column never writes back (only the first write
+        # from NULL persisted: phase4_connected_at 2025-12-21 beside extracted_at
+        # 2026-07-10 in the case 24-1 review). The column is a MutableDict and the
+        # attribute is flagged explicitly, so every rerun is written.
         metadata = features.extraction_metadata or {}
         metadata['phase4_connected_at'] = datetime.utcnow().isoformat()
         if narrative_elements:
@@ -98,6 +104,7 @@ def update_precedent_features_from_phase4(
                 'decision_moments': len(getattr(narrative_elements, 'decision_moments', []) or [])
             }
         features.extraction_metadata = metadata
+        flag_modified(features, 'extraction_metadata')
 
         db.session.commit()
         logger.info(f"Updated precedent features for case {case_id} from Phase 4")

@@ -148,7 +148,7 @@ def register_pipeline_routes(bp):
         FROM provenance_activities
         WHERE case_id = :case_id
           AND activity_type IN ('reconciliation', 'enrichment', 'materialization',
-                                'guard', 'filter', 'validation')
+                                'guard', 'filter', 'merge', 'validation')
         ORDER BY started_at DESC
         LIMIT 30
     """), {'case_id': case_id}).fetchall()
