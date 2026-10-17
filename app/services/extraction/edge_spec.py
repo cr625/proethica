@@ -350,13 +350,112 @@ _LEGACY_SCAFFOLD_DEFINITION = (
     "(obligatedParty, isPerformedBy, possessedBy and kin); not an extracted "
     "concept individual.")
 
+# Clause budget per facet line (case-8 review, L6): labels are added while the
+# clause stays within it, the rest is summarized as "and n more". The former
+# fixed cap of three hid the prevailing duty behind "and 1 more".
+FACET_CLAUSE_BUDGET = 300
 
-def _facet_clause(verb: str, labels: list) -> str:
-    shown = labels[:3]
-    more = len(labels) - len(shown)
-    joined = (shown[0] if len(shown) == 1
-              else ", ".join(shown[:-1]) + " and " + shown[-1])
-    return f"{verb} {joined}" + (f" and {more} more" if more > 0 else "")
+# Action modality (L6): "performs" names only actions the agent performed. An
+# explicit proeth:actionModality literal wins; otherwise an action whose
+# description (rdfs:comment / proeth:description) or temporal marker carries one
+# of these markers is a PRESCRIBED action, not a performed one (case 8 listed
+# the refusal to acquiesce, an unresolved endpoint, as performed).
+_PRESCRIBED_MARKERS = ("must not", "cannot ethically", "would not be ethical", "unresolved endpoint")
+_PRESCRIBED_VERB = "is prescribed to perform"
+
+
+def _action_modality(g: Graph, action) -> str:
+    """'performed', 'prescribed', or the explicit proeth:actionModality value."""
+    explicit = g.value(action, PROETH.actionModality)
+    if explicit is not None and str(explicit).strip():
+        return str(explicit).strip().lower()
+    text = " ".join(
+        str(o) for pred in (RDFS.comment, PROETH.description, PROETH.temporalMarker)
+        for o in g.objects(action, pred)
+    ).lower()
+    return "prescribed" if any(marker in text for marker in _PRESCRIBED_MARKERS) else "performed"
+
+
+def _node_label(g: Graph, node) -> str:
+    return str(g.value(node, RDFS.label) or "").strip()
+
+
+def _temporal_rank(g: Graph, obligation) -> float:
+    """Earliest proeth:temporalSequence of an action engaging the obligation
+    (fulfills / violates / raises); infinity when no sequenced action does."""
+    best = float("inf")
+    for pred in (CORE.fulfillsObligation, CORE.violatesObligation, CORE.raisesObligation):
+        for action in g.subjects(pred, obligation):
+            seq = g.value(action, PROETH.temporalSequence)
+            if seq is None:
+                continue
+            try:
+                best = min(best, float(seq.toPython()))
+            except (TypeError, ValueError):
+                continue
+    return best
+
+
+def _salient_obligation_labels(g: Graph, agent) -> list:
+    """Labels of the obligations the agent bears, by salience: prevailsOver
+    winners first, then temporal order (the earliest engaging action), then
+    label. Alphabetical order put the prevailing duty behind "and 1 more"."""
+    obligations = set(g.subjects(CORE.obligatedParty, agent))
+    winners = {s for s, _o in g.subject_objects(CORE.prevailsOver)}
+    ranked = sorted(obligations, key=lambda o: (0 if o in winners else 1,
+                                               _temporal_rank(g, o), _node_label(g, o)))
+    out, seen = [], set()
+    for o in ranked:
+        label = _node_label(g, o)
+        if label and label not in seen:
+            out.append(label)
+            seen.add(label)
+    return out
+
+
+def _facet_clause(verb: str, labels: list, budget: int = FACET_CLAUSE_BUDGET) -> str:
+    """'<verb> A, B and C and n more', listing labels while the clause fits the
+    character budget (the first label always fits)."""
+    def render(shown, more):
+        joined = (shown[0] if len(shown) == 1
+                  else ", ".join(shown[:-1]) + " and " + shown[-1])
+        return f"{verb} {joined}" + (f" and {more} more" if more > 0 else "")
+
+    shown: list = []
+    for label in labels:
+        candidate = shown + [label]
+        if shown and len(render(candidate, len(labels) - len(candidate))) > budget:
+            break
+        shown = candidate
+    return render(shown, len(labels) - len(shown))
+
+
+def _facet_clauses(g: Graph, agent) -> list:
+    """The agent's clauses in facet order. isPerformedBy splits by modality
+    (performed actions under "performs", prescribed ones under a separate verb,
+    other modalities omitted); obligatedParty orders by salience."""
+    clauses = []
+    for ns, local, verb in _AGENT_FACETS:
+        subjects = set(g.subjects(ns[local], agent))
+        if not subjects:
+            continue
+        if local == "isPerformedBy":
+            performed = sorted({_node_label(g, s) for s in subjects
+                                if _action_modality(g, s) == "performed"} - {""})
+            prescribed = sorted({_node_label(g, s) for s in subjects
+                                 if _action_modality(g, s) == "prescribed"} - {""})
+            if performed:
+                clauses.append(_facet_clause(verb, performed))
+            if prescribed:
+                clauses.append(_facet_clause(_PRESCRIBED_VERB, prescribed))
+            continue
+        if local == "obligatedParty":
+            labels = _salient_obligation_labels(g, agent)
+        else:
+            labels = sorted({_node_label(g, s) for s in subjects} - {""})
+        if labels:
+            clauses.append(_facet_clause(verb, labels))
+    return clauses
 
 
 def annotate_participant_agents(g: Graph, case_id: int) -> dict:
@@ -370,12 +469,7 @@ def annotate_participant_agents(g: Graph, case_id: int) -> dict:
     for agent in sorted(set(g.subjects(RDF.type, CORE.Agent))):
         if (agent, RDF.type, CASES.DeliberativeBody) in g:
             continue
-        clauses = []
-        for ns, local, verb in _AGENT_FACETS:
-            labels = sorted({str(g.value(s, RDFS.label) or "").strip()
-                             for s in g.subjects(ns[local], agent)} - {""})
-            if labels:
-                clauses.append(_facet_clause(verb, labels))
+        clauses = _facet_clauses(g, agent)
         if g.value(agent, PROV.wasAttributedTo) is None:
             g.add((agent, PROV.wasAttributedTo, Literal(
                 f"Case {case_id} Edge Materialization (participant scaffold)")))

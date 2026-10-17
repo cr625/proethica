@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -203,6 +204,125 @@ def _derived_from_principle_hints(case_id: int) -> Dict[str, str]:
     return hints
 
 
+_BOARD_LITERAL = re.compile(r"board of ethical review|^(?:the )?(?:nspe )?board$")
+_PRINCIPLE_RANGE_PREDICATES = ("derivedFromPrinciple", "adheresToPrinciple")
+
+
+def _norm_key(text) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
+
+
+def _names_board(invoked_by) -> bool:
+    """True when a "; "-joined invokedBy context names the NSPE Board of
+    Ethical Review (the bare "Board" / "NSPE Board" forms only as a whole part,
+    so a licensing board does not match)."""
+    for part in str(invoked_by or "").split(";"):
+        s = re.sub(r"\s+", " ", part).strip().lower().rstrip(".")
+        if s and _BOARD_LITERAL.search(s):
+            return True
+    return False
+
+
+def _principle_keys(p: Indiv) -> Set[str]:
+    keys = {_norm_key(x) for x in str(p.fields.get("principleClass") or "").split(";")}
+    keys.add(_norm_key(p.label))
+    keys.discard("")
+    return keys
+
+
+def _without_principle_suffix(key: str) -> str:
+    return key[:-len("principle")] if key.endswith("principle") else key
+
+
+def resolve_principle_hint(hint, principles: List[Indiv]) -> Tuple[Optional[Indiv], str]:
+    """Resolve a class-level principle hint ("Transparency Principle") to the
+    single same-case individual of that class (case-8 review, L8).
+
+    Returns (individual, how) with how in unique / board_invoked / ambiguous /
+    unresolved / empty. Two same-case individuals of one principle class are a
+    merge signal: it is logged, and the hint resolves to the one the Board
+    invoked when exactly one is Board-invoked; otherwise the hint stays
+    unresolved rather than naming both.
+    """
+    key = _norm_key(hint)
+    if not key:
+        return None, "empty"
+    stem = _without_principle_suffix(key)
+    candidates = [p for p in principles
+                  if any(k == key or _without_principle_suffix(k) == stem for k in _principle_keys(p))]
+    if not candidates:
+        return None, "unresolved"
+    if len(candidates) == 1:
+        return candidates[0], "unique"
+    board = [p for p in candidates if _names_board(p.fields.get("invokedBy"))]
+    logger.warning(
+        "merge signal: %d same-case principle individuals match the class-level hint %r (%s); %s",
+        len(candidates), hint,
+        ", ".join(sorted(c.iri.rsplit("#", 1)[-1] for c in candidates)),
+        "resolving to the Board-invoked one" if len(board) == 1
+        else "indistinguishable, hint left unresolved",
+    )
+    if len(board) == 1:
+        return board[0], "board_invoked"
+    return None, "ambiguous"
+
+
+def _merge_keeper(members: List[Dict[str, Any]], by_iri: Dict[str, Indiv], hinted_iri):
+    board = [m for m in members if _names_board(by_iri[m["object_iri"]].fields.get("invokedBy"))]
+    if len(board) == 1:
+        return board[0]
+    if hinted_iri:
+        hit = [m for m in members if m["object_iri"] == hinted_iri]
+        if hit:
+            return hit[0]
+    return sorted(members, key=lambda m: (-float(m.get("confidence", 0.0)), m["object_iri"]))[0]
+
+
+def collapse_same_class_principle_edges(edges: List[Dict[str, Any]], principles: List[Indiv],
+                                        obligations: List[Indiv], case_id) -> List[Dict[str, Any]]:
+    """Collapse Principle-range edges (derivedFromPrinciple, adheresToPrinciple)
+    that one subject carries to several same-case individuals of ONE principle
+    class into a single edge (case-8 review, L8). The duplicate pair is a merge
+    signal, logged; the kept target is the Board-invoked individual when
+    exactly one is, else the obligation's resolved hint, else the highest-
+    confidence edge (ties by IRI). Edge order is preserved."""
+    by_iri = {p.iri: p for p in principles}
+    hinted = {o.iri: o.fields.get("statedDerivedFromPrincipleIRI") for o in obligations}
+    groups: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
+    order: List[Tuple[str, Any]] = []
+    for e in edges:
+        p = by_iri.get(e.get("object_iri"))
+        cls = _norm_key(p.fields.get("principleClass")) if p is not None else ""
+        if e.get("predicate") not in _PRINCIPLE_RANGE_PREDICATES or not cls:
+            order.append(("edge", e))
+            continue
+        key = (e["predicate"], e["subject_iri"], cls)
+        if key not in groups:
+            groups[key] = []
+            order.append(("group", key))
+        groups[key].append(e)
+    out: List[Dict[str, Any]] = []
+    for kind, item in order:
+        if kind == "edge":
+            out.append(item)
+            continue
+        members = groups[item]
+        if len(members) == 1:
+            out.append(members[0])
+            continue
+        pred, subj, _cls = item
+        keeper = _merge_keeper(members, by_iri, hinted.get(subj))
+        logger.warning(
+            "Case %s: merge signal -- %s from %s targets %d same-case individuals of one "
+            "principle class (%s); emitting one edge, to %s",
+            case_id, pred, subj.rsplit("#", 1)[-1], len(members),
+            ", ".join(sorted(m["object_iri"].rsplit("#", 1)[-1] for m in members)),
+            keeper["object_iri"].rsplit("#", 1)[-1],
+        )
+        out.append(keeper)
+    return out
+
+
 def gather(g: Graph, case_id: Optional[int] = None) -> Tuple[List[Indiv], List[Indiv], List[Indiv]]:
     def mk(ind, names, derived=None):
         lbl = g.value(ind, RDFS.label)
@@ -252,6 +372,12 @@ def gather(g: Graph, case_id: Optional[int] = None) -> Tuple[List[Indiv], List[I
         hint = hints.get(str(lbl).strip()) if lbl else None
         if hint:
             ctx["statedDerivedFromPrinciple"] = hint
+            # Resolve the class-level hint to the single same-case individual of
+            # that class (L8); a duplicate pair is a merge signal, see
+            # resolve_principle_hint.
+            resolved, _how = resolve_principle_hint(hint, principles)
+            if resolved is not None:
+                ctx["statedDerivedFromPrincipleIRI"] = resolved.iri
         return ctx
 
     hints = _derived_from_principle_hints(case_id) if case_id is not None else {}
@@ -384,6 +510,7 @@ class RPOEdgeExtractor(StreamingEdgeExtractor):
             valid.append({"predicate": pred, "subject_iri": s, "object_iri": o,
                           "source_text": (e.get("source_text") or "")[:500],
                           "confidence": float(e.get("confidence", 0.7))})
+        valid = collapse_same_class_principle_edges(valid, principles, obligations, case_id)
         logger.info("Case %s: R->P->O emitted %d edges", case_id, len(valid))
         return valid
 

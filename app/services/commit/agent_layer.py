@@ -21,8 +21,17 @@ from app.services.commit import naming
 
 logger = logging.getLogger(__name__)
 
+PROETHICA = Namespace("http://proethica.org/ontology/intermediate#")
 PROETHICA_CORE = Namespace("http://proethica.org/ontology/core#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
+
+# The relational archetype classes (defined classes over the actor edges) and
+# their head. A facet typed only to these chains through no occupational
+# archetype and fails RoleArchetypeShape (case-8 review, L6).
+_RELATIONAL_ARCHETYPES = frozenset({
+    'RelationalRole', 'ProviderClientRole', 'ProfessionalPeerRole',
+    'EmployerRelationshipRole', 'PublicResponsibilityRole',
+})
 
 
 class AgentLayerMixin:
@@ -59,6 +68,51 @@ class AgentLayerMixin:
             g.add((agent_uri, RDFS.label, Literal(alabel)))
             for f in sorted(facet_uris):
                 g.add((agent_uri, PROETHICA_CORE.hasRole, f))
+        self._carry_occupational_type_to_relational_facets(g, ctx)
+
+    def _carry_occupational_type_to_relational_facets(self, g: Graph, ctx) -> int:
+        """Type a relational-only facet to the occupational class its bearer's
+        other facets carry (case-8 review, L6).
+
+        A facet typed only to a relational archetype (Engineer L's
+        ProviderClientRole and PublicResponsibilityRole facets) chains through
+        no occupational archetype, so RoleArchetypeShape warned on every such
+        facet although the same agent's DesignEngineerRole facet named the
+        occupation. The bearer's occupational class is carried over when the
+        agent's facets name exactly one; an agent with two occupational classes
+        is left alone (the choice would be a guess). Returns the number of
+        rdf:type triples added.
+        """
+        carried = 0
+        for agent_uri, (_alabel, facet_uris) in ctx.agent_facets.items():
+            facets = sorted(facet_uris)
+            inter_types = {
+                f: {t for t in g.objects(f, RDF.type) if str(t).startswith(str(PROETHICA))}
+                for f in facets
+            }
+            occupational = {
+                t for f in facets for t in inter_types[f]
+                if str(t).split('#')[-1] not in _RELATIONAL_ARCHETYPES
+                and str(t).split('#')[-1].endswith('Role')
+            }
+            if len(occupational) != 1:
+                if len(occupational) > 1:
+                    logger.info(
+                        "Agent %s bears %d occupational role classes (%s); relational-only "
+                        "facets left untyped", str(agent_uri).split('#')[-1], len(occupational),
+                        sorted(str(t).split('#')[-1] for t in occupational))
+                continue
+            (occupation,) = occupational
+            for f in facets:
+                types = inter_types[f]
+                if not types or not all(str(t).split('#')[-1] in _RELATIONAL_ARCHETYPES for t in types):
+                    continue
+                if (f, RDF.type, occupation) not in g:
+                    g.add((f, RDF.type, occupation))
+                    carried += 1
+                    logger.info("Relational-only facet %s typed to the bearer's occupational "
+                                "class %s", str(f).split('#')[-1], str(occupation).split('#')[-1])
+        return carried
 
     def _emit_relationship_provenance(self, g: Graph, case_ns: Namespace, subj,
                                       relprop: str, obj, rtype, quote) -> None:

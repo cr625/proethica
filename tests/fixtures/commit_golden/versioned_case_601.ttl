@@ -39,6 +39,7 @@ case601:Conclusion_1 a proeth-cases:EthicalConclusion,
     proeth:conclusionText "Engineer A violated the Code by using the Diplomate title without clarification." ;
     proeth:conclusionType "violation" ;
     proeth:extractionReasoning "The Board explicitly found a violation of Section III.3.a." ;
+    skos:definition "Engineer A violated the Code by using the Diplomate title without clarification." ;
     prov:wasGeneratedBy "ProEthica Case 601 Extraction" .
 
 case601:Credential_Title_Selection_During_Report_Signing a proeth-core:Action,
@@ -81,6 +82,7 @@ case601:DP1 a proeth-cases:DecisionPoint,
     proeth:toulminQualifier "absent a clear disclaimer" ;
     proeth:toulminRebuttal "Some Diplomates are commonly known by that title alone." ;
     proeth:toulminWarrant "NSPE Code requires accurate representation of qualifications." ;
+    skos:definition "Whether Engineer A should have disclosed use of the Diplomate title." ;
     prov:wasGeneratedBy "ProEthica Case 601 Extraction" .
 
 case601:Design_Under_Peer_Review_Prior_to_Signing a proeth-core:State,
@@ -146,6 +148,7 @@ case601:Question_1 a proeth-cases:EthicalQuestion,
     proeth:questionNumber 1 ;
     proeth:questionText "Did Engineer A's use of the Diplomate title violate the NSPE Code's truthfulness provisions?" ;
     proeth:questionType "board_explicit" ;
+    skos:definition "Did Engineer A's use of the Diplomate title violate the NSPE Code's truthfulness provisions?" ;
     prov:wasGeneratedBy "ProEthica Case 601 Extraction" .
 
 proeth:DeveloperClient a owl:Class ;

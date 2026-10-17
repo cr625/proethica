@@ -26,6 +26,8 @@ from app.services.ontserve.ontserve_config import get_ontserve_db_config
 from app.services.commit import naming
 from app.services.commit.commit_context import _is_role_individual
 from app.services.commit.case_header import add_case_ontology_header
+from app.services.commit.working_store import write_back_types
+from app.services.commit.publish_guard import normalize_class_key, partition_by_unpublished_type
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +101,22 @@ class VersionedCommitMixin:
                 'errors': []
             }
 
+            # Publish guard (case-8 review, L5): same rule as commit_selected_entities.
+            rejected_keys = set()
+            if individuals_to_commit:
+                rejected_keys = self._unpublished_class_keys(case_id, [e.id for e in entities])
+                individuals_to_commit, refused = partition_by_unpublished_type(
+                    individuals_to_commit, rejected_keys, self._established_core_category)
+                if refused:
+                    refused_rows = [row for row, _rdf, _cls in refused]
+                    entities = [e for e in entities if not any(e is row for row in refused_rows)]
+                    results['refused_unpublished_type'] = [
+                        {'label': getattr(row, 'entity_label', None), 'type_class': cls}
+                        for row, _rdf, cls in refused]
+                    logger.warning(
+                        "Case %s: refused to publish %d individual(s) typed to unpublished "
+                        "class rows: %s", case_id, len(refused), results['refused_unpublished_type'])
+
             # Connect to OntServe database
             conn = psycopg2.connect(**get_ontserve_db_config())
             try:
@@ -139,7 +157,8 @@ class VersionedCommitMixin:
 
             # Write TTL files (overwrites existing)
             if individuals_to_commit:
-                ttl_result = self._write_case_ttl_fresh(case_id, individuals_to_commit)
+                ttl_result = self._write_case_ttl_fresh(case_id, individuals_to_commit,
+                                                       rejected_class_keys=rejected_keys)
                 if ttl_result.get('error'):
                     results['errors'].append(ttl_result['error'])
                 results['ttl_file'] = ttl_result.get('file')
@@ -405,11 +424,14 @@ class VersionedCommitMixin:
             logger.error(f"Error committing classes versioned: {e}")
             return {'count': 0, 'error': str(e)}
 
-    def _write_case_ttl_fresh(self, case_id: int, individuals: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
+    def _write_case_ttl_fresh(self, case_id: int, individuals: List[Tuple[Any, Dict]],
+                              rejected_class_keys=None) -> Dict[str, Any]:
         """
         Write a fresh case TTL file (overwrites any existing file).
 
         This is the versioned approach - each extraction completely replaces the previous TTL.
+        ``rejected_class_keys`` names the case's unpublished class rows (publish guard, L5):
+        no individual is typed to one and none is declared in the case TTL.
         """
         try:
             case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
@@ -488,6 +510,8 @@ class VersionedCommitMixin:
                     _honored = self._matched_class_override(rdf_data, concept_cat, type_uris)
                     if _honored is not None:
                         type_uris = [str(PROETHICA[_honored])]
+                        # Written back to the working-store row (case-8 review, L4).
+                        write_back_types(entity, rdf_data, type_uris)
                     for type_uri in type_uris:
                         if '#' in type_uri:
                             class_name = type_uri.split('#')[-1]
@@ -499,6 +523,15 @@ class VersionedCommitMixin:
                         # for a disjoint category.
                         safe_class = self._category_safe_class_local(safe_class, concept_cat)
                         class_uri = PROETHICA[safe_class]
+                        if (rejected_class_keys
+                                and normalize_class_key(safe_class) in rejected_class_keys
+                                and self._established_core_category(safe_class) is None):
+                            # A rejected (unpublished) class row: never redeclared (L5).
+                            logger.warning(
+                                "Individual %s: type class %s is a rejected class row; "
+                                "not typing to it and not declaring it in the case TTL.",
+                                label, safe_class)
+                            continue
                         g.add((individual_uri, RDF.type, class_uri))
                         established = self._established_core_category(safe_class)
                         if established is not None:

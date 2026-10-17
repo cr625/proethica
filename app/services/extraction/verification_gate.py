@@ -23,11 +23,25 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from app.services.extraction.extraction_verifier import verify_and_reground, detect_overreach
+from app.services.extraction.extraction_verifier import (
+    verify_and_reground, detect_overreach, _verbatim,
+)
+from app.services.extraction.quote_grounding import _tokens
 
 logger = logging.getLogger(__name__)
 
 _DUTY_COMPONENTS = {'obligations', 'constraints'}
+
+# Rows the matcher LINKED at or above this confidence, whose quotes are already
+# verbatim spans of the case, are left unjudged (case-8 review, L5): the
+# grounding call would change nothing and the over-reach panel judges the
+# EXISTING class they reuse, not a new one. These rows were the largest model
+# cost of the commit.
+LINKED_SKIP_CONFIDENCE = 0.90
+
+# properties.*Class keys that name the class an individual instantiates.
+_CLASS_REF_KEYS = ('obligationClass', 'constraintClass', 'stateClass', 'roleClass',
+                   'principleClass', 'capabilityClass', 'resourceClass')
 
 # The seven pass-1/2 components whose extraction contract ALWAYS carries verbatim
 # textReferences (gold-corpus census 2026-07-11: 100 percent of rows). A quoteless
@@ -51,6 +65,7 @@ class GateResult:
     dropped: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason)]
     flagged: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason, limiting_quote)]
     repaired_quoteless: set = field(default_factory=set)                      # entity_ids whose quotes are GATE-ATTACHED (model emitted none)
+    skipped: List[tuple] = field(default_factory=list)                        # [(entity_id, label, reason)] linked rows left unjudged
     report: Dict = field(default_factory=dict)
 
     @property
@@ -62,7 +77,9 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     """Decide the commit fate of a case's entities.
 
     ``entities``: dicts with 'id', 'label', 'definition', 'quotes' (list), 'component' (extraction_type),
-    'storage_type' ('class'|'individual'), and 'class_ref' (the class label a duty individual instantiates).
+    'storage_type' ('class'|'individual'), 'class_ref' (the class label a duty individual instantiates) and
+    optionally 'class_refs' (every class the individual references: properties.*Class, rdf_json_ld.types,
+    the matched class) and 'match_confidence' (the matcher's link confidence, see LINKED_SKIP_CONFIDENCE).
     Returns a GateResult; the caller applies the drops and quote rewrites. Pure / no side effects."""
     from model_config import ModelConfig
     model = model or ModelConfig.get_claude_model("gate")
@@ -78,6 +95,20 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
             res.dropped.append((e.get('id'), '(empty label)', 'empty label'))
         else:
             live.append(e)
+
+    # 0b. Linked rows with verbatim quotes need no model judgment (L5). They stay
+    #     subject to the deterministic over-reach cascade in step 2b.
+    token_string = " ".join(_tokens(case_text))
+    skipped_rows: List[Dict] = []
+    judged: List[Dict] = []
+    for e in live:
+        if _linked_verbatim(e, token_string):
+            skipped_rows.append(e)
+            res.skipped.append((e.get('id'), e.get('label'),
+                                f"linked at {float(e.get('match_confidence')):.2f} with verbatim quotes"))
+        else:
+            judged.append(e)
+    live = judged
 
     # 1. Verbatim grounding over every live entity: re-ground paraphrases, drop full fabrications.
     #    Quoteless rows in the grounded components take the same pass (require_quote): a confirmed
@@ -145,19 +176,24 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
                 for e in members:
                     res.flagged.append((e.get('id'), e.get('label'), v.reason, v.limiting_quote))
 
-    # 2b. Cascade the over-reach drop to the duty INDIVIDUALS that instantiate a dropped class (matched by
-    #     their NORMALIZED class_ref label, so a label-variant reference cannot dodge the cascade). The class
-    #     drop alone breaks the loop, but a matched over-reaching individual would still commit and assert
-    #     the duty; dropping it keeps the over-reach out of the committed case.
+    # 2b. Cascade the over-reach drop to EVERY individual typed to a dropped class in this run (matched by
+    #     every NORMALIZED class reference the row carries -- properties.*Class, rdf_json_ld.types and the
+    #     matched class -- so a label-variant or a types-only reference cannot dodge the cascade; case 8
+    #     committed the individual of ProactiveRiskDisclosureObligation after the class row was dropped).
+    #     The class drop alone breaks the loop, but a matched over-reaching individual would still commit
+    #     and assert the duty; dropping it keeps the over-reach out of the committed case. Skipped linked
+    #     rows take the cascade too: it is deterministic, not a model judgment.
     if overreach_dropped_labels:
-        for e in live:
+        for e in live + skipped_rows:
             if e.get('id') in res.dropped_ids:
                 continue
-            if (e.get('component') or '').lower() in _DUTY_COMPONENTS \
-               and (e.get('storage_type') or '') == 'individual' \
-               and _norm_label(e.get('class_ref')) in overreach_dropped_labels:
+            if (e.get('storage_type') or '') != 'individual':
+                continue
+            hit = next((ref for ref in _class_refs(e)
+                        if _norm_label(ref) in overreach_dropped_labels), None)
+            if hit:
                 res.dropped.append((e.get('id'), e.get('label'),
-                                    f"over-reach cascade: instance of dropped class '{e.get('class_ref')}'"))
+                                    f"over-reach cascade: instance of dropped class '{hit}'"))
 
     res.report = {
         'case_id': case_id,
@@ -167,12 +203,41 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
         'quoteless_repaired_ids': sorted(res.repaired_quoteless, key=str),
         'dropped': len(res.dropped),
         'flagged': len(res.flagged),
+        'skipped': len(res.skipped),
         'dropped_detail': [{'label': l, 'reason': r} for _, l, r in res.dropped],
         'flagged_detail': [{'label': l, 'reason': r, 'limit': q} for _, l, r, q in res.flagged],
+        'skipped_detail': [{'label': l, 'reason': r} for _, l, r in res.skipped],
     }
     logger.info(f"[verification-gate] case {case_id}: {len(res.corrected_quotes)} re-grounded, "
-                f"{len(res.dropped)} dropped, {len(res.flagged)} flagged")
+                f"{len(res.dropped)} dropped, {len(res.flagged)} flagged, "
+                f"{len(res.skipped)} linked rows left unjudged")
     return res
+
+
+def _class_refs(e: Dict) -> List[str]:
+    """Every class reference a gate row carries: the explicit 'class_refs' list, else the
+    single 'class_ref'."""
+    refs = e.get('class_refs')
+    if refs:
+        return [str(r) for r in refs if r]
+    ref = e.get('class_ref')
+    return [str(ref)] if ref else []
+
+
+def _linked_verbatim(e: Dict, token_string: str) -> bool:
+    """True when the matcher linked the row at or above LINKED_SKIP_CONFIDENCE and every quote it
+    carries is already a verbatim span of the case (nothing for the model to re-ground or re-judge)."""
+    conf = e.get('match_confidence')
+    if conf is None:
+        return False
+    try:
+        conf = float(conf)
+    except (TypeError, ValueError):
+        return False
+    quotes = [q for q in (e.get('quotes') or []) if q and str(q).strip()]
+    if conf < LINKED_SKIP_CONFIDENCE or not quotes:
+        return False
+    return all(_verbatim(str(q), token_string) for q in quotes)
 
 
 def _norm_label(label) -> str:
@@ -209,6 +274,53 @@ def class_ref_of(rdf_json_ld: Dict) -> str:
         if v:
             return str(v[0] if isinstance(v, list) else v).strip()
     return ''
+
+
+def class_refs_of(rdf_json_ld: Dict) -> List[str]:
+    """Every class an individual row references, for the over-reach cascade (L5): the properties.*Class
+    labels, the local names of rdf_json_ld.types (the class the commit types the individual to) and the
+    matched class local name. The cascade normalizes each reference, so a label and its CamelCase IRI
+    local name collapse to the same key."""
+    jl = rdf_json_ld or {}
+    props = jl.get('properties') or {}
+    refs: List[str] = []
+    for k in _CLASS_REF_KEYS:
+        v = props.get(k)
+        if v:
+            refs.append(str(v[0] if isinstance(v, list) else v).strip())
+    for type_uri in (jl.get('types') or []):
+        s = str(type_uri)
+        local = s.split('#')[-1] if '#' in s else s.rsplit('/', 1)[-1]
+        if local:
+            refs.append(local)
+    md = jl.get('match_decision') or {}
+    if isinstance(md, dict) and md.get('matches_existing') and md.get('matched_uri'):
+        s = str(md['matched_uri'])
+        refs.append(s.split('#')[-1] if '#' in s else s.rsplit('/', 1)[-1])
+    seen = set()
+    out = []
+    for r in refs:
+        if r and r not in seen:
+            seen.add(r)
+            out.append(r)
+    return out
+
+
+def match_confidence_of(rdf_json_ld: Dict, column_value=None):
+    """The matcher's link confidence for a row: the match_confidence column when set, else the
+    match_decision confidence when the decision links the row to an existing class; None otherwise."""
+    if column_value is not None:
+        try:
+            return float(column_value)
+        except (TypeError, ValueError):
+            pass
+    md = (rdf_json_ld or {}).get('match_decision') or {}
+    if isinstance(md, dict) and md.get('matches_existing') and md.get('confidence') is not None:
+        try:
+            return float(md['confidence'])
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 def apply_corrected_quotes(rdf_json_ld: Dict, spans: List[str]) -> Dict:

@@ -308,12 +308,118 @@ def _intermediate_type(g, uri) -> str | None:
     return "; ".join(locals_) if locals_ else None
 
 
-def _type_display(type_local: str | None) -> str | None:
-    """FaithfulAgentObligation -> 'Faithful Agent Obligation' for prose."""
+_ONTOLOGY_TTLS = ("proethica-core.ttl", "proethica-intermediate.ttl",
+                  "proethica-intermediate-extended.ttl")
+_ONTOLOGY_GRAPH_CACHE: dict = {}
+
+
+def _intermediate_graph() -> rdflib.Graph:
+    """The shared ontology tiers (core, intermediate, extended) as one graph, for
+    the type-chain comparison and the class labels (case-8 review, L7). Cached
+    per file-mtime set; an empty graph when the files are unavailable, in which
+    case every comparison falls back to exact type equality and every display to
+    the CamelCase split."""
+    try:
+        from app.services.ontserve.ontserve_config import get_ontserve_ontologies_path
+        ont_dir = get_ontserve_ontologies_path()
+        paths = [ont_dir / name for name in _ONTOLOGY_TTLS]
+        key = tuple((str(p), p.stat().st_mtime_ns) for p in paths if p.exists())
+    except Exception as e:  # noqa: BLE001 - no OntServe checkout on this host
+        logger.debug("ontology tiers unavailable for the type chain: %s", e)
+        return rdflib.Graph()
+    cached = _ONTOLOGY_GRAPH_CACHE.get("graph")
+    if cached is not None and _ONTOLOGY_GRAPH_CACHE.get("key") == key:
+        return cached
+    g = rdflib.Graph()
+    for path_str, _mtime in key:
+        try:
+            g.parse(path_str, format="turtle")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("could not parse %s for the type chain: %s", path_str, e)
+    _ONTOLOGY_GRAPH_CACHE["key"] = key
+    _ONTOLOGY_GRAPH_CACHE["graph"] = g
+    return g
+
+
+def _split_types(type_value) -> list:
+    return [t.strip() for t in str(type_value or "").split(";") if t.strip()]
+
+
+def _type_ancestors(type_local, g=None) -> set:
+    """The intermediate-namespace class local names reachable from
+    ``type_local`` by rdfs:subClassOf* (the class itself included). The walk
+    stops at the nine core categories, so two duties are never related merely
+    by both being Obligations."""
+    if not type_local:
+        return set()
+    g = g if g is not None else _intermediate_graph()
+    start = rdflib.URIRef(_INTERMEDIATE_NS + str(type_local))
+    seen, stack, out = set(), [start], {str(type_local)}
+    while stack:
+        c = stack.pop()
+        if c in seen:
+            continue
+        seen.add(c)
+        for sup in g.objects(c, RDFS.subClassOf):
+            if isinstance(sup, rdflib.URIRef) and str(sup).startswith(_INTERMEDIATE_NS):
+                out.add(str(sup).rsplit("#", 1)[-1])
+                stack.append(sup)
+    return out
+
+
+def _types_related(a, b, ancestors=None) -> bool:
+    """True when a type of ``a`` equals, specializes or generalizes a type of
+    ``b`` along the rdfs:subClassOf chain (``a`` and ``b`` are the "; "-joined
+    local-name strings stored in winner_type / loser_type). PublicSafetyObligation
+    (subClassOf SafetyObligation) therefore recurs a SafetyObligation anchor;
+    two siblings under one parent do not."""
+    xs, ys = _split_types(a), _split_types(b)
+    if not xs or not ys:
+        return False
+    ancestors = ancestors or _type_ancestors
+    for x in xs:
+        for y in ys:
+            if x == y or y in ancestors(x) or x in ancestors(y):
+                return True
+    return False
+
+
+def _type_relation(row_winner, row_loser, wt, lt, related=None):
+    """Classify a candidate's type-level resolution (``row_winner``,
+    ``row_loser``) against the anchor's (winner ``wt``, loser ``lt``). Ordered
+    strongest first; the first match wins. ``related`` is the type comparison
+    (default: the subClassOf-chain comparison)."""
+    related = related or _types_related
+    if related(row_winner, wt) and related(row_loser, lt):
+        return 1, "Same tension, resolved the same way"
+    if related(row_winner, lt) and related(row_loser, wt):
+        return 2, "Same tension, resolved the opposite way"
+    if related(row_winner, lt):
+        return 3, "The yielding type here prevails there"
+    if related(row_loser, wt):
+        return 4, "The prevailing type here yields there"
+    if related(row_loser, lt):
+        return 5, "The yielding type here also yields there, to a different duty"
+    if related(row_winner, wt):
+        return 6, "The prevailing type here also prevails there, over a different duty"
+    return None
+
+
+def _type_display(type_local, g=None) -> str | None:
+    """Prose form of a type: the class rdfs:label from the shared ontology tiers
+    (case-8 review, L7: the CamelCase split rendered
+    'Safety Withdrawaland Notification Obligation' for a fragment lacking a
+    capital), falling back to the CamelCase split when no label is available."""
     import re
     if not type_local:
         return None
-    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", type_local)
+    g = g if g is not None else _intermediate_graph()
+    parts = []
+    for local in _split_types(type_local):
+        label = g.value(rdflib.URIRef(_INTERMEDIATE_NS + local), RDFS.label)
+        parts.append(str(label) if label is not None
+                     else re.sub(r"(?<=[a-z])(?=[A-Z])", " ", local))
+    return "; ".join(parts) if parts else None
 
 
 def refresh_band_index(case_id: int) -> int:
@@ -493,29 +599,25 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
     # resolution (the context-indexed defeasibility the learning claim needs).
     lt, wt = featured.get("loser_type"), featured.get("winner_type")
 
-    def _relation(r):
-        """Classify a candidate's type-level resolution against the anchor's
-        (winner wt, loser lt). Ordered strongest first; the first match wins."""
-        if r.winner_type == wt and r.loser_type == lt:
-            return 1, "Same tension, resolved the same way"
-        if r.winner_type == lt and r.loser_type == wt:
-            return 2, "Same tension, resolved the opposite way"
-        if r.winner_type == lt:
-            return 3, "The yielding type here prevails there"
-        if r.loser_type == wt:
-            return 4, "The prevailing type here yields there"
-        if r.loser_type == lt:
-            return 5, "The yielding type here also yields there, to a different duty"
-        if r.winner_type == wt:
-            return 6, "The prevailing type here also prevails there, over a different duty"
-        return None
+    # Type comparison walks the rdfs:subClassOf chain of the shared ontology
+    # tiers (case-8 review, L7), with the ancestors memoized per call.
+    ontology = _intermediate_graph()
+    _ancestor_cache: dict = {}
+
+    def _ancestors(local):
+        if local not in _ancestor_cache:
+            _ancestor_cache[local] = _type_ancestors(local, ontology)
+        return _ancestor_cache[local]
+
+    def _related(a, b):
+        return _types_related(a, b, _ancestors)
 
     type_rows = []
     seen_pairs = set()
     for r in candidates:
         if not (r.winner_type and r.loser_type and (lt or wt)):
             continue
-        rel = _relation(r)
+        rel = _type_relation(r.winner_type, r.loser_type, wt, lt, _related)
         if rel is None:
             continue
         key = (r.case_id, r.winner_type, r.loser_type)
@@ -535,14 +637,14 @@ def get_cross_case_band_dynamic(anchor_case_id: int, case_data: dict) -> dict | 
             "case_id": r.case_id,
             "case_number": meta.get("case_number", ""),
             "title": doc.title if doc else f"Case {r.case_id}",
-            "winner_type_display": _type_display(r.winner_type),
-            "loser_type_display": _type_display(r.loser_type),
+            "winner_type_display": _type_display(r.winner_type, ontology),
+            "loser_type_display": _type_display(r.loser_type, ontology),
         })
     type_rows.sort(key=lambda t: (t["rank"], t["case_id"]))
 
     type_patterns = {
-        "loser_type_display": _type_display(lt),
-        "winner_type_display": _type_display(wt),
+        "loser_type_display": _type_display(lt, ontology),
+        "winner_type_display": _type_display(wt, ontology),
         "rows": type_rows,
     }
 
