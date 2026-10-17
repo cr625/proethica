@@ -22,6 +22,7 @@ from typing import List, Optional
 from model_config import ModelConfig
 
 from app.services.step4_synthesis.template_loader import get_step4_template
+from app.services.step4_synthesis.qc_refs import board_explicit_only
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +39,35 @@ def verify_board_choices(case_id: int, canonical_points: List, conclusions: List
     """Verify and, where needed, override is_board_choice on each decision
     point's options. Returns a summary dict {checked, overridden, cleared,
     unmatched, error}."""
-    summary = {'checked': 0, 'overridden': 0, 'cleared': 0, 'unmatched': 0, 'error': None}
+    summary = {'checked': 0, 'overridden': 0, 'cleared': 0, 'unmatched': 0, 'error': None,
+               'analytical_skipped': 0}
 
-    dps = [dp for dp in canonical_points if _options_of(dp)]
+    # A decision point aligned only with generated analysis has no Board
+    # choice to verify: its flags are cleared and it is kept out of the
+    # checker payload (case 8 DP5 was "confirmed" against a generated
+    # conclusion -- lesson L3).
+    dps = []
+    for dp in canonical_points:
+        if not _options_of(dp):
+            continue
+        if getattr(dp, 'synthesis_method', '') == 'analytical_extension':
+            for o in _options_of(dp):
+                o['is_board_choice'] = False
+            summary['analytical_skipped'] += 1
+            continue
+        dps.append(dp)
     if not dps:
         return summary
+    # The template says "based ONLY on the Board's conclusions": feed it only
+    # the board_explicit ones, never the Step-4 generated conclusions.
+    board_conclusions = board_explicit_only(
+        [c for c in (conclusions or []) if isinstance(c, dict)], 'C')
     concl_text = "\n".join(
         f"- {(c.get('conclusion_text') or c.get('text') or '').strip()}"
-        for c in (conclusions or []) if isinstance(c, dict)
+        for c in board_conclusions
     ).strip()
     if not concl_text:
-        logger.warning(f"Board-choice verifier: case {case_id} has no conclusion text; skipping")
+        logger.warning(f"Board-choice verifier: case {case_id} has no Board conclusion text; skipping")
         return summary
 
     payload = [{

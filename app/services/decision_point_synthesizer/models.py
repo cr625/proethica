@@ -83,6 +83,17 @@ class CanonicalDecisionPoint:
     obligation_label: Optional[str] = None
     constraint_uri: Optional[str] = None
     constraint_label: Optional[str] = None
+    # Further obligations the decision point involves (each committed as a
+    # second involvesObligation): an Obligation the model placed in the
+    # constraint slot is moved here at parse time instead of being dropped at
+    # commit (case 8 review, lesson L4).
+    additional_obligation_uris: List[str] = field(default_factory=list)
+    additional_obligation_labels: List[str] = field(default_factory=list)
+    # The obligation the primary one competes with, derived from the committed
+    # competesWith / prevailsOver edges when they exist, else from the
+    # mis-slotted obligation above.
+    competing_obligation_uri: Optional[str] = None
+    competing_obligation_label: Optional[str] = None
 
     # Related entities
     involved_action_uris: List[str] = field(default_factory=list)
