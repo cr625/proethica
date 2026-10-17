@@ -75,6 +75,7 @@ def auth_required_for_write(f):
         # Read operations or authenticated users can proceed
         return f(*args, **kwargs)
 
+    decorated_function._proethica_auth_guard = 'write'
     return decorated_function
 
 
@@ -102,6 +103,7 @@ def auth_required_for_llm(f):
 
         return f(*args, **kwargs)
 
+    decorated_function._proethica_auth_guard = 'llm'
     return decorated_function
 
 
@@ -117,6 +119,7 @@ def auth_optional(f):
         # either authenticated or anonymous
         return f(*args, **kwargs)
 
+    decorated_function._proethica_auth_guard = 'optional'
     return decorated_function
 
 
@@ -131,6 +134,7 @@ def development_only(f):
             abort(404)  # Pretend the route doesn't exist in production
         return f(*args, **kwargs)
 
+    decorated_function._proethica_auth_guard = 'development_only'
     return decorated_function
 
 
@@ -156,6 +160,7 @@ def admin_required_production(f):
         # In development, allow access
         return f(*args, **kwargs)
 
+    decorated_function._proethica_auth_guard = 'admin_production'
     return decorated_function
 
 
@@ -183,4 +188,5 @@ def auth_required_for_create(f):
 
         return f(*args, **kwargs)
 
+    decorated_function._proethica_auth_guard = 'create'
     return decorated_function
