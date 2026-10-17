@@ -82,6 +82,7 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     # 1. Verbatim grounding over every live entity: re-ground paraphrases, drop full fabrications.
     #    Quoteless rows in the grounded components take the same pass (require_quote): a confirmed
     #    span repairs them, no span drops them -- closing the text_references=[] bypass.
+    gverdicts = []
     if live:
         for e in live:
             e['require_quote'] = (e.get('component') or '').lower() in _GROUNDED_COMPONENTS
@@ -100,9 +101,10 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
                     # the siblings that survive.
                     res.flagged.append((e.get('id'), e.get('label'),
                                         'ungrounded quotes (kept: sibling rows reference it)', ''))
-            elif v.regrounded or v.unsupported:
+            elif v.regrounded or v.unsupported or _snapped(v):
                 # the quote set changed (some re-grounded, some unsupported dropped,
-                # or a quoteless entity gained its grounding span)
+                # a quoteless entity gained its grounding span, or a verbatim quote was
+                # snapped to the case's own characters, lesson L5)
                 res.corrected_quotes[e.get('id')] = v.kept_verbatim + v.regrounded
                 if not e.get('quotes'):
                     # Gate-attached, not model-extracted: the distinction must
@@ -163,6 +165,7 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
         'case_id': case_id,
         'entities': len(entities),
         'requoted': len(res.corrected_quotes),
+        'snapped': sum(len(_snapped(v)) for v in (gverdicts if live else [])),
         'requoted_ids': sorted(res.corrected_quotes, key=str),
         'quoteless_repaired_ids': sorted(res.repaired_quoteless, key=str),
         'dropped': len(res.dropped),
@@ -173,6 +176,13 @@ def verify_case_entities(entities: List[Dict], case_text: str, case_id, model: O
     logger.info(f"[verification-gate] case {case_id}: {len(res.corrected_quotes)} re-grounded, "
                 f"{len(res.dropped)} dropped, {len(res.flagged)} flagged")
     return res
+
+
+def _snapped(verdict) -> List[str]:
+    """The stored quote spellings the verifier replaced by the case's own span (empty for a
+    verdict object without the field, e.g. a test double)."""
+    snapped = getattr(verdict, 'snapped', None)
+    return snapped if isinstance(snapped, list) else []
 
 
 def _norm_label(label) -> str:

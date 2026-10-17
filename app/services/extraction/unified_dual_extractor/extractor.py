@@ -178,6 +178,9 @@ class UnifiedDualExtractor(
         if self.apply_filters:
             classes, individuals = self._apply_text_filters(
                 classes, individuals, case_id, section_type)
+            # 3c. Component post-parse checks (roles: the D-TELEO professional typing and the
+            # one-facet-per-counterparty rule, case-8 lesson L9).
+            individuals = self._apply_component_checks(individuals, case_id, section_type)
 
         # 4. Match against existing ontology classes
         self._check_existing_matches(classes)
@@ -269,6 +272,35 @@ class UnifiedDualExtractor(
         # candidate for commit-time / review-gate grounding, but is no longer wired into live extraction.
         return classes, individuals
 
+    def _apply_component_checks(self, individuals, case_id, section_type):
+        """Step 3c: deterministic per-component post-parse checks (roles only so far).
+
+        Roles (lesson L9): role_kind professional is rejected on an individual that names no
+        obligation it generates, and a second relational facet of an actor toward counterparties
+        an existing facet already links is folded into that facet. Best-effort: a failure never
+        breaks extraction. Returns individuals."""
+        if (self.concept_type or '').lower() != 'roles' or not individuals:
+            return individuals
+        try:
+            from app.services.extraction.role_checks import apply_role_checks
+            individuals, report = apply_role_checks(individuals)
+            if report['professional_rejected'] or report['facets_folded']:
+                logger.info(f"Role checks ({section_type}): {report}")
+                try:  # provenance: record the check PASS. Best-effort.
+                    from app.services.provenance_service import get_provenance_service
+                    get_provenance_service().track_pass(
+                        activity_type='filter', activity_name='role_checks',
+                        case_id=case_id, agent_type='extraction_service', agent_name='role_checks',
+                        execution_plan={'concept_type': self.concept_type, 'section': section_type,
+                                        'rule': 'reject role_kind professional with no obligation named; '
+                                                'fold a duplicate relational facet into the existing facet'},
+                        result=report)
+                except Exception:
+                    logger.debug("role_checks provenance skipped", exc_info=True)
+        except Exception as e:
+            logger.warning(f"role checks skipped: {e}")
+        return individuals
+
     def _filter_types_as_individuals(self, individuals, case_id, section_type):
         """Step 6b: drop TYPES emitted as individuals (self-instance / wrong component).
 
@@ -277,26 +309,16 @@ class UnifiedDualExtractor(
         has one), deterministic-first with one batched LLM call over the ambiguous
         remainder only. Best-effort: a failure never breaks extraction. Returns individuals."""
         try:
-            from app.services.extraction.individual_type_filter import filter_individuals, CRITERIA
+            from app.services.extraction.individual_type_filter import (
+                filter_individuals, CRITERIA, judge_dict, referenced_labels,
+            )
             if self.concept_type in CRITERIA and individuals:
-                def _fdict(ind):
-                    cls = ''
-                    for k in ('resource_class', 'instance_of', 'state_class', 'role_class',
-                              'principle_class', 'obligation_class', 'constraint_class',
-                              'capability_class'):
-                        v = getattr(ind, k, None)
-                        if v:
-                            cls = str(v)
-                            break
-                    return {
-                        'label': (getattr(ind, 'identifier', None) or getattr(ind, 'name', None)
-                                  or getattr(ind, 'label', '') or ''),
-                        'instance_of': cls,
-                        'definition': (getattr(ind, 'used_in_context', None)
-                                       or getattr(ind, 'description', None) or ''),
-                    }
-                _dicts = [_fdict(ind) for ind in individuals]
-                _fres = filter_individuals(_dicts, self.concept_type)
+                # The judge dict carries the per-component detail (topic, used_by, the
+                # statement), the first quote, and the reliance fields (lesson L4); the labels
+                # sibling individuals rest on are protected from the drop.
+                _dicts = [judge_dict(ind, self.concept_type) for ind in individuals]
+                _fres = filter_individuals(_dicts, self.concept_type,
+                                           depended_on=referenced_labels(_dicts))
                 if _fres['dropped']:
                     _kept_ids = {id(d) for d in _fres['kept']}
                     individuals = [ind for ind, d in zip(individuals, _dicts) if id(d) in _kept_ids]
