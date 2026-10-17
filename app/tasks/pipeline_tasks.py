@@ -167,6 +167,9 @@ def run_extraction(case_text: str, case_id: int,
         concept_type=entity_type,
         section_type=section_type,
         step_number=step_number,
+        # The model call is recorded as an llm_query activity of the prompt's
+        # session; the pipeline declares itself as the origin.
+        origin='automated_pipeline',
     )
 
     return {

@@ -65,6 +65,7 @@ def extract_concept(
     model: Optional[str] = None,
     apply_filters: bool = True,
     store: bool = True,
+    origin: Optional[str] = None,
 ) -> ExtractionResult:
     """
     Extract a single concept from case text and store results.
@@ -89,6 +90,9 @@ def extract_concept(
         store: When True (default, live behavior) results are persisted to
             temporary_rdf_storage. When False storage is skipped, so an audit
             run cannot mutate the live case data.
+        origin: Provenance origin recorded on the llm_query activity of the
+            model call ('automated_pipeline' from the Celery pipeline). None
+            leaves the origin to the provenance page's display heuristics.
 
     Returns:
         ExtractionResult with classes, individuals, prompt, response, timing.
@@ -123,6 +127,7 @@ def extract_concept(
             individuals=individuals,
             pass_number=step_number,
             extraction_pass=extraction_pass,
+            origin=origin,
         )
 
     return ExtractionResult(

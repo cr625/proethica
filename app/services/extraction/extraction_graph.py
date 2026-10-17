@@ -285,6 +285,64 @@ def pydantic_to_rdf_data(
     }
 
 
+def extraction_activity_name(concept_type: str) -> str:
+    """Provenance activity name of a step 1 or 2 concept extraction
+    (``dual_<concept>_extraction``): the name the provenance page resolves, together
+    with the prompt's session id, through its CONCEPT_ACTIVITY_MAP."""
+    return f'dual_{concept_type}_extraction'
+
+
+def _record_llm_query_provenance(prompt_row, extractor, classes: list, individuals: list,
+                                 origin: Optional[str]) -> None:
+    """Record the model call behind a saved extraction prompt as one ``llm_query``
+    activity (the row's session id, agent = the model, the extractor's call timestamps
+    and the derived duration, case id, concept type and section) with the prompt and
+    response as provenance entities, the way the temporal pass records its calls.
+
+    Best-effort inside a savepoint: a failure here never costs the extraction its
+    entities, and the activity is committed on its own because the model call did
+    happen whatever the later storage steps do.
+    """
+    from app.models import db
+    from app.services.provenance_service import get_provenance_service
+
+    try:
+        ended_at = getattr(extractor, 'last_llm_ended_at', None) or datetime.utcnow()
+        started_at = getattr(extractor, 'last_llm_started_at', None) or ended_at
+        metadata = {
+            'concept_type': prompt_row.concept_type,
+            'section_type': prompt_row.section_type,
+            'step_number': prompt_row.step_number,
+            'extraction_prompt_id': prompt_row.id,
+            'classes': len(classes),
+            'individuals': len(individuals),
+        }
+        if origin:
+            metadata['origin'] = origin
+        with db.session.begin_nested():
+            get_provenance_service().record_llm_query(
+                activity_name=extraction_activity_name(prompt_row.concept_type),
+                case_id=prompt_row.case_id,
+                session_id=prompt_row.extraction_session_id,
+                model_name=prompt_row.llm_model or getattr(extractor, 'model_name', None),
+                prompt_text=prompt_row.prompt_text,
+                response_text=prompt_row.raw_response,
+                started_at=started_at,
+                ended_at=ended_at,
+                execution_plan={
+                    'concept_type': prompt_row.concept_type,
+                    'section': prompt_row.section_type,
+                    'step': prompt_row.step_number,
+                    'injection_mode': getattr(prompt_row, 'injection_mode', None),
+                },
+                activity_metadata=metadata,
+            )
+        db.session.commit()
+    except Exception:
+        logger.warning("llm_query provenance skipped for %s (best-effort)",
+                       getattr(prompt_row, 'concept_type', '?'), exc_info=True)
+
+
 def store_extraction_result(
     case_id: int,
     concept_type: str,
@@ -296,15 +354,18 @@ def store_extraction_result(
     individuals: list,
     pass_number: int = None,
     extraction_pass: str = None,
+    origin: Optional[str] = None,
 ) -> None:
     """
     Persist extraction results to the database.
 
-    Consolidates the 3-call storage pattern used by both streaming and
+    Consolidates the storage pattern used by both streaming and
     non-streaming extraction paths:
       1. ExtractionPrompt.save_prompt()
-      2. pydantic_to_rdf_data()
-      3. TemporaryRDFStorage.store_extraction_results()
+      2. one llm_query provenance activity for the model call, keyed by the
+         saved prompt's session id (_record_llm_query_provenance)
+      3. pydantic_to_rdf_data()
+      4. TemporaryRDFStorage.store_extraction_results()
 
     Args:
         case_id: Case database ID.
@@ -314,12 +375,16 @@ def store_extraction_result(
         section_type: Source section (facts, discussion, etc.).
         session_id: UUID extraction session identifier.
         extractor: UnifiedDualExtractor instance (provides last_prompt,
-                   last_raw_response, model_name).
+                   last_raw_response, model_name, and the call bounds
+                   last_llm_started_at / last_llm_ended_at).
         classes: Pydantic candidate class model instances.
         individuals: Pydantic individual model instances.
         pass_number: Extraction pass number (1 or 2).
         extraction_pass: Provenance label ('contextual_framework' or
                          'normative_requirements').
+        origin: Provenance origin stored on the activity
+                ('automated_pipeline' for the Celery pipeline). None leaves
+                the origin to the display heuristics.
     """
     from app.models import db
     from app.models.extraction_prompt import ExtractionPrompt
@@ -328,8 +393,9 @@ def store_extraction_result(
     model_name = extractor.model_name
 
     # 1. Save prompt + raw response
+    prompt_row = None
     try:
-        ExtractionPrompt.save_prompt(
+        prompt_row = ExtractionPrompt.save_prompt(
             case_id=case_id,
             concept_type=concept_type,
             prompt_text=extractor.last_prompt or f'[streaming] {concept_type}',
@@ -348,7 +414,11 @@ def store_extraction_result(
     except Exception as e:
         logger.warning(f"Could not save extraction prompt for {concept_type}: {e}")
 
-    # 2 + 3. Convert Pydantic models to rdf_data, then store
+    # 2. The model call as an llm_query activity of the prompt's session
+    if prompt_row is not None:
+        _record_llm_query_provenance(prompt_row, extractor, classes, individuals, origin)
+
+    # 3 + 4. Convert Pydantic models to rdf_data, then store
     try:
         # Collect ontology definitions from the extractor if available
         ont_defs = getattr(extractor, 'ontology_definitions', None)
