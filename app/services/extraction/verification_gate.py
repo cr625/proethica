@@ -317,8 +317,16 @@ def class_refs_of(rdf_json_ld: Dict) -> List[str]:
 
 
 def match_confidence_of(rdf_json_ld: Dict, column_value=None):
-    """The matcher's link confidence for a row: the match_confidence column when set, else the
-    match_decision confidence when the decision links the row to an existing class; None otherwise."""
+    """The matcher's link confidence for a row, or None when the row is not linked.
+
+    The recorded decision (rdf_json_ld.match_decision) says whether the row is linked: the storage
+    writes the match_confidence column from the decision's confidence whether or not the decision
+    linked the row, so a declined decision that carries a confidence must not read as a link (merge
+    review). For a linked row the column is preferred, then the decision's confidence; a row without
+    a recorded decision reads the column as before."""
+    md = (rdf_json_ld or {}).get('match_decision') or {}
+    if isinstance(md, dict) and md and not md.get('matches_existing'):
+        return None
     if column_value is not None:
         try:
             return float(column_value)
