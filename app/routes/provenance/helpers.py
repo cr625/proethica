@@ -648,11 +648,19 @@ def _determine_origin(activity):
 # one of them is flagged as truncated on the card: the remainder was never kept.
 STORED_TEXT_LIMITS = (10000, 20000, 50000)
 
+# The marker the phase 4 narrative writers appended after slicing a joined prompt
+# (``text[:9950] + "\n... [truncated]"``, removed by the same commit). A stored text
+# that ends with it was cut at the length before the marker.
+TRUNCATION_MARKER = "\n... [truncated]"
+
 
 def truncation_limit(text) -> Optional[int]:
-    """The round storage limit a stored text's length equals exactly, or None."""
+    """The length at which a stored text was cut by a storage slice, or None: a length
+    that equals a round limit exactly, or the length before the truncation marker."""
     if not isinstance(text, str):
         return None
+    if text.endswith(TRUNCATION_MARKER):
+        return len(text) - len(TRUNCATION_MARKER)
     return len(text) if len(text) in STORED_TEXT_LIMITS else None
 
 
@@ -664,36 +672,55 @@ def _stored_text_truncation(prompt) -> dict:
     }
 
 
-# The largest distance between an activity recorded without a session id and the
-# pipeline run it belongs to. Distinct runs of one case are typically days apart.
+# The largest distance between an activity recorded without a run id and the pipeline
+# run it belongs to. Distinct runs of one case are typically days apart.
 CONSOLIDATION_RUN_GAP = timedelta(hours=6)
 
+# Activity types recorded while the steps 1 and 2 extractions run, before the first
+# run-scoped pass of their run: the extractor's filters (no session id) and the storage
+# dedup passes (merge, and the designator-guard filter, both recorded with the extraction
+# session id of one concept pass). They attach forward to the run that starts after them;
+# every other unscoped type is a commit-time pass and attaches backward.
+EXTRACTION_TIME_TYPES = frozenset({'filter', 'merge'})
 
-def group_consolidation_by_run(rows, gap: timedelta = CONSOLIDATION_RUN_GAP) -> list:
+
+def group_consolidation_by_run(rows, gap: timedelta = CONSOLIDATION_RUN_GAP,
+                               run_ids=None) -> list:
     """Group consolidation-and-commit activities into pipeline runs.
 
-    ``rows`` are dicts with ``session_id`` (the PipelineRun id the pipeline passes record,
-    or None) and ``started_at`` (datetime); other keys pass through. Activities with a
-    session id form one run per session. Activities recorded without a session id are
-    attached to a run: the extraction-time filter passes (activity_type ``filter``) run
-    before the first sessioned pass of their run, so they attach forward to the nearest
-    run starting after them; the commit-time passes (edge materialization, guard,
-    conformance check, repair) conclude a run, so they attach backward to the nearest run
-    ending before them. An activity inside a run's window attaches to it. Activities no
-    run lies within ``gap`` of are clustered by ``gap`` into runs of their own (a commit
-    made outside a recorded pipeline run).
+    ``rows`` are dicts with ``session_id`` and ``started_at`` (datetime); other keys pass
+    through. A row is run-scoped when its session id names a pipeline run: with
+    ``run_ids`` (the PipelineRun ids of the case, as strings, the ids the pipeline passes
+    record through _record_pass) only those session ids count; without it any session id
+    does. Run-scoped activities form one run per run id. Every other activity is attached
+    to a run by time: the extraction-time passes (EXTRACTION_TIME_TYPES) run before the
+    first run-scoped pass of their run, so they attach forward to the nearest run starting
+    after them; the commit-time passes (edge materialization, guard, conformance check,
+    repair) conclude a run, so they attach backward to the nearest run ending before them.
+    An activity inside a run's window attaches to it. Activities no run lies within
+    ``gap`` of are clustered by ``gap`` into runs of their own (a commit made outside a
+    recorded pipeline run, or an extraction that never reached a run-scoped pass).
 
     Returns runs newest first, each {session_id, started_at, ended_at, activity_count,
     activities} with the activities in chronological order."""
     rows = [r for r in rows if r.get('started_at') is not None]
     chronological = sorted(rows, key=lambda r: r['started_at'])
 
+    def _run_id(r):
+        session_id = r.get('session_id')
+        if not session_id:
+            return None
+        if run_ids is not None and str(session_id) not in run_ids:
+            return None
+        return session_id
+
     runs = {}
     for r in chronological:
-        if not r.get('session_id'):
+        run_id = _run_id(r)
+        if run_id is None:
             continue
-        run = runs.setdefault(r['session_id'], {
-            'session_id': r['session_id'],
+        run = runs.setdefault(run_id, {
+            'session_id': run_id,
             'started_at': r['started_at'],
             'ended_at': r['started_at'],
             'activities': [],
@@ -703,14 +730,14 @@ def group_consolidation_by_run(rows, gap: timedelta = CONSOLIDATION_RUN_GAP) -> 
 
     leftovers = []
     for r in chronological:
-        if r.get('session_id'):
+        if _run_id(r) is not None:
             continue
         t = r['started_at']
         best, best_distance = None, None
         for run in runs.values():
             if run['started_at'] <= t <= run['ended_at']:
                 distance = timedelta(0)
-            elif r.get('activity_type') == 'filter':
+            elif r.get('activity_type') in EXTRACTION_TIME_TYPES:
                 distance = run['started_at'] - t if t < run['started_at'] else None
             else:
                 distance = t - run['ended_at'] if t > run['ended_at'] else None
