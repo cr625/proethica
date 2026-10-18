@@ -53,10 +53,15 @@ def truncate_at_boundary(text: str, limit: int) -> str:
 
 
 def _is_generated(record: Dict, kind: str) -> bool:
-    """Positive identification of a Step-4 generated question ('Q') or
-    conclusion ('C'): a generated category type, or a number at or above the
-    generated offset. Untyped, unnumbered legacy rows stay Board-attributed
-    here (this classifier reads many dict shapes)."""
+    """Whether a question ('Q') or conclusion ('C') record is Step-4 generated
+    analysis rather than a Board record. The same reading as
+    ``qc_refs.is_board_explicit``: an explicit type decides first
+    (``board_explicit`` is the Board's, a generated category type is not), a
+    number decides next (Board rows are numbered below the generated offset),
+    and a record with neither a decisive type nor a number is NOT the Board's
+    (case 8 review: unattributed text is never presented as a Board
+    determination). This classifier reads many dict shapes, so the type and
+    the number are looked up on the record and on its ``rdf_json_ld``."""
     from app.services.step4_synthesis.qc_refs import (
         GENERATED_NUMBER_BASE, _GENERATED_TYPES, _number_of)
     if not isinstance(record, dict):
@@ -66,12 +71,21 @@ def _is_generated(record: Dict, kind: str) -> bool:
                  else ('conclusion_type', 'conclusionType', 'type'))
     for key in type_keys:
         t = record.get(key) or rdf.get(key)
-        if t and str(t).strip().lower() in _GENERATED_TYPES:
+        if not t:
+            continue
+        t = str(t).strip().lower()
+        if t == 'board_explicit':
+            return False
+        if t in _GENERATED_TYPES:
             return True
+        # A legacy or placeholder type ('unknown', 'board') decides by number.
+        break
     n = _number_of(record, kind)
     if n is None:
         n = _number_of(rdf, kind)
-    return n is not None and n >= GENERATED_NUMBER_BASE
+    if n is None:
+        return True
+    return n >= GENERATED_NUMBER_BASE
 
 
 @dataclass

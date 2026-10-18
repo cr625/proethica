@@ -119,3 +119,29 @@ class TestLoadLatestTransformation:
         p = _prompt(raw_response=json.dumps({"pattern": "no type here"}))
         with _patch_query(p):
             assert load_latest_transformation(case_id=8) is None
+
+
+class TestIsGeneratedReading:
+    """``_is_generated`` and ``qc_refs.is_board_explicit`` read attribution the
+    same way: an explicit type first, the numbering convention next, and a row
+    with neither is generated analysis, never the Board's (case 8 review)."""
+
+    def test_unattributed_row_is_not_the_boards(self):
+        from app.services.case_analysis.transformation_classifier import _is_generated
+        from app.services.step4_synthesis.qc_refs import is_board_explicit
+        bare_q = {'text': 'Was the disclosure required?'}
+        bare_c = {'rdf_json_ld': {'conclusionText': 'It was required.'}}
+        assert _is_generated(bare_q, 'Q') is True
+        assert _is_generated(bare_c, 'C') is True
+        assert is_board_explicit(bare_q, 'Q') is False
+        assert is_board_explicit(bare_c, 'C') is False
+
+    def test_type_and_number_still_decide_first(self):
+        from app.services.case_analysis.transformation_classifier import _is_generated
+        assert _is_generated({'question_type': 'board_explicit'}, 'Q') is False
+        assert _is_generated({'rdf_json_ld': {'conclusionType': 'board_explicit'}}, 'C') is False
+        assert _is_generated({'conclusion_type': 'implicit'}, 'C') is True
+        assert _is_generated({'type': 'unknown', 'question_number': 2}, 'Q') is False
+        assert _is_generated({'rdf_json_ld': {'conclusionNumber': 101}}, 'C') is True
+        assert _is_generated({'number': 3}, 'C') is False
+
