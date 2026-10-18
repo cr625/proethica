@@ -64,7 +64,6 @@ plugins:
 # to the search index. Delete this block at camera-ready.
 exclude_docs: |
   papers/
-  reviews/
 
 markdown_extensions:
   - admonition
