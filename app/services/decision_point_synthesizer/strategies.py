@@ -34,6 +34,7 @@ from app.services.ontserve.mcp_entity_enrichment_service import (
     EnrichmentResult,
 )
 from app.services.step4_synthesis.template_loader import get_step4_template
+from app.services.step4_synthesis.qc_refs import is_board_explicit
 
 from .models import (
     ToulminStructure,
@@ -41,6 +42,15 @@ from .models import (
     CanonicalDecisionPoint,
     Phase3SynthesisResult,
     SynthesisTrace,
+)
+from .grounding import (
+    DPGroundingContext,
+    add_candidates,
+    add_cited_provisions,
+    add_temporal_rows,
+    context_from_graph,
+    filter_backing_provisions,
+    frag,
 )
 
 logger = logging.getLogger(__name__)
@@ -403,22 +413,23 @@ class LLMStrategiesMixin:
                     'is_board_choice': bool(opt.get('is_board_choice', False)),
                 })
 
-            # Conclusion alignment, mirroring the refinement parser: the
-            # conclusions whose answersQuestions cover the DP's addressed
+            # Conclusion alignment, mirroring the refinement parser: the Board
+            # conclusions whose answersQuestions cover the DP's addressed Board
             # questions supply aligned_conclusion_* and the resolution text
-            # verbatim. The fallback path never set these (Phase-C census
-            # 2026-07-08: case 10's five fallback DPs all had empty
-            # aligned_conclusion_uri, so the Step-5 resolution-pattern join
-            # matched nothing).
+            # verbatim (board_explicit only, untruncated, empty when none --
+            # case 8 review, lessons L2 and L3). The fallback path never set
+            # these (Phase-C census 2026-07-08: case 10's five fallback DPs
+            # all had empty aligned_conclusion_uri, so the Step-5
+            # resolution-pattern join matched nothing).
             addresses_uris = [q_uri_map.get(q, q) for q in (addresses if isinstance(addresses, list) else [addresses])]
-            addressed_nums = {q.get('question_number') for q in questions
-                              if q.get('uri') in addresses_uris and q.get('question_number') is not None}
-            answering = [c for c in conclusions
-                         if addressed_nums & set(c.get('answersQuestions') or [])]
-            aligned_c = answering[0] if answering else None
-            derived_resolution = ' '.join(
-                (c.get('conclusion_text') or c.get('text') or '').strip()
-                for c in answering[:2]).strip()
+            aligned_c, derived_resolution = board_resolution_for(
+                addresses_uris, questions, conclusions)
+            aligned_q_dict = next((q for q in questions if q.get('uri') == aligned_q_uri), None) \
+                if aligned_q_uri else None
+            analytical = aligned_q_dict is not None and not is_board_explicit(aligned_q_dict, 'Q')
+            if analytical:
+                for opt in options_out:
+                    opt['is_board_choice'] = False
 
             # Create canonical decision point
             dp = CanonicalDecisionPoint(
@@ -436,13 +447,12 @@ class LLMStrategiesMixin:
                 aligned_question_text=aligned_q_text,
                 aligned_conclusion_uri=aligned_c.get('uri') if aligned_c else None,
                 aligned_conclusion_text=aligned_c.get('text') if aligned_c else None,
-                board_resolution=(derived_resolution[:800] if derived_resolution
-                                  else dp_data.get('board_resolution', '')),
+                board_resolution=derived_resolution,
                 addresses_questions=addresses_uris,
                 options=options_out,
                 intensity_score=intensity_score,
                 qc_alignment_score=qc_alignment_score,
-                synthesis_method='llm_fallback',
+                synthesis_method='analytical_extension' if analytical else 'llm_fallback',
             )
             self._clean_text_formatting(dp)
             canonical_points.append(dp)
@@ -590,42 +600,60 @@ class LLMStrategiesMixin:
         # Format questions with Toulmin analysis. Stored QE/RP keys are
         # normalized to the in-memory lists' key form (qc_refs key_aliases;
         # mixed-generation join tolerance -- c422755 review).
-        from app.services.step4_synthesis.qc_refs import key_aliases
+        #
+        # Board records and Step-4 generated analysis are rendered as SEPARATE
+        # blocks (case 8 review, lesson L5): the Board headings carry only the
+        # board_explicit rows, and the generated rows are tagged with their
+        # category so the model cannot read generated analysis as the Board's.
+        # Q/C indices stay the position in the full lists (the parser maps
+        # addresses_questions ``Qn`` back through ``questions[n]``).
+        from app.services.step4_synthesis.qc_refs import (
+            key_aliases, is_board_explicit, ref_type_label)
         _q_alias = key_aliases(questions, 'Q')
         _c_alias = key_aliases(conclusions, 'C')
         qe_map = {_q_alias.get(qe.get('question_uri', ''), qe.get('question_uri', '')): qe
                   for qe in question_emergence}
         questions_text = []
+        generated_questions_text = []
         for i, q in enumerate(questions):
             q_uri = q.get('uri', '')
             qe = qe_map.get(q_uri, {})
-            questions_text.append(f"""
-Q{i}: {q.get('text', q.get('label', ''))}
+            board_q = is_board_explicit(q, 'Q')
+            tag = '' if board_q else f" [GENERATED {ref_type_label(q, 'Q')} question, not asked by the Board]"
+            block = f"""
+Q{i}:{tag} {q.get('text', q.get('label', ''))}
   - URI: {q_uri}
   - DATA (triggering facts): {', '.join(qe.get('data_events', []) + qe.get('data_actions', [])) or 'Not analyzed'}
   - WARRANTS (competing obligations): {qe.get('competing_warrants', 'Not analyzed')}
   - REBUTTAL: {qe.get('rebuttal_conditions', 'Not analyzed')[:200] if qe.get('rebuttal_conditions') else 'None'}
-""")
+"""
+            (questions_text if board_q else generated_questions_text).append(block)
 
         # Format conclusions with resolution patterns (same normalization).
         rp_map = {_c_alias.get(rp.get('conclusion_uri', ''), rp.get('conclusion_uri', '')): rp
                   for rp in resolution_patterns}
         conclusions_text = []
+        generated_conclusions_text = []
         for i, c in enumerate(conclusions):
             c_uri = c.get('uri', '')
             rp = rp_map.get(c_uri, {})
-            conclusions_text.append(f"""
-C{i}: {c.get('text', c.get('label', ''))}
+            board_c = is_board_explicit(c, 'C')
+            tag = '' if board_c else f" [GENERATED {ref_type_label(c, 'C')} conclusion, not a Board determination]"
+            block = f"""
+C{i}:{tag} {c.get('text', c.get('label', ''))}
   - URI: {c_uri}
   - Determinative Principles: {', '.join(rp.get('determinative_principles', [])) or 'Not analyzed'}
   - Resolution: {rp.get('resolution_narrative', '')[:200] if rp.get('resolution_narrative') else 'Not analyzed'}
-""")
+"""
+            (conclusions_text if board_c else generated_conclusions_text).append(block)
 
         _refinement_prompt = get_step4_template('step4_dp_refine').render(
             case_id=case_id,
             candidates_block=''.join(candidates_text),
             questions_block=''.join(questions_text),
             conclusions_block=''.join(conclusions_text),
+            generated_questions_block=''.join(generated_questions_text),
+            generated_conclusions_block=''.join(generated_conclusions_text),
             toulmin_field_spec=TOULMIN_FIELD_SPEC,
             target_count=target_count,
         )
@@ -650,51 +678,24 @@ C{i}: {c.get('text', c.get('label', ''))}
         if not synthesis_data:
             raise ValueError("No JSON found in LLM refinement response")
 
-        # Build label->URI lookup from algorithmic candidates so we don't
-        # trust the LLM's fabricated URIs (e.g. "case-74#Engineer" instead
-        # of the real extraction URI).
-        entity_uri_lookup = {}  # lowercase label -> URI
-        uri_to_label = {}  # URI -> shortest canonical label
+        # Candidate labels first (shortest role label per URI wins: "Engineer A"
+        # over "Engineer A Water Rights Analysis Engineer"), then the committed
+        # case graph with its materialized categories and competition edges,
+        # then the stored temporal rows when no TTL exists (grounding.py). A
+        # URI the record does not know is dropped rather than stored
+        # (2026-07-08 Decisions analysis, case 9: an unvalidated fallback to
+        # the LLM-echoed URI put obligation URIs into role slots).
+        uri_to_label = {}  # URI -> shortest canonical role label
         for candidate, _ in top_candidates:
             g = candidate.grounding
             if g.role_label and g.role_uri:
-                entity_uri_lookup[g.role_label.lower()] = g.role_uri
-                # Keep the shortest label per URI (prefer "Engineer A" over
-                # "Engineer A Water Rights Analysis Engineer")
                 existing = uri_to_label.get(g.role_uri)
                 if existing is None or len(g.role_label) < len(existing):
                     uri_to_label[g.role_uri] = g.role_label
-            if g.obligation_label and g.obligation_uri:
-                entity_uri_lookup[g.obligation_label.lower()] = g.obligation_uri
-            if g.constraint_label and g.constraint_uri:
-                entity_uri_lookup[g.constraint_label.lower()] = g.constraint_uri
-
-        # Back the candidate lookup with the committed case graph: candidates
-        # cover only the composed groundings, and an unvalidated fallback to the
-        # LLM-echoed URI put obligation URIs into role slots (2026-07-08
-        # Decisions analysis, case 9). A URI the case graph does not know is
-        # dropped rather than stored.
-        known_uris = set(entity_uri_lookup.values())
-        if case_id is not None:
-            try:
-                from rdflib import RDFS as _RDFS
-                from app.services.entity.committed_case_graph import load_case_graph
-                _g = load_case_graph(case_id)
-                for _s, _o in _g.subject_objects(_RDFS.label):
-                    entity_uri_lookup.setdefault(str(_o).lower(), str(_s))
-                    known_uris.add(str(_s))
-            except Exception as _exc:  # noqa: BLE001 - no committed TTL yet
-                logger.info(f"Case-graph label lookup unavailable for case {case_id}: {_exc}")
-            known_uris.update(entity_uri_lookup.values())
+        ctx = self._dp_grounding_context(case_id, top_candidates, conclusions)
 
         def _resolve_uri(label: str, llm_uri: str) -> str:
-            """Label -> URI via candidates + case graph; an LLM-echoed URI is
-            kept only when the case graph knows it."""
-            if label:
-                resolved = entity_uri_lookup.get(label.lower())
-                if resolved:
-                    return resolved
-            return llm_uri if llm_uri in known_uris else ''
+            return ctx.resolve(label, llm_uri)
 
         def _resolve_role_label(label: str, resolved_uri: str) -> str:
             """Normalize role label to the canonical (shortest) form for the URI."""
@@ -705,10 +706,14 @@ C{i}: {c.get('text', c.get('label', ''))}
 
         canonical_points = []
         for i, data in enumerate(synthesis_data, 1):
-            # Build Toulmin structure
+            focus_id = data.get('focus_id', f'DP{i}')
+            # Build Toulmin structure. Backing provisions must be NSPE codes
+            # AND codes the case cites (case 8 DP3/DP4 cited II.1.f / II.2.a,
+            # which the opinion never cites -- lesson L3).
             from app.utils.provision_codes import is_provision_code
             provision_labels = [x for x in (data.get('provision_labels', []) or [])
                                 if is_provision_code(x)]
+            provision_labels = filter_backing_provisions(provision_labels, ctx, focus_id)
             toulmin = ToulminStructure(
                 claim=data.get('toulmin_claim', ''),
                 data_summary=data.get('toulmin_data', ''),
@@ -741,50 +746,85 @@ C{i}: {c.get('text', c.get('label', ''))}
                         aligned_q = q
                         break
 
-            # Board resolution derived from the record, not LLM-authored: the
-            # conclusions whose answersQuestions cover the DP's addressed
-            # questions supply the text verbatim. The LLM-authored field
-            # embellished beyond the record even under explicit grounding
-            # rules (case-4 audit: a 'clearly labeled recommendation'
-            # carve-out present in neither conclusions nor discussion). The
-            # LLM text is kept only when no answering conclusion resolves.
-            addressed_nums = set()
-            for q in questions:
-                if q.get('uri') in addresses_q and q.get('question_number') is not None:
-                    addressed_nums.add(q.get('question_number'))
-            answering = [c for c in conclusions
-                         if addressed_nums & set(c.get('answersQuestions') or [])]
-            if answering:
-                aligned_c = answering[0]
-                derived = ' '.join(
-                    (c.get('conclusion_text') or c.get('text') or '').strip()
-                    for c in answering[:2]).strip()
-                if derived:
-                    data['board_resolution'] = derived[:800]
+            # Board resolution derived from the record, never LLM-authored and
+            # never generated analysis: the board_explicit conclusions whose
+            # answersQuestions cover the DP's addressed Board questions supply
+            # the text verbatim and untruncated, and the field is empty when
+            # none answers (case 8 DP1 stored Conclusion_1 joined with the
+            # generated Conclusion_101 and cut at 800 characters -- lesson L2;
+            # case-4 audit: the LLM-authored field embellished beyond the
+            # record even under explicit grounding rules).
+            aligned_c, board_resolution = board_resolution_for(addresses_q, questions, conclusions)
+
+            # A decision point aligned with a generated question is analytical
+            # extension, not a Board determination: no board choice, no board
+            # resolution (lesson L3). DP5 of case 8 marked "Maintain Passive
+            # Awareness Without Unpaid Work" as the Board's choice against a
+            # generated conclusion.
+            options = data.get('options', []) or []
+            analytical = aligned_q is not None and not is_board_explicit(aligned_q, 'Q')
+            if analytical:
+                for opt in options:
+                    if isinstance(opt, dict):
+                        opt['is_board_choice'] = False
+                synthesis_method = 'analytical_extension'
+            else:
+                # Honest provenance: when composition yields fewer candidates
+                # than the target count, the refinement generates additional
+                # DPs beyond the candidate pool. Those cite no algorithmic
+                # source, so labeling them 'algorithmic+llm' overstated the
+                # grounding (Phase-C census 2026-07-08: 10 of 76).
+                synthesis_method = ('algorithmic+llm' if data.get('source_candidate_ids')
+                                    else 'llm_direct')
+
+            # Normative slots type-checked at parse time against the record
+            # (lesson L4): an Obligation in the constraint slot becomes a second
+            # involvesObligation instead of a commit-time drop, a Constraint in
+            # the obligation slot moves over, and the competing pair follows the
+            # committed competesWith / prevailsOver edges when they exist.
+            slots = resolve_normative_slots(
+                ctx,
+                obligation_label=data.get('obligation_label'),
+                obligation_uri=data.get('obligation_uri', ''),
+                constraint_label=data.get('constraint_label'),
+                constraint_uri=data.get('constraint_uri', ''),
+                focus_id=focus_id,
+            )
+
+            # Action slot filtered by the record's categories, never by a URI
+            # naming prefix (lesson L1): case 8 actions are label-minted
+            # (case-8#Work_Suspension_Request), so the former '#Action_' /
+            # '#Event_' prefix test discarded every action and the narrative
+            # could not place the decision points on the timeline. Case 57's
+            # echoed Constraint/State URIs are still rejected: they are not
+            # Action/Event individuals.
+            involved_actions = []
+            for u in (data.get('involved_action_uris') or []):
+                if not isinstance(u, str) or not u:
+                    continue
+                if ctx.is_timeline_individual(u):
+                    involved_actions.append(u)
+                else:
+                    logger.info("decision point %s: involved_action_uri %r is not a committed "
+                                "Action/Event (category %s); dropped", focus_id, u,
+                                ctx.category_for(u))
 
             canonical = CanonicalDecisionPoint(
-                focus_id=data.get('focus_id', f'DP{i}'),
+                focus_id=focus_id,
                 focus_number=i,
                 description=data.get('description', ''),
                 decision_question=data.get('decision_question', ''),
                 role_uri=(resolved_role_uri := _resolve_uri(data.get('role_label', ''), data.get('role_uri', ''))),
                 role_label=_resolve_role_label(data.get('role_label', ''), resolved_role_uri),
-                obligation_uri=_resolve_uri(data.get('obligation_label'), data.get('obligation_uri', '')),
-                obligation_label=data.get('obligation_label'),
-                constraint_uri=_resolve_uri(data.get('constraint_label'), data.get('constraint_uri', '')),
-                constraint_label=data.get('constraint_label'),
-                # Action slot type-filtered: the LLM intermittently echoes
-                # Constraint/State class URIs or non-action individuals here
-                # (case 57: ScopeOfPracticeCompetenceConstraint,
-                # SupervisoryDirectionState), which silently defeats the
-                # timeline's decision-point nesting -- it matches this slot
-                # against temporal Action_/Event_ individuals. Same category
-                # discipline as the provision-slot filter.
-                involved_action_uris=[
-                    u for u in (data.get('involved_action_uris') or [])
-                    if isinstance(u, str)
-                    and ('#Action_' in u or '#Event_' in u)
-                ],
+                obligation_uri=slots['obligation_uri'],
+                obligation_label=slots['obligation_label'],
+                constraint_uri=slots['constraint_uri'],
+                constraint_label=slots['constraint_label'],
+                additional_obligation_uris=slots['additional_obligation_uris'],
+                additional_obligation_labels=slots['additional_obligation_labels'],
+                competing_obligation_uri=slots['competing_obligation_uri'],
+                competing_obligation_label=slots['competing_obligation_label'],
+                involved_action_uris=involved_actions,
                 provision_uris=data.get('provision_uris', []),
                 provision_labels=provision_labels,
                 toulmin=toulmin,
@@ -793,19 +833,13 @@ C{i}: {c.get('text', c.get('label', ''))}
                 aligned_conclusion_uri=aligned_c.get('uri') if aligned_c else None,
                 aligned_conclusion_text=aligned_c.get('text') if aligned_c else None,
                 addresses_questions=addresses_q,
-                board_resolution=data.get('board_resolution', ''),
-                options=data.get('options', []),
+                board_resolution=board_resolution,
+                options=options,
                 intensity_score=data.get('intensity_score', 0.0),
                 qc_alignment_score=data.get('qc_alignment_score', 0.0),
                 source='unified',
                 source_candidate_ids=data.get('source_candidate_ids', []),
-                # Honest provenance: when composition yields fewer candidates
-                # than the target count, the refinement generates additional
-                # DPs beyond the candidate pool. Those cite no algorithmic
-                # source, so labeling them 'algorithmic+llm' overstated the
-                # grounding (Phase-C census 2026-07-08: 10 of 76).
-                synthesis_method=('algorithmic+llm' if data.get('source_candidate_ids')
-                                  else 'llm_direct'),
+                synthesis_method=synthesis_method,
                 llm_refined_description=data.get('description'),
                 llm_refined_question=data.get('decision_question')
             )
@@ -813,3 +847,168 @@ C{i}: {c.get('text', c.get('label', ''))}
             canonical_points.append(canonical)
 
         return canonical_points
+
+    # -------------------------------------------------------------------
+    # Grounding context (lessons L1, L3, L4)
+    # -------------------------------------------------------------------
+
+    def _dp_grounding_context(self, case_id, top_candidates, conclusions):
+        """The record the parser may trust: committed graph (categories,
+        labels, competition edges), stored temporal rows as the Action/Event
+        fallback, the candidates' typed slots, and the cited provision set.
+        Overridable in tests; never raises."""
+        ctx = None
+        if case_id is not None:
+            try:
+                from app.services.entity.committed_case_graph import load_case_graph
+                ctx = context_from_graph(load_case_graph(case_id), case_id)
+            except Exception as exc:  # noqa: BLE001 - no committed TTL yet
+                logger.info(f"Case-graph lookup unavailable for case {case_id}: {exc}")
+        if ctx is None:
+            ctx = DPGroundingContext(case_id=case_id)
+        if case_id is not None:
+            # The stored Step-3 rows are read beside the committed graph, not
+            # only in its absence: a graph committed before the current Step-3
+            # run (or without its temporal rows) knows none of the new actions,
+            # and the model may echo the extraction-time @id form
+            # (cases/N#Action_X) that only the rows carry. Either case dropped
+            # every such action, the symptom lesson L1 removes. Registration
+            # keeps the graph's category for a URI both sources know.
+            try:
+                add_temporal_rows(ctx, self._load_temporal_rows(case_id), case_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.info(f"Temporal rows unavailable for case {case_id}: {exc}")
+        add_candidates(ctx, top_candidates)
+        codes = []
+        if case_id is not None:
+            try:
+                codes = self._load_cited_provision_codes(case_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.info(f"Cited provisions unavailable for case {case_id}: {exc}")
+        add_cited_provisions(ctx, codes, conclusions)
+        return ctx
+
+    def _load_temporal_rows(self, case_id: int):
+        return TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='temporal_dynamics_enhanced',
+            storage_type='individual').all()
+
+    def _load_cited_provision_codes(self, case_id: int) -> List[str]:
+        """Codes of the References-section provisions stored for the case."""
+        rows = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id, extraction_type='code_provision_reference').all()
+        return [(r.rdf_json_ld or {}).get('codeProvision') or r.entity_label or ''
+                for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers (pure; unit-tested without a synthesizer instance)
+# ---------------------------------------------------------------------------
+
+def board_resolution_for(addresses_q, questions, conclusions):
+    """(aligned Board conclusion, board_resolution text) for a decision point.
+
+    Only board_explicit conclusions that answer an addressed board_explicit
+    question qualify (lesson L2). The text is the conclusions' text verbatim,
+    joined untruncated, and '' when none answers. Generated analysis never
+    enters it."""
+    addressed = {q.get('question_number') if q.get('question_number') is not None else q.get('number')
+                 for q in questions
+                 if q.get('uri') in (addresses_q or []) and is_board_explicit(q, 'Q')}
+    addressed.discard(None)
+    answering = []
+    for c in conclusions or []:
+        if not isinstance(c, dict) or not is_board_explicit(c, 'C'):
+            continue
+        answers = c.get('answersQuestions')
+        if answers is None:
+            answers = c.get('answers_questions')
+        try:
+            nums = {int(a) for a in (answers or [])}
+        except (TypeError, ValueError):
+            nums = set()
+        if addressed & nums:
+            answering.append(c)
+    if not answering:
+        return None, ''
+    text = '\n\n'.join(
+        (c.get('conclusion_text') or c.get('text') or '').strip()
+        for c in answering if (c.get('conclusion_text') or c.get('text'))
+    ).strip()
+    return answering[0], text
+
+
+def resolve_normative_slots(ctx, obligation_label, obligation_uri, constraint_label,
+                            constraint_uri, focus_id=''):
+    """Type-check the obligation and constraint slots against the record and
+    derive the competing pair (lesson L4).
+
+    Returns a dict with obligation_uri/label, constraint_uri/label,
+    additional_obligation_uris/labels and competing_obligation_uri/label.
+    Rules: a Constraint in the obligation slot moves to an empty constraint
+    slot; an Obligation in the constraint slot moves to the obligation list
+    (committed as a second involvesObligation); when committed competesWith /
+    prevailsOver edges exist for the primary obligation, the competing
+    obligation is taken from them (the mis-slotted one is preferred when it is
+    among the competitors), else the mis-slotted obligation is the competitor.
+    Every move is logged. Unknown URIs resolve to '' as before."""
+    obl_uri = ctx.resolve(obligation_label, obligation_uri)
+    con_uri = ctx.resolve(constraint_label, constraint_uri)
+    obl_label = obligation_label
+    con_label = constraint_label
+    extra_uris, extra_labels = [], []
+    competing_uri = competing_label = None
+
+    obl_cat = ctx.category_for(obl_uri) if obl_uri else None
+    con_cat = ctx.category_for(con_uri) if con_uri else None
+
+    if obl_uri and obl_cat and obl_cat != 'Obligation':
+        if obl_cat == 'Constraint' and not con_uri:
+            logger.info("decision point %s: obligation slot holds the Constraint %r; moved to "
+                        "the constraint slot", focus_id, obl_uri)
+            con_uri, con_label = obl_uri, obl_label
+        else:
+            logger.info("decision point %s: obligation slot holds a %s (%r); URI dropped",
+                        focus_id, obl_cat, obl_uri)
+        obl_uri = ''
+
+    if con_uri and con_cat == 'Obligation':
+        logger.info("decision point %s: constraint slot holds the Obligation %r; moved to the "
+                    "obligation list as a second involvesObligation", focus_id, con_uri)
+        if con_uri != obl_uri:
+            extra_uris.append(con_uri)
+            extra_labels.append(con_label or ctx.label_for(con_uri) or '')
+            competing_uri, competing_label = con_uri, (con_label or ctx.label_for(con_uri))
+        con_uri, con_label = None, None
+    elif con_uri and con_cat and con_cat != 'Constraint':
+        logger.info("decision point %s: constraint slot holds a %s (%r); URI dropped",
+                    focus_id, con_cat, con_uri)
+        con_uri = ''
+
+    if obl_uri:
+        committed = [c for c in ctx.competitors_of(obl_uri) if c != obl_uri]
+        if committed:
+            if competing_uri and any(frag(c) == frag(competing_uri) for c in committed):
+                pick = next(c for c in committed if frag(c) == frag(competing_uri))
+            else:
+                pick = committed[0]
+                if competing_uri and frag(pick) != frag(competing_uri):
+                    logger.info("decision point %s: committed competition edges name %r as the "
+                                "competitor of %r (the model named %r); the edges win",
+                                focus_id, pick, obl_uri, competing_uri)
+            competing_uri = pick
+            competing_label = ctx.label_for(pick) or competing_label
+            if pick not in extra_uris and frag(pick) not in {frag(u) for u in extra_uris}:
+                extra_uris.append(pick)
+                extra_labels.append(competing_label or '')
+
+    return {
+        'obligation_uri': obl_uri,
+        'obligation_label': obl_label,
+        'constraint_uri': con_uri,
+        'constraint_label': con_label,
+        'additional_obligation_uris': extra_uris,
+        'additional_obligation_labels': extra_labels,
+        'competing_obligation_uri': competing_uri,
+        'competing_obligation_label': competing_label,
+    }

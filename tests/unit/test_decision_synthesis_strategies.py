@@ -44,7 +44,10 @@ def test_parse_causal_link_response_golden():
             {"option_id": "O1", "label": "Disclose", "description": "tell", "is_board_choice": True},
         ],
     }])
-    questions = [{"uri": "http://q1", "question_text": "What?"}]
+    # question_number 1 marks the question as the Board's (qc_refs
+    # is_board_explicit); an unattributed question would make the point an
+    # analytical extension with no board choice (case 8 review, lesson L3).
+    questions = [{"uri": "http://q1", "question_text": "What?", "question_number": 1}]
     conclusions = [{"uri": "http://c1"}]
 
     out = s._parse_causal_link_response(resp, case_id=1, questions=questions, conclusions=conclusions)
@@ -99,7 +102,8 @@ def test_parse_refinement_response_golden():
         "qc_alignment_score": 0.4,
         "board_resolution": "r",
     }])
-    questions = [{"uri": "http://q0", "text": "q0"}]
+    # number 1 = a Board question (see the causal-link golden above).
+    questions = [{"uri": "http://q0", "text": "q0", "number": 1}]
 
     # empty top_candidates and no case graph -> no label->URI lookup. An
     # LLM-emitted URI is kept ONLY when the case graph knows it; unknown URIs

@@ -12,6 +12,13 @@ Only well-formed dotted codes that match an existing nspe node are mapped.
 Verbose ("NSPE Code of Ethics Section 2"), Model-Law, and BER-case-precedent
 literals are intentionally skipped (they are not NSPE code provisions or are
 ambiguous). Deterministic, no LLM.
+
+establishedBy takes the establishing provision from the dedicated
+``proeth:establishingProvision`` literal (one provision per constraint). The
+``proeth:source`` literal is prose and may cite the canon a constraint limits
+alongside the provision that establishes it (case 8: a constraint "established
+by" I.4), so it feeds the edge only when it carries exactly one dotted code and
+no dedicated literal is present.
 """
 from __future__ import annotations
 
@@ -27,6 +34,9 @@ CORE_CITES_PROVISION = "http://proethica.org/ontology/core#citesProvision"
 # proethica-core; the extraction stores the provision source on Constraint
 # individuals, so the applier below is Constraint-scoped.
 CORE_ESTABLISHED_BY = "http://proethica.org/ontology/core#establishedBy"
+# The dedicated single-provision carrier for establishedBy (the Constraint
+# individual's establishing_provision field, committed as a literal).
+ESTABLISHING_PROVISION = INTERMEDIATE_NS + "establishingProvision"
 # A code resource (Guideline) contains the provisions the case cites for it. containsProvision has
 # domain Guideline, range CodeProvision -- the precise property for resource provision_codes (NOT
 # refersToDocument, whose range is an IAO document, nor citesProvision, which is for analysis).
@@ -173,13 +183,21 @@ def apply_cites_provision_on_ttl(ttl_path) -> int:
 
 
 def apply_established_by_edges(g, resolver: ProvisionCitationResolver) -> int:
-    """Add ``proeth-core:establishedBy nspe:<frag>`` for each dotted NSPE code found
-    in a Constraint individual's ``proeth:source`` literal(s). Returns the number of
-    new edges. Idempotent and ADDITIVE (the source literal is kept). Deliberately
-    emits no prov:Derivation nodes, unlike the LLM-resolved edge families: the
-    mapping is deterministic (dotted code to DB-validated fragment) and the
-    untouched ``proeth:source`` literal on the same subject is the derivation
-    record.
+    """Add ``proeth-core:establishedBy nspe:<frag>`` for the provision that
+    establishes each Constraint individual. Returns the number of new edges.
+    Idempotent and ADDITIVE (the literals are kept). Deliberately emits no
+    prov:Derivation nodes, unlike the LLM-resolved edge families: the mapping is
+    deterministic (dotted code to DB-validated fragment) and the untouched literal
+    on the same subject is the derivation record.
+
+    The establishing provision is read from the dedicated
+    ``proeth:establishingProvision`` literal (one provision: the first resolvable
+    dotted code of each such literal). Without it, the prose ``proeth:source``
+    literal is consulted only when it carries exactly one resolvable code: a
+    source that lists several codes mixes the establishing provision with the
+    canon the constraint limits, and fanning out over all of them made a case-8
+    constraint "established by" the canon it limits (I.4). Such a source yields
+    no edge and is logged.
 
     Endpoint validation: the subject must carry the materialized direct
     ``rdf:type proeth-core:Constraint`` (core declares establishedBy on
@@ -188,20 +206,37 @@ def apply_established_by_edges(g, resolver: ProvisionCitationResolver) -> int:
     the object is validated by DB fragment membership exactly as citesProvision.
     Non-code sources ("State Seal Law", "Local regulations", "NSPE Code of Ethics")
     resolve to nothing and yield no edge. Deterministic, no LLM."""
+    import logging
     from rdflib import RDF, URIRef, Literal
 
+    log = logging.getLogger(__name__)
     established = URIRef(CORE_ESTABLISHED_BY)
     constraint_cls = URIRef(CORE_NS + "Constraint")
     source_pred = URIRef(INTERMEDIATE_NS + "source")
+    dedicated_pred = URIRef(ESTABLISHING_PROVISION)
     new_edges = set()
     for s in g.subjects(RDF.type, constraint_cls):
-        for o in g.objects(s, source_pred):
-            if not isinstance(o, Literal):
-                continue
-            for iri in resolver.resolve_all(str(o)):
-                edge = (s, established, URIRef(iri))
-                if edge not in g:
-                    new_edges.add(edge)
+        dedicated = [o for o in g.objects(s, dedicated_pred) if isinstance(o, Literal)]
+        targets = []
+        for o in dedicated:
+            resolved = resolver.resolve_all(str(o))
+            if resolved:
+                targets.append(resolved[0])
+        if not dedicated:
+            for o in g.objects(s, source_pred):
+                if not isinstance(o, Literal):
+                    continue
+                resolved = resolver.resolve_all(str(o))
+                if len(resolved) == 1:
+                    targets.append(resolved[0])
+                elif len(resolved) > 1:
+                    log.info("establishedBy: source of %s cites %d provisions (%s); no edge "
+                             "without an establishingProvision literal",
+                             str(s).rsplit("#", 1)[-1], len(resolved), str(o)[:80])
+        for iri in targets:
+            edge = (s, established, URIRef(iri))
+            if edge not in g:
+                new_edges.add(edge)
     for e in new_edges:
         g.add(e)
     return len(new_edges)

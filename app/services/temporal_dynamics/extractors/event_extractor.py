@@ -9,7 +9,7 @@ field set (extraction-architecture spec, E section):
 - Causal context (the action that caused the event)
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 import logging
 from datetime import datetime
 
@@ -26,7 +26,8 @@ def extract_events_with_classification(
     case_id: int,
     llm_trace: List[Dict],
     facts_text: str = '',
-    discussion_text: str = ''
+    discussion_text: str = '',
+    state_labels: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Extract events (occurrences, outcomes) with origin classification.
@@ -39,6 +40,8 @@ def extract_events_with_classification(
         llm_trace: List to append LLM interactions to
         facts_text: Raw facts section text (grounding for verbatim text_references)
         discussion_text: Raw discussion section text (grounding for verbatim text_references)
+        state_labels: The case's State individual labels (the closed list for initiates /
+            terminates; empty disables the closed-list check)
 
     Returns:
         List of event dictionaries with classification
@@ -60,7 +63,8 @@ def extract_events_with_classification(
     # Build prompt with action context + raw case text (verbatim-quote grounding)
     prompt = _build_event_extraction_prompt(narrative, temporal_markers, actions,
                                             facts_text=facts_text,
-                                            discussion_text=discussion_text)
+                                            discussion_text=discussion_text,
+                                            state_labels=state_labels)
 
     # Record prompt in trace
     trace_entry = {
@@ -85,11 +89,15 @@ def extract_events_with_classification(
         # Record response in trace
         trace_entry['response'] = response_text
 
-        # Parse JSON response
+        # Parse JSON response, then validate initiates / terminates against the case State
+        # labels and the action / event labels (lesson L8).
         events = _parse_event_response(response_text)
+        from app.services.temporal_dynamics.utils.happening_checks import finalize_events
+        events, check_report = finalize_events(events, actions, state_labels)
 
         trace_entry['parsed_output'] = {
             'event_count': len(events),
+            'fluent_links_dropped': check_report,
         }
 
         # Add token usage if available
@@ -120,9 +128,12 @@ def _build_event_extraction_prompt(
     temporal_markers: Dict,
     actions: List[Dict],
     facts_text: str = '',
-    discussion_text: str = ''
+    discussion_text: str = '',
+    state_labels: Optional[List[str]] = None,
 ) -> str:
     """Build the LLM prompt for event extraction."""
+    from app.services.temporal_dynamics.utils.happening_checks import state_label_block
+    state_block = state_label_block(state_labels)
 
     # Format action context
     action_summary = []
@@ -176,6 +187,8 @@ TYPING (rules the ontology enforces):
 
 EXTRACTION DIRECTIVES (shared across components):
 {directives_block}
+
+{state_block}
 
 For each event, identify:
 

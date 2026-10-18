@@ -396,7 +396,8 @@ _FIELD_REQUIREMENTS: Dict[str, Dict[str, str]] = {
         'individual_required': (
             'identifier, constraint_class, constraint_statement, '
             'applicability_condition, confidence (float 0-1), severity, '
-            'text_references'
+            'establishing_provision (the one dotted NSPE code that establishes '
+            'the prohibition, e.g. "II.1.a"; omit when none), text_references'
         ),
         'match_decision_note': (
             'Every new class MUST include a match_decision object. A constraint is '

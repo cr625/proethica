@@ -30,8 +30,12 @@
       "source": "code-built in analyze_question_batch from the questions list"
     },
     "entities_text": {
-      "description": "Entity subgraph: nodes with definitions plus committed fulfills/violates/guided-by edges in label form",
-      "source": "format_subgraph(foundation.to_entity_dict(), _committed_edges_by_label(case_id))"
+      "description": "Entity subgraph: nodes with definitions plus committed fulfills/violates/guided-by edges in label form (edge targets validated against the extracted labels)",
+      "source": "format_subgraph(foundation.to_entity_dict(), _committed_edges_by_label(case_id, entity_dict))"
+    },
+    "facts_text": {
+      "description": "The Facts section of the case, verbatim; '' when unavailable (the block is then omitted). The chronology of the emergence narrative must follow it",
+      "source": "caller (analyze_question_batch facts_text) or RichAnalyzer._load_facts_text(case_id) (case 8 review lesson L5)"
     },
     "style_formatting_line": {
       "description": "Shared ProEthica no-em-dash output formatting clause",
@@ -43,14 +47,19 @@
 Analyze WHY each ethical question emerged using Toulmin's model.
 
 {{ toulmin_context }}
-
+{% if facts_text %}
+## CASE FACTS (the chronology of the case; the emergence narrative must follow it)
+{{ facts_text }}
+{% endif %}
 ## QUESTIONS TO ANALYZE
 {{ questions_text }}
 
 ## EXTRACTED ENTITIES
 {{ entities_text }}
 
-For EACH question, use exact entity labels from the list above. Output JSON:
+For EACH question, use exact entity labels from the list above.{% if facts_text %} State the
+triggering facts in the order the CASE FACTS give them; do not place a later event before an
+earlier one.{% endif %} Output JSON:
 ```json
 [
   {

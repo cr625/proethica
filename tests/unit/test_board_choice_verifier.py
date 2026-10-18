@@ -45,7 +45,10 @@ def _client(picks):
     return client
 
 
-CONCLUSIONS = [{"conclusion_text": "Engineer A's cursory review was unethical; a full review was required."}]
+# conclusion_number 1 marks a Board conclusion: the verifier reads only
+# board_explicit conclusions (case 8 review, lesson L3).
+CONCLUSIONS = [{"conclusion_number": 1,
+                "conclusion_text": "Engineer A's cursory review was unethical; a full review was required."}]
 
 
 def test_inverted_flag_overridden():

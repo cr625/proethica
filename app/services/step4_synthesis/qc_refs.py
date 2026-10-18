@@ -78,3 +78,76 @@ def key_aliases(refs: List[Dict], kind: str) -> Dict[str, str]:
         out[canon] = canon
         out[f"{canon.split('#')[0]}#{pos}{k}"] = canon
     return out
+
+
+# Board-authored rows are numbered below this base; generated analysis rows
+# start at the category offsets (questions 101/201/301/401, conclusions
+# 101/201/301 -- the number_bases of question_analyzer / conclusion_analyzer).
+GENERATED_NUMBER_BASE = 100
+
+_GENERATED_TYPES = frozenset({
+    'implicit', 'principle_tension', 'theoretical', 'counterfactual',
+    'analytical_extension', 'question_response', 'principle_synthesis',
+})
+
+
+def _number_of(ref: Dict, kind: str):
+    keys = (('number', 'question_number', 'questionNumber') if kind == 'Q'
+            else ('number', 'conclusion_number', 'conclusionNumber'))
+    for key in keys:
+        v = ref.get(key)
+        if v not in (None, ''):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def is_board_explicit(ref: Dict, kind: str = 'C') -> bool:
+    """Whether a question (kind 'Q') or conclusion (kind 'C') dict is a Board
+    record rather than Step-4 generated analysis.
+
+    The explicit type wins when the dict carries one (question_type /
+    questionType / conclusion_type / conclusionType); a dict without a
+    decisive type falls back to the numbering convention (Board rows are
+    numbered below GENERATED_NUMBER_BASE). A dict with neither is NOT Board:
+    the board_resolution, board-choice and Board-heading paths must never
+    treat unattributed text as the Board's (case 8 review, findings B, C, E).
+    """
+    if not isinstance(ref, dict):
+        return False
+    type_keys = (('question_type', 'questionType') if kind == 'Q'
+                 else ('conclusion_type', 'conclusionType'))
+    for key in type_keys:
+        t = ref.get(key)
+        if t:
+            t = str(t).strip().lower()
+            if t == 'board_explicit':
+                return True
+            if t in _GENERATED_TYPES:
+                return False
+            # A legacy or placeholder type ('unknown', 'board') decides by number.
+            break
+    n = _number_of(ref, kind)
+    return n is not None and n < GENERATED_NUMBER_BASE
+
+
+def board_explicit_only(refs: List[Dict], kind: str = 'C') -> List[Dict]:
+    return [r for r in (refs or []) if is_board_explicit(r, kind)]
+
+
+def generated_only(refs: List[Dict], kind: str = 'C') -> List[Dict]:
+    return [r for r in (refs or []) if not is_board_explicit(r, kind)]
+
+
+def ref_type_label(ref: Dict, kind: str = 'C') -> str:
+    """Display tag for a generated record: its category when known, else
+    'generated'."""
+    type_keys = (('question_type', 'questionType') if kind == 'Q'
+                 else ('conclusion_type', 'conclusionType'))
+    for key in type_keys:
+        t = ref.get(key)
+        if t and str(t).strip().lower() in _GENERATED_TYPES:
+            return str(t).strip().lower()
+    return 'generated'

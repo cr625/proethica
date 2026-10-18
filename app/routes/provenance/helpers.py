@@ -1,9 +1,10 @@
-"""Shared module-level constants and non-route helper functions for the provenance pipeline view. The three mapping constants (CONCEPT_ACTIVITY_MAP, PIPELINE_STRUCTURE, ENTITY_COLORS) plus the eight _-prefixed extraction/provenance helpers used by get_case_pipeline. The helpers call each other (e.g. _get_extraction_data->_entity_field_groups + _get_provenance_for_prompt; _get_provenance_for_prompt->_determine_origin; _build_algorithmic_trace->_parse_results_summary) and read CONCEPT_ACTIVITY_MAP/PIPELINE_STRUCTURE/ENTITY_COLORS, so they stay together at module level. Imported by pipeline_routes.py."""
+"""Shared module-level constants and non-route helper functions for the provenance pipeline view. The three mapping constants (CONCEPT_ACTIVITY_MAP, PIPELINE_STRUCTURE, ENTITY_COLORS) plus the _-prefixed extraction/provenance helpers used by get_case_pipeline, and the pure functions behind the card surfaces (truncation_limit, group_consolidation_by_run). The helpers call each other (e.g. _get_extraction_data->_entity_field_groups + _get_provenance_for_prompt; _get_provenance_for_prompt->_determine_origin; _build_algorithmic_trace->_parse_results_summary) and read CONCEPT_ACTIVITY_MAP/PIPELINE_STRUCTURE/ENTITY_COLORS, so they stay together at module level. Imported by pipeline_routes.py."""
 import logging
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 from sqlalchemy import desc, func, text
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,11 @@ PIPELINE_STRUCTURE = {
         {'phase': '4', 'name': 'Narrative Construction', 'concept_type': 'phase4_narrative'}
     ],
     'step4_color': '#64748b',  # Slate
-    'passes': ['facts', 'discussion']
+    'passes': ['facts', 'discussion'],
+    # Section headers of the steps 1-2 passes. Named by the section, not by a pass
+    # number: the case page resolver (unified_entity_resolver.PASS_MAP) uses "Pass N"
+    # for the STEP number, so "Pass 1 (Facts)" read as a conflicting numbering.
+    'pass_names': {'facts': 'Facts pass', 'discussion': 'Discussion pass'},
 }
 
 
@@ -86,8 +91,11 @@ ENTITY_COLORS = {
 def _entity_field_groups(rdf_json_ld: dict) -> dict:
     """Partition an entity's emitted fields into structural relations vs kept literal
     extractions for the provenance display, using the field_classification source of
-    truth. Returns {relations: [{p, v}], literals: [{p, v, kind}], derived: [{p, v}]}
-    with short, JS-ready predicate locals + stringified values."""
+    truth. Returns {relations: [{p, v}], literals: [{p, v, kind}], derived: [{p, v}],
+    typed_as: {types: [local], parent: local|None}} with short, JS-ready predicate
+    locals + stringified values. ``typed_as`` carries the storage wrapper's type anchors
+    (the individual's rdf:type classes, the class's parent), which the card renders as its
+    own "typed as" line rather than as literal extractions."""
     from app.services.extraction.field_classification import group_properties, FieldKind
 
     def _fmt(v):
@@ -100,7 +108,12 @@ def _entity_field_groups(rdf_json_ld: dict) -> dict:
     def _local(p):
         return p.split('#')[-1].split('/')[-1].split(':')[-1]
 
-    groups = group_properties(rdf_json_ld or {})
+    data = rdf_json_ld if isinstance(rdf_json_ld, dict) else {}
+    groups = group_properties(data)
+    types = data.get('types') or []
+    if isinstance(types, str):
+        types = [types]
+    parent = data.get('parent')
     return {
         'relations': [{'p': _local(p), 'v': _fmt(v)} for p, v in groups[FieldKind.RELATION.value]],
         'literals': (
@@ -108,6 +121,10 @@ def _entity_field_groups(rdf_json_ld: dict) -> dict:
             + [{'p': _local(p), 'v': _fmt(v), 'kind': 'assessment'} for p, v in groups[FieldKind.ASSESSMENT.value]]
         ),
         'derived': [{'p': _local(p), 'v': _fmt(v)} for p, v in groups[FieldKind.DERIVED.value]],
+        'typed_as': {
+            'types': [_local(str(t)) for t in types if t],
+            'parent': _local(str(parent)) if parent else None,
+        },
     }
 
 
@@ -169,7 +186,8 @@ def _get_extraction_data(case_id: int, step_number: int, section_type: str, conc
             'model': prompt.llm_model,
             'created_at': prompt.created_at.isoformat() if prompt.created_at else None,
             'results_summary': prompt.results_summary,
-            'session_id': prompt.extraction_session_id
+            'session_id': prompt.extraction_session_id,
+            'truncation': _stored_text_truncation(prompt),
         } if prompt else None,
         'entities': section_entities,
         'entity_count': len(section_entities),
@@ -398,7 +416,8 @@ def _get_step4_phase_data(case_id: int, phase_def: dict) -> dict:
             'model': prompt.llm_model,
             'created_at': prompt.created_at.isoformat() if prompt.created_at else None,
             'results_summary': prompt.results_summary if isinstance(prompt.results_summary, dict) else None,
-            'session_id': prompt.extraction_session_id
+            'session_id': prompt.extraction_session_id,
+            'truncation': _stored_text_truncation(prompt),
         } if prompt else None,
         'entities': entities,
         'entity_count': len(entities),
@@ -546,18 +565,24 @@ def _build_algorithmic_trace(case_id: int, concept_type: str, prompt) -> dict:
 
 
 def _get_provenance_for_prompt(case_id, concept_type, prompt):
-    """Look up W3C provenance metadata for an extraction prompt.
+    """Look up the PROV-O activity recorded for an extraction prompt.
 
-    Matches via session_id + activity_name pattern. Falls back to
-    case_id + activity_name when session_id is unavailable.
+    The match is by the prompt's extraction session id: first together with the
+    concept-specific activity name (CONCEPT_ACTIVITY_MAP), then any activity of that
+    session and case. There is no fallback by case id and activity name alone. Such a
+    match borrowed the activity of an unrelated earlier run whenever the model call
+    behind the prompt had not been recorded (case 24-1 review, 2026-10: a prompt of
+    2026-07-07 shown with the agent, duration and origin of an activity of 2026-02-18),
+    so a prompt without a session match returns None and the card shows the prompt's
+    own date and model with the duration not recorded.
     """
-    if not prompt:
+    if not prompt or not prompt.extraction_session_id:
         return None
 
     activity_name = CONCEPT_ACTIVITY_MAP.get(concept_type)
 
     activity = None
-    if prompt.extraction_session_id and activity_name:
+    if activity_name:
         # Primary match: session_id + concept-specific activity
         activity = ProvenanceActivity.query.filter_by(
             case_id=case_id,
@@ -565,18 +590,11 @@ def _get_provenance_for_prompt(case_id, concept_type, prompt):
             activity_name=activity_name
         ).order_by(ProvenanceActivity.started_at.desc()).first()
 
-    if not activity and prompt.extraction_session_id:
-        # Fallback: any activity in this session for this case
+    if not activity:
+        # Secondary match: any activity in this session for this case
         activity = ProvenanceActivity.query.filter_by(
             case_id=case_id,
             session_id=prompt.extraction_session_id
-        ).order_by(ProvenanceActivity.started_at.desc()).first()
-
-    if not activity and activity_name:
-        # Last resort: match by case + activity name, closest to prompt timestamp
-        activity = ProvenanceActivity.query.filter_by(
-            case_id=case_id,
-            activity_name=activity_name
         ).order_by(ProvenanceActivity.started_at.desc()).first()
 
     if not activity:
@@ -598,12 +616,21 @@ def _get_provenance_for_prompt(case_id, concept_type, prompt):
     }
 
 
+ORIGINS = ('automated_pipeline', 'user_initiated', 'individual_extraction', 'algorithmic')
+
+
 def _determine_origin(activity):
     """Classify extraction origin from activity metadata.
 
-    Returns one of: automated_pipeline, user_initiated,
-    individual_extraction, algorithmic.
+    An origin the recorder stored explicitly (activity_metadata['origin'], written by
+    the Celery extraction path for its llm_query activities) wins; otherwise the
+    activity name and type heuristics apply. Returns one of: automated_pipeline,
+    user_initiated, individual_extraction, algorithmic.
     """
+    meta = activity.activity_metadata if isinstance(activity.activity_metadata, dict) else {}
+    if meta.get('origin') in ORIGINS:
+        return meta['origin']
+
     name = activity.activity_name or ''
 
     if 'entities_pass' in name or 'normative_pass' in name or 'temporal_pass' in name:
@@ -613,3 +640,136 @@ def _determine_origin(activity):
     if 'dual_' in name or '_extraction' in name:
         return 'user_initiated'
     return 'user_initiated'
+
+
+# Round storage limits at which a stored prompt or response was once sliced
+# (``text[:10000]`` in the step 4 writers until commit 35a80006, 2026-07-11; the larger
+# values cover the same pattern at other round sizes). A stored text whose length equals
+# one of them is flagged as truncated on the card: the remainder was never kept.
+STORED_TEXT_LIMITS = (10000, 20000, 50000)
+
+# The marker the phase 4 narrative writers appended after slicing a joined prompt
+# (``text[:9950] + "\n... [truncated]"``, removed by the same commit). A stored text
+# that ends with it was cut at the length before the marker.
+TRUNCATION_MARKER = "\n... [truncated]"
+
+
+def truncation_limit(text) -> Optional[int]:
+    """The length at which a stored text was cut by a storage slice, or None: a length
+    that equals a round limit exactly, or the length before the truncation marker."""
+    if not isinstance(text, str):
+        return None
+    if text.endswith(TRUNCATION_MARKER):
+        return len(text) - len(TRUNCATION_MARKER)
+    return len(text) if len(text) in STORED_TEXT_LIMITS else None
+
+
+def _stored_text_truncation(prompt) -> dict:
+    """Truncation flags of an extraction_prompts row: {prompt: limit|None, response: limit|None}."""
+    return {
+        'prompt': truncation_limit(getattr(prompt, 'prompt_text', None)),
+        'response': truncation_limit(getattr(prompt, 'raw_response', None)),
+    }
+
+
+# The largest distance between an activity recorded without a run id and the pipeline
+# run it belongs to. Distinct runs of one case are typically days apart.
+CONSOLIDATION_RUN_GAP = timedelta(hours=6)
+
+# Activity types recorded while the steps 1 and 2 extractions run, before the first
+# run-scoped pass of their run: the extractor's filters (no session id) and the storage
+# dedup passes (merge, and the designator-guard filter, both recorded with the extraction
+# session id of one concept pass). They attach forward to the run that starts after them;
+# every other unscoped type is a commit-time pass and attaches backward.
+EXTRACTION_TIME_TYPES = frozenset({'filter', 'merge'})
+
+
+def group_consolidation_by_run(rows, gap: timedelta = CONSOLIDATION_RUN_GAP,
+                               run_ids=None) -> list:
+    """Group consolidation-and-commit activities into pipeline runs.
+
+    ``rows`` are dicts with ``session_id`` and ``started_at`` (datetime); other keys pass
+    through. A row is run-scoped when its session id names a pipeline run: with
+    ``run_ids`` (the PipelineRun ids of the case, as strings, the ids the pipeline passes
+    record through _record_pass) only those session ids count; without it any session id
+    does. Run-scoped activities form one run per run id. Every other activity is attached
+    to a run by time: the extraction-time passes (EXTRACTION_TIME_TYPES) run before the
+    first run-scoped pass of their run, so they attach forward to the nearest run starting
+    after them; the commit-time passes (edge materialization, guard, conformance check,
+    repair) conclude a run, so they attach backward to the nearest run ending before them.
+    An activity inside a run's window attaches to it. Activities no run lies within
+    ``gap`` of are clustered by ``gap`` into runs of their own (a commit made outside a
+    recorded pipeline run, or an extraction that never reached a run-scoped pass).
+
+    Returns runs newest first, each {session_id, started_at, ended_at, activity_count,
+    activities} with the activities in chronological order."""
+    rows = [r for r in rows if r.get('started_at') is not None]
+    chronological = sorted(rows, key=lambda r: r['started_at'])
+
+    def _run_id(r):
+        session_id = r.get('session_id')
+        if not session_id:
+            return None
+        if run_ids is not None and str(session_id) not in run_ids:
+            return None
+        return session_id
+
+    runs = {}
+    for r in chronological:
+        run_id = _run_id(r)
+        if run_id is None:
+            continue
+        run = runs.setdefault(run_id, {
+            'session_id': run_id,
+            'started_at': r['started_at'],
+            'ended_at': r['started_at'],
+            'activities': [],
+        })
+        run['activities'].append(r)
+        run['ended_at'] = max(run['ended_at'], r['started_at'])
+
+    leftovers = []
+    for r in chronological:
+        if _run_id(r) is not None:
+            continue
+        t = r['started_at']
+        best, best_distance = None, None
+        for run in runs.values():
+            if run['started_at'] <= t <= run['ended_at']:
+                distance = timedelta(0)
+            elif r.get('activity_type') in EXTRACTION_TIME_TYPES:
+                distance = run['started_at'] - t if t < run['started_at'] else None
+            else:
+                distance = t - run['ended_at'] if t > run['ended_at'] else None
+            if distance is not None and distance <= gap and (best_distance is None or distance < best_distance):
+                best, best_distance = run, distance
+        if best is None:
+            leftovers.append(r)
+        else:
+            best['activities'].append(r)
+
+    clusters = []
+    for r in leftovers:
+        if clusters and r['started_at'] - clusters[-1]['ended_at'] <= gap:
+            clusters[-1]['activities'].append(r)
+            clusters[-1]['ended_at'] = r['started_at']
+        else:
+            clusters.append({
+                'session_id': None,
+                'started_at': r['started_at'],
+                'ended_at': r['started_at'],
+                'activities': [r],
+            })
+
+    grouped = []
+    for run in list(runs.values()) + clusters:
+        activities = sorted(run['activities'], key=lambda r: r['started_at'])
+        grouped.append({
+            'session_id': run['session_id'],
+            'started_at': activities[0]['started_at'],
+            'ended_at': activities[-1]['started_at'],
+            'activity_count': len(activities),
+            'activities': activities,
+        })
+    grouped.sort(key=lambda g: g['started_at'], reverse=True)
+    return grouped

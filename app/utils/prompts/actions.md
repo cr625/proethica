@@ -19,7 +19,8 @@ Actions are extracted as case individuals only. This pass mints NO action classe
 - Capture the intention behind each action (Doctrine of Double Effect): mental state, intended outcome, foreseen unintended effects, agent knowledge.
 - Name obligations and principles using the SAME names they carry elsewhere in the case (the obligation/principle individuals already extracted), not fresh paraphrases; they are resolved downstream to the actual individuals (Action fulfillsObligation / violatesObligation / guidedByPrinciple edges). Do NOT list constraints or competing obligation pairs; constraint activation is carried by the State an action initiates, and obligation competition by the case's defeasibility edges.
 - Each guiding_principles entry must name a Principle extracted for this case (a label match to one of the case's principle individuals). When an extracted principle plausibly guided the action, name it here; most deliberate professional actions are guided by at least one of the case's principles. A motive, goal, or adverb such as "Speed", "Efficiency", or "Meeting the deadline" is NOT a principle and is invalid; use an empty list only when no extracted principle applies.
-- initiates / terminates name the STATES (fluents) the action brings into or out of holding (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017), using the same state names used elsewhere in the case. An action must not terminate a state it initiates: never list the same state in both; if a state would appear in both, keep it only in initiates.
+- initiates / terminates name the STATES (fluents) the action brings into or out of holding (Event Calculus; Kowalski & Sergot 1986, Berreby et al. 2017), using the same state names used elsewhere in the case. They name State labels of this case ONLY (the CASE STATE LABELS list when one is supplied is a closed list); a label equal to an Action or Event label is invalid and is dropped. An action must not terminate a state it initiates: never list the same state in both; if a state would appear in both, keep it only in initiates.
+- modality distinguishes a PERFORMED act from a PRESCRIBED one. "performed" when the case narrates the agent doing (or omitting) the act; "prescribed" when the act is one the Board says the agent must, must not, or cannot ethically do (a holding stated in the discussion, e.g. "cannot ethically acquiesce"). A prescribed act is never recorded as a performed Action with a present-tense temporal_marker such as "present" or "ongoing"; give it the holding's temporal frame or leave temporal_marker empty.
 - text_references are verbatim quotes from the case text grounding this action: each an EXACT contiguous span copied from the case text, never a paraphrase, summary, or stitched fragment.
 
 **APPORTIONMENT RULE:**
@@ -40,6 +41,7 @@ Each extracted item is a JSON object:
     "description": "1-2 sentences with the case-specific detail",
     "agent": "Person and role",
     "temporal_marker": "When it occurred",
+    "modality": "performed or prescribed (performed: the case narrates the act; prescribed: the Board says the agent must, must not, or cannot ethically do it)",
     "source_section": "facts or discussion",
     "intention": {
       "mental_state": "deliberate/negligent/etc.",

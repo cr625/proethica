@@ -381,3 +381,248 @@ class TestPassMapping:
         assert UnifiedEntityResolver.PASS_MAP['ethical_question'] == 4
         assert UnifiedEntityResolver.PASS_MAP['ethical_conclusion'] == 4
         assert UnifiedEntityResolver.PASS_MAP['causal_normative_link'] == 4
+
+
+class TestOntServeRowSelection:
+    """Category-inventory rows: case ontology and placeholder rows are skipped,
+    a definitional ontology wins a shared URI (review of case 24-1, defect A)."""
+
+    ENGINEER = 'http://proethica.org/ontology/intermediate#Engineer'
+    PRECEDENT = 'http://proethica.org/ontology/intermediate#CasePrecedent'
+
+    @staticmethod
+    def _fake_client(rows_by_method):
+        client = MagicMock()
+        for method in ('get_all_role_entities', 'get_all_state_entities', 'get_all_resource_entities',
+                       'get_all_principle_entities', 'get_all_obligation_entities',
+                       'get_all_constraint_entities', 'get_all_capability_entities',
+                       'get_all_action_entities', 'get_all_event_entities'):
+            getattr(client, method).return_value = rows_by_method.get(method, [])
+        return client
+
+    def _fetch(self, rows_by_method):
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
+
+        UnifiedEntityResolver.clear_ontserve_cache()
+        try:
+            with patch('app.services.ontserve.external_mcp_client.get_external_mcp_client',
+                       return_value=self._fake_client(rows_by_method)):
+                return UnifiedEntityResolver(case_id=None)._get_ontserve_entities()
+        finally:
+            UnifiedEntityResolver.clear_ontserve_cache()
+
+    def test_case_ontology_placeholder_row_is_skipped(self):
+        """intermediate#Engineer is declared only by proethica-case-112 with the
+        placeholder description, so the bare word never enters the lookup."""
+        entities = self._fetch({'get_all_role_entities': [{
+            'uri': self.ENGINEER, 'label': 'Engineer',
+            'description': 'Ontology class for Role', 'source': 'proethica-case-112',
+        }]})
+        assert self.ENGINEER not in entities
+
+    def test_placeholder_row_from_a_definitional_ontology_is_skipped_too(self):
+        entities = self._fetch({'get_all_role_entities': [{
+            'uri': self.ENGINEER, 'label': 'Engineer',
+            'description': 'Ontology class for Role', 'source': 'proethica-intermediate',
+        }]})
+        assert self.ENGINEER not in entities
+
+    @pytest.mark.parametrize('reverse', [False, True])
+    def test_definition_bearing_row_wins_a_shared_uri_in_either_order(self, reverse):
+        rows = [
+            {'uri': self.PRECEDENT, 'label': 'Case Precedent',
+             'description': 'Ontology class for Resource', 'source': 'proethica-case-8'},
+            {'uri': self.PRECEDENT, 'label': 'Case Precedent',
+             'description': 'A prior Board opinion the discussion relies on.',
+             'source': 'proethica-intermediate'},
+        ]
+        if reverse:
+            rows.reverse()
+        entities = self._fetch({'get_all_resource_entities': rows})
+        entry = entities[self.PRECEDENT]
+        assert entry['definition'] == 'A prior Board opinion the discussion relies on.'
+        assert entry['ontology_target'] == 'proethica-intermediate'
+        assert entry['ontserve_path'] == '/entity/proethica-intermediate/CasePrecedent'
+
+    @pytest.mark.parametrize('reverse', [False, True])
+    def test_definitional_ontology_outranks_a_described_domain_row(self, reverse):
+        rows = [
+            {'uri': self.PRECEDENT, 'label': 'Case Precedent',
+             'description': 'Domain-level note.', 'source': 'engineering-ethics'},
+            {'uri': self.PRECEDENT, 'label': 'Case Precedent',
+             'description': 'A prior Board opinion the discussion relies on.',
+             'source': 'proethica-intermediate'},
+        ]
+        if reverse:
+            rows.reverse()
+        entities = self._fetch({'get_all_resource_entities': rows})
+        assert entities[self.PRECEDENT]['definition'] == 'A prior Board opinion the discussion relies on.'
+
+    def test_extended_store_row_keeps_its_ontology_target(self):
+        uri = 'http://proethica.org/ontology/intermediate#FaithfulAgentObligation'
+        entities = self._fetch({'get_all_obligation_entities': [{
+            'uri': uri, 'label': 'Faithful Agent Obligation',
+            'description': 'The duty to act for each employer or client as a faithful agent.',
+            'source': 'proethica-intermediate-extended',
+        }]})
+        assert entities[uri]['ontology_target'] == 'proethica-intermediate-extended'
+        assert entities[uri]['ontserve_path'] == '/entity/proethica-intermediate-extended/FaithfulAgentObligation'
+
+    def test_row_without_source_defaults_to_intermediate(self):
+        uri = 'http://proethica.org/ontology/intermediate#DutyOfCare'
+        entities = self._fetch({'get_all_obligation_entities': [{
+            'uri': uri, 'label': 'Duty of Care', 'description': 'Professional duty.',
+        }]})
+        assert entities[uri]['ontology_target'] == 'proethica-intermediate'
+
+    def test_rank_helper(self):
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver as R
+
+        assert R._ontserve_row_rank({'source': 'proethica-case-8', 'description': 'Real text.'}) is None
+        assert R._ontserve_row_rank({'source': 'proethica-core', 'description': 'ontology class for Role.'}) is None
+        # third element: the ontology owns the URI namespace (review fix, tests/unit/test_annotation_layer_review.py)
+        assert R._ontserve_row_rank({'source': 'proethica-core', 'description': 'Real text.'}) == (True, True, False)
+        assert R._ontserve_row_rank({'source': 'engineering-ethics', 'description': 'Real text.'}) == (False, True, False)
+        assert R._ontserve_row_rank({'source': 'engineering-ethics', 'description': ''}) == (False, False, False)
+
+
+class TestProvisionAndCitationKeys:
+    """Label index keys added for the case page scanner (review of case 24-1,
+    defects B and D)."""
+
+    def _index(self, case_entities):
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
+
+        with patch.object(UnifiedEntityResolver, '_get_ontserve_entities', return_value={}), \
+                patch.object(UnifiedEntityResolver, '_get_case_entities', return_value=case_entities):
+            resolver = UnifiedEntityResolver(case_id=8)
+            resolver.get_lookup_dict()
+            return resolver.get_label_index()
+
+    def test_provision_label_indexed_with_and_without_trailing_period(self):
+        index = self._index({
+            'http://proethica.org/ontology/case/8#III.1.b.': {
+                'label': 'III.1.b.', 'definition': 'Engineers shall advise their clients.',
+                'entity_type': 'CodeProvisionReference', 'extraction_type': 'code_provision_reference',
+                'source_pass': 4, 'uri': 'http://proethica.org/ontology/case/8#III.1.b.',
+            }
+        })
+        assert index['iii.1.b.']['label'] == 'III.1.b.'
+        assert index['iii.1.b'] is index['iii.1.b.']
+
+    def test_cited_case_indexed_as_cited(self):
+        index = self._index({
+            'http://proethica.org/ontology/case/8#BER_Case_76-4': {
+                'label': 'BER Case 76-4', 'definition': 'Foundational precedent.',
+                'entity_type': 'Resource', 'extraction_type': 'resources',
+                'source_pass': 1, 'uri': 'http://proethica.org/ontology/case/8#BER_Case_76-4',
+            }
+        })
+        assert index['case 76-4'] is index['ber case 76-4']
+
+    def test_case_key_is_not_displaced_by_an_ontology_entry(self):
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
+
+        ontology = {'http://proethica.org/ontology/intermediate#III_1_b': {
+            'label': 'III.1.b', 'definition': 'Ontology provision text.',
+            'entity_type': 'resources', 'extraction_type': 'resources',
+            'uri': 'http://proethica.org/ontology/intermediate#III_1_b',
+        }}
+        case = {'http://proethica.org/ontology/case/8#III.1.b.': {
+            'label': 'III.1.b.', 'definition': 'Case provision text.',
+            'entity_type': 'CodeProvisionReference', 'extraction_type': 'code_provision_reference',
+            'source_pass': 4, 'uri': 'http://proethica.org/ontology/case/8#III.1.b.',
+        }}
+        with patch.object(UnifiedEntityResolver, '_get_ontserve_entities', return_value=ontology), \
+                patch.object(UnifiedEntityResolver, '_get_case_entities', return_value=case):
+            resolver = UnifiedEntityResolver(case_id=8)
+            resolver.get_lookup_dict()
+            index = resolver.get_label_index()
+        assert index['iii.1.b']['source'] == 'case'
+
+
+class TestActorBoundAliases:
+    """Text-grounded aliases are grounded by sentences that name the entity's
+    actor (review of case 24-1, defect E)."""
+
+    ROLE_URI = 'http://proethica.org/ontology/case/8#Engineer_L_Faithful_Agent'
+    DUTY_URI = 'http://proethica.org/ontology/case/8#Engineer_L_Faithful_Agent_Duty'
+    STATE_URI = 'http://proethica.org/ontology/case/8#Public_Safety_Faithful_Agent_Conflict'
+
+    def _entities(self):
+        canon = ("the present case illustrates a conflict between Fundamental Canon I.1, the engineer's "
+                 "obligation to hold paramount the safety, health and welfare of the public; and Canon I.4, "
+                 "the engineer's obligation to act for each employer or client as a faithful agent or trustee")
+        own = ("Beyond the fact limitation, under Fundamental Canon I.4, Engineer L has an affirmative "
+               "obligation to act as the client's faithful agent or trustee.")
+        return {
+            self.ROLE_URI: {
+                'label': 'Engineer L Faithful Agent', 'definition': 'Role definition.',
+                'entity_type': 'Role', 'extraction_type': 'roles', 'source_pass': 1,
+                'uri': self.ROLE_URI, 'text_references': [own],
+            },
+            self.DUTY_URI: {
+                'label': 'Engineer L Faithful Agent Duty', 'definition': 'Duty definition.',
+                'entity_type': 'Obligation', 'extraction_type': 'obligations', 'source_pass': 2,
+                'uri': self.DUTY_URI, 'text_references': [own],
+            },
+            self.STATE_URI: {
+                'label': 'Public Safety Faithful Agent Conflict', 'definition': 'State definition.',
+                'entity_type': 'State', 'extraction_type': 'states', 'source_pass': 1,
+                'uri': self.STATE_URI, 'text_references': [canon],
+            },
+        }
+
+    def _index(self, case_entities):
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
+
+        with patch.object(UnifiedEntityResolver, '_get_ontserve_entities', return_value={}), \
+                patch.object(UnifiedEntityResolver, '_get_case_entities', return_value=case_entities):
+            resolver = UnifiedEntityResolver(case_id=8)
+            resolver.get_lookup_dict()
+            return resolver.get_label_index()
+
+    def test_alias_carries_its_actor_and_drops_the_generic_quotation(self):
+        index = self._index(self._entities())
+        alias = index['faithful agent']
+        assert alias['alias_actors'] == ['Engineer L']
+        assert {e['uri'] for e in alias['alias_entities']} == {self.ROLE_URI, self.DUTY_URI}
+
+    def test_alias_from_sentences_about_someone_else_is_not_grounded(self):
+        entities = self._entities()
+        recap = ('In BER Case 76-4, Engineer Doe acted as a faithful agent of the client '
+                 'when he withheld the findings.')
+        entities[self.ROLE_URI]['text_references'] = [recap]
+        entities[self.DUTY_URI]['text_references'] = [recap]
+        index = self._index(entities)
+        assert 'faithful agent' not in index
+
+    def test_exact_reference_grounds_an_entity_without_an_actor(self):
+        entities = self._entities()
+        entities[self.STATE_URI]['text_references'] = ['Faithful Agent']
+        index = self._index(entities)
+        assert self.STATE_URI in {e['uri'] for e in index['faithful agent']['alias_entities']}
+
+    def test_actor_label_derivation(self):
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver as R
+
+        agents = ['Board of Ethical Review', 'Engineer L', 'Client X']
+        assert R._actor_label('Engineer L Faithful Agent Duty', agents) == 'Engineer L'
+        assert R._actor_label('Board of Ethical Review Adjudicator', agents) == 'Board of Ethical Review'
+        assert R._actor_label('Public Safety Faithful Agent Conflict', agents) == ''
+        # no Agent individuals (working store): the label's own designator
+        assert R._actor_label('Engineer A Engineer in Responsible Charge', []) == 'Engineer A'
+        assert R._actor_label('Engineer Doe Design Engineer', []) == 'Engineer Doe'
+        assert R._actor_label('Client W Project Owner', []) == 'Client W'
+        assert R._actor_label('Public Safety Faithful Agent Conflict', []) == ''
+
+    def test_phrase_grounding_rule(self):
+        from app.services.entity.unified_entity_resolver import UnifiedEntityResolver as R
+
+        refs = ['Engineer L acted as a faithful agent. The client refused.']
+        sentences = R._reference_sentences(refs)
+        assert sentences == ['Engineer L acted as a faithful agent.', 'The client refused.']
+        assert R._phrase_grounded('faithful agent', 'Engineer L', refs, sentences)
+        assert not R._phrase_grounded('faithful agent', 'Engineer Doe', refs, sentences)
+        assert not R._phrase_grounded('faithful agent', '', refs, sentences)
+        assert R._phrase_grounded('faithful agent', '', ['Faithful Agent'], ['Faithful Agent'])

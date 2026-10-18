@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, Optional
 
-from rdflib import Graph, RDFS, URIRef
+from rdflib import Graph, OWL, RDF, RDFS, SKOS, URIRef
 
 from app.services.ontserve.ontserve_config import get_ontserve_base_path
 
@@ -193,12 +193,128 @@ class RoleAxisResolver(CategoryResolver):
         return out
 
 
+class ClassHierarchyIndex:
+    """Lazily-built asserted rdfs:subClassOf* closure plus extended-store
+    definitions over the curated tiers.
+
+    Answers the two questions the merge-stage canonicalization guard asks that
+    CategoryResolver (core category only) and RoleAxisResolver (occupational
+    axis only) cannot: whether one class is a STRICT specialization of another,
+    and what definition the extended store already attaches to an IRI. The
+    extended store (proethica-intermediate-extended) is where earlier
+    extractions mint their case-specific classes, so a canonicalization that
+    lands on an extended IRI carrying a different definition would put two
+    concepts on one IRI (the case-8 RegulatoryComplianceObligation collision).
+    A class the immutable base (core + intermediate) declares is a curated
+    reuse target and never counts as a collision, so extended_definition()
+    returns None for it.
+
+    Keyed by local name like the sibling resolvers. Same TTL tiers, same lazy
+    single parse per instance.
+    """
+
+    def __init__(self, ontologies_dir=None):
+        self._ontologies_dir = ontologies_dir
+        self._parents: Optional[Dict[str, set]] = None
+        self._base_classes: Optional[set] = None
+        self._extended_defs: Optional[Dict[str, str]] = None
+
+    def _dir(self):
+        if self._ontologies_dir is None:
+            self._ontologies_dir = get_ontserve_base_path() / "ontologies"
+        return self._ontologies_dir
+
+    @staticmethod
+    def _local(ref) -> str:
+        return CategoryResolver._local_name(str(ref))
+
+    def _build(self) -> None:
+        ontologies_dir = self._dir()
+        parents: Dict[str, set] = {}
+        base_classes: set = set()
+        extended_defs: Dict[str, str] = {}
+        for fname in _FOUNDATION_TTLS:
+            p = ontologies_dir / fname
+            if not p.exists():
+                continue
+            g = Graph()
+            try:
+                g.parse(str(p), format="turtle")
+            except Exception as e:
+                logger.warning(
+                    "Could not parse %s for class-hierarchy index: %s", fname, e
+                )
+                continue
+            for sub, sup in g.subject_objects(RDFS.subClassOf):
+                if isinstance(sub, URIRef) and isinstance(sup, URIRef):
+                    parents.setdefault(self._local(sub), set()).add(self._local(sup))
+            is_extended = fname == "proethica-intermediate-extended.ttl"
+            for cls in g.subjects(RDF.type, OWL.Class):
+                if not isinstance(cls, URIRef):
+                    continue
+                local = self._local(cls)
+                if not is_extended:
+                    base_classes.add(local)
+                    continue
+                text = g.value(cls, SKOS.definition) or g.value(cls, RDFS.comment)
+                if text:
+                    extended_defs[local] = str(text)
+        self._parents = parents
+        self._base_classes = base_classes
+        self._extended_defs = extended_defs
+        logger.info(
+            "Loaded class-hierarchy index: %d subclass subjects, %d base classes, "
+            "%d extended definitions", len(parents), len(base_classes), len(extended_defs)
+        )
+
+    def _ensure(self) -> None:
+        if self._parents is None:
+            self._build()
+
+    def is_strict_subclass(self, sub, sup) -> bool:
+        """True when ``sub`` reaches ``sup`` through one or more asserted
+        rdfs:subClassOf edges in the curated tiers. A class is not a strict
+        subclass of itself, and an unknown class reaches nothing."""
+        if not sub or not sup:
+            return False
+        self._ensure()
+        target = self._local(sup)
+        start = self._local(sub)
+        if not target or start == target:
+            return False
+        seen, stack = set(), [start]
+        while stack:
+            c = stack.pop()
+            if c in seen:
+                continue
+            seen.add(c)
+            for parent in self._parents.get(c, ()):
+                if parent == target:
+                    return True
+                stack.append(parent)
+        return False
+
+    def extended_definition(self, cls) -> Optional[str]:
+        """The skos:definition (else rdfs:comment) the extended store attaches
+        to ``cls``, or None when the class is unknown, undefined there, or
+        declared in the immutable base."""
+        if not cls:
+            return None
+        self._ensure()
+        local = self._local(cls)
+        if local in self._base_classes:
+            return None
+        return self._extended_defs.get(local)
+
+
 # Module-level singleton so the (relatively expensive) TTL parse happens once
 # per process. Callers that need an isolated map (tests) can construct their own
 # CategoryResolver instance.
 _resolver: Optional[CategoryResolver] = None
 
 _axis_resolver: Optional[RoleAxisResolver] = None
+
+_hierarchy_index: Optional[ClassHierarchyIndex] = None
 
 
 def get_resolver() -> CategoryResolver:
@@ -234,3 +350,23 @@ def resolve_role_axis(class_local_name_or_uri: str) -> Optional[str]:
     rdfs:subClassOf* chain to either head in the curated tiers.
     """
     return get_axis_resolver().resolve(class_local_name_or_uri)
+
+
+def get_hierarchy_index() -> ClassHierarchyIndex:
+    global _hierarchy_index
+    if _hierarchy_index is None:
+        _hierarchy_index = ClassHierarchyIndex()
+    return _hierarchy_index
+
+
+def is_strict_subclass(sub, sup) -> bool:
+    """Whether ``sub`` is a strict asserted rdfs:subClassOf* descendant of
+    ``sup`` in the curated tiers. Both arguments accept the same forms as
+    resolve_core_category (local name, prefixed name, full URI)."""
+    return get_hierarchy_index().is_strict_subclass(sub, sup)
+
+
+def extended_class_definition(cls) -> Optional[str]:
+    """The definition proethica-intermediate-extended attaches to ``cls``, or
+    None for an unknown class or one the immutable base declares."""
+    return get_hierarchy_index().extended_definition(cls)

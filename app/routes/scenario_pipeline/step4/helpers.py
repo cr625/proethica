@@ -258,30 +258,14 @@ def load_canonical_points_for_phase4(case_id: int) -> List:
         extraction_type='canonical_decision_point'
     ).all()
 
-    points = []
-    for raw in canonical_raw:
-        if raw.rdf_json_ld:
-            data = raw.rdf_json_ld
-            points.append(CanonicalDecisionPoint(
-                focus_id=data.get('focus_id', ''),
-                focus_number=data.get('focus_number', 0),
-                description=data.get('description', ''),
-                decision_question=data.get('decision_question', ''),
-                role_uri=data.get('role_uri', ''),
-                role_label=data.get('role_label', ''),
-                obligation_uri=data.get('obligation_uri'),
-                obligation_label=data.get('obligation_label'),
-                constraint_uri=data.get('constraint_uri'),
-                constraint_label=data.get('constraint_label'),
-                involved_action_uris=data.get('involved_action_uris', []),
-                provision_uris=data.get('provision_uris', []),
-                provision_labels=data.get('provision_labels', []),
-                options=data.get('options', []),
-                intensity_score=data.get('intensity_score', 0.0),
-                qc_alignment_score=data.get('qc_alignment_score', 0.0)
-            ))
-
-    return points
+    # Every stored field is restored (CanonicalDecisionPoint.from_storage): the
+    # narrative needs aligned_conclusion_uri, synthesis_method and the
+    # competing-obligation fields to decide whether a Board conclusion resolves
+    # a point and which pair competes (case 8 review, lessons L4 and L7); the
+    # former fixed subset dropped them, so every reloaded point read as
+    # unresolved and no obligation pair reached the tensions.
+    return [CanonicalDecisionPoint.from_storage(raw.rdf_json_ld)
+            for raw in canonical_raw if raw.rdf_json_ld]
 
 
 def load_conclusions_for_phase4(case_id: int) -> List[Dict]:

@@ -36,7 +36,8 @@ def extract_events(state: TemporalDynamicsState) -> Dict:
             case_id=state['case_id'],
             llm_trace=state.get('llm_trace', []),
             facts_text=state.get('facts_text', ''),
-            discussion_text=state.get('discussion_text', '')
+            discussion_text=state.get('discussion_text', ''),
+            state_labels=state.get('state_labels') or [],
         )
 
         logger.info(f"[Stage 4] Extracted {len(events)} events")

@@ -42,6 +42,13 @@ from app.services.ontserve.ontserve_config import (
 from app.services.commit import naming
 from app.services.commit.commit_context import build_commit_context, _is_role_individual
 from app.services.commit.case_header import add_case_ontology_header
+from app.services.commit.working_store import write_back_types
+from app.services.commit.publish_guard import (
+    normalize_class_key, partition_by_unpublished_type, unpublished_class_keys,
+)
+from app.services.commit.analysis_literals import (
+    is_step4_analysis_type, strip_analysis_literals, stale_analysis_rows,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +136,11 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
             prov = get_provenance_service()
 
             def _count(r):
-                for k in ('total', 'edges', 'edges_emitted', 'edges_added', 'triples_added'):
+                # Materialized triples only (case-8 review, L2): the defeasibility
+                # result carries edges_emitted (the model output) next to
+                # triples_added (what reached the graph); reading emitted first
+                # recorded four edges materialized when zero triples were written.
+                for k in ('triples_added', 'edges_added', 'edges', 'total'):
                     if isinstance(r.get(k), int):
                         return r[k]
                 return None
@@ -140,6 +151,10 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                     continue
                 n = _count(r)
                 by_family[fam] = {'edges': n, 'unresolved': r.get('unresolved')}
+                if isinstance(r.get('edges_emitted'), int):
+                    by_family[fam]['edges_emitted'] = r['edges_emitted']
+                if isinstance(r.get('triples_added'), int):
+                    by_family[fam]['triples_added'] = r['triples_added']
                 if isinstance(n, int):
                     total += n
             prov.track_pass(
@@ -238,6 +253,26 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 'errors': []
             }
 
+            # Publish guard (case-8 review, L5): an individual typed to a class row
+            # of this case that is unpublished and outside this batch (a class the
+            # verification gate dropped, or one deselected in review) is refused
+            # and stays unpublished, so the case TTL never redeclares a rejected
+            # class. Classes the shared ontology tiers establish are unaffected.
+            rejected_keys = set()
+            if individuals_to_commit:
+                rejected_keys = self._unpublished_class_keys(case_id, [e.id for e in entities])
+                individuals_to_commit, refused = partition_by_unpublished_type(
+                    individuals_to_commit, rejected_keys, self._established_core_category)
+                if refused:
+                    refused_rows = [row for row, _rdf, _cls in refused]
+                    entities = [e for e in entities if not any(e is row for row in refused_rows)]
+                    results['refused_unpublished_type'] = [
+                        {'label': getattr(row, 'entity_label', None), 'type_class': cls}
+                        for row, _rdf, cls in refused]
+                    logger.warning(
+                        "Case %s: refused to publish %d individual(s) typed to unpublished "
+                        "class rows: %s", case_id, len(refused), results['refused_unpublished_type'])
+
             # Commit classes to proethica-intermediate-extended.ttl
             if classes_to_commit:
                 class_result = self._commit_classes_to_intermediate(classes_to_commit)
@@ -247,7 +282,8 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
 
             # Commit individuals to case-specific ontology
             if individuals_to_commit:
-                individual_result = self._commit_individuals_to_case_ontology(case_id, individuals_to_commit)
+                individual_result = self._commit_individuals_to_case_ontology(
+                    case_id, individuals_to_commit, rejected_class_keys=rejected_keys)
                 results['individuals_committed'] = individual_result['count']
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
@@ -300,9 +336,32 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                 results['error'] = '; '.join(str(e) for e in results['errors'])
                 return results
 
+            # Stale-row gate (lesson L8): a Step-4 analysis row whose defining
+            # literals are not in the written graph is NOT stamped committed_at
+            # (nor marked published). Case 8's recompute stamped new precedent
+            # rows while the TTL still carried a superseded run's literals.
+            stale_ids: Dict[int, str] = {}
+            if individuals_to_commit:
+                try:
+                    case_file = self.ontologies_dir / f"proethica-case-{case_id}.ttl"
+                    if case_file.exists():
+                        g_check = Graph()
+                        g_check.parse(case_file, format='turtle')
+                        for ent, reason in stale_analysis_rows(
+                                g_check, case_id, [e for e, _ in individuals_to_commit]):
+                            stale_ids[ent.id] = reason
+                            logger.warning(f"case {case_id}: committed_at withheld for row "
+                                           f"{ent.id} ({ent.extraction_type}): {reason}")
+                except Exception as e:  # noqa: BLE001 - the gate never fails a commit
+                    logger.warning(f"stale-row gate skipped for case {case_id}: {e}")
+            if stale_ids:
+                results['stale_rows'] = [{'id': i, 'reason': r} for i, r in stale_ids.items()]
+
             # Mark entities as published and record content hashes
             now = datetime.now(timezone.utc)
             for entity in entities:
+                if entity.id in stale_ids:
+                    continue
                 entity.is_published = True
                 entity.committed_at = now
                 entity.content_hash = TemporaryRDFStorage.compute_content_hash(
@@ -436,11 +495,29 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
             logger.warning(f"Failed to record ontology version binding for case {case_id}: {e}")
             # Non-fatal -- the commit itself still succeeds
 
-    def _commit_individuals_to_case_ontology(self, case_id: int, individuals: List[Tuple[Any, Dict]]) -> Dict[str, Any]:
+    def _unpublished_class_keys(self, case_id: int, batch_ids) -> set:
+        """Normalized keys of the case's class rows that are unpublished and not in
+        the batch being committed (publish_guard.unpublished_class_keys over the
+        working store). Empty when the rows cannot be read."""
+        try:
+            rows = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id, storage_type='class', is_published=False).all()
+        except Exception as e:  # noqa: BLE001 - no app context / DB
+            logger.warning("Case %s: publish guard could not read the class rows (%s); "
+                           "guard skipped", case_id, e)
+            return set()
+        return unpublished_class_keys(rows, batch_ids)
+
+    def _commit_individuals_to_case_ontology(self, case_id: int, individuals: List[Tuple[Any, Dict]],
+                                             rejected_class_keys=None) -> Dict[str, Any]:
         """
         Commit individuals to a case-specific ontology file.
 
         Creates proethica-case-N.ttl files that import from proethica-cases.
+
+        ``rejected_class_keys`` (publish_guard.normalize_class_key form) names the
+        case's unpublished class rows: an individual is never typed to one of
+        them, and the class is never declared in the case TTL (case-8 review, L5).
 
         Result counters: 'count' is newly minted individuals (the same value
         the former skip guard produced -- a re-seen row never incremented it);
@@ -561,6 +638,14 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                     else:
                         logger.info(f"Individual {label} already exists, merging additively")
                         is_merge = True
+                        # Step-4 analysis literals are REPLACED, not unioned: the
+                        # additive merge kept a superseded run's citationType /
+                        # citationContext on case 8's PrecedentCaseReference
+                        # individuals (lesson L8). Object edges and provenance
+                        # nodes are untouched; the row's literals follow below.
+                        if is_step4_analysis_type(extraction_type):
+                            _n = strip_analysis_literals(g, individual_uri)
+                            logger.info(f"Replaced {_n} literal triples on {label} ({extraction_type})")
 
                 # Add individual as NamedIndividual
                 g.add((individual_uri, RDF.type, OWL.NamedIndividual))
@@ -595,6 +680,9 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                     _honored = self._matched_class_override(rdf_data, concept_cat, type_uris)
                     if _honored is not None:
                         type_uris = [str(PROETHICA[_honored])]
+                        # The honored type goes back onto the working-store row so the
+                        # review pages and the TTL show one type (case-8 review, L4).
+                        write_back_types(entity, rdf_data, type_uris)
                     for type_uri in type_uris:
                         # Extract class name from URI
                         if '#' in type_uri:
@@ -609,6 +697,16 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                         # rule keeps the individual's type IRI == the minted class IRI.
                         safe_class = self._category_safe_class_local(safe_class, concept_cat)
                         class_uri = PROETHICA[safe_class]
+                        if (rejected_class_keys
+                                and normalize_class_key(safe_class) in rejected_class_keys
+                                and self._established_core_category(safe_class) is None):
+                            # A rejected (unpublished) class row of this case: the case
+                            # TTL must not redeclare it (case-8 review, L5).
+                            logger.warning(
+                                "Individual %s: type class %s is a rejected class row; "
+                                "not typing to it and not declaring it in the case TTL.",
+                                label, safe_class)
+                            continue
                         g.add((individual_uri, RDF.type, class_uri))
                         # Normalized D15 form: declare the type class IN THE CASE TTL only
                         # when it is genuinely new (not already in core/intermediate/extended).
@@ -1036,6 +1134,12 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
     # passive forms precede their generic stems so substring matching neither
     # mis-routes nor mis-orients them.
     _REL_TYPE_TO_PROP = (
+        # Public duty (case-8 review, L6): the public_responsibility archetype edge, Role ->
+        # PublicInterest. The counterparty is the case-scoped PublicInterest individual minted at
+        # commit (ttl_emitters._ensure_public_interest), not a role facet. Only the property name
+        # routes here: the generic "duty_toward" stem rerouted a duty owed to a named party (a
+        # client) to the public counterparty (merge review).
+        ('owes_duty_toward', 'owesDutyToward', False),
         ('has_provider', 'hasClient', True),
         ('has provider', 'hasClient', True),
         ('is_client_of', 'hasClient', True),
@@ -1069,13 +1173,14 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
     # type a reasoner would infer from the intermediate equivalentClass definitions: ProviderClientRole
     # equivalentClass Role and (hasClient some Role), etc.). The archetype attaches to the proeth-core
     # property's SUBJECT side (the provider for hasClient, the employee for employedBy). owesDutyToward /
-    # PublicResponsibilityRole is intentionally absent: per the spec it is not materialized per instance
-    # (the equivalentClass existential plus the reasoner supply it), so a public-responsibility role lands
-    # via the role_category fallback only.
+    # PublicResponsibilityRole joined the map with the case-8 review (L6): the edge is materialized per
+    # instance toward the case-scoped PublicInterest individual, so the defined class classifies from a
+    # committed edge like the other three; the role_category fallback mints the same counterparty.
     _REL_PROP_TO_RELATIONAL_ARCHETYPE = {
         'hasClient': 'ProviderClientRole',
         'employedBy': 'EmployerRelationshipRole',
         'professionalPeerOf': 'ProfessionalPeerRole',
+        'owesDutyToward': 'PublicResponsibilityRole',
     }
     # Symmetric relations classify BOTH endpoints (professionalPeerOf is owl:SymmetricProperty).
     _SYMMETRIC_REL_PROPS = frozenset({'professionalPeerOf'})

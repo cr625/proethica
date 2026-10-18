@@ -45,3 +45,15 @@ def test_designator_bearing_never_merges_with_designator_free():
 def test_same_designator_and_free_labels_still_merge():
     assert _match("BER Case 62-7 Precedent", "BER Case 62-7") is not None
     assert _match("Public Welfare Duty", "Paramount Public Welfare Duty") is not None
+
+
+def test_case_24_1_precedent_pair_never_merges():
+    """Case 24-1 (ProEthica case 8) review: before the guard, the resource "BER Case
+    20-4" was folded into "BER Case 22-5" (identical composed definitions apart from
+    the case number). NSPE case numbers are two-digit year, hyphen, sequence."""
+    assert rss._label_designators("BER Case 20-4") == frozenset({"20-4"})
+    assert rss._label_designators("BER Case 22-5") == frozenset({"22-5"})
+    assert rss._label_designators("NSPE Case 97-13") == frozenset({"97-13"})
+    assert rss._label_designators("Case No. 00-5") == frozenset({"00-5"})
+    assert _match("BER Case 20-4", "BER Case 22-5", sim=1.0) is None
+    assert _match("NSPE Case 24-1", "NSPE Case 24-2", sim=1.0) is None

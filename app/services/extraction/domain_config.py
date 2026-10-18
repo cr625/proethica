@@ -49,7 +49,13 @@ class DomainConfig:
 
     # --- IRI minting helpers (the single place the new code mints under a domain's namespaces) ---
     def class_iri(self, label: str) -> str:
-        return f"{self.intermediate_ns}{sanitize(label, sep='')}"
+        # The sanitizer of the commit path, the one storage mints class rows and individual
+        # types with (naming.safe_local_name). A label the canonicalizer reuses, "Competence
+        # Self-Assessment Capability", then names the curated IRI and the IRI of the row that
+        # already holds it, where the hyphen-keeping ``sanitize`` minted a second IRI
+        # (CompetenceSelf-AssessmentCapability) that no store declares (case 24-1 review).
+        from app.services.commit import naming
+        return f"{self.intermediate_ns}{naming.safe_local_name(label)}"
 
     def case_iri(self, case_id, frag: str) -> str:
         return self.case_iri_template.format(case_id=case_id, frag=sanitize(frag, sep="_"))

@@ -126,16 +126,42 @@ def test_apply_established_by_edges_constraint_scoped_and_idempotent():
     assert apply_established_by_edges(g, r) == 0
 
 
-def test_apply_established_by_multi_code_source():
-    """A source literal citing several dotted codes yields one edge per resolvable
-    provision (deduplicated)."""
+def test_apply_established_by_multi_code_source_yields_no_edge():
+    """Case 24-1 review (L8): a prose source citing several dotted codes mixes the
+    establishing provision with the canon the constraint limits (case 8 was
+    'established by' I.4), so it fans out to nothing. The literal is kept."""
     r = ProvisionCitationResolver(valid_fragments_from_codes(["II.2.b", "III.8.a"]))
     g = Graph()
     cs = CASE["Review_Boundary"]
     g.add((cs, RDF.type, CORE.Constraint))
-    g.add((cs, PROETH.source, Literal("NSPE Code III.8.a and II.2.b; BER Case 98-3")))
+    src = Literal("NSPE Code III.8.a and II.2.b; BER Case 98-3")
+    g.add((cs, PROETH.source, src))
+
+    assert apply_established_by_edges(g, r) == 0
+    assert not list(g.objects(cs, URIRef(CORE_ESTABLISHED_BY)))
+    assert (cs, PROETH.source, src) in g
+
+
+def test_apply_established_by_dedicated_field_wins():
+    """The dedicated establishingProvision literal is the source of the edge: one
+    provision, even when the prose source lists several, and the dedicated literal
+    takes precedence over a differing single-code source."""
+    from app.services.extraction.provision_citation_resolver import ESTABLISHING_PROVISION
+    r = ProvisionCitationResolver(valid_fragments_from_codes(["II.2.b", "III.8.a", "I.4"]))
+    established = URIRef(CORE_ESTABLISHED_BY)
+    g = Graph()
+    cs = CASE["Review_Boundary"]
+    g.add((cs, RDF.type, CORE.Constraint))
+    g.add((cs, PROETH.source, Literal("NSPE Code II.2.b, limiting Canon I.4")))
+    g.add((cs, URIRef(ESTABLISHING_PROVISION), Literal("II.2.b")))
+    # A second constraint: the dedicated field overrides a single-code source.
+    cs2 = CASE["Seal_Boundary"]
+    g.add((cs2, RDF.type, CORE.Constraint))
+    g.add((cs2, PROETH.source, Literal("Canon I.4")))
+    g.add((cs2, URIRef(ESTABLISHING_PROVISION), Literal("III.8.a")))
 
     assert apply_established_by_edges(g, r) == 2
-    established = URIRef(CORE_ESTABLISHED_BY)
-    assert (cs, established, URIRef(NSPE_NS + "III_8_a")) in g
-    assert (cs, established, URIRef(NSPE_NS + "II_2_b")) in g
+    assert set(g.objects(cs, established)) == {URIRef(NSPE_NS + "II_2_b")}
+    assert set(g.objects(cs2, established)) == {URIRef(NSPE_NS + "III_8_a")}
+    # Idempotent.
+    assert apply_established_by_edges(g, r) == 0

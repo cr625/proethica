@@ -10,7 +10,7 @@ methods and instance attributes) resolves unchanged via MRO.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
 
 from app.services.prompt_variable_resolver import format_existing_entities
 
@@ -21,6 +21,174 @@ from app.services.extraction.unified_dual_extractor.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Section order of the per-pass extraction; a pass sees the individuals of every earlier section.
+_SECTION_ORDER = ['facts', 'discussion', 'questions', 'conclusions']
+
+
+def load_prior_section_rows(case_id: int, concept_type: str, current_section: str,
+                            storage_type: str) -> list:
+    """TemporaryRDFStorage rows ('class' or 'individual') of ``concept_type`` that earlier
+    sections of this case extracted (the active extraction sessions of the sections before
+    ``current_section``). Empty for the first section. The single DB touch of the prior-section
+    blocks, so a test can stub it and exercise the formatting on plain rows."""
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+    from app.models.extraction_prompt import ExtractionPrompt
+
+    current_idx = _SECTION_ORDER.index(current_section) if current_section in _SECTION_ORDER else 0
+    prior_sections = _SECTION_ORDER[:current_idx]
+    if not prior_sections:
+        return []
+    prior_sessions = [
+        p.extraction_session_id
+        for p in ExtractionPrompt.query.filter_by(
+            case_id=case_id, concept_type=concept_type, is_active=True,
+        ).all()
+        if p.extraction_session_id and p.section_type in prior_sections
+    ]
+    if not prior_sessions:
+        return []
+    return TemporaryRDFStorage.query.filter(
+        TemporaryRDFStorage.case_id == case_id,
+        TemporaryRDFStorage.extraction_type == concept_type,
+        TemporaryRDFStorage.storage_type == storage_type,
+        TemporaryRDFStorage.extraction_session_id.in_(prior_sessions),
+    ).all()
+
+
+# Per-component view of a stored individual for the prior-section block (lesson L1): the class
+# reference key in rdf_json_ld['properties'], the statement keys (first populated one is shown),
+# and the named extra fields the discussion pass must be able to confirm or revise.
+_PRIOR_INDIVIDUAL_VIEW: Dict[str, tuple] = {
+    'principles': ('principleClass', ('concreteExpression', 'interpretation'),
+                   ('balancingWith', 'tensionResolution')),
+    'obligations': ('obligationClass', ('obligationStatement',),
+                    ('obligatedParty', 'complianceStatus')),
+    'constraints': ('constraintClass', ('constraintStatement',), ('constrainedEntity',)),
+    'states': ('stateClass', ('subject', 'triggeringEvent'), ('activePeriod',)),
+    'resources': ('resourceClass', ('documentTitle', 'topic'), ('usedBy', 'citedBy')),
+    'capabilities': ('capabilityClass', ('caseContext',), ('possessedBy',)),
+}
+
+# The per-case unit each component's individuals are counted by (one individual per unit).
+_PRIOR_INDIVIDUAL_UNIT: Dict[str, str] = {
+    'principles': 'distinct value (the per-value rule: at most one principle individual per value per case)',
+    'obligations': 'duty borne by a named party',
+    'constraints': 'prohibition holding on a named actor',
+    'states': 'distinct condition',
+    'resources': 'distinct source document, code, or precedent',
+    'capabilities': 'distinct competence a party possesses',
+}
+
+# Component-specific refine notes appended to the generic block.
+_PRIOR_INDIVIDUAL_NOTES: Dict[str, str] = {
+    'obligations': ('Every compliance_status listed below is provisional (the facts pass emits "unclear"): '
+                    'confirm or revise EACH one from the Board\'s holding by re-emitting the individual.'),
+    'principles': ('An individual listed with balancing_with set and tension_resolution empty is re-emitted '
+                   'here with the Board\'s resolution; a second individual for the same value is an error.'),
+    'constraints': ('A prohibition the Board states in its holding that restates a facts-pass constraint is '
+                    'the SAME individual (re-emit it with the holding wording), not a second one.'),
+}
+
+
+def _first_prop(props: Dict[str, Any], keys: Iterable[str]) -> str:
+    for k in keys:
+        v = props.get(k)
+        if isinstance(v, list):
+            v = v[0] if v else None
+        if v:
+            return str(v).strip()
+    return ''
+
+
+def _prop_text(props: Dict[str, Any], key: str) -> str:
+    v = props.get(key)
+    if isinstance(v, list):
+        v = ', '.join(str(x) for x in v if x)
+    return str(v).strip() if v else ''
+
+
+def format_prior_individuals_block(concept_type: str, rows: list) -> str:
+    """Render the prior-section INDIVIDUALS of ``concept_type`` (TemporaryRDFStorage-like rows with
+    entity_label, entity_definition, rdf_json_ld) as the reuse-or-refine prompt block.
+
+    Roles keep their actor-identity block (the Agent layer is role-scoped; unchanged text). Every
+    other component gets the generic block the case-8 review asked for (lesson L1): identifier,
+    class, the statement or concrete expression, and the fields the discussion pass must confirm
+    or revise, under a REUSE-or-REFINE instruction. Returns '' when there are no rows."""
+    rows = list(rows or [])
+    if not rows:
+        return ''
+    ct = (concept_type or '').lower()
+    if ct == 'roles':
+        return _format_prior_role_actors(rows)
+
+    view = _PRIOR_INDIVIDUAL_VIEW.get(ct, ('', (), ()))
+    class_key, statement_keys, extra_keys = view
+    unit = _PRIOR_INDIVIDUAL_UNIT.get(ct, f'distinct {ct[:-1] if ct.endswith("s") else ct}')
+    lines = [
+        f'\n\n--- {ct.upper()} INDIVIDUALS ALREADY EXTRACTED FROM PRIOR SECTIONS OF THIS CASE ---',
+        'These individuals ARE ALREADY RECORDED. For each one, REUSE or REFINE, never duplicate:',
+        f'- REUSE: do not emit a second individual for the same {unit}; a second individual for a '
+        'record listed below, under any identifier, is an extraction error.',
+        '- REFINE: when this section adds to or revises a recorded individual (the Board\'s holding '
+        'settles a status, resolves a tension the facts left open, or narrows a statement), emit the '
+        'individual again with the SAME identifier and the SAME class and the revised fields; the '
+        'later record supersedes the earlier one.',
+        f'- Emit a NEW individual only for a {unit} absent from the list below.',
+    ]
+    note = _PRIOR_INDIVIDUAL_NOTES.get(ct)
+    if note:
+        lines.append(f'- {note}')
+    lines.append('')
+    for ind in rows:
+        json_ld = ind.rdf_json_ld or {}
+        props = json_ld.get('properties', {}) or {}
+        cls = _first_prop(props, (class_key,)) if class_key else ''
+        statement = _first_prop(props, statement_keys) or (ind.entity_definition or '').strip()
+        if len(statement) > 220:
+            statement = statement[:217] + '...'
+        line = f'- {ind.entity_label}'
+        if cls:
+            line += f' | class: {cls}'
+        if statement:
+            line += f' | {statement}'
+        for key in extra_keys:
+            val = _prop_text(props, key)
+            if val:
+                if len(val) > 120:
+                    val = val[:117] + '...'
+                line += f' | {key}: {val}'
+        lines.append(line)
+    return '\n'.join(lines)
+
+
+def _format_prior_role_actors(rows: list) -> str:
+    """The roles block (actor identity reuse), text unchanged from the Option-C version."""
+    lines = [
+        '\n\n--- ACTORS ALREADY IDENTIFIED IN PRIOR SECTIONS ---',
+        'These actors (people / organizations filling roles) were identified',
+        'in earlier sections. If a role here is the SAME actor, set the role',
+        'individual\'s "actor" field to the SAME actor identity shown below,',
+        'and create a new role facet only if the role genuinely differs. Do',
+        'NOT invent a parallel actor for someone already listed.\n',
+    ]
+    for ind in rows:
+        json_ld = ind.rdf_json_ld or {}
+        props = json_ld.get('properties', {}) or {}
+        actor_vals = props.get('actor')
+        actor = (actor_vals[0] if isinstance(actor_vals, list) and actor_vals
+                 else actor_vals) or ind.entity_label
+        sections = json_ld.get('section_sources') or []
+        section_tag = ', '.join(sections) if sections else 'prior'
+        involvement = (ind.entity_definition or '').strip()
+        if len(involvement) > 160:
+            involvement = involvement[:157] + '...'
+        line = f'- actor "{actor}" | role facet: {ind.entity_label} | section: {section_tag}'
+        if involvement:
+            line += f' | {involvement}'
+        lines.append(line)
+    return '\n'.join(lines)
 
 
 class PromptBuildingMixin:
@@ -90,19 +258,22 @@ class PromptBuildingMixin:
                 f"Check extraction_prompt_templates table."
             )
 
-        # Format existing entities for the template
-        existing_text = self._format_existing_entities()
+        # Format existing entities for the template (the case id lets the inventory set apart
+        # the extended-store classes an earlier run of this same case minted, lesson L6)
+        existing_text = self._format_existing_entities(case_id=case_id)
 
         # For non-facts sections, include classes extracted from prior sections
         if section_type != 'facts' and case_id is not None:
             prior_text = self._format_prior_section_classes(case_id, section_type)
             if prior_text:
                 existing_text += prior_text
-            # Roles: also carry forward prior-section ACTORS so the discussion
-            # pass reuses an actor identity instead of fragmenting it (Option C).
-            prior_actors = self._format_prior_section_individuals(case_id, section_type)
-            if prior_actors:
-                existing_text += prior_actors
+            # Carry forward the prior-section INDIVIDUALS of every component (lesson L1): the
+            # roles block reuses actor identities (Option C); the other components get the
+            # reuse-or-refine block so a value, duty, or prohibition the facts pass recorded is
+            # refined under its identifier rather than extracted a second time.
+            prior_individuals = self._format_prior_section_individuals(case_id, section_type)
+            if prior_individuals:
+                existing_text += prior_individuals
 
         # Load cross-concept context (e.g., roles for principles, etc.)
         cross_context = ''
@@ -148,11 +319,12 @@ class PromptBuildingMixin:
         rendered += build_json_wrapper_suffix(self.concept_type)
         return rendered
 
-    def _format_existing_entities(self) -> str:
+    def _format_existing_entities(self, case_id: int = None) -> str:
         """Format existing ontology entities for prompt inclusion."""
         return format_existing_entities(
             self.existing_classes, self.concept_type,
             label_only_tier2=(self.injection_mode == 'label_only'),
+            current_case_id=case_id,
         )
 
     def _present_case_actor_letters(self, case_id: int) -> frozenset:
@@ -188,39 +360,8 @@ class PromptBuildingMixin:
         included so the LLM can reference them instead of re-extracting.
         """
         try:
-            from app.models.temporary_rdf_storage import TemporaryRDFStorage
-            from app.models.extraction_prompt import ExtractionPrompt
-
-            # Determine which prior sections to include
-            section_order = ['facts', 'discussion', 'questions', 'conclusions']
-            current_idx = section_order.index(current_section) if current_section in section_order else 0
-            prior_sections = section_order[:current_idx]
-
-            if not prior_sections:
-                return ''
-
-            # Find extraction sessions for prior sections
-            prior_sessions = [
-                p.extraction_session_id
-                for p in ExtractionPrompt.query.filter_by(
-                    case_id=case_id,
-                    concept_type=self.concept_type,
-                    is_active=True,
-                ).all()
-                if p.extraction_session_id and p.section_type in prior_sections
-            ]
-
-            if not prior_sessions:
-                return ''
-
-            # Query classes from those sessions
-            prior_classes = TemporaryRDFStorage.query.filter(
-                TemporaryRDFStorage.case_id == case_id,
-                TemporaryRDFStorage.extraction_type == self.concept_type,
-                TemporaryRDFStorage.storage_type == 'class',
-                TemporaryRDFStorage.extraction_session_id.in_(prior_sessions),
-            ).all()
-
+            prior_classes = load_prior_section_rows(
+                case_id, self.concept_type, current_section, 'class')
             if not prior_classes:
                 return ''
 
@@ -263,77 +404,29 @@ class PromptBuildingMixin:
     def _format_prior_section_individuals(
         self, case_id: int, current_section: str,
     ) -> str:
-        """Format role ACTORS already extracted as individuals in earlier
-        sections, so the discussion pass reuses the same actor identity rather
-        than minting a parallel, unlinked individual for the same person.
+        """Format the INDIVIDUALS already extracted in earlier sections of this case.
 
-        Roles only (the Agent layer is role-scoped). An actor (e.g. "Engineer A")
-        is stable across sections; each section may surface a different role facet
-        of that actor. The block lists the actor, the facet seen, the section, and
-        a one-line involvement so the LLM can tie a new facet to the existing
-        actor via the role individual's ``actor`` field.
+        Roles: the actor-identity block (the Agent layer is role-scoped; an actor such as
+        "Engineer A" is stable across sections and each section may surface a different role
+        facet, so the block ties a new facet to the existing actor via ``actor``).
+
+        Every other component (lesson L1 of the case-8 review): identifier, class, statement
+        or concrete expression, and the fields the discussion pass must confirm or revise,
+        under a reuse-or-refine instruction. Before this, the discussion pass saw the prior
+        CLASSES of every component but the prior INDIVIDUALS of roles only, and extracted a
+        second PublicWelfarePrinciple, TransparencyPrinciple, and FaithfulAgentLimitConstraint
+        individual beside the facts-pass ones.
         """
-        if (self.concept_type or '').lower() != 'roles':
-            return ''
         try:
-            from app.models.temporary_rdf_storage import TemporaryRDFStorage
-            from app.models.extraction_prompt import ExtractionPrompt
-
-            section_order = ['facts', 'discussion', 'questions', 'conclusions']
-            current_idx = section_order.index(current_section) if current_section in section_order else 0
-            prior_sections = section_order[:current_idx]
-            if not prior_sections:
-                return ''
-
-            prior_sessions = [
-                p.extraction_session_id
-                for p in ExtractionPrompt.query.filter_by(
-                    case_id=case_id, concept_type=self.concept_type, is_active=True,
-                ).all()
-                if p.extraction_session_id and p.section_type in prior_sections
-            ]
-            if not prior_sessions:
-                return ''
-
-            prior_individuals = TemporaryRDFStorage.query.filter(
-                TemporaryRDFStorage.case_id == case_id,
-                TemporaryRDFStorage.extraction_type == self.concept_type,
-                TemporaryRDFStorage.storage_type == 'individual',
-                TemporaryRDFStorage.extraction_session_id.in_(prior_sessions),
-            ).all()
-            if not prior_individuals:
-                return ''
-
-            lines = [
-                '\n\n--- ACTORS ALREADY IDENTIFIED IN PRIOR SECTIONS ---',
-                'These actors (people / organizations filling roles) were identified',
-                'in earlier sections. If a role here is the SAME actor, set the role',
-                'individual\'s "actor" field to the SAME actor identity shown below,',
-                'and create a new role facet only if the role genuinely differs. Do',
-                'NOT invent a parallel actor for someone already listed.\n',
-            ]
-            for ind in prior_individuals:
-                json_ld = ind.rdf_json_ld or {}
-                props = json_ld.get('properties', {}) or {}
-                actor_vals = props.get('actor')
-                actor = (actor_vals[0] if isinstance(actor_vals, list) and actor_vals
-                         else actor_vals) or ind.entity_label
-                sections = json_ld.get('section_sources') or []
-                section_tag = ', '.join(sections) if sections else 'prior'
-                involvement = (ind.entity_definition or '').strip()
-                if len(involvement) > 160:
-                    involvement = involvement[:157] + '...'
-                line = f'- actor "{actor}" | role facet: {ind.entity_label} | section: {section_tag}'
-                if involvement:
-                    line += f' | {involvement}'
-                lines.append(line)
-
-            logger.info(
-                f"Added {len(prior_individuals)} prior-section role actors "
-                f"to prompt for case {case_id}"
-            )
-            return '\n'.join(lines)
-
+            rows = load_prior_section_rows(
+                case_id, self.concept_type, current_section, 'individual')
+            block = format_prior_individuals_block(self.concept_type, rows)
+            if block:
+                logger.info(
+                    f"Added {len(rows)} prior-section {self.concept_type} individuals "
+                    f"to prompt for case {case_id}"
+                )
+            return block
         except Exception as e:
             logger.warning(f"Could not load prior-section individuals: {e}")
             return ''

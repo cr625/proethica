@@ -34,6 +34,8 @@ from app.services.commit.enrichment import (
 )
 from app.services.commit import naming
 from app.services.commit.commit_context import _is_role_individual
+from app.services.commit.definitions import compose_definition
+from app.services.commit.working_store import write_back_definition
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,10 @@ PROETHICA_CASES = Namespace("http://proethica.org/ontology/cases#")
 TIME = Namespace("http://www.w3.org/2006/time#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 PROETHICA_PROV = Namespace("http://proethica.org/provenance#")
+
+# Local name of the case-scoped PublicInterest individual, the owesDutyToward
+# counterparty of every public-responsibility role facet (case-8 review, L6).
+PUBLIC_INTEREST_LOCAL = 'PublicInterest'
 
 
 class EmitterMixin:
@@ -509,6 +515,15 @@ class EmitterMixin:
                         if not rtype:
                             logger.warning(f"relationship missing type, dropped: target={tgt!r}")
                             continue
+                        relprop, swap = self._rel_property_for(str(rtype))
+                        if relprop == 'owesDutyToward':
+                            # Public duty (case-8 review, L6): the counterparty is the general
+                            # public, not a role facet, so the edge runs to the case-scoped
+                            # PublicInterest individual (minted on first use) and classifies
+                            # the facet PublicResponsibilityRole edge-primary.
+                            self._emit_public_duty_edge(g, case_ns, subj, str(tgt), rtype,
+                                                        r.get('quote'), role_edge_archetyped)
+                            continue
                         tgt_uri = self._resolve_rel_target(str(tgt), ctx=ctx)
                         if tgt_uri is None:
                             logger.info(f"relationship target unresolved, skipped: type={rtype!r} target={tgt!r}")
@@ -523,7 +538,6 @@ class EmitterMixin:
                                 f"type={rtype!r} target={tgt!r} resolved={str(tgt_uri).split('#')[-1]}")
                             continue
                         obj = tgt_uri  # the target role facet (was the bearer Agent)
-                        relprop, swap = self._rel_property_for(str(rtype))
                         if relprop == 'relatedTo':
                             logger.info(
                                 f"relationship type {rtype!r} not in the actor-relation "
@@ -574,6 +588,13 @@ class EmitterMixin:
                         tgt = str(r.get('target') or r.get('to') or '').strip()
                         if not rtype or not tgt:
                             continue
+                        if self._rel_property_for(rtype)[0] == 'owesDutyToward':
+                            # The public duty is a controlled relationship (L6): an overflow
+                            # entry naming it becomes the edge, not a staged literal (case 8
+                            # staged "rel:owesDutyToward -> Community" with no counterparty).
+                            self._emit_public_duty_edge(g, case_ns, uri, tgt, rtype,
+                                                        r.get('quote'), role_edge_archetyped)
+                            continue
                         g.add((uri, PROETHICA['otherAttribute'], Literal(f"rel:{rtype} -> {tgt}")))
                         logger.info("additional_relationships: staged overflow rel:%s -> %s on %s",
                                     rtype, tgt, str(uri).split('#')[-1])
@@ -605,11 +626,51 @@ class EmitterMixin:
         if _is_role_individual(entity) and uri not in role_edge_archetyped:
             self._apply_role_category_fallback_archetype(g, uri, rdf_data)
 
+        # Every committed individual carries a definition (case-8 review, L1):
+        # the type-specific handlers above leave States, questions, conclusions,
+        # decision points, causal chains and the timeline without one, so the
+        # case page cannot link them and OntServe shows a bare label.
+        self._ensure_definition(g, uri, entity, rdf_data, extraction_type)
+
+    def _ensure_definition(self, g: Graph, uri: URIRef, entity: Any, rdf_data: Dict,
+                           extraction_type: str) -> None:
+        """Emit a skos:definition for an individual that has neither
+        skos:definition nor rdfs:comment after its type-specific serialization.
+
+        The row's own entity_definition is used when present (the generic
+        emitter skips the synthesis and temporal types, so their rows can carry
+        a definition the TTL never received). Otherwise the definition is
+        composed deterministically from the fields the individual carries
+        (``definitions.compose_definition``) and written back onto the
+        working-store row, so the review pages and the TTL agree. rdfs:comment
+        is added alongside for the types the generic emitter serves; the
+        synthesis and temporal types keep their text in dedicated predicates
+        and receive skos:definition only.
+        """
+        if g.value(uri, SKOS.definition) is not None or g.value(uri, RDFS.comment) is not None:
+            return
+        text = (getattr(entity, 'entity_definition', None) or '').strip()
+        composed = False
+        if not text:
+            label = g.value(uri, RDFS.label)
+            label = str(label) if label is not None else (getattr(entity, 'entity_label', '') or '')
+            text = compose_definition(extraction_type, label, rdf_data)
+            composed = True
+        if not text:
+            return
+        g.add((uri, SKOS.definition, Literal(text)))
+        if extraction_type not in self._DEF_SKIP_TYPES and 'temporal_dynamics' not in extraction_type:
+            g.add((uri, RDFS.comment, Literal(text)))
+        if composed and write_back_definition(entity, text):
+            logger.info("Composed definition for %s (%s) written back to the working store",
+                        str(uri).split('#')[-1], extraction_type or 'individual')
+
     def _apply_role_category_fallback_archetype(self, g: Graph, uri: URIRef, rdf_data: Dict) -> None:
         """Type a role facet to its role_category relational archetype (the fallback when no actor edge
         classified it). role_category is one of the four Kong relational categories; participant /
-        stakeholder were removed (occupational, carried by role_kind). public_responsibility lands here
-        because owesDutyToward is not materialized per instance (R1)."""
+        stakeholder were removed (occupational, carried by role_kind). A public_responsibility facet
+        also receives the defining edge: owesDutyToward toward the case-scoped PublicInterest
+        individual (case-8 review, L6), so the defined class classifies from a committed edge."""
         props = (rdf_data or {}).get('properties', {}) or {}
         rc = (props.get('roleCategory') or props.get('role_category')
               or (rdf_data or {}).get('role_category'))
@@ -621,6 +682,40 @@ class EmitterMixin:
         iri = CATEGORY_TO_ONTOLOGY_IRI.get('roles', {}).get(norm)
         if iri:
             g.add((uri, RDF.type, URIRef(iri)))
+        if norm == 'public_responsibility' and '#' in str(uri):
+            case_ns = Namespace(str(uri).split('#')[0] + '#')
+            public = self._ensure_public_interest(g, case_ns)
+            g.add((uri, PROETHICA['owesDutyToward'], public))
+
+    def _ensure_public_interest(self, g: Graph, case_ns: Namespace, target_label: str = None) -> URIRef:
+        """Get-or-create the case-scoped PublicInterest individual: the general public as the
+        collective party public-protection duties are owed to (proeth:PublicInterest, subClassOf
+        core:Agent in the intermediate ontology). Typed to the class rather than to core:Agent
+        directly, so the one-hop actor pools of the edge appliers are unchanged. A relationship
+        target literal ("Community", "the public") is kept as skos:altLabel."""
+        public = case_ns[PUBLIC_INTEREST_LOCAL]
+        if (public, RDF.type, PROETHICA['PublicInterest']) not in g:
+            g.add((public, RDF.type, OWL.NamedIndividual))
+            g.add((public, RDF.type, PROETHICA['PublicInterest']))
+            g.add((public, RDFS.label, Literal('General public')))
+            g.add((public, SKOS.definition, Literal(
+                'The general public as the collective party toward which the public-protection '
+                'duties of this case are owed (the owesDutyToward counterparty of its '
+                'public-responsibility roles).')))
+        alt = (target_label or '').strip()
+        if alt and alt.lower() not in ('general public', 'the general public', 'the public', 'public'):
+            g.add((public, SKOS.altLabel, Literal(alt)))
+        return public
+
+    def _emit_public_duty_edge(self, g: Graph, case_ns: Namespace, facet: URIRef, target: str,
+                               rtype, quote, role_edge_archetyped: set) -> None:
+        """Materialize owesDutyToward from a role facet to the PublicInterest individual, type the
+        facet PublicResponsibilityRole edge-primary (R1) and record the derivation."""
+        public = self._ensure_public_interest(g, case_ns, target)
+        g.add((facet, PROETHICA['owesDutyToward'], public))
+        g.add((facet, RDF.type, PROETHICA['PublicResponsibilityRole']))
+        role_edge_archetyped.add(facet)
+        self._emit_relationship_provenance(g, case_ns, facet, 'owesDutyToward', public, rtype, quote)
 
     def _object_property_locals(self) -> set:
         """Local names of every owl:ObjectProperty declared in core / intermediate.

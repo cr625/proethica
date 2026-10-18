@@ -20,8 +20,28 @@ from sqlalchemy import text
 
 from app import db
 from model_config import ModelConfig
+from app.utils.provision_codes import normalize_provision_codes
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_subject_tags(doc_metadata_tags, feature_tags) -> List[str]:
+    """The subject-tag set a case is scored and displayed with.
+
+    documents.doc_metadata.subject_tags holds the NSPE Subject References the
+    opinion states; case_precedent_features.subject_tags is a model-assigned
+    list that can carry tags with no anchor in the opinion (case 24-1 review:
+    three of six). The stated references win, and the feature column is the
+    fallback only when the document carries no tags. Order is kept and
+    duplicates are dropped.
+    """
+    for source in (doc_metadata_tags, feature_tags):
+        if isinstance(source, str):
+            source = [source]
+        tags = [str(t).strip() for t in (source or []) if t and str(t).strip()]
+        if tags:
+            return list(dict.fromkeys(tags))
+    return []
 
 
 @dataclass
@@ -36,6 +56,7 @@ class SimilarityResult:
     weights_used: Dict[str, float]
     method: str = 'section'  # 'section' or 'component'
     per_component_scores: Optional[Dict[str, float]] = None  # D-tuple component cosine similarities
+    matching_tags: List[str] = field(default_factory=list)  # shared subject tags, the scored set
 
 
 class PrecedentSimilarityService:
@@ -196,11 +217,14 @@ class PrecedentSimilarityService:
             target_features.get('outcome_type')
         )
 
-        # Tag overlap (Jaccard)
-        component_scores['tag_overlap'] = self._calculate_jaccard_similarity(
-            set(source_features.get('subject_tags', [])),
-            set(target_features.get('subject_tags', []))
-        )
+        # Tag overlap (Jaccard) over the resolved subject-tag sets (the NSPE
+        # subject references, see resolve_subject_tags). matching_tags is the
+        # intersection the Similar Cases page displays, so the shown topics are
+        # the scored ones.
+        source_tags = set(source_features.get('subject_tags', []))
+        target_tags = set(target_features.get('subject_tags', []))
+        component_scores['tag_overlap'] = self._calculate_jaccard_similarity(source_tags, target_tags)
+        matching_tags = sorted(source_tags & target_tags)
 
         # Ethical-tension overlap (Chapter 3, Section 3.7): cosine similarity
         # between the two cases' tension-signature embeddings. Replaces the prior
@@ -229,6 +253,7 @@ class PrecedentSimilarityService:
             weights_used=weights,
             method=method,
             per_component_scores=per_comp,
+            matching_tags=matching_tags,
         )
 
     def find_similar_cases(
@@ -399,33 +424,40 @@ class PrecedentSimilarityService:
         db.session.commit()
 
     def _get_case_features(self, case_id: int) -> Optional[Dict]:
-        """Retrieve features for a case from the database."""
+        """Retrieve features for a case from the database.
+
+        subject_tags is the resolved set (resolve_subject_tags): the NSPE
+        subject references in documents.doc_metadata when present, else the
+        feature column, which is kept as feature_subject_tags.
+        """
         query = text("""
             SELECT
-                case_id,
-                outcome_type,
-                outcome_confidence,
-                provisions_cited,
-                subject_tags,
-                principle_tensions,
-                obligation_conflicts,
-                transformation_type,
-                facts_embedding,
-                discussion_embedding,
-                conclusion_embedding,
-                combined_embedding,
-                embedding_R,
-                embedding_P,
-                embedding_O,
-                embedding_S,
-                embedding_Rs,
-                embedding_A,
-                embedding_E,
-                embedding_Ca,
-                embedding_Cs,
-                embedding_tension
-            FROM case_precedent_features
-            WHERE case_id = :case_id
+                f.case_id,
+                f.outcome_type,
+                f.outcome_confidence,
+                f.provisions_cited,
+                f.subject_tags,
+                f.principle_tensions,
+                f.obligation_conflicts,
+                f.transformation_type,
+                f.facts_embedding,
+                f.discussion_embedding,
+                f.conclusion_embedding,
+                f.combined_embedding,
+                f.embedding_R,
+                f.embedding_P,
+                f.embedding_O,
+                f.embedding_S,
+                f.embedding_Rs,
+                f.embedding_A,
+                f.embedding_E,
+                f.embedding_Ca,
+                f.embedding_Cs,
+                f.embedding_tension,
+                d.doc_metadata->'subject_tags' AS doc_subject_tags
+            FROM case_precedent_features f
+            LEFT JOIN documents d ON d.id = f.case_id
+            WHERE f.case_id = :case_id
         """)
 
         result = db.session.execute(query, {'case_id': case_id}).fetchone()
@@ -438,7 +470,8 @@ class PrecedentSimilarityService:
             'outcome_type': result[1],
             'outcome_confidence': result[2],
             'provisions_cited': result[3] or [],
-            'subject_tags': result[4] or [],
+            'subject_tags': resolve_subject_tags(result[22], result[4]),
+            'feature_subject_tags': result[4] or [],
             'principle_tensions': result[5] or [],
             'obligation_conflicts': result[6] or [],
             'transformation_type': result[7],
@@ -520,14 +553,19 @@ class PrecedentSimilarityService:
         """
         Calculate Jaccard similarity of provision sets.
 
+        Both sides are compared in canonical form (normalize_provision_code):
+        the corpus carried 'II.1.A' and 'II.1.a' side by side (case 24-1
+        review), and the exact set comparison scored a shared provision as
+        disjoint, 0 instead of 0.286 for the 24-1 / 84-5 pair.
+
         Returns:
             Tuple of (similarity_score, list_of_matching_provisions)
         """
-        if not provisions_a or not provisions_b:
-            return 0.0, []
+        set_a = set(normalize_provision_codes(provisions_a))
+        set_b = set(normalize_provision_codes(provisions_b))
 
-        set_a = set(provisions_a)
-        set_b = set(provisions_b)
+        if not set_a or not set_b:
+            return 0.0, []
 
         intersection = set_a & set_b
         union = set_a | set_b

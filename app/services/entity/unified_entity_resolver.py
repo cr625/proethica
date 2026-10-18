@@ -55,6 +55,32 @@ class UnifiedEntityResolver:
         'Event': 'events',
     }
 
+    # Ontologies that define the shared vocabulary. The MCP category inventory
+    # returns one row per ontology that declares a URI; a row from one of these
+    # outranks a row for the same URI from any other ontology (a case ontology
+    # re-declares the classes it uses without defining them).
+    DEFINITIONAL_ONTOLOGIES = (
+        'proethica-intermediate', 'proethica-intermediate-extended', 'proethica-core',
+    )
+
+    # OntServe substitutes this text for a class without an rdfs:comment. It
+    # is not a definition and never reaches the popover layer.
+    _PLACEHOLDER_DESCRIPTION = re.compile(r'^\s*ontology class for \w+\.?\s*$', re.IGNORECASE)
+
+    # Leading actor designator of a case-entity label, used when the case has
+    # no Agent individual to take the actor from: "Engineer A", "Client W",
+    # "Engineer Doe".
+    _ACTOR_DESIGNATOR = re.compile(
+        r'^((?:[A-Z][a-z]+ [A-Z])'
+        r'|(?:(?:Engineer|Client|Contractor|Owner|Employer|Employee|Firm|Company|Developer'
+        r'|Architect|Surveyor|Technician|Inspector|Supervisor|Manager|Director|Consultant'
+        r'|Student|Professor|Attorney|Doctor|Agency|City|County|Town) [A-Z][a-z]+))'
+        r'(?![A-Za-z0-9_])'
+    )
+
+    # A cited Board case ("BER Case 76-4"). Case text cites it as "Case 76-4".
+    _CITED_CASE_LABEL = re.compile(r'^BER (Case \d{2}-\d{1,2})$', re.IGNORECASE)
+
     def __init__(self, case_id: int = None, case_source: str = 'working'):
         """
         Initialize resolver.
@@ -184,6 +210,7 @@ class UnifiedEntityResolver:
                 ('get_all_event_entities', 'events'),
             ]
 
+            ranks = {}
             for method_name, entity_type in category_methods:
                 try:
                     method = getattr(client, method_name, None)
@@ -191,18 +218,26 @@ class UnifiedEntityResolver:
                         items = method()
                         for item in items:
                             uri = item.get('uri', '')
-                            if uri:
-                                entities[uri] = {
-                                    'label': item.get('label', item.get('name', '')),
-                                    'definition': item.get('description', item.get('comment', '')),
-                                    'entity_type': entity_type,
-                                    'extraction_type': entity_type,
-                                    'uri': uri,
-                                    'is_published': True,
-                                    'source_pass': None,
-                                    'ontology_target': 'proethica-intermediate',
-                                    'ontserve_path': self.compute_ontserve_path(uri, 'proethica-intermediate'),
-                                }
+                            if not uri:
+                                continue
+                            rank = self._ontserve_row_rank(item)
+                            if rank is None or (uri in entities and ranks[uri] >= rank):
+                                continue
+                            ranks[uri] = rank
+                            source_ontology = (self._ontserve_row_source(item)
+                                               or self._derive_ontology_target(uri)
+                                               or 'proethica-intermediate')
+                            entities[uri] = {
+                                'label': item.get('label', item.get('name', '')),
+                                'definition': self._ontserve_row_description(item),
+                                'entity_type': entity_type,
+                                'extraction_type': entity_type,
+                                'uri': uri,
+                                'is_published': True,
+                                'source_pass': None,
+                                'ontology_target': source_ontology,
+                                'ontserve_path': self.compute_ontserve_path(uri, source_ontology),
+                            }
                 except Exception as e:
                     logger.warning(f"Failed to fetch {entity_type} from OntServe: {e}")
 
@@ -216,6 +251,47 @@ class UnifiedEntityResolver:
         _ontserve_cache['timestamp'] = now
 
         return entities
+
+    # Values OntServe writes into the source field of an inventory row that
+    # name a table, not an ontology: 'concepts' on a concepts-table row and
+    # 'ontology' on an ontology row without an ontology name. Neither is an
+    # ontology_target; such a row takes the target of its URI namespace.
+    _NON_ONTOLOGY_SOURCES = frozenset({'concepts', 'ontology'})
+
+    @classmethod
+    def _ontserve_row_source(cls, item: Dict) -> str:
+        """Name of the ontology that declares a category-inventory row, or ''."""
+        source = str(item.get('source') or item.get('ontology_name') or '').strip()
+        return '' if source.lower() in cls._NON_ONTOLOGY_SOURCES else source
+
+    @staticmethod
+    def _ontserve_row_description(item: Dict) -> str:
+        return str(item.get('description') or item.get('comment') or '')
+
+    @classmethod
+    def _ontserve_row_rank(cls, item: Dict) -> Optional[tuple]:
+        """
+        Rank a category-inventory row for the base lookup, or None to skip it.
+
+        Rows declared by a case ontology and rows carrying the OntServe
+        placeholder description are skipped. Of the rows left for one URI, a
+        definitional ontology outranks the rest, then a row with a description
+        outranks one without, then the ontology whose namespace the URI
+        belongs to outranks another ontology that declares the same URI.
+        """
+        source = cls._ontserve_row_source(item)
+        if source.startswith('proethica-case-'):
+            return None
+        description = cls._ontserve_row_description(item)
+        if cls._PLACEHOLDER_DESCRIPTION.match(description):
+            return None
+        # Two definitional ontologies can both describe one URI (a class
+        # copied into the extended store before the class commit refused
+        # base copies). The ontology whose namespace the URI belongs to wins
+        # the tie, so the ontology_target does not follow the row order of
+        # the inventory.
+        owns_namespace = bool(source) and source == cls._derive_ontology_target(str(item.get('uri') or ''))
+        return (source in cls.DEFINITIONAL_ONTOLOGIES, bool(description.strip()), owns_namespace)
 
     def _get_case_entities(self) -> Dict[str, Dict]:
         """
@@ -429,15 +505,23 @@ class UnifiedEntityResolver:
 
             # Lowercase for case-insensitive matching
             label_key = label.lower().strip()
-            # Case entities take precedence
-            if label_key not in self._label_index or data.get('source') == 'case':
-                self._label_index[label_key] = data
+            self._index_label_key(label_key, data)
 
             # Also index without underscores
             label_no_underscore = label_key.replace('_', ' ')
             if label_no_underscore != label_key:
-                if label_no_underscore not in self._label_index or data.get('source') == 'case':
-                    self._label_index[label_no_underscore] = data
+                self._index_label_key(label_no_underscore, data)
+
+            # A label that ends in a period (code provision "III.1.b.") is also
+            # indexed without it: case text writes "Code section III.1.b requires".
+            bare_key = label_key.rstrip('.')
+            if bare_key and bare_key != label_key:
+                self._index_label_key(bare_key, data)
+
+            # A cited Board case is also indexed as case text cites it ("Case 76-4").
+            cited = self._CITED_CASE_LABEL.match(label.strip())
+            if cited:
+                self._index_label_key(cited.group(1).lower(), data)
 
         # Extract text-reference-grounded aliases from compound labels
         self._extract_text_aliases(lookup)
@@ -459,6 +543,56 @@ class UnifiedEntityResolver:
             agent_entry['definition'] = 'Participant (Agent) in this case.'
             self._label_index[label_key] = agent_entry
 
+    def _index_label_key(self, key: str, data: Dict) -> None:
+        """Add one lookup key; case entities take precedence over ontology entries."""
+        if key not in self._label_index or data.get('source') == 'case':
+            self._label_index[key] = data
+
+    @classmethod
+    def _actor_label(cls, label: str, agent_labels) -> str:
+        """
+        Actor a case-entity label is about: the longest Agent label that
+        prefixes it, else the leading designator of the label itself.
+        Empty when the label names no actor ("Public Safety Faithful Agent
+        Conflict").
+        """
+        lowered = label.lower().strip()
+        for agent in agent_labels:
+            a = agent.lower()
+            if lowered == a or lowered.startswith(a + ' '):
+                return agent
+        m = cls._ACTOR_DESIGNATOR.match(label.strip())
+        return m.group(1) if m else ''
+
+    @staticmethod
+    def _reference_sentences(text_refs) -> List[str]:
+        """Sentences of the text references (split after . ! ?)."""
+        sentences = []
+        for ref in text_refs:
+            sentences.extend(part for part in re.split(r'(?<=[.!?])\s+', str(ref)) if part.strip())
+        return sentences
+
+    @staticmethod
+    def _phrase_grounded(phrase: str, actor: str, text_refs, ref_sentences) -> bool:
+        """
+        Whether a sub-phrase of a label is grounded in the entity's text references.
+
+        A reference that is exactly the phrase grounds it. Otherwise a
+        reference sentence grounds it only when the sentence contains the
+        phrase together with the entity's actor label: a sentence that uses
+        the phrase about someone else (a quoted code canon, a precedent recap)
+        grounds nothing, and an entity without an actor label is grounded by
+        exact references alone.
+        """
+        if any(str(r).strip().lower() == phrase.lower() for r in text_refs):
+            return True
+        if not actor:
+            return False
+        phrase_re = re.compile(r'\b' + re.escape(phrase) + r'\b', re.IGNORECASE)
+        actor_re = re.compile(r'(?<![A-Za-z0-9_])' + re.escape(actor) + r'(?![A-Za-z0-9_])',
+                              re.IGNORECASE)
+        return any(phrase_re.search(sent) and actor_re.search(sent) for sent in ref_sentences)
+
     def _extract_text_aliases(self, lookup: Dict[str, Dict]) -> None:
         """
         Extract short aliases from entity labels, validated by textReferences.
@@ -468,6 +602,12 @@ class UnifiedEntityResolver:
         method extracts 2-4 word sub-phrases from labels and keeps only those
         that appear in the entity's textReferences passages. Cross-type filtering
         (2+ entities across 2+ extraction types) eliminates noise.
+
+        Grounding is actor-bound (see _phrase_grounded): the reference sentence
+        has to name the entity's actor as well as the phrase. The actors of the
+        grounded sources are recorded on the alias entry as alias_actors, and
+        the text scanner decorates the alias only in sentences that name one
+        of them.
         """
         from collections import defaultdict
 
@@ -482,6 +622,16 @@ class UnifiedEntityResolver:
         phrase_sources = defaultdict(list)
         # Track unique entities per phrase to avoid double-counting from URI variants
         phrase_entity_labels = defaultdict(set)
+        # phrase -> actor labels of the entities that ground it
+        phrase_actors = defaultdict(set)
+
+        # Actor labels of the case: its Agent individuals, longest first so
+        # "Board of Ethical Review" wins over a shorter prefix.
+        agent_labels = sorted(
+            {d.get('label', '') for d in lookup.values()
+             if d.get('source') == 'case' and (d.get('entity_type') or '') == 'Agent'
+             and d.get('label')},
+            key=len, reverse=True)
 
         for uri, data in lookup.items():
             if data.get('source') != 'case':
@@ -495,8 +645,8 @@ class UnifiedEntityResolver:
             if len(words) < 3:
                 continue  # Need sub-phrase + remaining words
 
-            # Concatenate all textReferences for matching
-            ref_text = ' '.join(str(r) for r in text_refs)
+            actor = self._actor_label(label, agent_labels)
+            ref_sentences = self._reference_sentences(text_refs)
 
             # Generate 2-4 word sub-phrases from the label
             for phrase_len in range(2, min(5, len(words))):
@@ -521,13 +671,14 @@ class UnifiedEntityResolver:
                     if phrase.lower() in self._label_index:
                         continue
 
-                    # Word-boundary match in textReferences
-                    pattern = r'\b' + re.escape(phrase) + r'\b'
-                    if re.search(pattern, ref_text, re.IGNORECASE):
+                    # Actor-bound match in the textReferences sentences
+                    if self._phrase_grounded(phrase, actor, text_refs, ref_sentences):
                         entity_key = (data.get('label', ''), data.get('extraction_type', ''))
                         if entity_key not in phrase_entity_labels[phrase]:
                             phrase_entity_labels[phrase].add(entity_key)
                             phrase_sources[phrase].append(data)
+                            if actor:
+                                phrase_actors[phrase].add(actor)
 
         # Filter: keep phrases referenced by 2+ entities across 2+ extraction types
         validated = {}
@@ -615,6 +766,7 @@ class UnifiedEntityResolver:
                 'is_published': any(s.get('is_published') for s in sources),
                 'alias_types': alias_types,
                 'alias_entities': alias_entities,
+                'alias_actors': sorted(phrase_actors.get(phrase, ())),
                 'ontology_target': primary_source.get('ontology_target', ''),
                 'ontserve_path': primary_source.get('ontserve_path', ''),
             }

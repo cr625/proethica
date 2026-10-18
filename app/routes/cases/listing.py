@@ -101,10 +101,6 @@ def register_listing_routes(bp):
         error = None
 
         try:
-            # Import necessary models
-            from sqlalchemy import text
-            from app.models.section_term_link import SectionTermLink
-
             # Filter cases by world if specified
             if world_id:
                 # Get document-based cases for the specified world
@@ -120,21 +116,6 @@ def register_listing_routes(bp):
 
             # Get all case IDs for bulk status checking
             case_ids = [doc.id for doc in document_cases]
-
-            # Bulk check for term links
-            term_links_status = {}
-            if case_ids:
-                with db.engine.connect() as conn:
-                    result = conn.execute(
-                        text("""
-                            SELECT DISTINCT document_id
-                            FROM section_term_links
-                            WHERE document_id = ANY(:document_ids)
-                        """),
-                        {"document_ids": case_ids}
-                    )
-                    for row in result:
-                        term_links_status[row[0]] = True
 
             # Get pipeline progress for all cases (15-substep completion + active runs)
             pipeline_progress_map = get_bulk_progress(case_ids)
@@ -190,7 +171,6 @@ def register_listing_routes(bp):
                     'conclusion_items': conclusion_items,
                     'case_number': metadata.get('case_number', ''),
                     'full_date': metadata.get('full_date', ''),
-                    'has_term_links': term_links_status.get(doc.id, False),
                     'pipeline_status': progress['status'],
                     'pipeline_progress': progress,
                     'doc_metadata': metadata

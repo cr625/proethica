@@ -9,6 +9,7 @@ from sqlalchemy import text
 logger = logging.getLogger(__name__)
 from app.routes.precedents.helpers import (
     MATCHING_METHODS,
+    RETRIEVAL_COMPONENTS,
     COMPONENT_COLORS,
     COMPONENT_LABELS,
     _get_case_year,
@@ -57,6 +58,7 @@ def register_find_routes(bp):
             source_case_id=source_case_id,
             precedent_results=precedent_results,
             matching_methods=MATCHING_METHODS,
+            retrieval_components=RETRIEVAL_COMPONENTS,
             component_colors=COMPONENT_COLORS,
             component_labels=COMPONENT_LABELS
         )

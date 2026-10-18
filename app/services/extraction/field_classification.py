@@ -55,7 +55,7 @@ _RELATION = {
     # actor-anchored (participant + role/resource/state actor edges)
     "hasRole", "actor",
     "obligatedParty", "constrainedEntity", "possessedBy", "invokedBy", "hasCapability",
-    "affects", "affectedParties", "availableTo", "usedBy", "citedBy",
+    "affects", "availableTo", "usedBy", "citedBy",
     # generic per-individual relationship list (a temp_rdf field the serializer resolves into
     # peer / symmetric-property edges); structural, not a kept synthesis literal.
     "relationships", "relatedTo",
@@ -66,6 +66,10 @@ _RELATION = {
     "attributes",
     # R -> P -> O dependency chain
     "hasObligation", "adheresToPrinciple", "derivedFromPrinciple",
+    # the role individual's generates_obligations routing input (lesson L9): the duties a
+    # professional role names; the R->P->O pass derives the hasObligation edges, so the
+    # literal is never emitted on its own.
+    "generatesObligations",
     # obligation-capability presupposition: the capability rows' requiredForObligations
     # labels resolve (inverted) to Obligation requiresCapability Capability edges;
     # the bare requiresCapability is that edge. The Action-level requiresCapability
@@ -147,7 +151,10 @@ _TRAILING_DIGITS = re.compile(r"\d+$")
 # into the activatedByEvent / terminatedByEvent edges, while the committed literal keeps
 # the verbatim description (the intermediate ontology declares both as datatype properties
 # intended on State). They take the demoted-text treatment: content, not the edge.
-_DEMOTED_LITERALS = {"triggeringEvent", "terminatedBy"}
+# affectedParties joined them in the case 24-1 review: the state_affects family
+# resolves the party list into affects edges, and the verbatim list is kept as a
+# literal so an omitted party (Engineer L on four case-8 states) stays auditable.
+_DEMOTED_LITERALS = {"triggeringEvent", "terminatedBy", "affectedParties"}
 
 
 def _normalize(predicate: str) -> str:
@@ -242,10 +249,20 @@ def partition(predicates: Iterable[str]) -> Dict[str, List[str]]:
     return groups
 
 
-# JSON-LD framing / identity keys that are not extracted predicates.
+# JSON-LD framing / identity keys that are not extracted predicates, plus the storage
+# wrapper keys pydantic_to_rdf_data / rdf_storage_service place beside ``properties`` on
+# a temporary_rdf_storage record: bookkeeping (the definitions list, which also embeds the
+# matched ontology definition; the per-section source_texts map; the matcher's
+# match_decision), the type anchors (types / parent, rendered by the provenance card as
+# its "typed as" line), and the top-level copies of the class category fields kept for
+# the commit-service lookup (the camelCase property, e.g. roleCategory, is the literal
+# that is displayed). None of these is extracted content.
 _STRUCTURAL_KEYS = frozenset({
     "@context", "@id", "@type", "rdfs:label", "rdfs:comment", "label", "id", "uri",
     "type", "name", "identifier", "definition", "rdf_turtle", "section_sources",
+    "definitions", "source_texts", "match_decision", "types", "parent",
+    "role_category", "state_category", "resource_category", "principle_category",
+    "obligation_type", "constraint_type", "action_category", "event_category",
 })
 
 

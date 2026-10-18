@@ -23,7 +23,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from app.services.extraction.quote_grounding import _tokens
+from app.services.extraction.quote_grounding import _tokens, verbatim_span
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +138,17 @@ def _structured_stream_json(client, model: str, prompt: str, schema: Dict,
 class QuoteVerdict:
     """Per-entity outcome of the grounding pass."""
     label: str
-    kept_verbatim: List[str] = field(default_factory=list)   # quotes already exact substrings
+    kept_verbatim: List[str] = field(default_factory=list)   # quotes already exact substrings (snapped to the case's characters)
     regrounded: List[str] = field(default_factory=list)      # paraphrases replaced by a verified span
     unsupported: List[str] = field(default_factory=list)     # paraphrases with no case span (fabrication)
+    snapped: List[str] = field(default_factory=list)         # the stored spellings replaced by the case's own span (lesson L5)
+
+
+def _snap(quote: str, case_text: str) -> str:
+    """The case's own characters for a quote that passed the token test (falls back to the quote
+    itself when the span cannot be located, which the token test makes unreachable in practice)."""
+    span = verbatim_span(quote, case_text)
+    return span if span is not None else quote
 
 
 def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[str] = None) -> List[QuoteVerdict]:
@@ -165,7 +173,14 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
         quotes = [q for q in (e.get('quotes') or []) if q and str(q).strip()]
         for q in quotes:
             if _verbatim(q, ts):
-                verdicts[i].kept_verbatim.append(q)
+                # Snap to the case's own characters (lesson L5): the token test ignores
+                # punctuation and whitespace, so a stored "Engineer L\n's scope of work" passes
+                # it while the case reads "Engineer L's scope of work". The committed literal
+                # must be the case's span, so the stored spelling is recorded as snapped.
+                span = _snap(q, case_text)
+                verdicts[i].kept_verbatim.append(span)
+                if span != q:
+                    verdicts[i].snapped.append(q)
             else:
                 pending.append((i, q))
         if not quotes and e.get('require_quote'):
@@ -222,7 +237,7 @@ def verify_and_reground(case_text: str, entities: List[Dict], model: Optional[st
     for pid, (i, q) in enumerate(pending):
         r = by_id.get(pid)
         spans = (r.get('spans') or []) if (r and r.get('supported')) else []
-        accepted = [s for s in spans
+        accepted = [_snap(s, case_text) for s in spans
                     if _verbatim(s, ts) and len(_tokens(s)) >= _MIN_REPAIR_SPAN_TOKENS]
         if accepted:
             verdicts[i].regrounded.extend(accepted)
