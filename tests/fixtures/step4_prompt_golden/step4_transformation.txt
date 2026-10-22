@@ -97,11 +97,18 @@ KEY ACTIONS: Sealing the drawings
 CONSTRAINTS: License scope
 
 ETHICAL QUESTIONS POSED TO THE BOARD:
-Q1: Was it ethical for Engineer A to seal drawings produced by the AI system?
-Q2: Did Engineer B have a duty to report the practice? [board]
+(No Board questions extracted)
 
 BOARD'S CONCLUSIONS:
-C1: It was not ethical to seal the drawings without full review. [violation]
+(No Board conclusions extracted)
+
+GENERATED ANALYSIS (Step 4 analytical questions and conclusions; NOT posed to or decided by the Board):
+Q1: [GENERATED analytical question, not posed to the Board] Was it ethical for Engineer A to seal drawings produced by the AI system?
+Q2: [GENERATED board question, not posed to the Board] Did Engineer B have a duty to report the practice?
+C1: [GENERATED violation conclusion, not a Board determination] It was not ethical to seal the drawings without full review.
+Classify the transformation from the Board's own questions and conclusions above. The
+generated analysis is context only; do not treat it as a Board determination or as a shift
+the Board effected.
 
 RESOLUTION PATTERNS:
 - duty_reassertion: The Board reasserted the personal-review duty over delegation to tools.

@@ -326,9 +326,10 @@ class TransformationClassifier:
         # Format questions - handle both data structures. Step-4 generated
         # questions and conclusions leave the Board headings and go to tagged
         # blocks of their own (case 8 review, lesson L5: the prompt labelled
-        # generated conclusions "BOARD'S CONCLUSIONS"). A record is moved only
-        # when positively identified as generated (category type or number
-        # offset), so legacy untyped rows keep their place.
+        # generated conclusions "BOARD'S CONCLUSIONS"). A record stays under a
+        # Board heading only when positively identified as the Board's (the
+        # board_explicit type, or a number below the generated offset); a
+        # legacy record with neither moves to the generated block (_is_generated).
         questions_text = ""
         generated_questions_text = ""
         if questions:
