@@ -671,7 +671,7 @@ class TestWaveISingleSites:
                              options=[{"label": "A", "is_board_choice": True}])
         # Module reads option dicts via its own helper; empty picks = checked none.
         summary = mod.verify_board_choices(
-            7, [dp], [{"conclusion_text": "x"}],
+            7, [dp], [{"conclusion_text": "x", "conclusion_type": "board_explicit"}],
             llm_client=OpenAIProvider(model="gpt-4o", client=client))
         assert summary["error"] is None
         assert client.create_calls, "provider completion expected"

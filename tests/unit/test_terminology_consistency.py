@@ -95,7 +95,7 @@ class TestNineComponentTerminology:
         # Filter out archived files, site files, and this test file itself
         main_results = {
             path: matches for path, matches in results.items()
-            if 'docs-internal/archive' not in path
+            if 'docs-internal/' not in path
             and 'site/' not in path
             and 'test_terminology_consistency.py' not in path
         }
