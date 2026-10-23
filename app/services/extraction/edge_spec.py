@@ -898,6 +898,24 @@ def _read_state_affects(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
     return out
 
 
+def _read_case_documents(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
+    """CaseDocument `held_by` -> heldBy (the case_documents rows a resources pass stores)."""
+    from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+    rows = TemporaryRDFStorage.query.filter_by(
+        case_id=case_id, extraction_type=spec.extraction_type, storage_type="individual"
+    ).all()
+    out: List[SubjectRow] = []
+    for r in rows:
+        p = _props(r)
+        raw = p.get("heldBy") or p.get("held_by") or []
+        holders = [str(x).strip() for x in (raw if isinstance(raw, list) else [raw]) if str(x).strip()]
+        if holders:
+            out.append(SubjectRow(label=r.entity_label or "", fields={"heldBy": holders},
+                                  extra={"document_label": r.entity_label or ""}))
+    return out
+
+
 def _read_participants(case_id: int, spec: EdgeSpec) -> List[SubjectRow]:
     """The Pass-2 'who' fields plus the actor-edge additions (citedByAgent,
     isPerformedBy). Each predicate has its OWN extraction_type and subject category,
@@ -1044,6 +1062,36 @@ def _state_affects_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
             "Choose NONE (an empty list) when a named party is a generic group not among "
             "the candidates (e.g. 'future occupants and public', 'society'), an institution "
             "not among the candidates, or otherwise not one of the listed case agents.\n\n"
+            "REQUESTS:\n" + "\n\n".join(blocks) +
+            "\n\nOUTPUT strict JSON only, one entry per request id, each value a JSON "
+            "array of the chosen candidate numbers (use [] for none): "
+            "{\"<id>\": [<n>, ...], ...}"
+        )
+    return builder
+
+
+def _case_document_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
+    def builder(items: List[Dict[str, Any]]) -> str:
+        blocks = []
+        for it in items:
+            cands = "; ".join(
+                f"{i + 1}) {lbl[:90]}" for i, (iri, lbl, sim) in enumerate(it["shortlist"])
+            )
+            blocks.append(
+                f"[{it['id']}] document: \"{(it.get('document_label') or '')[:120]}\"\n"
+                f"  held by text: \"{(it['desc'] or '')[:220]}\"\n"
+                f"  candidate agents: {cands}"
+            )
+        return (
+            "Each REQUEST gives the `held by` text of a CASE DOCUMENT (a report, data set, "
+            "drawings, inspection records, or photographs that exists within the events of "
+            "an engineering-ethics case), plus the candidate AGENTS in that case.\n"
+            "For each request, choose ALL candidate agents that the held-by text names as "
+            "producing, holding, or consulting the document. A text may name several agents, "
+            "one, or none.\n"
+            "Choose NONE (an empty list) when a named party is a generic group or an "
+            "institution not among the candidates, or otherwise not one of the listed case "
+            "agents.\n\n"
             "REQUESTS:\n" + "\n\n".join(blocks) +
             "\n\nOUTPUT strict JSON only, one entry per request id, each value a JSON "
             "array of the chosen candidate numbers (use [] for none): "
@@ -1395,6 +1443,28 @@ _STATE_AFFECTS_SPEC = EdgeSpec(
     no_data_status="no_affected_parties",
 )
 
+# case_document_edges: CaseDocument held_by -> heldBy (Agent), multi-select. The subject is
+# typed proeth:CaseDocument, outside the nine categories, so it resolves by rdf:type.
+_CASE_DOCUMENT_SPEC = EdgeSpec(
+    name="case_document_edges",
+    extraction_type="case_documents",
+    subject_category="",
+    predicates=(
+        EdgePredicate("heldBy", PROETH, ("heldBy", "held_by"), "Agent",
+                      prompt_builder_factory=_case_document_prompt_factory,
+                      exact_label_preresolve=True),
+    ),
+    prov_prefix="case_document_edge_provenance_",
+    prov_label=lambda p: f"Case document edge ({p})",
+    prov_comment=lambda p: ("property=heldBy; case document held_by text resolved to the case Agent(s) "
+                            "by embedding shortlist + LLM multi-select"),
+    reader=_read_case_documents,
+    subject_resolution="type",
+    subject_type=PROETH.CaseDocument,
+    pool_kind="agent",
+    no_data_status="no_document_holders",
+)
+
 # participant_edges: the Pass-2 'who' fields plus the actor-edge additions -> Component
 # -> Agent. ADDITIVE (this only ADDS edges; since CMT-3 the commit writes no literal for these fields, except hasAgent, the isPerformedBy source, a declared datatype carrier kept on every action). Each
 # predicate has its OWN subject category AND its own extraction_type. invokedBy and
@@ -1605,6 +1675,7 @@ _TEMPORAL_RELATION_SPEC = EdgeSpec(
 
 EDGE_REGISTRY: List[EdgeSpec] = [
     _RESOURCE_SPEC,
+    _CASE_DOCUMENT_SPEC,
     _STATE_AFFECTS_SPEC,
     _PARTICIPANT_SPEC,
     _REQUIRES_CAPABILITY_SPEC,

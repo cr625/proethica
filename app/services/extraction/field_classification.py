@@ -56,6 +56,9 @@ _RELATION = {
     "hasRole", "actor",
     "obligatedParty", "constrainedEntity", "possessedBy", "invokedBy", "hasCapability",
     "affects", "availableTo", "usedBy", "citedBy",
+    # case documents (proeth:CaseDocument, 2026-10-23): held_by resolves to heldBy, and an
+    # action's documents to usesDocument
+    "heldBy", "usesDocument",
     # generic per-individual relationship list (a temp_rdf field the serializer resolves into
     # peer / symmetric-property edges); structural, not a kept synthesis literal.
     "relationships", "relatedTo",

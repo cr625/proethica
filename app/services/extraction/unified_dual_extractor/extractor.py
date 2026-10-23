@@ -101,10 +101,14 @@ class UnifiedDualExtractor(
 
         # -- Pydantic schemas --
         from app.services.extraction.schemas import (
-            CONCEPT_SCHEMAS, CONCEPT_MODELS, to_structured_output_schema,
+            CONCEPT_SCHEMAS, CONCEPT_MODELS, CONCEPT_SIDE_OUTPUTS, to_structured_output_schema,
         )
         self.result_schema = CONCEPT_SCHEMAS[concept_type]
         self.class_model, self.individual_model = CONCEPT_MODELS[concept_type]
+        # Arrays the result carries beside classes and individuals (resources: case_documents),
+        # filled by _parse_and_validate on each call and stored by store_extraction_result.
+        self.side_output_models = CONCEPT_SIDE_OUTPUTS.get(concept_type, {})
+        self.side_outputs: Dict[str, List[BaseModel]] = {}
         # Structured-outputs schema, computed once: the cleaned JSON Schema handed to the
         # main LLM call as output_config.format so a complete response is guaranteed to be
         # parseable JSON. None when no result_schema is available, in which case _call_llm
@@ -163,6 +167,7 @@ class UnifiedDualExtractor(
             f"section={section_type}"
         )
         self._current_section_type = section_type
+        self.side_outputs = {}
 
         # 1. Build prompt
         prompt = self._build_prompt(case_text, section_type, case_id=case_id)

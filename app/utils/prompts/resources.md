@@ -22,6 +22,7 @@ RESOURCE EXTRACTION DIRECTIVES (rules the ontology enforces):
 - provision_codes: when the resource is a code, standard, or regulation, this list is its PRIMARY content and MUST be populated. Scan the whole case (facts and discussion) for every provision the case attributes to that source and list them all, capturing each Canon and Code section number (e.g. "I.1", "I.2", "I.5", "II.1.c", "II.2.a", "II.2.b", "III.8.a", "III.9"). An empty provision_codes on a cited code is an extraction error. Leave empty only for a non-code resource (a precedent opinion, a tool, a generic reference).
 - Emit one resource individual per distinct source used or cited, not one per canon citation. The individual canon and section citations belong inside that source's provision_codes list, not as separate resources.
 - A prior board opinion or precedent the case relies on (e.g. "BER Case 90-6", "BER Case 98-3") is a legitimate case_precedent resource of THIS case, not contamination. Extract each cited precedent as its own resource individual.
+- CASE DOCUMENTS are not resources. A report, data set, drawings, inspection records, photographs, correspondence, or contract that a participant produces, holds, or consults within the case events records the case situation, not professional knowledge. List each one in case_documents, never as a resource individual: a short identifier, what it records (description), the actors who produce, hold, or consult it (held_by), and the quotes that name it (text_references). A code of ethics, a standard, a statute or regulation, a reference work, or a prior board case stays a resource.
 
 MATCH DECISION RULES:
 For each resource class, evaluate ONLY against the EXISTING RESOURCES IN ONTOLOGY list above. Evaluate match_decision strictly against the ontology list above; used_by and cited_by are free-text party names resolved to case agents at commit.
@@ -31,7 +32,7 @@ For each resource class, evaluate ONLY against the EXISTING RESOURCES IN ONTOLOG
 - If genuinely NEW with no close equivalent: match_decision.matches_existing = false
 
 OUTPUT FORMAT:
-Return a JSON object with TWO arrays: new_resource_classes (reusable kinds of professional knowledge source) and resource_individuals (specific documents used or cited in this case). A Resource Class is a general reusable source type (e.g. "Ethical Code"); a Resource Individual is a specific document in the case (e.g. "NSPE Code of Ethics"). Each individual MUST reference a class via the resource_class field.
+Return a JSON object with THREE arrays: new_resource_classes (reusable kinds of professional knowledge source), resource_individuals (specific sources of professional knowledge used or cited in this case), and case_documents (the documents of the case events, which are not resources; an empty array when the case names none). A Resource Class is a general reusable source type (e.g. "Ethical Code"); a Resource Individual is a specific document in the case (e.g. "NSPE Code of Ethics"). Each individual MUST reference a class via the resource_class field.
 
 CLASS LABEL CANONICALIZATION (with worked examples):
 Drop case-specific detail (named actors, case identifiers, topic) from the class label; put it in the definition and the individual record. Emit the short general right-hand form:
@@ -72,5 +73,17 @@ INDIVIDUAL SCHEMA (resource_individuals array) -- each individual is a JSON obje
   }
 
 Keep each individual's identifier short (the document name, at most about 6 words); it becomes the URI.
+
+CASE DOCUMENT SCHEMA (case_documents array) -- each document is a JSON object:
+
+  {
+    "identifier": "Groundwater Monitoring Data",
+    "description": "The monitoring data Engineer A collected at the site, showing contamination near the wells",
+    "held_by": ["Engineer A"],
+    "text_references": ["the monitoring data showed contamination near the wells"],
+    "confidence": 0.9
+  }
+
+Keep each document's identifier short as well (at most about 6 words); it becomes the URI.
 
 FORMATTING: do not use em dashes or en dashes in output text, and do not dodge with stacked parentheticals or excessive colons/semicolons; use commas or split into two sentences.

@@ -198,7 +198,8 @@ class TemporaryRDFStorage(db.Model):
     @classmethod
     def store_extraction_results(cls, case_id, extraction_session_id,
                                 extraction_type, rdf_data,
-                                extraction_model=None, provenance_data=None):
+                                extraction_model=None, provenance_data=None,
+                                prompt_concept_type=None):
         """Delegate to rdf_storage_service. Commits for backward compatibility."""
         from app.services.entity.rdf_storage_service import store_extraction_results as _store
         result = _store(
@@ -208,6 +209,7 @@ class TemporaryRDFStorage(db.Model):
             rdf_data=rdf_data,
             extraction_model=extraction_model,
             provenance_data=provenance_data,
+            prompt_concept_type=prompt_concept_type,
         )
         db.session.commit()
         return result

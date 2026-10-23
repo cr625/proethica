@@ -145,10 +145,12 @@ class ParsingMixin:
                 ]
 
         # Try validating the full ExtractionResult
+        side_models = getattr(self, 'side_output_models', None) or {}
         try:
             result = self.result_schema.model_validate(raw_json)
             classes = getattr(result, classes_key, [])
             individuals = getattr(result, individuals_key, [])
+            self.side_outputs = {key: list(getattr(result, key, None) or []) for key in side_models}
             logger.info(
                 f"Pydantic validation OK: {len(classes)} classes, "
                 f"{len(individuals)} individuals"
@@ -178,8 +180,27 @@ class ParsingMixin:
             'individual',
             case_id,
         )
+        self.side_outputs = {key: self._parse_side_items(raw_json.get(key), model, key)
+                             for key, model in side_models.items()}
 
         return classes, individuals
+
+    def _parse_side_items(self, items: Any, model_class: type, key: str) -> List[BaseModel]:
+        """Parse a side-output array (resources: case_documents) item by item, skipping invalid
+        items. The concept's field normalization is not applied: it targets the concept's own
+        classes and individuals (the resources normalization would infer a resource_category
+        onto a case document)."""
+        parsed = []
+        for i, item in enumerate(items if isinstance(items, list) else []):
+            if not isinstance(item, dict):
+                continue
+            try:
+                parsed.append(model_class.model_validate(item))
+            except ValidationError as e:
+                label = item.get('identifier') or item.get('label') or f'#{i}'
+                logger.warning(f"Skipping invalid {self.concept_type} {key} item '{label}': "
+                               f"{e.error_count()} validation errors")
+        return parsed
 
     def _parse_items(
         self,

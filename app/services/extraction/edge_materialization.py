@@ -121,6 +121,12 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # (embedding shortlist + batched LLM multi-select, prov:Derivation).
     _run_family(results, "resource_edges", case_id, ttl_path)
 
+    # 2b2. Case-document edges (DB-driven, embedding-resolved): the case document
+    # `held_by` list becomes CaseDocument proeth:heldBy Agent edges, naming the case
+    # actor(s) who produce, hold, or consult each document. Same shape as the
+    # resource-edge applier, with the subject resolved by its rdf:type.
+    _run_family(results, "case_document_edges", case_id, ttl_path)
+
     # 2c. State-affects edges (DB-driven, embedding-resolved): the state
     # `affectedParties` list becomes State proeth-core:affects Agent edges, naming
     # the case actor(s) a state bears on. Mirrors the resource-edge applier

@@ -290,6 +290,60 @@ def pydantic_to_rdf_data(
     }
 
 
+def case_documents_to_rdf_data(
+    documents: list,
+    case_id: int,
+    section_type: str = 'facts',
+    pass_number: int = None,
+    step_number: int = None,
+) -> Dict[str, Any]:
+    """Convert the case_documents of a resources pass to the rdf_data dict that
+    TemporaryRDFStorage.store_extraction_results() expects: individuals typed
+    proeth:CaseDocument, the description as the definition, and held_by as the heldBy
+    property that the case_document_edges family resolves to case agents at commit. No
+    classes and no match decision: the type is always proeth:CaseDocument."""
+    timestamp = datetime.now(timezone.utc).isoformat()
+    new_individuals = []
+    for doc in documents:
+        identifier = (getattr(doc, 'identifier', '') or '').strip()
+        if not identifier:
+            continue
+        properties = _extract_properties(
+            doc, 'case_documents', timestamp, case_id, section_type, pass_number,
+        )
+        properties.pop('description', None)  # carried as the definition
+        refs = getattr(doc, 'text_references', None) or []
+        source_text = doc.source_text or (refs[0] if refs else '')
+        description = doc.description or ''
+        new_individuals.append({
+            'uri': f'http://proethica.org/ontology/case/{case_id}#{_sanitize_label(identifier, space_char="_")}',
+            'label': identifier,
+            'definition': description,
+            'definitions': [{
+                'text': description,
+                'source_type': 'extraction',
+                'source_section': section_type,
+                'source_step': step_number,
+                'source_case': case_id,
+                'is_primary': True,
+                'timestamp': timestamp,
+            }],
+            'types': [f'{INTERMEDIATE_NS}CaseDocument'],
+            'properties': properties,
+            'source_text': source_text,
+            'section_sources': [section_type],
+            'source_texts': {section_type: source_text} if source_text else {},
+        })
+    return {'new_classes': [], 'new_individuals': new_individuals}
+
+
+# Side-output array -> rdf_data converter; the array is stored under the extraction type of
+# the same name (schemas.CONCEPT_SIDE_OUTPUTS).
+_SIDE_OUTPUT_CONVERTERS = {
+    'case_documents': case_documents_to_rdf_data,
+}
+
+
 def individual_type_iri(class_ref: str, match_decision) -> str:
     """The rdf:type IRI an individual carries in the working store.
 
@@ -498,6 +552,25 @@ def store_extraction_result(
             extraction_model=model_name,
             provenance_data=provenance_data,
         )
+
+        # 4b. Side arrays (resources: case_documents) under their own extraction type in the
+        #     same session, so the concept's rows stay clean. Stored even when empty: the
+        #     store first clears the uncommitted rows an earlier run of this section left,
+        #     found through the sessions of this concept's prompts.
+        side_outputs = getattr(extractor, 'side_outputs', None) or {}
+        for side_key in (getattr(extractor, 'side_output_models', None) or {}):
+            TemporaryRDFStorage.store_extraction_results(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type=side_key,
+                rdf_data=_SIDE_OUTPUT_CONVERTERS[side_key](
+                    side_outputs.get(side_key, []), case_id, section_type,
+                    pass_number=pass_number, step_number=step_number,
+                ),
+                extraction_model=model_name,
+                provenance_data=provenance_data,
+                prompt_concept_type=concept_type,
+            )
 
         # 5. The summary the provenance card shows is written AFTER storage, from the
         #    stored rows, so an extracted-versus-stored difference carries its own

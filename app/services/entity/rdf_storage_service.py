@@ -30,6 +30,7 @@ def store_extraction_results(
     rdf_data: dict,
     extraction_model: str = None,
     provenance_data: dict = None,
+    prompt_concept_type: str = None,
 ) -> List[TemporaryRDFStorage]:
     """
     Store RDF extraction results from the converter.
@@ -47,6 +48,10 @@ def store_extraction_results(
         rdf_data: Dictionary containing classes and individuals from RDF converter
         extraction_model: LLM model used for extraction
         provenance_data: Optional PROV-O provenance metadata
+        prompt_concept_type: The concept whose extraction prompts identify the sessions to
+            clear, when it differs from extraction_type (the case_documents a resources pass
+            returns are stored under their own type but saved with the resources prompt).
+            Defaults to extraction_type.
 
     Returns:
         List of created/updated TemporaryRDFStorage objects
@@ -69,7 +74,7 @@ def store_extraction_results(
         p.extraction_session_id
         for p in ExtractionPrompt.query.filter_by(
             case_id=case_id,
-            concept_type=extraction_type,
+            concept_type=prompt_concept_type or extraction_type,
             section_type=section_type
         ).all()
         if p.extraction_session_id

@@ -776,10 +776,27 @@ class ResourceIndividual(BaseIndividual):
     )
 
 
+class CaseDocument(BaseIndividual):
+    """A document of the case events: a report, a data set, drawings, inspection records, or
+    photographs that a participant produces, holds, or consults (proeth:CaseDocument, an IAO
+    information content entity outside the nine components and disjoint with Resource, decided
+    2026-10-23). Returned by the resources pass in its case_documents array and stored under
+    the case_documents extraction type; held_by resolves to the heldBy edge at commit. It carries
+    no class: the type is always proeth:CaseDocument, so the match_decision stays unused."""
+    description: str = Field(
+        "", description="What the document records, as the case states it"
+    )
+    held_by: List[str] = Field(
+        default_factory=list,
+        description="Case actors who produce, hold, or consult the document; resolves to the heldBy edge"
+    )
+
+
 class ResourceExtractionResult(BaseModel):
     """Top-level LLM output for resource extraction."""
     new_resource_classes: List[CandidateResourceClass] = Field(default_factory=list)
     resource_individuals: List[ResourceIndividual] = Field(default_factory=list)
+    case_documents: List[CaseDocument] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -1412,6 +1429,12 @@ CONCEPT_MODELS: Dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     'events': (CandidateEventClass, EventIndividual),
     'capabilities': (CandidateCapabilityClass, CapabilityIndividual),
     'constraints': (CandidateConstraintClass, ConstraintIndividual),
+}
+
+#: Arrays a concept's result carries beside its classes and individuals: concept -> {result
+#: field -> item model}. Each array is stored under the extraction type of the same name.
+CONCEPT_SIDE_OUTPUTS: Dict[str, Dict[str, type[BaseModel]]] = {
+    'resources': {'case_documents': CaseDocument},
 }
 
 # ---------------------------------------------------------------------------
