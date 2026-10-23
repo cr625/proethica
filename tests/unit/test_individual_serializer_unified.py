@@ -631,3 +631,36 @@ def test_match_decision_rejects_per_case_matched_uri():
     assert len(list(g.objects(uri, PROV_NS['matchedOntologyClass']))) == 0
     # matches_existing is still recorded.
     assert (uri, PROV_NS['matchesExisting'], Literal(True, datatype=XSD.boolean)) in g
+
+
+def test_match_decision_qualifies_non_iri_matched_uri():
+    """Model output names the matched class by its bare canonical name (a synonym-table match),
+    with an ad hoc prefix, or with an https scheme. Each is recorded as the absolute IRI: URIRef
+    would keep a bare name as a relative IRI, which the next parse resolves against the TTL file
+    location (the file:///.../ontologies/Name objects of cases 4, 7 and 170)."""
+    svc = _svc()
+    expected = {
+        'MentorUnavailabilityState': PROETHICA['MentorUnavailabilityState'],
+        'proethica-intermediate:ScopeLimitationState': PROETHICA['ScopeLimitationState'],
+        'proethica:DualCapacityState': PROETHICA['DualCapacityState'],
+        'https://proethica.org/ontology/intermediate#ResourceConstraint': PROETHICA['ResourceConstraint'],
+        'http://purl.obolibrary.org/obo/BFO_0000023': URIRef('http://purl.obolibrary.org/obo/BFO_0000023'),
+    }
+    for matched_uri, iri in expected.items():
+        g = Graph()
+        uri = CASE['SomeIndividual']
+        svc._emit_match_decision(g, uri, {'match_decision': {'matched_uri': matched_uri,
+                                                             'matches_existing': True}}, PROV_NS)
+        assert list(g.objects(uri, PROV_NS['matchedOntologyClass'])) == [iri], matched_uri
+
+
+def test_match_decision_drops_unresolvable_matched_uri():
+    """An unknown prefix or a value that is no local name is not recorded, rather than written as
+    an IRI with an invented scheme."""
+    svc = _svc()
+    for matched_uri in ('proethica-case:PriorClientInvolvementState', 'Claimant Contractor', ''):
+        g = Graph()
+        uri = CASE['SomeIndividual']
+        svc._emit_match_decision(g, uri, {'match_decision': {'matched_uri': matched_uri,
+                                                             'matches_existing': True}}, PROV_NS)
+        assert len(list(g.objects(uri, PROV_NS['matchedOntologyClass']))) == 0, matched_uri

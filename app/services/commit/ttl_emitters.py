@@ -18,9 +18,10 @@ this module or on ontserve_commit_service.py).
 """
 
 import logging
+import re
 from datetime import datetime
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, OWL, XSD
 from rdflib.namespace import SKOS
@@ -107,6 +108,29 @@ class EmitterMixin:
             if decl not in g:
                 g.add(decl)
 
+    # Prefixes that matcher decisions in extraction output have used for the shared layer.
+    _MATCH_PREFIXES = {'proeth': PROETHICA, 'proethica': PROETHICA, 'proethica-intermediate': PROETHICA}
+    _LOCAL_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+
+    def _canonical_match_iri(self, matched_uri: Any) -> Optional[str]:
+        """The matched class of a matcher decision as an absolute IRI, or None when it cannot be
+        resolved. Besides the full IRI, model output names the class by its bare canonical name (a
+        synonym-table match), with an ad hoc prefix (proethica-intermediate:X), or with an https
+        scheme on the proethica.org namespaces. URIRef keeps each as written: a bare name becomes a
+        relative IRI that the next parse resolves against the TTL file location, and a prefix
+        becomes a URI scheme."""
+        value = str(matched_uri or '').strip()
+        if value.startswith('https://proethica.org/'):
+            value = 'http://' + value[len('https://'):]
+        if re.match(r'https?://', value):
+            return value
+        prefix, sep, local = value.partition(':')
+        ns = self._MATCH_PREFIXES.get(prefix) if sep else PROETHICA
+        name = local if sep else value
+        if ns is None or not self._LOCAL_NAME.fullmatch(name):
+            return None
+        return str(ns[name])
+
     def _emit_match_decision(self, g: Graph, subject_uri: URIRef, rdf_data: Dict,
                              prov_ns: Namespace) -> None:
         """Persist the extraction matcher's decision as XAI annotation provenance
@@ -121,10 +145,10 @@ class EmitterMixin:
         if 'matches_existing' in md:
             g.add((subject_uri, prov_ns['matchesExisting'],
                    Literal(bool(md['matches_existing']), datatype=XSD.boolean)))
-        matched_uri = md.get('matched_uri')
+        matched_uri = self._canonical_match_iri(md.get('matched_uri'))
         # Record only a canonical (shared-layer) class IRI; a per-case copy would
         # re-introduce the injection pollution the curated-vocabulary filter removed.
-        if matched_uri and '/ontology/case/' not in str(matched_uri):
+        if matched_uri and '/ontology/case/' not in matched_uri:
             g.add((subject_uri, prov_ns['matchedOntologyClass'], URIRef(matched_uri)))
         if md.get('matched_label'):
             g.add((subject_uri, prov_ns['matchedOntologyLabel'], Literal(md['matched_label'])))
