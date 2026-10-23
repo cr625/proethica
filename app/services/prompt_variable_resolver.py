@@ -823,11 +823,13 @@ _PASS_DIRECTIVES = {
                               "REUSE or refine them via match_decision; extract only genuinely NEW roles the "
                               "discussion introduces. A near-duplicate of a facts-pass role is an error."),
     ('obligations', 'facts'): ("THIS PASS (facts): extract the obligation classes and individuals the case FACTS "
-                               "establish (the duties in force as the situation unfolds). The Facts establish "
-                               "duties, not their discharge: emit compliance_status \"unclear\" on every "
-                               "obligation individual in this pass (the holding-aware discussion pass sets it). "
-                               "Word each obligation_statement in the Code's own wording plus the Board's "
-                               "application of it to the actor; do not widen a duty beyond what the Code states."),
+                               "establish (the duties in force as the situation unfolds). A duty that the Facts "
+                               "do not state in words, such as a Code duty applied to the conduct the Facts "
+                               "describe, is a HOLDING, not a fact: it belongs to the discussion pass. When the "
+                               "Facts state no duty, return empty arrays. The Facts establish duties, not their "
+                               "discharge: emit compliance_status \"unclear\" on every obligation individual in "
+                               "this pass (the holding-aware discussion pass sets it). Word each "
+                               "obligation_statement as the Facts state the duty; do not widen it beyond them."),
     ('obligations', 'discussion'): ("THIS PASS (discussion): the facts-pass obligations are already in EXISTING "
                                     "OBLIGATIONS above. REUSE or refine them via match_decision; extract only "
                                     "genuinely NEW obligations the discussion introduces (e.g. duties the Board "

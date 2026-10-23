@@ -139,10 +139,18 @@ def test_facts_pass_prompt_has_no_prior_block(monkeypatch):
 # L2 / L8: per-pass directives (code-side blocks)
 # ---------------------------------------------------------------------------
 
-def test_obligations_facts_directive_emits_unclear_and_code_wording():
+def test_obligations_facts_directive_emits_unclear_and_routes_holdings_to_discussion():
+    """The obligations pass split (A/B reading of 2026-10-23): a Code duty applied to the conduct
+    the Facts describe is a holding, so the facts pass keeps only duties the Facts state."""
     d = concept_ontology_slots('obligations', 'facts')['pass_directive']
     assert 'compliance_status "unclear"' in d
-    assert "Code's own wording plus the Board's application" in d
+    assert 'is a HOLDING' in d and 'return empty arrays' in d
+    assert "Code's own wording" not in d
+
+
+def test_obligations_discussion_directive_keeps_code_wording():
+    d = concept_ontology_slots('obligations', 'discussion')['pass_directive']
+    assert "Code's wording plus the Board's application" in d
 
 
 def test_obligations_discussion_directive_confirms_or_revises_every_status():
