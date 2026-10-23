@@ -20,7 +20,7 @@ For each role, evaluate ONLY against the EXISTING ROLES IN ONTOLOGY list above. 
 - If the extracted role is a SPECIALIZATION of an existing class: match to parent with MEDIUM confidence (0.70-0.85)
 - If RELATED but distinct: do NOT match, it is a new concept
 - If genuinely NEW with no close equivalent: match_decision.matches_existing = false
-- When a CANONICAL class and a PREVIOUSLY EXTRACTED class both fit a role, match the canonical class: read the canonical definitions first (the NSPE Board of Ethical Review is a Regulatory Authority Role, whose definition names an ethics review board), and choose a previously extracted class only when no canonical class covers the role.
+- When a CANONICAL class and a PREVIOUSLY EXTRACTED class both fit a role, match the canonical class: read the canonical definitions first (a state licensing board that acts in the case is a Regulatory Authority Role, whose definition names a licensure board), and choose a previously extracted class only when no canonical class covers the role.
 
 OUTPUT FORMAT:
 Return a JSON object with TWO arrays: new_role_classes (reusable types/categories of roles) and role_individuals (specific persons/entities filling those roles). A Role Class is a general reusable type (e.g. "Design Engineer"); a Role Individual is a specific named actor in the case (e.g. "Engineer A Design Engineer"). Each individual MUST reference a class via the role_class field.

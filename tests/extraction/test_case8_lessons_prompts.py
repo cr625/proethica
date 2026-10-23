@@ -296,3 +296,27 @@ def test_canonicalize_prompt_without_matches_is_unchanged(monkeypatch):
                                 matched_ontology_label=None, matched_ontology_uri=None)]
     prompt = svc._build_canonicalize_prompt('constraints', 'SHEET BLOCK', entities)
     assert prompt == 'SHEET BLOCK\n\nENTITIES:\n[ID: 11] "X Constraint" -- d'
+
+
+# ---------------------------------------------------------------------------
+# A/B reading of 2026-10-23: the Board of Ethical Review is the deliberative body, not a participant
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("concept,slot_name", [("capabilities", "capability_boundary"),
+                                               ("states", "state_boundary"),
+                                               ("constraints", "constraint_boundary")])
+def test_boundary_slot_excludes_the_board_as_participant(concept, slot_name):
+    slot = concept_ontology_slots(concept, 'discussion')[slot_name]
+    assert 'DELIBERATIVE BODY' in slot and 'NSPE Board of Ethical Review' in slot
+    assert 'state licensing board' in slot
+
+
+def test_resource_boundary_keeps_cited_board_cases():
+    """A cited BER case is a CasePrecedent resource: the resources pass gets no Board exclusion."""
+    assert 'DELIBERATIVE BODY' not in concept_ontology_slots('resources', 'discussion')['resource_boundary']
+
+
+def test_role_directives_exclude_the_board_as_a_role():
+    from app.services.prompt_variable_resolver import _role_directives_block
+    block = _role_directives_block()
+    assert 'DELIBERATIVE BODY' in block and 'as a Role' in block

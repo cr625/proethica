@@ -645,6 +645,9 @@ def _role_directives_block() -> str:
     D.append("- When a CANONICAL class and a PREVIOUSLY EXTRACTED class both fit a role, match the canonical "
              "class: read the canonical definitions first, and choose a previously extracted class only "
              "when no canonical class covers the role.")
+    # D-DELIBERATIVE  <- proeth-cases:DeliberativeBody skos:definition (proethica-cases.ttl): the Board
+    # authors the analysis and is not a role of the case (A/B reading of 2026-10-23)
+    D.append(_deliberative_body_directive('Role'))
     # D-OBLIGATION-NAMED  <- D-TELEO made checkable: the obligation a professional role generates is
     # named in generates_obligations on the individual; role_kind professional with none named is
     # rejected at parse time (role_checks)
@@ -681,6 +684,42 @@ def _component_exclude_directive(component: str) -> str:
     art = 'an' if component[:1].lower() in 'aeiou' else 'a'
     return (f"- NEGATIVE BOUNDARY: the nine D-tuple components are mutually disjoint (owl:AllDisjointClasses). "
             f"Do NOT emit as {art} {component} what is really {others}. Redirect each to the pass that owns it.")
+
+
+# Components the NSPE Board of Ethical Review was extracted as across the corpus (249 items in 100 of the
+# 119 case ontologies on 2026-10-23, mostly capabilities such as "Board Precedent Reasoning" and roles
+# such as "Board of Ethical Review Adjudicator"). Resource stays out on purpose: a cited BER case is a
+# legitimate CasePrecedent resource.
+_DELIBERATIVE_BODY_COMPONENTS = frozenset({'Role', 'Capability', 'State', 'Constraint', 'Action', 'Event'})
+
+
+def _deliberative_body_directive(component: str) -> str:
+    """The deliberative-body exclusion for <component>, read from the skos:definition of
+    proeth-cases:DeliberativeBody in proethica-cases.ttl and framed as an extraction directive: the Board
+    authors the analysis and is not extracted as a participant of the case. '' for components outside
+    _DELIBERATIVE_BODY_COMPONENTS. Raises on unreadable TTL."""
+    if component not in _DELIBERATIVE_BODY_COMPONENTS:
+        return ''
+    import rdflib
+    from rdflib.namespace import SKOS
+    CASES = rdflib.Namespace('http://proethica.org/ontology/cases#')
+    g = rdflib.Graph()
+    g.parse(_ontology_ttl('proethica-cases.ttl'), format='turtle')
+    definition = next((str(o) for o in g.objects(CASES.DeliberativeBody, SKOS.definition)), '')
+    first = definition.split('. ')[0].rstrip('.') + '. ' if definition else ''
+    art = 'an' if component[:1].lower() in 'aeiou' else 'a'
+    return (f"- DELIBERATIVE BODY (from the ontology definition): {first}The NSPE Board of Ethical Review is "
+            f"that body for these cases and is recorded once outside this pass: do not emit the Board, its "
+            f"members, or its review, adjudication, or precedent reasoning as {art} {component}. A board that "
+            f"acts in the case events (a state licensing board receiving a complaint, a client's board of "
+            f"directors) is a participant and is extracted as usual.")
+
+
+def _component_boundary(component: str) -> str:
+    """The {{ <component>_boundary }} slot: the disjointness boundary plus, where it applies, the
+    deliberative-body exclusion."""
+    return "\n".join(d for d in (_component_exclude_directive(component),
+                                 _deliberative_body_directive(component)) if d)
 
 
 def _component_individuation_directive(component: str) -> str:
@@ -1030,7 +1069,7 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
         return {
             f'{comp.lower()}_definition': _component_definition_block(comp),
             f'{comp.lower()}_schema': _component_schema_block(comp),
-            f'{comp.lower()}_boundary': _component_exclude_directive(comp),
+            f'{comp.lower()}_boundary': _component_boundary(comp),
             f'{comp.lower()}_individuation': _component_individuation_directive(comp),
             'pass_directive': _augment_pass_directive(
                 _PASS_DIRECTIVES.get((concept_type, section_type), ''), section_type),
@@ -1043,7 +1082,7 @@ def concept_ontology_slots(concept_type: str, section_type: str = None) -> Dict[
         return {
             'action_definition': _component_definition_block('Action'),
             'action_schema': _component_schema_block('Action', property_only=True),
-            'action_boundary': _component_exclude_directive('Action'),
+            'action_boundary': _component_boundary('Action'),
             'action_individuation': _component_individuation_directive('Action'),
             'pass_directive': _augment_pass_directive(
                 _PASS_DIRECTIVES.get(('actions', section_type), ''), section_type),
