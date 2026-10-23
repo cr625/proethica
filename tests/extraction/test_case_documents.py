@@ -10,7 +10,7 @@ test_storage_persistence_case8, and the commit test, which uses the stub commit 
 import types
 from pathlib import Path
 
-from rdflib import Graph, Namespace, RDF, RDFS, OWL
+from rdflib import Graph, Literal, Namespace, RDF, RDFS, OWL, URIRef
 from rdflib.namespace import SKOS
 
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
@@ -169,3 +169,41 @@ def test_commit_types_a_case_document_without_a_core_category(tmp_path, monkeypa
     assert str(g.value(doc, RDFS.label)) == "Groundwater Monitoring Data"
     assert str(g.value(doc, SKOS.definition)) == "The wells data Engineer A collected"
     assert g.value(doc, PROETH.heldBy) is None  # an edge of the family, never a literal
+
+
+# --- Step 3: actions that use case documents ----------------------------------
+
+def test_action_prompt_offers_the_case_documents_only_when_there_are_any():
+    from app.services.temporal_dynamics.extractors.action_extractor import _build_phase1_prompt
+    without = _build_phase1_prompt({}, {}, "Facts.", "Discussion.")
+    assert "uses_documents" not in without and "CASE DOCUMENTS" not in without
+    with_docs = _build_phase1_prompt({}, {}, "Facts.", "Discussion.",
+                                     document_labels=["Groundwater Monitoring Data"])
+    assert "- Groundwater Monitoring Data" in with_docs
+    assert "14. uses_documents" in with_docs and '"uses_documents": []' in with_docs
+
+
+def test_action_converter_carries_the_document_names():
+    from app.services.temporal_dynamics.utils.rdf_converter import convert_action_to_rdf
+    rdf = convert_action_to_rdf({"label": "Data Review", "description": "d", "agent": "Engineer A",
+                                 "uses_documents": ["Groundwater Monitoring Data", " "]}, 7)
+    assert rdf["proeth:usesDocument"] == ["Groundwater Monitoring Data"]
+    assert "proeth:usesDocument" not in convert_action_to_rdf(
+        {"label": "Site Visit", "description": "d", "agent": "Engineer A"}, 7)
+
+
+def test_document_use_edge_family_pools_the_case_documents():
+    from app.services.extraction.edge_spec import _pool_for
+    spec = next(s for s in EDGE_REGISTRY if s.name == "document_use_edges")
+    assert (spec.extraction_type, spec.subject_category) == ("temporal_dynamics_enhanced", "Action")
+    [pred] = spec.predicates
+    assert pred.range_type == PROETH.CaseDocument and pred.exact_label_preresolve
+    g = Graph()
+    doc, state = CASE7["Groundwater_Monitoring_Data"], CASE7["Contamination_State"]
+    g.add((doc, RDF.type, PROETH.CaseDocument))
+    g.add((doc, RDFS.label, Literal("Groundwater Monitoring Data")))
+    g.add((state, RDF.type, URIRef(CORE + "State")))
+    g.add((state, RDFS.label, Literal("Contamination State")))
+    svc = types.SimpleNamespace(get_embedding=lambda text: [1.0, 0.0])
+    pool = _pool_for(g, svc, spec, pred, {})
+    assert [iri for iri, _text, _vec in pool] == [doc]

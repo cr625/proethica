@@ -45,6 +45,7 @@ def extract_actions(state: TemporalDynamicsState) -> Dict:
             facts_text=state.get('facts_text', ''),
             discussion_text=state.get('discussion_text', ''),
             state_labels=state.get('state_labels') or [],
+            document_labels=state.get('document_labels') or [],
         )
 
         logger.info(f"[Stage 3] Extracted {len(actions)} actions")

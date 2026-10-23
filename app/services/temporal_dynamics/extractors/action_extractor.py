@@ -30,6 +30,7 @@ def extract_actions_with_metadata(
     facts_text: str = '',
     discussion_text: str = '',
     state_labels: Optional[List[str]] = None,
+    document_labels: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Extract actions (volitional professional decisions) with their core metadata
@@ -44,6 +45,8 @@ def extract_actions_with_metadata(
         discussion_text: Raw discussion section text (grounding context)
         state_labels: The case's State individual labels (the closed list for initiates /
             terminates; empty disables the closed-list check)
+        document_labels: The case's CaseDocument labels (the closed list for uses_documents;
+            empty leaves the field out of the prompt)
 
     Returns:
         List of action dictionaries with full metadata
@@ -64,6 +67,7 @@ def extract_actions_with_metadata(
     actions = _extract_core_actions(
         narrative, temporal_markers, case_id, provider, model_name, llm_trace,
         facts_text=facts_text, discussion_text=discussion_text, state_labels=state_labels,
+        document_labels=document_labels,
     )
     logger.info(f"[Stage 3] Extracted {len(actions)} actions")
     return actions
@@ -111,6 +115,7 @@ def _extract_core_actions(
     facts_text: str = '',
     discussion_text: str = '',
     state_labels: Optional[List[str]] = None,
+    document_labels: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Phase 1: Extract core action data (no scenario metadata).
@@ -119,7 +124,7 @@ def _extract_core_actions(
     and as primary source when narrative summary is missing or degraded.
     """
     prompt = _build_phase1_prompt(narrative, temporal_markers, facts_text, discussion_text,
-                                  state_labels=state_labels)
+                                  state_labels=state_labels, document_labels=document_labels)
     logger.info(f"[Stage 3] Phase 1 prompt length: {len(prompt)} chars")
 
     trace_entry = {
@@ -173,10 +178,24 @@ def _extract_core_actions(
 
 def _build_phase1_prompt(narrative: Dict, temporal_markers: Dict,
                          facts_text: str = '', discussion_text: str = '',
-                         state_labels: Optional[List[str]] = None) -> str:
+                         state_labels: Optional[List[str]] = None,
+                         document_labels: Optional[List[str]] = None) -> str:
     """Build Phase 1 prompt - core action extraction with source text grounding."""
     from app.services.temporal_dynamics.utils.happening_checks import state_label_block
     state_block = state_label_block(state_labels)
+    # The case's documents (proeth:CaseDocument from the resources pass): the closed list
+    # uses_documents names from. Without documents the field stays out of the prompt.
+    documents = [d for d in (document_labels or []) if str(d).strip()]
+    document_block = ""
+    document_field = ""
+    document_example = ""
+    if documents:
+        document_example = ',\n    "uses_documents": []'
+        document_block = ("\n\nCASE DOCUMENTS (the reports, data, drawings, and photographs of the case "
+                          "events; name them exactly as listed):\n"
+                          + "\n".join(f"- {d}" for d in documents))
+        document_field = ("\n14. uses_documents: the CASE DOCUMENTS above that this action consults, "
+                          "produces, or relies on, named exactly as listed. Empty list if none.")
 
     temporal_context = ""
     if temporal_markers.get('absolute'):
@@ -245,7 +264,7 @@ EXTRACTION DIRECTIVES (shared across components):
 
 {schema_block}
 
-{state_block}
+{state_block}{document_block}
 
 For each ACTION, extract:
 1. label: A SHORT, GENERAL action name of AT MOST 4 words. Name the KIND of action,
@@ -293,7 +312,7 @@ For each ACTION, extract:
     ethically do (a holding stated in the discussion, e.g. "cannot ethically acquiesce"),
     not something the case narrates as done. A prescribed act carries no performed
     temporal_marker (never "present" or "ongoing"); give it the holding's temporal frame
-    or leave temporal_marker empty.
+    or leave temporal_marker empty.{document_field}
 
 Return JSON:
 ```json
@@ -322,7 +341,7 @@ Return JSON:
     "initiates": ["Quality Risk State"],
     "terminates": [],
     "temporal_extent": "instant",
-    "text_references": ["assigned the complex bridge analysis to the intern"]
+    "text_references": ["assigned the complex bridge analysis to the intern"]{document_example}
   }}
 ]}}
 ```

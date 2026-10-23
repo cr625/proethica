@@ -149,15 +149,14 @@ def _present_case_discussion(case, discussion_html: str, facts_text: str = '') -
     return entry
 
 
-def _case_state_labels(case_id: int) -> list:
-    """Labels of the case's extracted State individuals (Steps 1-2), the closed list the Step-3
-    happenings may initiate or terminate. Best-effort: an empty list disables the closed-list
-    check (the prompts then fall back to free state naming)."""
+def _case_individual_labels(case_id: int, extraction_type: str) -> list:
+    """Labels of the case's extracted individuals of one extraction type, in storage order,
+    without duplicates. Best-effort: an empty list on failure."""
     try:
         from app.models.temporary_rdf_storage import TemporaryRDFStorage
         rows = TemporaryRDFStorage.query.filter(
             TemporaryRDFStorage.case_id == case_id,
-            TemporaryRDFStorage.extraction_type == 'states',
+            TemporaryRDFStorage.extraction_type == extraction_type,
             TemporaryRDFStorage.storage_type == 'individual',
         ).all()
         labels = []
@@ -167,9 +166,16 @@ def _case_state_labels(case_id: int) -> list:
                 labels.append(label)
         return labels
     except Exception:
-        logger.warning("could not load state labels for case %s; closed-list check disabled",
-                       case_id, exc_info=True)
+        logger.warning("could not load %s labels for case %s", extraction_type, case_id,
+                       exc_info=True)
         return []
+
+
+def _case_state_labels(case_id: int) -> list:
+    """Labels of the case's extracted State individuals (Steps 1-2), the closed list the Step-3
+    happenings may initiate or terminate. Best-effort: an empty list disables the closed-list
+    check (the prompts then fall back to free state naming)."""
+    return _case_individual_labels(case_id, 'states')
 
 
 def run_extraction(case_text: str, case_id: int,
@@ -537,6 +543,8 @@ def run_step3_task(self, run_id: int):
             'facts_text': facts_text,
             'discussion_text': discussion_text,
             'state_labels': _case_state_labels(run.case_id),
+            # The case documents of the resources pass: the closed list for uses_documents.
+            'document_labels': _case_individual_labels(run.case_id, 'case_documents'),
             'extraction_session_id': str(uuid.uuid4()),
             'unified_narrative': {},
             'temporal_markers': {},

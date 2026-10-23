@@ -912,6 +912,9 @@ class ActionIndividual(BaseModel):
     # requires_capability_edges from the Capability side). See intermediate.ttl
     # requiresCapabilityText.
     requires_capability: List[str] = Field(default_factory=list, alias="proeth:requiresCapability")
+    # Case documents the action consults, produces, or relies on (names from the case's
+    # CaseDocument list); resolved by document_use_edges to proeth:usesDocument edges.
+    uses_document: List[str] = Field(default_factory=list, alias="proeth:usesDocument")
 
     # Mirror fields for committed-output round-tripping
     text_references: List[str] = Field(default_factory=list, alias="proeth:textReferences")

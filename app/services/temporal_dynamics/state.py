@@ -24,6 +24,9 @@ class TemporalDynamicsState(TypedDict):
     # prompts offer for initiates / terminates and the post-parse check validates against.
     # Optional in the initial state; empty disables the closed-list check.
     state_labels: List[str]
+    # The case's CaseDocument labels (the resources pass): the closed list the action prompt
+    # offers for uses_documents. Optional; empty leaves the field out of the prompt.
+    document_labels: List[str]
 
     # === STAGE OUTPUTS ===
     # Stage 1: Unified narrative from combined sections

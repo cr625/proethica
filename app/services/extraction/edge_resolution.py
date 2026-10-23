@@ -123,6 +123,22 @@ def _candidate_pool(g: Graph, svc, category: str, extra_fields: List[str]):
     return pool
 
 
+def _type_pool(g: Graph, svc, type_iri, extra_fields: List[str]):
+    """[(iri, text, embedding)] for every individual of one rdf:type outside the core
+    categories (proeth:CaseDocument), with the same matchable text as _candidate_pool."""
+    pool = []
+    for ind in g.subjects(RDF.type, type_iri):
+        text = _label(g, ind)
+        for f in extra_fields:
+            v = _lit(g, ind, f)
+            if v:
+                text += " . " + v
+        ev = _embed(svc, text)
+        if ev:
+            pool.append((ind, text, ev))
+    return pool
+
+
 def _agent_pool(g: Graph, svc) -> List:
     """[(agent_iri, text, embedding)] for every proeth-core:Agent individual, using
     its label plus the labels of the Role facets it bears as matchable text. The

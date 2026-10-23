@@ -195,6 +195,12 @@ def convert_action_to_rdf(action: Dict, case_id: int) -> Dict:
         if prof_context.get('required_capabilities'):
             rdf_entity['proeth:requiresCapability'] = prof_context['required_capabilities']
 
+    # Case documents the action consults, produces, or relies on (names from the closed list
+    # the prompt offers); the document_use_edges family resolves them to usesDocument edges.
+    documents = [str(x).strip() for x in (action.get('uses_documents') or []) if str(x).strip()]
+    if documents:
+        rdf_entity['proeth:usesDocument'] = documents
+
     # Verbatim grounding (Stage-3 audit: action parity with the event path; actions
     # committed with zero textReference in both case-7 runs). Same top-level
     # proeth:textReferences key the commit serializer already routes.

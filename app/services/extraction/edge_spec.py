@@ -43,6 +43,7 @@ from app.services.extraction.edge_resolution import (
     BOARD_AGENT_LOCALNAME,
     _agent_pool,
     _candidate_pool,
+    _type_pool,
     _embedding_service,
     _individuals_in_category,
     _label,
@@ -163,6 +164,9 @@ class EdgePredicate:
     # A phrase that names exactly one case Agent excludes candidates performed by
     # another agent (temporal relation endpoints).
     agent_scope: bool = False
+    # Pool of the individuals of this rdf:type instead of a core category, for targets
+    # outside the nine categories (proeth:CaseDocument for usesDocument).
+    range_type: Optional[URIRef] = None
 
 
 @dataclass(frozen=True)
@@ -233,6 +237,11 @@ def _pool_for(g: Graph, svc, spec: EdgeSpec, pred: EdgePredicate, cache: Dict[Tu
         key = ("agent",)
         if key not in cache:
             cache[key] = _agent_pool(g, svc)
+        return cache[key]
+    if pred.range_type is not None:
+        key = ("type", pred.range_type, pred.pool_fields)
+        if key not in cache:
+            cache[key] = _type_pool(g, svc, pred.range_type, list(pred.pool_fields))
         return cache[key]
     if pred.range_union:
         key = ("union", pred.range_union, pred.pool_fields)
@@ -1100,6 +1109,32 @@ def _case_document_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
     return builder
 
 
+def _document_use_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
+    def builder(items: List[Dict[str, Any]]) -> str:
+        blocks = []
+        for it in items:
+            cands = "; ".join(
+                f"{i + 1}) {lbl[:90]}" for i, (iri, lbl, sim) in enumerate(it["shortlist"])
+            )
+            blocks.append(
+                f"[{it['id']}] action: \"{(it.get('subj_label') or '')[:120]}\"\n"
+                f"  document text: \"{(it['desc'] or '')[:220]}\"\n"
+                f"  candidate case documents: {cands}"
+            )
+        return (
+            "Each REQUEST gives a document an ACTION in an engineering-ethics case consults, "
+            "produces, or relies on, plus the candidate CASE DOCUMENTS of that case (reports, "
+            "data, drawings, photographs).\n"
+            "For each request, choose the candidate document the text names. Choose NONE (an "
+            "empty list) when the text names a document that is not among the candidates.\n\n"
+            "REQUESTS:\n" + "\n\n".join(blocks) +
+            "\n\nOUTPUT strict JSON only, one entry per request id, each value a JSON "
+            "array of the chosen candidate numbers (use [] for none): "
+            "{\"<id>\": [<n>, ...], ...}"
+        )
+    return builder
+
+
 def _participant_prompt_factory(pred: EdgePredicate, spec: EdgeSpec):
     noun, relation = pred.target_noun, pred.verb
 
@@ -1601,6 +1636,28 @@ _OBLIGATION_SPEC = EdgeSpec(
     no_data_status="no_normative_engagement",
 )
 
+# document_use_edges: Action uses_documents -> usesDocument (CaseDocument). The action prompt
+# offers the closed list of the case's document names, so exact names resolve before the
+# model; the pool is the committed proeth:CaseDocument individuals (outside the nine
+# categories, hence range_type).
+_DOCUMENT_USE_SPEC = EdgeSpec(
+    name="document_use_edges",
+    extraction_type="temporal_dynamics_enhanced",
+    subject_category="Action",
+    type_filter=("Action",),
+    predicates=(
+        EdgePredicate("usesDocument", PROETH, ("proeth:usesDocument", "usesDocument"), "CaseDocument",
+                      prompt_builder_factory=_document_use_prompt_factory,
+                      exact_label_preresolve=True, range_type=PROETH.CaseDocument),
+    ),
+    prov_prefix="document_use_provenance_",
+    prov_label=lambda p: f"Document use edge ({p})",
+    prov_comment=lambda p: ("property=usesDocument; the action's document text resolved to the case "
+                            "document by exact name, else embedding shortlist + LLM multi-select"),
+    reader=_read_temporal,
+    no_data_status="no_document_use",
+)
+
 # requires_capability_edges: the capability individuals' requiredForObligations labels
 # -> Obligation proeth-core:requiresCapability Capability (INVERTED emission: the row
 # subject is the Capability, the resolved Obligation is the edge subject, conforming to
@@ -1681,5 +1738,6 @@ EDGE_REGISTRY: List[EdgeSpec] = [
     _REQUIRES_CAPABILITY_SPEC,
     _FLUENT_SPEC,
     _OBLIGATION_SPEC,
+    _DOCUMENT_USE_SPEC,
     _TEMPORAL_RELATION_SPEC,
 ]

@@ -251,6 +251,12 @@ def materialize_edges_on_ttl(case_id: int, ttl_path) -> Dict[str, Any]:
     # the unified guard validates both endpoints. No-op for cases with no Action individuals.
     _run_family(results, "obligation_edges", case_id, ttl_path)
 
+    # 2g2. Document-use edges: the Step-3 Action's uses_documents names become Action
+    # proeth:usesDocument CaseDocument edges. With the action's realizesCapability, they
+    # connect a case document to the capability the action exercises. No-op for cases
+    # with no case documents.
+    _run_family(results, "document_use_edges", case_id, ttl_path)
+
     # 2h. Causal-chain endpoint edges (DB-driven, embedding-resolved): the Step-3 causal
     # analysis' cause / effect labels become CausalChain -> Action/Event edges and the
     # responsibleAgent label(s) become CausalChain -> Agent edges. Wires the causal chain
