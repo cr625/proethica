@@ -7,6 +7,7 @@ committed case ontology by ``defeasibility_view_service``.
 """
 
 import logging
+import re
 
 from flask import render_template, redirect, url_for, flash
 
@@ -37,6 +38,25 @@ def register_defeasibility_routes(bp):
             flash('This case has no committed ontology yet. Run the extraction pipeline first.', 'warning')
             return redirect(url_for('cases.view_case', id=id))
 
+        # People and entities named in the case text (the board's conclusions, boundary
+        # resolutions) get the popovers of the case page, from its label index with the
+        # text-grounded actor aliases.
+        text_entity_lookup = {}
+        try:
+            from app.services.entity.unified_entity_resolver import UnifiedEntityResolver
+            text_entity_lookup = UnifiedEntityResolver(case_id=id, case_source='committed').get_label_index()
+        except Exception as e:
+            logger.warning(f"Could not get entity label index for case {id}: {str(e)}")
+        # Only the labels that occur in that text travel with the page (the full index is
+        # several hundred entries), matched like the scanner: whole word, case-insensitive.
+        conflicts = view.get('case_conflicts') or {}
+        case_text = ' '.join(list(conflicts.get('conclusions') or [])[:3]
+                             + [br.get('text') or '' for br in conflicts.get('boundary_resolutions') or []]).lower()
+        text_entity_lookup = {
+            label: entry for label, entry in text_entity_lookup.items()
+            if re.search(r'\b' + re.escape(label) + r'(?![a-z0-9_])', case_text)
+        }
+
         return render_template(
             'case_defeasibility.html',
             case={
@@ -46,4 +66,5 @@ def register_defeasibility_routes(bp):
                 'year': meta.get('year', ''),
             },
             view=view,
+            text_entity_lookup=text_entity_lookup,
         )

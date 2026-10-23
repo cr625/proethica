@@ -41,7 +41,14 @@
 
   <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap">
     <div>
-      <h2 class="mb-1">Obligation-Conflict Resolution</h2>
+      <h2 class="mb-1">Obligation-Conflict Resolution
+        <a tabindex="0" role="button" class="info-popover text-muted fs-6 align-middle ms-1" data-bs-toggle="popover"
+           data-bs-trigger="focus hover" data-bs-placement="bottom" data-bs-container="body"
+           data-bs-title="How resolutions are recorded"
+           data-bs-content="Professional obligations conflict, and the board applies no fixed rule for which one wins. Each resolution is recorded as three edges: competesWith (the tension), prevailsOver (the obligation the board allowed to win in this case), and defeasibleUnder (the situation under which the yielding obligation gives way). The same tension is then traced across comparable cases, where its resolution shifts with context. Hover any obligation, state or person named on this page to see its definition; click to open it in OntServe.">
+          <i class="bi bi-info-circle"></i>
+        </a>
+      </h2>
       <p class="text-muted mb-0">
         {% if case.case_number %}Case {{ case.case_number }}{% if case.year %} ({{ case.year }}){% endif %} &middot; {% endif %}{{ case.title }}
       </p>
@@ -53,19 +60,6 @@
       <a href="{{ url_for('precedents.find_precedents', case_id=case.id) }}" class="btn btn-outline-info btn-sm">
         <i class="bi bi-diagram-2"></i> Precedents
       </a>
-    </div>
-  </div>
-
-  <div class="alert alert-light border d-flex">
-    <i class="bi bi-info-circle text-primary me-2 mt-1"></i>
-    <div class="small mb-0">
-      Professional obligations conflict, and the board applies no fixed rule for which one wins.
-      Each resolution is recorded as three edges:
-      <strong>competesWith</strong> (the tension),
-      <strong>prevailsOver</strong> (the obligation the board allowed to win <em>in this case</em>), and
-      <strong>defeasibleUnder</strong> (the situation under which the yielding obligation gives way).
-      The same tension is then traced across comparable cases, where its resolution shifts with context.
-      Hover any obligation or state to see its definition; click to open it in OntServe.
     </div>
   </div>
 
@@ -82,9 +76,8 @@
   <div class="row g-3">
     {% for c in view.case_conflicts.conflicts %}
     <div class="col-md-6">
-      <div class="card h-100 {% if c.featured %}border-primary border-2{% endif %}">
+      <div class="card h-100">
         <div class="card-body">
-          {% if c.featured %}<span class="badge bg-primary float-end">Featured</span>{% endif %}
           <div class="mb-2">
             {{ onto(c.winner, L, 'bg-success') }}
             <span class="text-muted small mx-1"><i class="bi bi-arrow-right"></i> prevails over <i class="bi bi-arrow-right"></i></span>
@@ -142,7 +135,7 @@
   <div class="row g-3">
     {% for br in view.case_conflicts.boundary_resolutions %}
     <div class="col-md-6">
-      <div class="card h-100">
+      <div class="card h-100 defeasibility-case-text">
         <div class="card-body py-2">
           <span class="badge {% if br.kind == 'specification' %}bg-info text-dark{% else %}bg-secondary{% endif %} float-end">{{ br.kind }}</span>
           {% if br.conclusion %}<div class="small fw-semibold">{{ br.conclusion }}
@@ -157,9 +150,14 @@
 
   {% if view.case_conflicts.conclusions %}
   <h6 class="mt-4"><i class="bi bi-chat-quote me-1"></i>What the board concluded</h6>
-  <ul class="small text-body-secondary">
-    {% for con in view.case_conflicts.conclusions[:3] %}<li>{{ con|truncate(400) }}</li>{% endfor %}
-  </ul>
+  <div class="card defeasibility-case-text border-0 border-start border-4 border-primary-subtle">
+    <div class="card-body py-2">
+      <div class="small text-body-secondary mb-1">From the Board's conclusions in {% if case.case_number %}Case {{ case.case_number }}{% else %}this case{% endif %}:</div>
+      <ul class="mb-0">
+        {% for con in view.case_conflicts.conclusions[:3] %}<li>{{ con|truncate(400) }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
   {% endif %}
 
   {% if view.case_conflicts.violations %}
@@ -282,7 +280,10 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/ontology-popovers.js') }}"></script>
 <script>
-    window.CASE_DEFEASIBILITY = { ontserveWebUrl: "{{ ontserve_web_url }}" };
+    window.CASE_DEFEASIBILITY = {
+        ontserveWebUrl: "{{ ontserve_web_url }}",
+        textEntityLookup: {% if text_entity_lookup %}{{ text_entity_lookup|tojson }}{% else %}null{% endif %}
+    };
 </script>
 <script src="{{ url_for('static', filename='js/cases/case_defeasibility.js') }}"></script>
 {% endblock %}
