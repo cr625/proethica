@@ -58,7 +58,7 @@ _MIN_PRESENT_FRACTION = 0.20
 
 # Bumped whenever the segmentation rules change, so a cached segmentation computed under the old
 # rules (doc_metadata['discussion_segmentation']) is recomputed instead of reused.
-SEGMENTATION_VERSION = 2
+SEGMENTATION_VERSION = 3
 
 # Sentence-level present-case cues inside a RECAP paragraph (case-8 review, lesson L3). NSPE
 # recap paragraphs often close by turning to the present case ("We note a direct parallel between
@@ -81,8 +81,11 @@ _PRESENT_TAIL_CUE = re.compile(
 
 # Sentence boundary: terminal punctuation, whitespace, then an upper-case letter, a quote mark or
 # a parenthesis. A period followed by a digit ("Case No. 67-10") or a lower-case letter does not
-# split, so citation forms and abbreviations stay whole.
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'(“])")
+# split, so citation forms and abbreviations stay whole. The terminal punctuation may be followed
+# by a closing quotation mark or parenthesis ('... must not." It should be noted'): without the
+# second branch, a recap paragraph whose sentences end in quotations stayed one sentence, and the
+# present-case analysis after it stayed recap (case 56 lost its holding).
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'(“])|(?<=[.!?][\"'”’)])\s+(?=[A-Z\"'(“])")
 
 # Concept types whose discussion-pass extractor receives the FULL discussion rather than the
 # segmented present-case text. The resources pass lists the codes and precedents the case cites,

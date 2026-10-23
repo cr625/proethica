@@ -101,6 +101,21 @@ def test_citation_abbreviations_do_not_split_sentences():
     assert tail == "We note the parallel to the present case."
 
 
+def test_sentences_ending_in_a_closing_quote_still_split():
+    """A recap whose sentences end in quotations (case 56, BER Case 95-10) releases the
+    present-case analysis after it: the split also breaks after a closing quotation mark, so the
+    cue sentence no longer merges into the opening sentence of the recap."""
+    head = ("BER Case 95-10 considered an engineering firm that listed key personnel with titles "
+            "including “Engineer” and “Design Engineer.”")
+    middle = "The case discussion indicated that “we in the profession must not.”"
+    tail = ("It should be noted that in the present case, NSPE Code of Ethics Section II.5.a. is "
+            "very clear. Engineer A is obligated to report the violation of Engineer B.")
+    assert _split_recap_tail(f"{head} {middle} {tail}", []) == (f"{head} {middle}", tail)
+    # a straight quote mark and a closing parenthesis end a sentence as well
+    assert _split_recap_tail('In BER Case 92-2, the Board said "no." (See II.1.f.) In the present '
+                             'case, the facts differ.', [])[1] == "In the present case, the facts differ."
+
+
 def test_no_precedent_links_segmentation_unchanged():
     html = "<p>Engineer L was retained to evaluate the design.</p><p>We note nothing here.</p>"
     r = segment_discussion(html, present_actors=["Engineer L"])
