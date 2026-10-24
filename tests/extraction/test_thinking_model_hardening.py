@@ -135,11 +135,15 @@ def test_transformation_classifier_resolves_default_tier(monkeypatch):
 
     monkeypatch.setattr(llm_utils, "streaming_completion", fake_streaming_completion)
     # Sentinel tier map: the assertion is about WHICH tier is asked for, not the env value.
+    # get_claude_model reads CLAUDE_<TIER>_MODEL first, at call time, so clear those too: an
+    # earlier test that loads the local .env would otherwise answer with the real model.
     monkeypatch.setattr(ModelConfig, "CLAUDE_MODELS", {
         "default": "sentinel-default-model",
         "powerful": "sentinel-powerful-model",
         "fast": "sentinel-fast-model",
     })
+    for env_name in ModelConfig._TIER_LEGACY_ENV.values():
+        monkeypatch.delenv(env_name, raising=False)
 
     # Dummy client: streaming_completion is patched, and a real client would need
     # a Flask app context (get_llm_client reads current_app config).
