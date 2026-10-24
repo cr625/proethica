@@ -172,16 +172,21 @@ class NSPEReferencesParser:
         seen_codes = set()
 
         # Pattern: provision code at a boundary, followed by provision text
-        # Matches: "II.1." or "II.1.f." at start-of-string or after whitespace
+        # Matches: "II.1." or "II.1.f." at start-of-string or after whitespace.
+        # The text starts with a capital: the rules read "Engineers shall ...", the
+        # Fundamental Canons are verb phrases ("Hold paramount ...", "Act for each
+        # employer ..."), and a code cited mid-sentence is followed by lower case.
+        # Requiring "Engineers" dropped every canon (case 25-1, the 2026 page layout).
         provision_pattern = re.compile(
             r'(?:^|\s)([IVX]+\.\d+\.(?:[a-z]\.)?)\s+'
-            r'(Engineers\s.+?)(?=\s+[IVX]+\.\d+\.|$)',
+            r'([A-Z].+?)(?=\s+[IVX]+\.\d+\.|$)',
             re.DOTALL
         )
 
         for match in provision_pattern.finditer(text):
             raw_code = match.group(1).strip().rstrip('.')
-            provision_text = match.group(2).strip()
+            # The NSPE pages append a "Subject Reference <topics>" label to a provision.
+            provision_text = match.group(2).split('Subject Reference')[0].strip()
 
             # Normalize: ensure no trailing dot on code for consistency with
             # _is_valid_code_provision, but store with trailing dot for DB match
