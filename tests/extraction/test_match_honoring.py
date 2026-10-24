@@ -526,3 +526,31 @@ def test_cross_category_collision_still_disambiguates(tmp_path, monkeypatch):
     for node in g.subjects(RDF.type, OWL.NamedIndividual):
         core_types = nine & set(g.objects(node, RDF.type))
         assert len(core_types) <= 1, (node, core_types)
+
+
+@pytest.mark.parametrize('order', ['document_first', 'state_first'])
+def test_case_document_and_state_sharing_a_label_stay_two_individuals(
+        tmp_path, monkeypatch, order):
+    """Case 25-1: the resources pass returned the contract as a case document and the
+    states pass returned it as an arrangement in force, under one label. CaseDocument is
+    outside the nine categories, so the guard names it by its type; merged, the node
+    carried CaseDocument and State, which the BFO disjointness makes inconsistent."""
+    svc = _placement_service(tmp_path, monkeypatch, lambda local: None)
+    doc = (_placement_entity('Shared Contract', extraction_type='case_documents'),
+           {'types': [f'{INT_NS}CaseDocument']})
+    state = (_placement_entity('Shared Contract', extraction_type='states'),
+             {'types': [f'{INT_NS}SharedContractState']})
+    rows = [doc, state] if order == 'document_first' else [state, doc]
+
+    first = svc._commit_individuals_to_case_ontology(11, [rows[0]])
+    second = svc._commit_individuals_to_case_ontology(11, [rows[1]])
+    assert first.get('error') is None, first
+    assert second.get('error') is None, second
+    assert (second['count'], second['merged']) == (1, 0)
+
+    g = Graph()
+    g.parse(second['file'], format='turtle')
+    documents = set(g.subjects(RDF.type, URIRef(f'{INT_NS}CaseDocument')))
+    states = set(g.subjects(RDF.type, URIRef(f'{CORE_NS}State')))
+    assert len(documents) == 1 and len(states) == 1
+    assert documents.isdisjoint(states)

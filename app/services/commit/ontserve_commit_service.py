@@ -71,6 +71,11 @@ _NINE_CORE_CATEGORIES = frozenset({
     "Action", "Event", "Capability", "Constraint",
 })
 
+# Case documents are typed proeth:CaseDocument (an IAO information content entity, outside
+# the nine categories), so the collision check names them by that type: a case document and
+# a State sharing a label (case 25-1's contract) sit under disjoint classes and must not merge.
+_CASE_DOCUMENT_CATEGORY = "CaseDocument"
+
 # Naming/label/URI hygiene helpers (naming.py, god-file split Item 1 Step 1.1).
 # _EVENT_ORIGIN_SUBCLASS is re-imported here because _commit_individuals_to_case_ontology
 # (below, not moved) reads it directly; resolve_event_origin_category is re-exported so
@@ -615,6 +620,8 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                     # the URI by category so the second individual is not silently
                     # dropped (display-to-RDF fidelity).
                     new_cat = self._get_concept_category(entity)
+                    if not new_cat and (entity.extraction_type or '') == 'case_documents':
+                        new_cat = _CASE_DOCUMENT_CATEGORY
                     # The materialized direct rdf:type proeth-core:<Category> (CMT-1)
                     # is the per-individual category signal now that the
                     # proeth:conceptCategory literal is retired; read it back (one hop)
@@ -625,6 +632,8 @@ class OntServeCommitService(VersionedCommitMixin, AgentLayerMixin, EmitterMixin,
                         if str(o).startswith(str(PROETHICA_CORE))
                         and str(o).split('#')[-1] in _NINE_CORE_CATEGORIES
                     }
+                    if (individual_uri, RDF.type, PROETHICA.CaseDocument) in g:
+                        existing_cats.add(_CASE_DOCUMENT_CATEGORY)
                     if new_cat and existing_cats and new_cat not in existing_cats:
                         disambiguated = case_ns[f"{safe_label}_{new_cat}"]
                         if (disambiguated, RDF.type, OWL.NamedIndividual) in g:
