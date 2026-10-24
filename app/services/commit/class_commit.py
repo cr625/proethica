@@ -112,9 +112,14 @@ class ClassCommitMixin:
                 # although it had matched ProjectFailureRiskState at 0.85. The
                 # case individuals reach the matched class through honoring; the
                 # class channel adds nothing. A row matched to ITS OWN IRI is a
-                # re-discovery and takes the accumulate path below.
+                # re-discovery and takes the accumulate path below. Honoring declines a
+                # matched local name the URI sanitizer would change (a concepts# match
+                # such as Conflict_of_Interest_Avoidance) and keeps the minted type, so
+                # such a link must not skip the mint: the individuals would carry a type
+                # that no ontology declares.
                 linked = linked_existing_class(rdf_data, self._match_link_threshold())
-                if linked is not None and naming.safe_local_name(linked).lower() != safe_label.lower():
+                if (linked is not None and naming.safe_local_name(linked) == linked
+                        and naming.safe_local_name(linked).lower() != safe_label.lower()):
                     logger.info(
                         "Class %s: row linked to existing class %s at or above the "
                         "link threshold %.2f; not minting.",

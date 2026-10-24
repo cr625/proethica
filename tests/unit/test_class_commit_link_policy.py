@@ -84,6 +84,22 @@ def test_row_linked_at_or_above_threshold_is_not_minted(tmp_path):
     assert (INT.PublicSafetyObligation, RDF.type, OWL.Class) not in _extended(tmp_path)
 
 
+def test_link_honoring_cannot_follow_is_minted(tmp_path):
+    """Honoring keeps the minted type when the matched local name is not URI-safe, so the
+    class channel declares it instead of treating the match as reuse."""
+    svc = _svc(tmp_path)
+    md = {'matches_existing': True,
+          'matched_uri': 'http://proethica.org/ontology/concepts#Conflict_of_Interest_Avoidance',
+          'matched_label': 'Conflict of Interest Avoidance (Constraint)', 'confidence': 0.9,
+          'reasoning': 'test'}
+    rows = [(_entity('Conflict of Interest Avoidance Constraint', extraction_type='constraints'),
+             {'properties': {'discoveredInCase': [144]}, 'match_decision': md})]
+    result = svc._commit_classes_to_intermediate(rows)
+    assert result.get('error') is None, result
+    assert result['count'] == 1 and result['linked_existing'] == 0
+    assert (INT.ConflictofInterestAvoidanceConstraint, RDF.type, OWL.Class) in _extended(tmp_path)
+
+
 def test_row_below_threshold_is_minted(tmp_path):
     svc = _svc(tmp_path)
     rows = [(_entity('Public Safety Obligation'),
