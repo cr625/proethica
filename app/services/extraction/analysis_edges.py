@@ -69,13 +69,16 @@ _DIRECT = re.compile(r"#(Question|Conclusion)_(\d+)$")
 
 def _rows(case_id: int, etype: str):
     from app.models import TemporaryRDFStorage
-    # Published rows only: an unpublished (uncommitted or retracted) row must
-    # not generate edge expectations against the committed graph -- the
-    # batch-6 case-98 retraction left phantom expectations here until the
-    # committed-individual guard declined them as resolution misses.
+    # Selected rows only: a retracted row (deselected and unpublished) must not
+    # generate edge expectations against the committed graph -- the batch-6
+    # case-98 retraction left phantom expectations here until the
+    # committed-individual guard declined them as resolution misses. Not the
+    # publish flag: the commit materializes edges BEFORE it publishes its rows
+    # (a failed TTL write must abort first), so a published-only read saw no
+    # rows for a newly committed case and wrote none of this layer (case 25-1).
     return (TemporaryRDFStorage.query
             .filter_by(case_id=case_id, extraction_type=etype,
-                       is_published=True)
+                       is_selected=True)
             .order_by(TemporaryRDFStorage.id).all())
 
 
