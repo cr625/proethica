@@ -169,6 +169,29 @@ def test_allen_equals_and_during_need_two_intervals():
                for p in ec.allen_relation_problems(g2, "time:intervalStarts", a, b))
 
 
+def test_allen_meets_and_overlaps_need_two_intervals():
+    """OWL-Time defines meets and overlaps on proper intervals too (case 25-1 committed an
+    intervalMeets whose target, a projected team reassignment, is an instant)."""
+    g = Graph()
+    delivery = _ind(g, "Event_Delivery", "Delivery", "Event", seq=13, extent="interval")
+    reassignment = _ind(g, "Event_Reassignment", "Team Reassignment", "Event", seq=14,
+                        extent="instant")
+    for prop in ("time:intervalMeets", "time:intervalMetBy",
+                 "time:intervalOverlaps", "time:intervalOverlappedBy"):
+        assert any("needs two intervals" in p
+                   for p in ec.allen_relation_problems(g, prop, delivery, reassignment)), prop
+
+
+def test_allen_relation_with_an_unresolved_source_is_judged_through_its_target():
+    g = Graph()
+    completion = _ind(g, "Event_Completion", "Project Deliverable Completion", "Event", seq=13,
+                      extent="instant")
+    problems = ec.allen_relation_problems(g, "time:intervalFinishes", None, completion)
+    assert problems == ["intervalFinishes needs two intervals but Event_Completion is an instant"]
+    # An ordering relation needs both endpoints for the order check, so one end is not judged.
+    assert ec.allen_relation_problems(g, "time:intervalBefore", None, completion) == []
+
+
 def test_allen_order_against_sequence_and_causal_chain():
     g = Graph()
     study = _ind(g, "Action_Study", "Runoff Risk Quantification Study", "Action", seq=3)

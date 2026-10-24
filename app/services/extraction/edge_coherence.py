@@ -335,9 +335,13 @@ def happening_occurred(g: Graph, h) -> bool:
 
 # --- Allen relations -----------------------------------------------------------
 
+# The relations OWL-Time defines on proper intervals (the extent rule of the defect sweep and
+# the case corrections): an instant endpoint makes them invalid. Overlaps and meets joined on
+# 2026-10-24 (case 25-1 committed an intervalMeets with an instant endpoint).
 TWO_INTERVAL_LOCALS = frozenset({
     "intervalEquals", "intervalDuring", "intervalContains", "intervalStarts",
     "intervalStartedBy", "intervalFinishes", "intervalFinishedBy",
+    "intervalOverlaps", "intervalOverlappedBy", "intervalMeets", "intervalMetBy",
 })
 # +1: from precedes to (start order); -1: to precedes from.
 ORDER_LOCALS = {
@@ -412,20 +416,22 @@ def allen_relation_problems(g: Graph, owlprop: Optional[str], from_iri, to_iri,
     during, contains, starts, finishes need two intervals), that both endpoints
     occurred, that the evidence is a verbatim span when case text is available,
     and that an ordering relation does not contradict the precedence graph (a
-    cycle against temporalSequence or a causal chain)."""
+    cycle against temporalSequence or a causal chain). An endpoint that never
+    resolved (None) is skipped; the relation is judged through the other one."""
     local = owl_time_local(owlprop)
     problems: List[str] = []
+    ends = [end for end in (from_iri, to_iri) if end is not None]
     if local in TWO_INTERVAL_LOCALS:
-        for end in (from_iri, to_iri):
+        for end in ends:
             if happening_extent(g, end) == "instant":
                 problems.append(f"{local} needs two intervals but {_frag(end)} is an instant")
-    for end in (from_iri, to_iri):
+    for end in ends:
         if not happening_occurred(g, end):
             problems.append(f"endpoint {_frag(end)} did not occur (prescribed, not performed)")
     if case_text and evidence and not evidence_is_verbatim(evidence, case_text):
         problems.append("evidence is not a verbatim span of the case text")
     direction = ORDER_LOCALS.get(local)
-    if direction and adj is not None:
+    if direction and adj is not None and len(ends) == 2:
         first, second = (from_iri, to_iri) if direction > 0 else (to_iri, from_iri)
         if reaches(adj, second, first):
             problems.append(f"{local} contradicts the temporalSequence or causal order "

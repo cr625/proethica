@@ -65,3 +65,34 @@ def test_unified_guard_drops_state_range_violation():
     assert dropped == 1
     assert not list(g.objects(rel, PROETH.fromEntity))
     assert act in set(g.objects(rel, PROETH.toEntity))
+
+
+def test_validation_withdraws_a_relation_whose_source_never_resolved():
+    """Case 25-1: an intervalFinishes whose source endpoint never resolved and whose target
+    is an instant was skipped by the commit-time validation and stayed in the graph."""
+    import dataclasses
+    from rdflib import Graph, Literal, Namespace, RDF, RDFS
+    from rdflib.namespace import TIME
+    from app.services.extraction import edge_spec as es
+
+    case = Namespace("http://proethica.org/ontology/case/184#")
+    core = Namespace("http://proethica.org/ontology/core#")
+    g = Graph()
+    completion = case["Project_Deliverable_Completion"]
+    g.add((completion, RDF.type, core.Event))
+    g.add((completion, es.PROETH.temporalExtent, Literal("instant")))
+    rel = case["TemporalRelation_5"]
+    g.add((rel, RDF.type, es.PROETH.TemporalRelation))
+    g.add((rel, RDFS.label, Literal("continued work finishes the delivery")))
+    g.add((rel, es.PROETH.toEntity, completion))
+    g.add((rel, TIME.intervalFinishes, completion))
+
+    spec = dataclasses.replace(es._TEMPORAL_RELATION_SPEC, case_text_loader=None)
+    row = es.SubjectRow(label="continued work finishes the delivery", fields={},
+                        extra={"owlprop": "time:intervalFinishes", "evidence": ""})
+    result = es._validate_temporal_relations(g, spec, 184, [row])
+
+    assert result["relations_dropped"] == 1
+    assert (rel, es.PROETH.toEntity, completion) not in g
+    assert (rel, TIME.intervalFinishes, completion) not in g
+    assert (rel, RDF.type, es.PROETH.TemporalRelation) in g  # the record stays as text

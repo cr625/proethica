@@ -1406,7 +1406,10 @@ def _validate_temporal_relations(g: Graph, spec: EdgeSpec, case_id: int,
             continue
         f = g.value(rel, PROETH.fromEntity)
         t = g.value(rel, PROETH.toEntity)
-        if f is None or t is None:
+        # A relation whose source never resolved is judged through its target (case
+        # 25-1 committed an intervalFinishes on an instant that way); with neither
+        # endpoint there is nothing to judge.
+        if f is None and t is None:
             continue
         owlprop = row.extra.get("owlprop") or ""
         problems = allen_relation_problems(g, owlprop, f, t, row.extra.get("evidence") or "",
