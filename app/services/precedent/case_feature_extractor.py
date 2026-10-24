@@ -922,9 +922,9 @@ Return ONLY valid JSON in this format:
         """
         Generate per-component embeddings and their weighted aggregation.
 
-        Queries the nine-component entities from temporary_rdf_storage,
-        generates embeddings for each component type, and aggregates them
-        using configurable weights.
+        Queries the committed nine-component individuals from
+        temporary_rdf_storage, generates embeddings for each component type,
+        and aggregates them using configurable weights.
 
         Args:
             case_id: Database ID of the case document
@@ -938,8 +938,14 @@ Return ONLY valid JSON in this format:
         if weights is None:
             weights = COMPONENT_WEIGHTS
 
-        # Query all entities for this case from temporary_rdf_storage
-        entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+        # Committed individuals only, in id order. Class rows, unpublished rows and
+        # deselected (gate-dropped) rows are not case content, and an unordered read
+        # made the 2000-character cut of a component depend on storage order.
+        entities = (TemporaryRDFStorage.query
+                    .filter_by(case_id=case_id, storage_type='individual',
+                               is_published=True, is_selected=True)
+                    .order_by(TemporaryRDFStorage.id)
+                    .all())
 
         if not entities:
             logger.warning(f"Case {case_id}: No components found in temporary_rdf_storage")
