@@ -143,10 +143,10 @@ def parse_json_object(response_text: str, context: str = "unknown") -> Optional[
         logger.warning(f"Empty response for {context}")
         return None
 
-    # Strategy 1: code block
-    json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-    if json_match:
-        parsed = _try_parse_object(json_match.group(1))
+    # Strategy 1: code block. When the reply holds several, the LAST one that parses wins:
+    # a model that corrects itself ("Wait, ... Corrected output:") puts the answer last.
+    for block in reversed(re.findall(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)):
+        parsed = _try_parse_object(block)
         if parsed is not None:
             return parsed
 
@@ -165,8 +165,32 @@ def parse_json_object(response_text: str, context: str = "unknown") -> Optional[
         if parsed is not None:
             return parsed
 
+    # Strategy 4: several complete objects with prose between them (a self-correcting reply,
+    # case 25-1 edge selection on Sonnet 5.5): the last complete object is the answer.
+    objects = _complete_top_level_objects(response_text)
+    if objects:
+        if len(objects) > 1:
+            logger.info(f"{context}: {len(objects)} JSON objects in the response; using the last")
+        return objects[-1]
+
     logger.warning(f"Could not parse JSON object in {context} response. First 500 chars: {response_text[:500]}")
     return None
+
+
+def _complete_top_level_objects(text: str) -> List[dict]:
+    """Every complete, non-nested JSON object in text, in order of appearance."""
+    decoder = json.JSONDecoder()
+    found, i = [], text.find('{')
+    while i != -1:
+        try:
+            obj, end = decoder.raw_decode(text, i)
+        except json.JSONDecodeError:
+            i = text.find('{', i + 1)
+            continue
+        if isinstance(obj, dict):
+            found.append(obj)
+        i = text.find('{', end)
+    return found
 
 
 def _try_parse_object(text: str) -> Optional[dict]:
