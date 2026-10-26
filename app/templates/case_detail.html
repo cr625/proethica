@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from '_macros.html' import synthesis_link %}
+{% from 'macros/_nspe_notice.html' import nspe_notice %}
 
 {% block title %}{{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
 
@@ -255,6 +256,8 @@
             </div>
             {% endif %}
             {% endif %}
+
+            {{ nspe_notice(case.case_number, case.source) }}
 
             {% if case.decision %}
             <h4>Decision</h4>

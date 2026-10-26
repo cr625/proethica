@@ -159,6 +159,8 @@
         scanTextForEntities(caseDetailsCard, ENTITY_LOOKUP_BY_LABEL, {
             // Cited Board cases sit inside nspe.org anchors in the case text
             decorateAnchors: true,
+            // The NSPE reuse notice is quoted verbatim, so it carries no entity labels
+            excludeSelector: '.onto-label, a, button, .badge, .nspe-notice',
             skipSectionTest: function(cardBody) {
                 var parentCard = cardBody.closest('.card');
                 if (parentCard) {

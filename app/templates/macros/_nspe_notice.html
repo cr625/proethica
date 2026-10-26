@@ -1,0 +1,34 @@
+{# Reuse notice for a page that reproduces the text of an NSPE Board of Ethical Review opinion
+   (the case view, case_detail.html).
+
+   NSPE permits reprinting an opinion without further permission, provided that its NOTE
+   statement is included before or after the text of the case and that attribution is given
+   to its Board of Ethical Review. The NOTE below is the current wording, as printed in the
+   opinion PDFs of cases 24-1 and 25-1; the case pages on nspe.org carry no NOTE. Call the
+   macro directly after the opinion text and before any generated content that follows it.
+   The attribution line stays visible; the NOTE is collapsed under its toggle.
+
+   case_number  NSPE case number (doc_metadata.case_number), e.g. "24-1"
+   source_url   stored nspe.org page of the case (documents.source); any other value
+                renders the attribution without a link #}
+{% macro nspe_notice(case_number, source_url=None) %}
+{%- set note_id = 'nspe-note-' ~ (case_number or 'case') -%}
+{%- set attribution = 'Source: National Society of Professional Engineers, Board of Ethical Review' ~ (', Case ' ~ case_number if case_number else '') -%}
+<aside class="nspe-notice small text-muted border-top pt-2 mt-3">
+    <div>
+        {% if source_url and 'nspe.org' in source_url %}
+        <a href="{{ source_url }}" target="_blank" rel="noopener" class="link-secondary">{{ attribution }}</a>
+        {% else %}
+        <span>{{ attribution }}</span>
+        {% endif %}
+        <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline link-secondary"
+                data-bs-toggle="collapse" data-bs-target="#{{ note_id }}"
+                aria-expanded="false" aria-controls="{{ note_id }}">NSPE note <i class="bi bi-chevron-down"></i></button>
+    </div>
+    <div class="collapse" id="{{ note_id }}">
+        <p class="mt-2 mb-2">NOTE: The NSPE Board of Ethical Review considers ethical cases involving either real or hypothetical matters submitted to it from NSPE members, other engineers, public officials, and members of the public. The BER reviews each case in the context of the NSPE Code of Ethics and earlier BER opinions. The facts contained in each case do not necessarily represent all of the pertinent facts submitted to or reviewed by the BER and shall not be considered a direct evaluation of any real matter that may have been submitted.</p>
+        <p class="mb-2">Each opinion is intended as guidance to individual practicing engineers, students, and the public. In regard to the question of application of the NSPE Code of Ethics to engineering organizations (e.g., corporations, partnerships, sole proprietorships, government agencies, and university engineering departments), the specific business form or type should not negate nor detract from the conformance of individuals to the Code. The NSPE Code deals with professional services, which must be performed by real persons. Real persons in turn establish and implement policies within business structures.</p>
+        <p class="mb-0">This opinion is for educational purposes only and is not legal advice. It may be reprinted without further permission, provided that this statement is included before or after the text of the case and appropriate attribution is provided to the National Society of Professional Engineers' Board of Ethical Review.</p>
+    </div>
+</aside>
+{% endmacro %}
