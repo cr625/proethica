@@ -86,6 +86,10 @@ class TestCaseView:
         assert template.index('{{ case.description|safe }}') < call
         assert call < template.index('{% if case.decision %}')
 
+    def test_notice_is_the_only_source_line(self):
+        template = (TEMPLATES / 'case_detail.html').read_text()
+        assert '<strong>Source:</strong>' not in template
+
     def test_entity_scan_leaves_the_notice_verbatim(self):
         script = (REPO / 'app' / 'static' / 'js' / 'cases' / 'case_detail_page.js').read_text()
         assert "excludeSelector: '.onto-label, a, button, .badge, .nspe-notice'" in script
