@@ -71,9 +71,14 @@ class TestNoticeMacro:
 
     def test_note_is_collapsed_behind_its_toggle(self):
         html = _render('24-1', NSPE_URL)
-        assert '<div class="collapse" id="nspe-note-24-1">' in html
+        assert '<div class="collapse d-print-block" id="nspe-note-24-1">' in html
         assert 'data-bs-target="#nspe-note-24-1"' in html
         assert 'aria-expanded="false"' in html
+
+    def test_note_prints_in_full_without_its_toggle(self):
+        html = _render('24-1', NSPE_URL)
+        assert 'd-print-block" id="nspe-note-24-1"' in html
+        assert re.search(r'<button[^>]*class="[^"]*\bd-print-none\b[^"]*"[^>]*data-bs-toggle="collapse"', html)
 
 
 class TestCaseView:
