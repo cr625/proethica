@@ -50,7 +50,7 @@ postgresql://<user>:<password>@localhost:5432/ai_ethical_dm
 | `OPENAI_EMBEDDING_MODEL` | text-embedding-3-small | Model of the OpenAI provider |
 | `DISABLE_LOCAL_EMBEDDINGS` | false | Skip the local provider |
 
-When `EMBEDDING_PROVIDER_PRIORITY` is unset, the order is `openai,gemini,claude,local` if any hosted API key is configured (the Anthropic key counts), and `local,openai,gemini,claude` otherwise. A provider without a usable key is skipped. The stored similarity vectors are 384-dimensional vectors of the local model; [Architecture](architecture.md#external-services-and-data-flow) describes what each provider receives.
+The stored similarity vectors have the 384 dimensions of the local model. Listing `local` first, as in `EMBEDDING_PROVIDER_PRIORITY=local,openai,gemini,claude`, keeps new vectors compatible with them. When the variable is unset, hosted providers with a usable key are tried before the local one.
 
 ### OntServe Integration
 
@@ -106,7 +106,7 @@ worker_prefetch_multiplier = 1  # One task at a time
 
 ### Model Tiers
 
-Each language-model call selects one of four tiers, and each tier resolves to a model through the variables above. The table gives the current defaults and the main stages that use each tier in the current code. A stage can also be given an explicit model by its caller.
+Each language-model call selects one of four tiers, and each tier resolves to a model through the variables above. The table gives the default model and the main stages of each tier.
 
 | Tier | Current default | Main uses |
 |------|-----------------|-----------|
@@ -114,8 +114,6 @@ Each language-model call selects one of four tiers, and each tier resolves to a 
 | default | `claude-sonnet-5-5` | Most of the Step 4 synthesis (questions, conclusions, provisions, precedents, decision points, narrative); Step 5 views; prompt-editor test runs |
 | fast | `claude-haiku-5-5` | Small classification calls, such as subject tags for precedent features |
 | gate | `claude-opus-5-5` | Verification and commit-gate judging |
-
-Each stored extraction record carries the identifier of the model that produced it (the `llm_model` field of `extraction_prompts`), alongside the prompt and the raw response.
 
 ### Changing Models
 

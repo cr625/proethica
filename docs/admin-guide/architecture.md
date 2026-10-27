@@ -151,17 +151,6 @@ The prompt builder reads the definition and typing boundary of each component fr
    +----------+                    +----------+
 ```
 
-### External Services and Data Flow
-
-Case text is processed by two kinds of model call, configured separately: language-model calls for extraction and synthesis, and embedding calls for similarity features.
-
-| Operation | Service | Text sent | Configuration |
-|-----------|---------|-----------|---------------|
-| Extraction and synthesis | Anthropic Messages API for the default configuration; a tier whose reference names an OpenAI model sends to OpenAI | The assembled prompt: case section or full case text, ontology definitions and previously extracted entities | [Model tiers](settings.md#model-tiers) |
-| Embedding | The local `all-MiniLM-L6-v2` model, which runs on the server; hosted OpenAI, Gemini or Anthropic endpoints are available as alternatives through `EMBEDDING_PROVIDER_PRIORITY` | The text being embedded: case sections, and the labels and definitions of extracted entities for the per-component features | [Embedding providers](settings.md#embedding-providers) |
-
-The stored similarity vectors and the precedent features used for retrieval are 384-dimensional vectors of the local model. Each stored extraction record names the model of its call.
-
 ## Ontology Materialization and Conformance
 
 Between extraction and the persisted case ontology, four mechanisms govern how extracted entities enter the shared knowledge graph.
@@ -175,7 +164,7 @@ The commit step of the automated pipeline runs a verification gate over the extr
 3. Obligation and Constraint classes proposed by the extraction are judged for over-reach, that is, for a definition that asserts more than the case holds. The gate model casts five independent votes on each class. At least four votes for over-reach remove the class from the commit, together with its label variants and every individual in the commit typed to it. Three votes record a review flag with the reason.
 4. Each outcome is written to the review notes of the record: the reason for an exclusion, a review flag, or a marker that the quotations were re-grounded, attached or adjusted to the spelling of the opinion. An excluded record is deselected and stays visible in Entity Review with its reason. The gate report, listing the corrections, exclusions and flags, is recorded as a provenance activity of the pipeline run together with the identifier of the gate model.
 
-Records of the seven contextual and normative types that pass the gate carry only quotations confirmed as verbatim spans of the opinion. Temporal records (Actions, Events and their relations) and Step 4 synthesis records carry their evidence in fields of their own and have no quotation requirement. Quotations they do carry pass the check of step 1. Because the interval relations, timeline entries and causal links of a case refer to one another, a temporal or synthesis record whose quotations find no supporting span is flagged for review and kept in the commit.
+Records of the seven contextual and normative types that pass the gate carry quotations confirmed as verbatim spans of the opinion. Temporal records (Actions, Events and their relations) and Step 4 synthesis records carry evidence fields of their own; the gate checks the quotations they carry in the same way and flags a record without a supporting span for review.
 
 ### Entity Matching and Canonicalization
 

@@ -42,7 +42,7 @@ pip install -r requirements.txt
 
 ### Embedding model (sentence-transformers)
 
-Required for similarity search and the precedent network. The local provider runs this model on the server and produces the stored 384-dimensional vectors. [Architecture](architecture.md#external-services-and-data-flow) describes the data flow of extraction and embedding.
+Required for similarity search and the precedent network. The local provider runs this model on the server and produces the stored 384-dimensional vectors.
 
 ```bash
 # Install CPU-only PyTorch (no CUDA needed):

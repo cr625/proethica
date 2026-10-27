@@ -133,7 +133,7 @@ Step 4 analyzes extracted entities and case text to produce 8 additional entity 
 | Causal-Normative Link | 2E | Connections between causal factors and norms |
 | Question Emergence | 2E | How ethical questions arise from case facts |
 
-The Q&C view keeps the findings of the Board apart from the synthesis. Each conclusion stated in the opinion carries a **Board conclusion** badge, and each conclusion added by the synthesis carries an **Analytical** badge. The analytical questions of each Board question are listed beneath it under **Show N analytical questions**. The Board Resolution card of the Step 5 narrative lists the findings of the Board with a **Board Finding** badge and refers to the analytical conclusions separately.
+In the Q&C view, each conclusion stated in the opinion carries a **Board conclusion** badge, and each conclusion added by the synthesis carries an **Analytical** badge. The analytical questions of each Board question are listed beneath it under **Show N analytical questions**. The Board Resolution card of the Step 5 narrative lists the findings of the Board with a **Board Finding** badge and refers to the analytical conclusions separately.
 
 Step 4 has three sub-views accessible from the pipeline sidebar:
 

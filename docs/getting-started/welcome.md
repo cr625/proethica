@@ -83,6 +83,6 @@ The standard workflow proceeds through the following stages:
 ## Related Documentation
 
 - [Interface Overview](first-login.md) - Navigation and UI elements
-- [Case Corpus and Sources](../viewing/case-corpus.md) - Source, scope and reuse conditions of the cases
+- [Case Corpus and Sources](../viewing/case-corpus.md) - The NSPE opinions and their source
 - [Upload Cases](../analysis/uploading-cases.md) - Adding cases to the repository
 - [Nine-Component Framework](../concepts/nine-components.md) - Methodology reference

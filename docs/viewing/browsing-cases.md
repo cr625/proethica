@@ -121,14 +121,14 @@ Section structure varies by professional domain. ProEthica currently uses NSPE e
 
 ### Source Attribution
 
-Directly after the opinion text, each case page names its source: "Source: National Society of Professional Engineers, Board of Ethical Review, Case NN-N", linked to the published opinion on nspe.org. The line is visible to all visitors. The NSPE note with its educational-use and reprint conditions appears in the page footer; see [Case Corpus and Sources](case-corpus.md).
+Directly after the opinion text, each case page names its source: "Source: National Society of Professional Engineers, Board of Ethical Review, Case NN-N", linked to the published opinion on nspe.org. The NSPE note appears in the page footer; see [Case Corpus and Sources](case-corpus.md).
 
 ### Case Metadata
 
 The card header displays:
 
 - **Case Number** - Official case identifier
-- **Year** - Year of the date given for the opinion on its NSPE case page
+- **Year** - Year of the opinion
 - **World** - Domain classification (e.g., "Engineering Ethics")
 
 ## Structure Page

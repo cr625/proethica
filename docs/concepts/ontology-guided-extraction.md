@@ -15,7 +15,7 @@ The Action prompt of the example below carries four blocks read from the `proeth
 
 ## Worked Example: An Action in Case 24-1
 
-The example is taken from the stored Action extraction of NSPE Case 24-1, *Balancing Client Directives and Public Welfare* (stored as case 8), run on 7 July 2026. The prompt and the response belong to the same provenance activity (5835, recorded model `claude-fable-5`) and are stored as provenance entities 8277 and 8278. The prompt and response excerpts below are copied from those two records without change. The Provenance page of a case shows the stored prompt and response of the latest run of each extraction stage.
+The example is taken from the stored Action extraction of NSPE Case 24-1, *Balancing Client Directives and Public Welfare* (stored as case 8), run on 7 July 2026. The prompt and the response belong to provenance activity 5835, with the model `claude-fable-5`. The Provenance page of a case shows the stored prompt and response of the latest run of each extraction stage.
 
 ### Source Passage
 
@@ -69,7 +69,7 @@ TYPING (rules the ontology enforces):
 
 </div>
 
-Omitted from these excerpts: the case text supplied to the model (Facts, Discussion, a narrative summary, decision points and competing priorities), the rest of the definition and framing, the individuation rule, the extraction directives shared across components, fields 1 to 8 of the field list, the fixed JSON format example of the template and the closing instructions.
+The full prompt also contains the case text, the individuation rule, the extraction directives shared across components, fields 1 to 8 and the response format.
 
 ### Recorded Response
 
@@ -135,7 +135,7 @@ The response lists eight Actions. The excerpt shows selected fields of the sixth
 
     </div>
 
-Both quotations in `text_references` are exact spans of the opinion text shown under Source Passage. The record states one interpretation in inspectable form: the notification ends an undisclosed-risk State and begins a disclosed-risk State, and the two passages show where the opinion supports it.
+The record places the notification in the timeline of the case: it ends the State of an undisclosed risk concern and begins the State of a risk disclosed to the client. Its two quotations are the passages shown under Source Passage.
 
 ### Case Records Built from the Response
 
@@ -150,7 +150,7 @@ The pipeline converts each returned Action into a case individual and links its 
 | `ethical_context` | Obligation and Principle names resolved to the individuals of the case as `proeth-core:fulfillsObligation`, `proeth-core:violatesObligation` and `proeth-core:guidedByPrinciple` edges |
 | `text_references` | `proeth:textReferences` quotations on the individual |
 
-Later processing reads these records rather than the text of the response. The Actions of a case form the Action component of the nine-component similarity used in [precedent retrieval](../viewing/precedent-network.md). The Timeline of [Viewing Extractions](../viewing/viewing-extractions.md) and the Entity Timeline of the [Interactive Scenario](../viewing/interactive-scenario.md) present the Actions and Events of a case in sequence. Step 4 synthesis, which makes further model calls, takes the Action records as input when it relates each action to the obligations of the case and when it builds decision points.
+The Actions of a case form the Action component of the nine-component similarity used in [precedent retrieval](../viewing/precedent-network.md). The Timeline of [Viewing Extractions](../viewing/viewing-extractions.md) and the Entity Timeline of the [Interactive Scenario](../viewing/interactive-scenario.md) present the Actions and Events of a case in sequence. Step 4 synthesis takes the Action records as input when it relates each action to the obligations of the case and when it builds decision points.
 
 ## Related Documentation
 
