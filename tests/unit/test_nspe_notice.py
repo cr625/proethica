@@ -4,13 +4,16 @@ NSPE reuse notice on the case view.
 NSPE permits reprinting a Board of Ethical Review opinion provided that its
 NOTE statement is included before or after the text of the case, with
 attribution to the Board. The case view renders the shared macro
-macros/_nspe_notice.html directly after the opinion text.
+macros/_nspe_notice.html directly after the opinion text, for a case whose
+stored source is a page on nspe.org.
 """
 
 import re
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
+
+from app.utils.nspe_source import nspe_source_url
 
 REPO = Path(__file__).resolve().parents[2]
 TEMPLATES = REPO / 'app' / 'templates'
@@ -62,8 +65,8 @@ class TestNoticeMacro:
                 'Source: National Society of Professional Engineers, Board of Ethical Review, '
                 'Case 24-1</a>') in html
 
-    def test_attribution_without_an_nspe_url_has_no_link(self):
-        for source in (None, '', 'https://example.org/case.pdf'):
+    def test_attribution_without_a_source_url_has_no_link(self):
+        for source in (None, ''):
             html = _render('24-1', source)
             assert '<a ' not in html
             assert ('Source: National Society of Professional Engineers, Board of Ethical Review, '
@@ -81,12 +84,42 @@ class TestNoticeMacro:
         assert re.search(r'<button[^>]*class="[^"]*\bd-print-none\b[^"]*"[^>]*data-bs-toggle="collapse"', html)
 
 
+class TestSourceHost:
+
+    def test_nspe_pages_qualify(self):
+        assert nspe_source_url(NSPE_URL) == NSPE_URL
+        assert nspe_source_url(f'  {NSPE_URL}  ') == NSPE_URL
+        assert nspe_source_url('http://nspe.org/resources/ethics/case-58-1') == \
+            'http://nspe.org/resources/ethics/case-58-1'
+
+    def test_other_hosts_do_not_qualify(self):
+        for source in (None, '', 'agent_generated',
+                       'https://example.org/case.pdf',
+                       'https://example.org/?ref=nspe.org',
+                       'https://nspe.org.example.com/case',
+                       'https://notnspe.org/case',
+                       'ftp://www.nspe.org/case.pdf',
+                       'www.nspe.org/case'):
+            assert nspe_source_url(source) is None, source
+
+
 class TestCaseView:
+
+    def test_view_passes_the_verified_nspe_url(self):
+        view = (REPO / 'app' / 'routes' / 'cases' / 'view.py').read_text()
+        assert "'nspe_source_url': nspe_source_url(document.source)," in view
+
+    def test_notice_only_for_an_nspe_source(self):
+        template = (TEMPLATES / 'case_detail.html').read_text()
+        guard = template.index('{% if case.nspe_source_url %}')
+        call = template.index('{{ nspe_notice(case.case_number, case.nspe_source_url) }}')
+        other = template.index('{% elif case.source %}')
+        assert guard < call < other
 
     def test_case_view_renders_the_notice_after_the_opinion_text(self):
         template = (TEMPLATES / 'case_detail.html').read_text()
         assert "{% from 'macros/_nspe_notice.html' import nspe_notice %}" in template
-        call = template.index('{{ nspe_notice(case.case_number, case.source) }}')
+        call = template.index('{{ nspe_notice(case.case_number, case.nspe_source_url) }}')
         assert template.index('id="dissent-section"') < call
         assert template.index('{{ case.description|safe }}') < call
         assert call < template.index('{% if case.decision %}')

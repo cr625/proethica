@@ -257,7 +257,14 @@
             {% endif %}
             {% endif %}
 
-            {{ nspe_notice(case.case_number, case.source) }}
+            {% if case.nspe_source_url %}
+            {{ nspe_notice(case.case_number, case.nspe_source_url) }}
+            {% elif case.source %}
+            {# A source that is not an nspe.org page is named without attributing the text to NSPE #}
+            <aside class="small text-muted border-top pt-2 mt-3">Source:
+                {% if case.source.startswith(('http://', 'https://')) %}<a href="{{ case.source }}" target="_blank" rel="noopener" class="link-secondary">{{ case.source }}</a>{% else %}{{ case.source }}{% endif %}
+            </aside>
+            {% endif %}
 
             {% if case.decision %}
             <h4>Decision</h4>

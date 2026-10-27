@@ -7,6 +7,7 @@ from app.models import Document
 from app.models.world import World
 from app.services.entity.entity_triple_service import EntityTripleService
 from app.services.pipeline_status_service import PipelineStatusService
+from app.utils.nspe_source import nspe_source_url
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ def register_view_routes(bp):
             'outcome': metadata.get('outcome', ''),
             'ethical_analysis': metadata.get('ethical_analysis', ''),
             'source': document.source,
+            'nspe_source_url': nspe_source_url(document.source),
             'document_id': document.id,
             'is_document': True,
             'case_number': metadata.get('case_number', ''),

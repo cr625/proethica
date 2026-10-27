@@ -10,14 +10,15 @@
    printed in full (d-print-block), without the toggle (d-print-none).
 
    case_number  NSPE case number (doc_metadata.case_number), e.g. "24-1"
-   source_url   stored nspe.org page of the case (documents.source); any other value
-                renders the attribution without a link #}
+   source_url   nspe.org page of the case, as returned by app.utils.nspe_source.nspe_source_url;
+                the caller shows the notice only for a case whose stored source is such a page.
+                None renders the attribution without a link #}
 {% macro nspe_notice(case_number, source_url=None) %}
 {%- set note_id = 'nspe-note-' ~ (case_number or 'case') -%}
 {%- set attribution = 'Source: National Society of Professional Engineers, Board of Ethical Review' ~ (', Case ' ~ case_number if case_number else '') -%}
 <aside class="nspe-notice small text-muted border-top pt-2 mt-3">
     <div>
-        {% if source_url and 'nspe.org' in source_url %}
+        {% if source_url %}
         <a href="{{ source_url }}" target="_blank" rel="noopener" class="link-secondary">{{ attribution }}</a>
         {% else %}
         <span>{{ attribution }}</span>
