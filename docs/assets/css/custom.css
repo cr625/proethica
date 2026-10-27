@@ -45,6 +45,17 @@
     white-space: pre;
 }
 
+/* Quoted prompt and response excerpts: wrap long lines instead of scrolling */
+.md-typeset .wrap-excerpt pre code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Quoted excerpts with their own line breaks: a smaller size keeps the original lines whole */
+.md-typeset .fit-excerpt pre code {
+    font-size: 0.72em;
+}
+
 /* Transformation type indicators */
 .transformation-transfer { color: #4CAF50; }
 .transformation-stalemate { color: #FF9800; }

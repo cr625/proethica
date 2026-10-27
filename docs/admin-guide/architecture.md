@@ -136,13 +136,15 @@ The pipeline extracts nine component types across three steps, then synthesizes 
 
 Each language-model call selects one of four model tiers (powerful, default, fast, gate), and each tier resolves to a configured model. [Settings](settings.md#model-tiers) lists the current default of each tier and the stages that use it; the extraction of the nine component types uses the powerful tier. Responses are streamed. Prompts are stored as database templates editable through the Prompt Editor (`/tools/prompts`). Each stored extraction record keeps the prompt, the raw response and the identifier of the model that produced it.
 
+The prompt builder reads the definition and typing boundary of each component from the ontology and places them in the prompt before the call. [Ontology-Guided Extraction](../concepts/ontology-guided-extraction.md) follows one Action from these prompt instructions to its recorded response and the case records built from it.
+
 ```text
    +----------+    +----------+    +----------+
    |  Prompt  |--->|  Claude  |--->| Response |
    |  Builder |    |   API    |    |  Parser  |
    +----------+    +----------+    +----------+
-        |                               |
-        v                               v
+        ^                               |
+        |                               v
    +----------+                    +----------+
    | OntServe |                    |  Entity  |
    |   Defs   |                    |Extraction|
@@ -166,7 +168,14 @@ Between extraction and the persisted case ontology, four mechanisms govern how e
 
 ### Verification Gate
 
-Every commit passes the extracted entities of a case through a verification gate before they are canonicalized into the Extended Ontology. The gate checks each supporting quotation against the opinion text. A quotation that paraphrases the opinion is re-grounded to the verbatim span it corresponds to; a span is accepted only if it occurs verbatim in the opinion, and it replaces the paraphrase in every quotation field of the entity. An entity none of whose quotations is supported by the opinion is removed from the commit. Obligation and Constraint definitions are also judged for over-reach, that is, for asserting more than the case holds: the gate model ([gate tier](settings.md#model-tiers)) votes three times, a unanimous finding removes the definition from the commit, and a weaker finding is recorded for analyst review. Each decision is written to the review notes of the entity, and the commit run records the gate report and the gate model. Committed entities therefore carry verbatim source passages from the opinion.
+The commit step of the automated pipeline runs a verification gate over the extracted records of a case before the commit adds their vocabulary to the Extended Ontology. The gate compares the records with the opinion text (Facts and Discussion) in the following sequence.
+
+1. Each supporting quotation is checked against the opinion. A quotation that occurs verbatim is kept, in the spelling of the opinion. For a paraphrase, the gate model ([gate tier](settings.md#model-tiers)) proposes the span of the opinion that supports the record. The span is accepted only if it occurs verbatim in the opinion, and it then replaces the paraphrase in every quotation field of the record.
+2. The seven contextual and normative component types (Roles, States, Resources, Principles, Obligations, Constraints and Capabilities) require a supporting quotation. A record of these types extracted without a quotation receives its own span search, and a confirmed span is attached to it. A record for which no supporting span is confirmed is excluded from the commit.
+3. Obligation and Constraint classes proposed by the extraction are judged for over-reach, that is, for a definition that asserts more than the case holds. The gate model casts five independent votes on each class. At least four votes for over-reach remove the class from the commit, together with its label variants and every individual in the commit typed to it. Three votes record a review flag with the reason.
+4. Each outcome is written to the review notes of the record: the reason for an exclusion, a review flag, or a marker that the quotations were re-grounded, attached or adjusted to the spelling of the opinion. An excluded record is deselected and stays visible in Entity Review with its reason. The gate report, listing the corrections, exclusions and flags, is recorded as a provenance activity of the pipeline run together with the identifier of the gate model.
+
+Records of the seven contextual and normative types that pass the gate carry only quotations confirmed as verbatim spans of the opinion. Temporal records (Actions, Events and their relations) and Step 4 synthesis records carry their evidence in fields of their own and have no quotation requirement. Quotations they do carry pass the check of step 1. Because the interval relations, timeline entries and causal links of a case refer to one another, a temporal or synthesis record whose quotations find no supporting span is flagged for review and kept in the commit.
 
 ### Entity Matching and Canonicalization
 

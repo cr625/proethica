@@ -85,6 +85,7 @@ nav:
       - Interface Overview: getting-started/first-login.md
   - Concepts:
       - Nine-Component Framework: concepts/nine-components.md
+      - Ontology-Guided Extraction: concepts/ontology-guided-extraction.md
       - Pipeline Terminology: concepts/terminology.md
       - Ontology Properties: concepts/ontology-properties.md
       - Color Scheme: concepts/color-scheme.md
