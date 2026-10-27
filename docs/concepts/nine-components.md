@@ -235,7 +235,7 @@ Extracts from Facts and Discussion sections separately (Pass 1, Pass 2). Within 
 | Principles | 15-25 | Abstract ethical standards |
 | Obligations | 15-25 | Concrete duties |
 | Constraints | 15-20 | Prohibitions and limits |
-| Capabilities | 15-25 | Permissions and options |
+| Capabilities | 15-25 | Competencies of professional agents |
 
 ### Step 3: Temporal Dynamics
 

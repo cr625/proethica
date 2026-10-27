@@ -57,7 +57,7 @@ Pipeline
 | Principles | P | Abstract ethical standards |
 | Obligations | O | Concrete professional duties |
 | Constraints | Cs | Prohibitions and limitations |
-| Capabilities | Ca | Permissions and available options |
+| Capabilities | Ca | Competencies of professional agents |
 
 ### Step 3: Temporal Dynamics
 
@@ -173,8 +173,8 @@ Steps 1-2 extract from both Facts and Discussion sections via separate passes. S
 |--------|-------|-------------|
 | Code Provision Reference | 2A | NSPE code sections cited |
 | Precedent Case Reference | 2B | BER cases referenced in discussion |
-| Ethical Question | 2C | Questions posed to the Board |
-| Ethical Conclusion | 2C | Board's formal determinations |
+| Ethical Question | 2C | Questions posed to the Board, and analytical questions added by the synthesis |
+| Ethical Conclusion | 2C | Board conclusions extracted from the opinion, and analytical conclusions added by the synthesis; each is labelled by type |
 | Canonical Decision Point | Phase 3 | Points where ethical choices must be made |
 | Resolution Pattern | 2E | How tensions are resolved |
 | Causal-Normative Link | 2E | Connections between causes and norms |

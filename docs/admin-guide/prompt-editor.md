@@ -50,7 +50,7 @@ Rendering uses Jinja2. The template body and the system prompt are rendered sepa
 
 ### Model Call
 
-The assembled prompt is sent to the model as a single user message, with the rendered system prompt as a separate system message. The default model is Claude Sonnet 5, configurable per concept and overridable by environment variable. The request streams the response and asks for JSON output through the in-prompt instruction rather than through tool calls or a response schema. If the response is cut off at the token limit, a repair step closes the truncated JSON before parsing.
+The assembled prompt is sent to the model as a single user message, with the rendered system prompt as a separate system message. The model comes from the tier configured for the concept (the powerful tier for the nine component types) and is set through environment variables; see [Settings](settings.md#model-tiers) for the tiers and their current defaults. The request streams the response and asks for JSON output through the in-prompt instruction rather than through tool calls or a response schema. If the response is cut off at the token limit, a repair step closes the truncated JSON before parsing.
 
 ### Parsing and Validation
 
@@ -62,7 +62,7 @@ Several passes refine the validated entities. A contamination filter removes ent
 
 ### Draft Staging
 
-On completion the extractor records the exact prompt and the raw model response to the `extraction_prompts` table, which is the source for the **Test Extraction** display and for audit. The validated models are converted to a plain dictionary structure. No RDF or Turtle is produced at this point, despite the name of the conversion step. The structured entities are written as draft rows to the `temporary_rdf_storage` table, one row per class and per individual, in a JSON column, with the Turtle column left empty. Existing unpublished rows for the same section are replaced first, and same-label rows are merged. These rows are marked unpublished, which is the state the **Entity Review** screen reads.
+On completion the extractor records the exact prompt, the raw model response and the model identifier to the `extraction_prompts` table, which is the source for the **Test Extraction** display and for audit. The validated models are converted to a plain dictionary structure. No RDF or Turtle is produced at this point, despite the name of the conversion step. The structured entities are written as draft rows to the `temporary_rdf_storage` table, one row per class and per individual, in a JSON column, with the Turtle column left empty. Existing unpublished rows for the same section are replaced first, and same-label rows are merged. These rows are marked unpublished, which is the state the **Entity Review** screen reads.
 
 ### Ontology Commit
 

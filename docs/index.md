@@ -18,6 +18,7 @@ Browse and explore ethics cases without authentication.
 
 | Guide | Description |
 |-------|-------------|
+| [Case Corpus and Sources](viewing/case-corpus.md) | Source, scope, attribution and reuse conditions of the NSPE opinions |
 | [Browsing Cases](viewing/browsing-cases.md) | Navigate the case repository with filtering |
 | [Viewing Extractions](viewing/viewing-extractions.md) | View extracted entities from completed cases |
 | [Precedent Network](viewing/precedent-network.md) | Explore case similarity relationships |
@@ -51,7 +52,7 @@ ProEthica demonstrates a methodology for computational support of professional e
 
 Many technical specialists who serve on ethics review boards lack formal training in ethical analysis, yet their domain expertise is essential for evaluating professional conduct. ProEthica explores whether computational tools could augment this process by making professional resources more accessible and by exposing analytical pathways that connect specific situations to established standards.
 
-The current implementation demonstrates feasibility through engineering ethics cases from the NSPE Board of Ethical Review.
+The current implementation demonstrates feasibility through engineering ethics cases from the NSPE Board of Ethical Review. [Case Corpus and Sources](viewing/case-corpus.md) describes these cases, their source and the conditions of their reuse.
 
 ## Nine-Component Framework
 

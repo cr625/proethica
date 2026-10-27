@@ -1,6 +1,6 @@
 # ProEthica Overview
 
-ProEthica is an ethical decision analysis platform that uses large language models to extract structured knowledge from professional ethics cases.
+ProEthica is a research and teaching tool for studying the published opinions of a professional ethics board. It uses ontology-guided extraction with large language models to build source-linked representations of each case, which support case comparison and analytical views. [Case Corpus and Sources](../viewing/case-corpus.md) describes the opinions and their source.
 
 ![ProEthica Home Page](../assets/images/screenshots/home-page-content.png)
 
@@ -63,7 +63,7 @@ The folder icon opens the case browser for a domain.
 
 The right panel displays the ontology connection and access points:
 
-- **ProEthica Intermediate Ontology** -- Nine-Component Framework for professional ethics analysis. Entities extracted from cases are linked to this ontology.
+- **ProEthica Intermediate Ontology** -- shared professional-ethics concepts that specialize the nine component types, which the ProEthica Core Ontology defines. Entities extracted from cases are linked to these ontologies; [Ontology Integration](../admin-guide/ontology-integration.md#ontology-structure) describes the layers and the files that hold them.
 - **Ontology Graph** link opens the visual ontology browser on OntServe
 - **Browse Entities** link opens the OntServe entity browser for the proethica-intermediate ontology
 
@@ -80,12 +80,9 @@ The standard workflow proceeds through the following stages:
 5. Precedent discovery through similarity matching
 6. Interactive scenario exploration (Step 5: Narrative Overview, Entity Timeline, Decision Wizard)
 
-## Demo Landing Page
-
-A condensed introduction to ProEthica is available at `/demo`. The page presents the system's capabilities, links to the demonstration video, and points to representative cases. The page was prepared for AAAI-26 conference attendees and remains available as a public entry point to the system.
-
 ## Related Documentation
 
 - [Interface Overview](first-login.md) - Navigation and UI elements
+- [Case Corpus and Sources](../viewing/case-corpus.md) - Source, scope and reuse conditions of the cases
 - [Upload Cases](../analysis/uploading-cases.md) - Adding cases to the repository
 - [Nine-Component Framework](../concepts/nine-components.md) - Methodology reference

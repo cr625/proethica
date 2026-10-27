@@ -89,6 +89,7 @@ nav:
       - Ontology Properties: concepts/ontology-properties.md
       - Color Scheme: concepts/color-scheme.md
   - Viewing:
+      - Case Corpus and Sources: viewing/case-corpus.md
       - Browsing Cases: viewing/browsing-cases.md
       - Viewing Extractions: viewing/viewing-extractions.md
       - Precedent Network: viewing/precedent-network.md

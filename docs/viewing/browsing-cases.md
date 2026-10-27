@@ -102,7 +102,7 @@ The pipeline status bar and associated step buttons are hidden for unauthenticat
 |--------|----------|
 | **Back to Cases** | Return to case list |
 | **Pipeline** | Open the case pipeline dashboard (authenticated users only) |
-| **Source** | Link to original source (authenticated users only) |
+| **Delete** | Remove the case (authenticated users only) |
 
 ### Case Sections
 
@@ -119,12 +119,16 @@ Engineering ethics cases (NSPE format) contain these sections:
 
 Section structure varies by professional domain. ProEthica currently uses NSPE engineering ethics as the canonical format.
 
+### Source Attribution
+
+Directly after the opinion text, each case page names its source: "Source: National Society of Professional Engineers, Board of Ethical Review, Case NN-N", linked to the published opinion on nspe.org. The line is visible to all visitors. The NSPE note with its educational-use and reprint conditions appears in the page footer; see [Case Corpus and Sources](case-corpus.md).
+
 ### Case Metadata
 
 The card header displays:
 
 - **Case Number** - Official case identifier
-- **Year** - Year of board decision
+- **Year** - Year of the date given for the opinion on its NSPE case page
 - **World** - Domain classification (e.g., "Engineering Ethics")
 
 ## Structure Page

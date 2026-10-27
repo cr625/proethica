@@ -126,12 +126,14 @@ Step 4 analyzes extracted entities and case text to produce 8 additional entity 
 |-------------|-------|-------------|
 | Code Provision Reference | 2A | NSPE code sections cited in the case |
 | Precedent Case Reference | 2B | BER cases referenced in discussion |
-| Ethical Question | 2C | Questions posed to the Board |
-| Ethical Conclusion | 2C | Board's formal determinations |
+| Ethical Question | 2C | Questions posed to the Board, and analytical questions added by the synthesis |
+| Ethical Conclusion | 2C | Board conclusions extracted from the opinion, and analytical conclusions added by the synthesis; each is labelled by type |
 | Canonical Decision Point | Phase 3 | Points where ethical choices must be made |
 | Resolution Pattern | 2E | How ethical tensions are resolved |
 | Causal-Normative Link | 2E | Connections between causal factors and norms |
 | Question Emergence | 2E | How ethical questions arise from case facts |
+
+The Q&C view keeps the findings of the Board apart from the synthesis. Each conclusion stated in the opinion carries a **Board conclusion** badge, and each conclusion added by the synthesis carries an **Analytical** badge. The analytical questions of each Board question are listed beneath it under **Show N analytical questions**. The Board Resolution card of the Step 5 narrative lists the findings of the Board with a **Board Finding** badge and refers to the analytical conclusions separately.
 
 Step 4 has three sub-views accessible from the pipeline sidebar:
 

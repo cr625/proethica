@@ -48,7 +48,7 @@ Expected entity counts:
 | **Principles** | Abstract ethical standards | 15-25 entities |
 | **Obligations** | Concrete duties | 15-25 entities |
 | **Constraints** | Prohibitions and limits | 15-20 entities |
-| **Capabilities** | Permissions and options | 15-25 entities |
+| **Capabilities** | Competencies of professional agents | 15-25 entities |
 
 ## Step 3: Temporal Dynamics
 

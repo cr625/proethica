@@ -19,7 +19,7 @@ Admin authentication is required in production for the following:
 | Endpoint | Purpose |
 |----------|---------|
 | `/health/status` | Full service-monitoring dashboard with cached results and history |
-| `/health/demo` | Demo case health check (verifies the AAAI demo case still extracts) |
+| `/health/demo` | Reference case health check (verifies that each case with extraction records loads) |
 | `/health/clear-cache` | Force-refresh all cached health checks |
 | `/health/errors` | Recent error log with breakdown by service |
 | `/health/test-alert` | Trigger a test alert to verify notification wiring |
@@ -34,7 +34,7 @@ The dashboard reports on five upstream dependencies:
 | Redis | Connection succeeds and a `PING` round-trips |
 | Celery | A worker responds to inspect ping (skipped when Celery is not in use) |
 | OntServe MCP | The MCP server at `ONTSERVE_MCP_URL` responds to a tools-list request |
-| Demo case | The AAAI-26 demo case (database id 7) retains its extraction results |
+| Reference cases | Each case with extraction records loads. The check reports degraded when the primary reference case (database id 7) and at least half of the cases load, and unhealthy otherwise |
 
 Each check is cached separately. Successful checks are cached for several minutes; failed checks are cached for a shorter window so transient failures self-correct quickly.
 

@@ -134,7 +134,7 @@ The pipeline extracts nine component types across three steps, then synthesizes 
 
 ### LLM Request Flow
 
-All extraction calls use the configured default model (`claude-sonnet-5`) via streaming, with the powerful tier (`claude-fable-5`) and the gate tier (`claude-opus-4-8`) reserved for complex analysis and verification judging. Prompts are stored as database templates editable through the Prompt Editor (`/tools/prompts`).
+Each language-model call selects one of four model tiers (powerful, default, fast, gate), and each tier resolves to a configured model. [Settings](settings.md#model-tiers) lists the current default of each tier and the stages that use it; the extraction of the nine component types uses the powerful tier. Responses are streamed. Prompts are stored as database templates editable through the Prompt Editor (`/tools/prompts`). Each stored extraction record keeps the prompt, the raw response and the identifier of the model that produced it.
 
 ```text
    +----------+    +----------+    +----------+
@@ -149,9 +149,24 @@ All extraction calls use the configured default model (`claude-sonnet-5`) via st
    +----------+                    +----------+
 ```
 
+### External Services and Data Flow
+
+Case text is processed by two kinds of model call, configured separately: language-model calls for extraction and synthesis, and embedding calls for similarity features.
+
+| Operation | Service | Text sent | Configuration |
+|-----------|---------|-----------|---------------|
+| Extraction and synthesis | Anthropic Messages API for the default configuration; a tier whose reference names an OpenAI model sends to OpenAI | The assembled prompt: case section or full case text, ontology definitions and previously extracted entities | [Model tiers](settings.md#model-tiers) |
+| Embedding | The local `all-MiniLM-L6-v2` model, which runs on the server; hosted OpenAI, Gemini or Anthropic endpoints are available as alternatives through `EMBEDDING_PROVIDER_PRIORITY` | The text being embedded: case sections, and the labels and definitions of extracted entities for the per-component features | [Embedding providers](settings.md#embedding-providers) |
+
+The stored similarity vectors and the precedent features used for retrieval are 384-dimensional vectors of the local model. Each stored extraction record names the model of its call.
+
 ## Ontology Materialization and Conformance
 
-Between extraction and the persisted case ontology, three mechanisms govern how extracted entities enter the shared knowledge graph.
+Between extraction and the persisted case ontology, four mechanisms govern how extracted entities enter the shared knowledge graph.
+
+### Verification Gate
+
+Every commit passes the extracted entities of a case through a verification gate before they are canonicalized into the Extended Ontology. The gate checks each supporting quotation against the opinion text. A quotation that paraphrases the opinion is re-grounded to the verbatim span it corresponds to; a span is accepted only if it occurs verbatim in the opinion, and it replaces the paraphrase in every quotation field of the entity. An entity none of whose quotations is supported by the opinion is removed from the commit. Obligation and Constraint definitions are also judged for over-reach, that is, for asserting more than the case holds: the gate model ([gate tier](settings.md#model-tiers)) votes three times, a unanimous finding removes the definition from the commit, and a weaker finding is recorded for analyst review. Each decision is written to the review notes of the entity, and the commit run records the gate report and the gate model. Committed entities therefore carry verbatim source passages from the opinion.
 
 ### Entity Matching and Canonicalization
 

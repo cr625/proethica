@@ -33,13 +33,24 @@ postgresql://<user>:<password>@localhost:5432/ai_ethical_dm
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | (required) | Claude API key |
-| `CLAUDE_DEFAULT_MODEL` | claude-sonnet-5 | Default Claude model |
-| `CLAUDE_POWERFUL_MODEL` | claude-fable-5 | Powerful model for complex tasks |
-| `CLAUDE_FAST_MODEL` | claude-haiku-4-5-20251001 | Fast model for simple tasks |
-| `CLAUDE_GATE_MODEL` | claude-opus-4-8 | Verification and commit-gate judge model |
-| `OPENAI_API_KEY` | (optional) | OpenAI fallback |
-| `ENABLE_GEMINI` | false | Enable Google Gemini |
-| `GOOGLE_API_KEY` | (optional) | Gemini API key |
+| `CLAUDE_DEFAULT_MODEL` | claude-sonnet-5-5 | Model of the default tier |
+| `CLAUDE_POWERFUL_MODEL` | claude-fable-5-1 | Model of the powerful tier |
+| `CLAUDE_FAST_MODEL` | claude-haiku-5-5 | Model of the fast tier |
+| `CLAUDE_GATE_MODEL` | claude-opus-5-5 | Model of the gate tier (verification and commit-gate judging) |
+| `LLM_DEFAULT_REF`, `LLM_POWERFUL_REF`, `LLM_FAST_REF`, `LLM_GATE_REF` | (unset) | Optional `provider:model` reference for a tier, for example `anthropic:claude-sonnet-5-5`. Takes precedence over the `CLAUDE_*_MODEL` variable of the tier |
+| `OPENAI_API_KEY` | (optional) | Used by a tier whose reference names an OpenAI model, and by the OpenAI embedding provider (see [Embedding Providers](#embedding-providers)) |
+| `GEMINI_API_KEY` or `GOOGLE_API_KEY` | (optional) | Used by the Gemini embedding provider |
+
+### Embedding Providers
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBEDDING_PROVIDER_PRIORITY` | see below | Comma-separated order in which embedding providers are tried: `local`, `openai`, `gemini`, `claude` |
+| `LOCAL_EMBEDDING_MODEL` | all-MiniLM-L6-v2 | Sentence-transformers model of the local provider (384 dimensions) |
+| `OPENAI_EMBEDDING_MODEL` | text-embedding-3-small | Model of the OpenAI provider |
+| `DISABLE_LOCAL_EMBEDDINGS` | false | Skip the local provider |
+
+When `EMBEDDING_PROVIDER_PRIORITY` is unset, the order is `openai,gemini,claude,local` if any hosted API key is configured (the Anthropic key counts), and `local,openai,gemini,claude` otherwise. A provider without a usable key is skipped. The stored similarity vectors are 384-dimensional vectors of the local model; [Architecture](architecture.md#external-services-and-data-flow) describes what each provider receives.
 
 ### OntServe Integration
 
@@ -93,26 +104,32 @@ worker_prefetch_multiplier = 1  # One task at a time
 
 ## Model Selection
 
-### Claude Models
+### Model Tiers
 
-| Model | Use Case |
-|-------|----------|
-| `claude-sonnet-5` | All extraction tasks (Steps 1-4) |
-| `claude-fable-5` | Complex analysis tasks (reserved for high-stakes operations) |
-| `claude-opus-4-8` | Verification and commit-gate judging |
-| `claude-haiku-4-5-20251001` | Simple, fast tasks |
+Each language-model call selects one of four tiers, and each tier resolves to a model through the variables above. The table gives the current defaults and the main stages that use each tier in the current code. A stage can also be given an explicit model by its caller.
+
+| Tier | Current default | Main uses |
+|------|-----------------|-----------|
+| powerful | `claude-fable-5-1` | Steps 1-3: extraction of the nine component types and of causal links; relational edge extraction; parts of the Step 4 synthesis |
+| default | `claude-sonnet-5-5` | Most of the Step 4 synthesis (questions, conclusions, provisions, precedents, decision points, narrative); Step 5 views; prompt-editor test runs |
+| fast | `claude-haiku-5-5` | Small classification calls, such as subject tags for precedent features |
+| gate | `claude-opus-5-5` | Verification and commit-gate judging |
+
+Each stored extraction record carries the identifier of the model that produced it (the `llm_model` field of `extraction_prompts`), alongside the prompt and the raw response.
 
 ### Changing Models
 
 Edit environment variables:
 
 ```bash
-CLAUDE_DEFAULT_MODEL=claude-sonnet-5
-CLAUDE_POWERFUL_MODEL=claude-fable-5
-CLAUDE_GATE_MODEL=claude-opus-4-8
+CLAUDE_DEFAULT_MODEL=claude-sonnet-5-5
+CLAUDE_POWERFUL_MODEL=claude-fable-5-1
+CLAUDE_GATE_MODEL=claude-opus-5-5
+# or, per tier, with an explicit provider
+LLM_POWERFUL_REF=anthropic:claude-fable-5-1
 ```
 
-Or update at runtime via Admin interface.
+The variables are read from `.env` at process start, so a restart of the web and worker processes applies a change.
 
 ## OntServe Configuration
 

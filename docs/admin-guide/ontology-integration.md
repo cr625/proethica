@@ -54,7 +54,7 @@ ProEthica Extraction Pipeline
 +---------------------------+
 | proethica-case-N.ttl      |  (Single file, overwritten)
 | proethica-intermediate-   |
-|   extracted.ttl           |  (Classes, appended)
+|   extended.ttl            |  (Classes, appended)
 +---------------------------+
 ```
 
@@ -68,11 +68,14 @@ Ontology files in `OntServe/ontologies/`:
 
 | File | Purpose |
 |------|---------|
-| `proethica-core.ttl` | 9 base concepts (Role, Principle, etc.) |
-| `proethica-intermediate.ttl` | Domain classes and ObjectProperties |
-| `proethica-intermediate-extracted.ttl` | LLM-extracted classes |
+| `proethica-core.ttl` | The nine component types (Role, Principle, etc.) |
+| `proethica-intermediate.ttl` | Intermediate concepts, engineering roles and ObjectProperties |
+| `proethica-intermediate-extended.ttl` | Extended Ontology: classes discovered during extraction, with provenance |
+| `proethica-cases.ttl` | Typing vocabulary of the Step 4 analysis records |
 | `proethica-case-N.ttl` | Case-specific individuals |
 | `proethica-provenance.ttl` | Provenance properties |
+
+[Ontology Layers](#ontology-layers) maps these files, and the seed vocabularies, to the conceptual layers.
 
 URI namespaces:
 
@@ -209,15 +212,18 @@ Submits new concept for ontology review.
 
 ## Ontology Structure
 
-### Three-Layer Architecture
+### Ontology Layers
 
-ProEthica uses a three-layer ontology:
+The ontologies are organized in layers from general to case-specific. The Core and Intermediate layers are general professional-ethics vocabulary. The domain layer and the case ontologies hold the engineering-ethics material obtained from the NSPE opinions. The table maps each layer to the files in `OntServe/ontologies/` that hold it.
 
-| Layer | Purpose | Example Classes |
-|-------|---------|-----------------|
-| Core | 9 foundational concepts | Role, Principle, Obligation |
-| Intermediate | Domain-specific | Engineer, PublicSafety |
-| Case | Instance data | Case24_2_Engineer |
+| Layer | Content | Files |
+|-------|---------|-------|
+| Core | The nine component types (Role, Principle, Obligation, State, Resource, Action, Event, Capability, Constraint), declared pairwise disjoint and aligned to BFO | `proethica-core.ttl`, with `proethica-foundation.ttl` (the cited BFO, IAO and RO terms) and `proethica-shapes.ttl` (SHACL shapes) |
+| Intermediate | Concepts from the professional-ethics literature that specialize the component types and recur across professions, such as `ProfessionalRole`, `ProviderClientRole`, `PublicWelfarePrinciple` and `EthicalCode` | `proethica-intermediate.ttl` |
+| Domain (engineering ethics) | Engineering-specific classes, chiefly the engineering roles (`EngineerRole` and its specializations such as `CivilEngineerRole`); the case-derived Extended Ontology, whose classes are discovered during extraction and record the case and section they came from; and the optional seed vocabularies | Engineering roles in `proethica-intermediate.ttl`; Extended Ontology in `proethica-intermediate-extended.ttl`; seeds in `NSPE Code of Ethics.ttl` (the code of ethics), `ifc-roles.ttl` (IFC actor roles) and `engineering-ethics.ttl` (technical standards) |
+| Case | The individuals of one opinion and the classes they instantiate, with the Step 4 analysis records | `proethica-case-N.ttl`, one per committed case; `proethica-cases.ttl` types the analysis records |
+
+Classes of the Intermediate and Extended Ontologies share the `proeth:` namespace.
 
 ### Core Ontology (proethica-core)
 
@@ -232,17 +238,19 @@ Defines the 9 component types:
 | Resource | proeth-core:Resource | Available knowledge |
 | Action | proeth-core:Action | Professional behaviors |
 | Event | proeth-core:Event | Precipitating occurrences |
-| Capability | proeth-core:Capability | Permissions |
+| Capability | proeth-core:Capability | Competencies an agent possesses (dispositions) |
 | Constraint | proeth-core:Constraint | Prohibitions |
 
 ### Intermediate Ontology (proethica-intermediate)
 
-Domain-specific subclasses:
+Subclasses of the core component types, general professional concepts first, then engineering roles:
 
 ```turtle
-proeth-int:Engineer rdfs:subClassOf proeth-core:Role .
-proeth-int:CompetenceRequirement rdfs:subClassOf proeth-core:Obligation .
-proeth-int:NSPECodeProvision rdfs:subClassOf proeth-core:Resource .
+proeth:ProfessionalRole rdfs:subClassOf proeth-core:Role .
+proeth:ProfessionalObligation rdfs:subClassOf proeth-core:Obligation .
+proeth:PublicWelfarePrinciple rdfs:subClassOf proeth:FundamentalEthicalPrinciple .
+proeth:EngineerRole rdfs:subClassOf proeth:ProfessionalRole .
+proeth:CivilEngineerRole rdfs:subClassOf proeth:EngineerRole .
 ```
 
 ### Case Analysis Classes (Step 4)
@@ -253,8 +261,8 @@ Step 4 produces 8 additional entity types beyond the 9 base concepts:
 |-------|-------|-------------|
 | `CodeProvisionReference` | 2A | NSPE code sections cited in the case |
 | `PrecedentCaseReference` | 2B | BER cases referenced in the discussion |
-| `EthicalQuestion` | 2C | Questions posed to Board for ethical review |
-| `EthicalConclusion` | 2C | Board's formal determinations |
+| `EthicalQuestion` | 2C | Questions posed to the Board, and analytical questions added by the synthesis |
+| `EthicalConclusion` | 2C | Board conclusions extracted from the opinion, and analytical conclusions added by the synthesis; each is labelled by type |
 | `CanonicalDecisionPoint` | Phase 3 | Points where ethical choices must be made (E1-E3 synthesis) |
 | `ResolutionPattern` | 2E | Patterns of how ethical tensions are resolved |
 | `CausalNormativeLink` | 2E | Connections between causal factors and normative principles |
