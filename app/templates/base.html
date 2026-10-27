@@ -268,6 +268,10 @@
         </div>
 
         <div class="footer">
+            {% from 'macros/_nspe_notice.html' import nspe_note %}
+            {% if selected_domain and selected_domain.name == 'Engineering' %}
+            {{ nspe_note() }}
+            {% endif %}
             <p>&copy; Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU GPL v3</a>
                 {# The source-repository link identifies the authors by account name and is
                    withheld during the anonymous review window. See config.ANONYMOUS_MODE. #}

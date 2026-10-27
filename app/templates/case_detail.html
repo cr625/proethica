@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from '_macros.html' import synthesis_link %}
-{% from 'macros/_nspe_notice.html' import nspe_notice %}
+{% from 'macros/_nspe_notice.html' import nspe_attribution %}
 
 {% block title %}{{ case.title }} - ProEthica{% endblock %}
 
@@ -258,7 +258,7 @@
             {% endif %}
 
             {% if case.nspe_source_url %}
-            {{ nspe_notice(case.case_number, case.nspe_source_url) }}
+            {{ nspe_attribution(case.case_number, case.nspe_source_url) }}
             {% elif case.source %}
             {# A source that is not an nspe.org page is named without attributing the text to NSPE #}
             <aside class="small text-muted border-top pt-2 mt-3">Source:

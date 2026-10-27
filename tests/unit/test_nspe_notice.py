@@ -1,11 +1,13 @@
 """
-NSPE reuse notice on the case view.
+NSPE reuse notice.
 
 NSPE permits reprinting a Board of Ethical Review opinion provided that its
 NOTE statement is included before or after the text of the case, with
-attribution to the Board. The case view renders the shared macro
-macros/_nspe_notice.html directly after the opinion text, for a case whose
-stored source is a page on nspe.org.
+attribution to the Board. The shared macros in macros/_nspe_notice.html carry
+the NOTE in the site footer while the Engineering world is selected
+(nspe_note), and the attribution line of a case on the case view directly
+after the opinion text, for a case whose stored source is a page on nspe.org
+(nspe_attribution).
 """
 
 import re
@@ -43,10 +45,17 @@ NSPE_URL = ('https://www.nspe.org/career-growth/ethics/board-ethical-review-case
             'balancing-client-directives-public-welfare')
 
 
-def _render(*args, **kwargs):
+def _macros():
     env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=True)
-    macro = env.get_template('macros/_nspe_notice.html').module.nspe_notice
-    return str(macro(*args, **kwargs))
+    return env.get_template('macros/_nspe_notice.html').module
+
+
+def _note():
+    return str(_macros().nspe_note())
+
+
+def _attribution(*args, **kwargs):
+    return str(_macros().nspe_attribution(*args, **kwargs))
 
 
 def _text(html):
@@ -54,34 +63,63 @@ def _text(html):
     return re.sub(r'\s+', ' ', text).strip()
 
 
-class TestNoticeMacro:
+def _collapsed(html):
+    return re.search(r'<div class="collapse d-print-block" id="nspe-note-full">(.*?)</div>',
+                     html, re.S).group(1)
 
-    def test_note_is_the_current_nspe_wording(self):
-        assert NSPE_NOTE in _text(_render('24-1', NSPE_URL))
+
+class TestFooterNote:
+
+    def test_note_is_the_current_nspe_wording_in_published_order(self):
+        assert NSPE_NOTE in _text(_note())
+
+    def test_reprint_paragraph_is_visible(self):
+        html = _note()
+        assert 'educational purposes only' not in _collapsed(html)
+        assert 'educational purposes only' in html
+
+    def test_first_two_paragraphs_are_collapsed_on_screen(self):
+        collapsed = _text(_collapsed(_note()))
+        assert collapsed.startswith('NOTE: The NSPE Board of Ethical Review')
+        assert collapsed.endswith('within business structures.')
+        html = _note()
+        assert 'data-bs-target="#nspe-note-full"' in html
+        assert 'aria-expanded="false"' in html
+
+    def test_note_prints_in_full_without_its_toggle(self):
+        html = _note()
+        assert '<div class="collapse d-print-block" id="nspe-note-full">' in html
+        assert re.search(r'<button[^>]*class="[^"]*\bd-print-none\b[^"]*"[^>]*data-bs-toggle="collapse"', html)
+
+    def test_footer_carries_the_note_for_the_engineering_world(self):
+        base = (TEMPLATES / 'base.html').read_text()
+        footer = base.index('<div class="footer">')
+        guard = base.index("{% if selected_domain and selected_domain.name == 'Engineering' %}")
+        call = base.index('{{ nspe_note() }}')
+        assert footer < guard < call < base.index('Licensed under the')
+
+
+class TestCaseAttribution:
 
     def test_attribution_links_to_the_stored_nspe_page(self):
-        html = _render('24-1', NSPE_URL)
+        html = _attribution('24-1', NSPE_URL)
         assert (f'<a href="{NSPE_URL}" target="_blank" rel="noopener" class="link-secondary">'
                 'Source: National Society of Professional Engineers, Board of Ethical Review, '
-                'Case 24-1</a>') in html
+                '<span class="text-nowrap">Case 24-1</span></a>') in html
+
+    def test_attribution_without_a_case_number(self):
+        html = _attribution(None, NSPE_URL)
+        assert _text(html) == 'Source: National Society of Professional Engineers, Board of Ethical Review'
 
     def test_attribution_without_a_source_url_has_no_link(self):
         for source in (None, ''):
-            html = _render('24-1', source)
+            html = _attribution('24-1', source)
             assert '<a ' not in html
             assert ('Source: National Society of Professional Engineers, Board of Ethical Review, '
                     'Case 24-1') in _text(html)
 
-    def test_note_is_collapsed_behind_its_toggle(self):
-        html = _render('24-1', NSPE_URL)
-        assert '<div class="collapse d-print-block" id="nspe-note-24-1">' in html
-        assert 'data-bs-target="#nspe-note-24-1"' in html
-        assert 'aria-expanded="false"' in html
-
-    def test_note_prints_in_full_without_its_toggle(self):
-        html = _render('24-1', NSPE_URL)
-        assert 'd-print-block" id="nspe-note-24-1"' in html
-        assert re.search(r'<button[^>]*class="[^"]*\bd-print-none\b[^"]*"[^>]*data-bs-toggle="collapse"', html)
+    def test_attribution_does_not_repeat_the_note(self):
+        assert 'NOTE:' not in _attribution('24-1', NSPE_URL)
 
 
 class TestSourceHost:
@@ -109,25 +147,25 @@ class TestCaseView:
         view = (REPO / 'app' / 'routes' / 'cases' / 'view.py').read_text()
         assert "'nspe_source_url': nspe_source_url(document.source)," in view
 
-    def test_notice_only_for_an_nspe_source(self):
+    def test_attribution_only_for_an_nspe_source(self):
         template = (TEMPLATES / 'case_detail.html').read_text()
         guard = template.index('{% if case.nspe_source_url %}')
-        call = template.index('{{ nspe_notice(case.case_number, case.nspe_source_url) }}')
+        call = template.index('{{ nspe_attribution(case.case_number, case.nspe_source_url) }}')
         other = template.index('{% elif case.source %}')
         assert guard < call < other
 
-    def test_case_view_renders_the_notice_after_the_opinion_text(self):
+    def test_case_view_renders_the_attribution_after_the_opinion_text(self):
         template = (TEMPLATES / 'case_detail.html').read_text()
-        assert "{% from 'macros/_nspe_notice.html' import nspe_notice %}" in template
-        call = template.index('{{ nspe_notice(case.case_number, case.nspe_source_url) }}')
+        assert "{% from 'macros/_nspe_notice.html' import nspe_attribution %}" in template
+        call = template.index('{{ nspe_attribution(case.case_number, case.nspe_source_url) }}')
         assert template.index('id="dissent-section"') < call
         assert template.index('{{ case.description|safe }}') < call
         assert call < template.index('{% if case.decision %}')
 
-    def test_notice_is_the_only_source_line(self):
+    def test_attribution_is_the_only_source_line(self):
         template = (TEMPLATES / 'case_detail.html').read_text()
         assert '<strong>Source:</strong>' not in template
 
-    def test_entity_scan_leaves_the_notice_verbatim(self):
+    def test_entity_scan_leaves_the_attribution_verbatim(self):
         script = (REPO / 'app' / 'static' / 'js' / 'cases' / 'case_detail_page.js').read_text()
         assert "excludeSelector: '.onto-label, a, button, .badge, .nspe-notice'" in script
