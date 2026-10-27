@@ -152,9 +152,11 @@
         </p>
         {% endif %}
         {% else %}
+        <p class="small text-muted fst-italic mb-2">No explicit Board finding was extracted for this case. The conclusions below come from the extended analysis, not from the Board.</p>
         <ul class="list-group list-group-flush">
             {% for conc in narrative.resolution.conclusions[:5] %}
             <li class="list-group-item px-0">
+                <span class="badge bg-secondary me-2">Analytical</span>
                 <span>{{ conc.text[:250] }}{% if conc.text|length > 250 %}...{% endif %}</span>
             </li>
             {% endfor %}
